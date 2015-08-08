@@ -1,4 +1,4 @@
-ES8 Proposal: Optional Static Typing
+# ES8 Proposal: Optional Static Typing
 
 Current Mailing List Thread: https://esdiscuss.org/topic/es8-proposal-optional-static-typing
 
