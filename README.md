@@ -126,11 +126,11 @@ Number would convert implicitly with precedence given to decimal, float128/80/64
 ```js
 var t:MyType = 1; // float32 constructor call
 var t:MyType = uint32(1); // uint32 constructor called
-
+```
 Implicit constructors could also be added to the proposed SIMD classes to go from a scalar to a vector.
 ```js
 var v:float32x4 = 1; // Equivalent to an ES7 SIMD splat, so var v = float32x4(1, 1, 1, 1);
-
+```
 Implicit array conversion would also exist:
 ```js
 var t:MyType[] = [1, 2, 3, uint32(1)];
