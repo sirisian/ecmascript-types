@@ -170,11 +170,11 @@ class Vector2d
     {
         this.x = x / 2;
     }
-    operator +(v:vector2d)
+    operator +(v:Vector2d)
     {
         return new vector2d(this.x + v.x, this.y + v.y);
     }
-    operator ==(v:vector2d)
+    operator ==(v:Vector2d)
     {
         // equality check between this and v
     }
