@@ -1,5 +1,7 @@
 ES8 Proposal: Optional Static Typing
 
+Current Mailing List Thread: https://esdiscuss.org/topic/es8-proposal-optional-static-typing
+
 With ES6's TypedArrays and classes finalized and ES7 SIMD getting experimental tests, ECMAScript is in a good place to finally discuss types again. The demand for types as a different approach to code has been so strong in the past few years that separate languages have been created to deal with the perceived shortcomings. Types won't be an easy discussion, nor an easy addition, since they touch a large amount of the language; however, they are something that needs rigorous discussion. I'm hoping this initial proposal can be a way of pushing the ball forward. Turning this into an official proposal discussed by TC39 is the goal. This could very well be most of ES8 due to the complexity.
 
 Since it would be potentially years before this would be implemented this proposal includes a new keyword "enum" for enumerated types and the following types:
