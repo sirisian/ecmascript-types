@@ -225,6 +225,26 @@ Get enum value as string:
 
 // Not sure what the syntax for this would be.
 
+Rest parameters in ES6 can be typed:
+```js
+function Foo(a:string, ...args:uint32) {}
+Foo('foo', 0, 1, 2, 3);
+```
+Rest parameters are valid for signatures:
+```js
+var foo:(...:uint8);
+```
+Multiple rest parameters can be used:
+```js
+function Foo(a:string, ...args:uint32, ...args2:string, callback:()) {}
+Foo('foo', 0, 1, 2, 'foo', 'bar', () => {});
+```
+Dynamic types have less precedence than typed parameters:
+```js
+function Foo(...args1, callback:(), ...args2, callback:()) {}
+Foo('foo', 1, 1.0, () => {}, 'bar', 2, 2.0, () => {});
+```
+
 Object.observe in ES7 would not see any changes except that you can get the previous type of a member using:
 ```js
 typeof changes[0].oldValue
