@@ -76,6 +76,7 @@ var foo:uint8 = 0;
 var foo = uint8(0); // Cast
 
 var foo:(int32, string):string; // hold a reference to a signature of this type
+var foo:(); // void is the default return type for a signature without a return type
 var foo = (s:string, x:int32) => s + x; // implicit return type of string
 var foo = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
 ```
