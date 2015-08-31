@@ -91,6 +91,11 @@ a >> 1; // -64, sign extension
 var b:uint8 = 128;
 b >> 1; // 64, no sign extension as would be expected with an unsigned type
 ```
+Intuitive integer division:
+```js
+var a:int32 = 3;
+a /= 2; // 1
+```
 Destructing assignment casting:
 ```js
 [a:uint32, b:float32] = Foo();
