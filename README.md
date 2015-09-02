@@ -313,7 +313,7 @@ class Color
     }
 }
 ```
-The last topic not covered is if there should be new syntax for TypedArray views.
+Should there be a new syntax for TypedArray views like:
 ```js
 var a1:uint32[] = [2, 0, 1, 3];
 var a2:uint64[] = a1(1, 2); // Creates a view of a1 at offset 1 with 2 elements. So [0, 1].
@@ -322,6 +322,12 @@ That might be asking too much though. In a very compact form:
 ```js
 var foo = ((uint64[])a1(1, 2))[0]; // foo would be 1
 ```
+Bit conversions aren't much cleaner. Right now according to the changes going from an int8 to an uint8 requires:
+```js
+uint8(int8[]([value]).buffer)[0]
+```
+Ideally there should be a very elegant way to do a bitconversion from any type that's the same number of bits.
+
 This has been brought up before, but possible solutions due to compatability issues would be to introduce "use types"; or since ES6 has them Brenden once suggested something like:
 ```js
 import {int8, int16, int32, int64} from "@valueobjects";
