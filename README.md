@@ -121,7 +121,7 @@ This would preserve its object view where each overload is really a separate fun
 Constructor overloading:
 ```js
 // 4 byte object
-value class MyType
+class MyType
 {
     x:float32; // Able to define members outside of the constructor
     constructor(x:float32)
