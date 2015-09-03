@@ -69,6 +69,12 @@ function Foo(p:boolean):uint8[6] // return a resized foo
     return p ? foo : bar;
 }
 ```
+Any array syntax:
+```js
+var foo:any[];
+var foo:[]; // same as any[]
+var foo:[]? = null; // nullable array
+```
 
 The ability to type any variable including arrow functions.
 ```js
@@ -320,7 +326,7 @@ var a2:uint64[] = a1(1, 2); // Creates a view of a1 at offset 1 with 2 elements.
 ```
 That might be asking too much though. In a very compact form:
 ```js
-var foo = ((uint64[])a1(1, 2))[0]; // foo would be 1
+var foo = (uint64[](a1(1, 2))[0]; // foo would be 1
 ```
 Bit conversions aren't much cleaner. Right now according to the changes going from an int8 to an uint8 requires:
 ```js
