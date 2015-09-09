@@ -340,7 +340,7 @@ import {int8, int16, int32, int64} from "@valueobjects";
 ```
 This concludes my proposal on types and the many facets of the language that would be potentially touched. The goal is essentially to turn this, or something similar, into a rough draft. Essentially build a foundation to start from expanding on edge cases and changes required in each part of the language. I'm sure with enough minds looking at each section this could be very well defined by the time ES8 is being considered.
 
-Example:
+Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
 
 Previous discussions:  
