@@ -13,7 +13,7 @@ string
 object
 int8/16/32/64
 uint8/16/32/64
-bignum
+bigint
 float16/32/64/80/128
 decimal32/64/128
 bool8x16/16x8/32x4/64x2/8x32/16x16/32x8/64x4
