@@ -88,7 +88,7 @@ var foo = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
 ```
 Function signatures with constraints.
 ```js
-function Foo(a:int32, b:string, c:bignum[], callback:(bool, string) = (b, s = 'none') => b ? s : ''):int32 { }
+function Foo(a:int32, b:string, c:bigint[], callback:(bool, string) = (b, s = 'none') => b ? s : ''):int32 { }
 ```
 Simplified binary shifts for integers:
 ```js
