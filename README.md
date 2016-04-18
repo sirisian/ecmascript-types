@@ -257,11 +257,6 @@ function Foo(...args1, callback:(), ...args2, callback:()) {}
 Foo('foo', 1, 1.0, () => {}, 'bar', 2, 2.0, () => {});
 ```
 
-Object.observe in ES7 would not see any changes except that you can get the previous type of a member using:
-```js
-typeof changes[0].oldValue
-```
-
 Generic functions:
 ```js
 function Foo<T>(foo:T):T
