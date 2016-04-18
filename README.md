@@ -1,7 +1,5 @@
 # ES8 Proposal: Optional Static Typing
 
-Current Mailing List Thread: https://esdiscuss.org/topic/es8-proposal-optional-static-typing
-
 With ES6's TypedArrays and classes finalized and ES7 SIMD getting experimental tests, ECMAScript is in a good place to finally discuss types again. The demand for types as a different approach to code has been so strong in the past few years that separate languages have been created to deal with the perceived shortcomings. Types won't be an easy discussion, nor an easy addition, since they touch a large amount of the language; however, they are something that needs rigorous discussion. I'm hoping this initial proposal can be a way of pushing the ball forward. Turning this into an official proposal discussed by TC39 is the goal. This could very well be most of ES8 due to the complexity.
 
 Since it would be potentially years before this would be implemented this proposal includes a new keyword "enum" for enumerated types and the following types:
@@ -76,11 +74,13 @@ var foo:[]; // same as any[]
 var foo:[]? = null; // nullable array
 ```
 
+Explicit cast syntax:
+```js
+var foo = uint8(65535); // Cast taking the lowest 8 bits so the value 255, but note that foo is still typed as any
+```
+
 The ability to type any variable including arrow functions.
 ```js
-var foo:uint8 = 0;
-var foo = uint8(0); // Cast
-
 var foo:(int32, string):string; // hold a reference to a signature of this type
 var foo:(); // void is the default return type for a signature without a return type
 var foo = (s:string, x:int32) => s + x; // implicit return type of string
@@ -337,6 +337,8 @@ This concludes my proposal on types and the many facets of the language that wou
 
 Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
+
+Current Mailing List Thread: https://esdiscuss.org/topic/es8-proposal-optional-static-typing
 
 Previous discussions:  
 This one contains a lot of my old thoughts (at least the stuff from 8 months ago).  https://esdiscuss.org/topic/proposal-for-new-floating-point-and-integer-data-types  
