@@ -6,7 +6,7 @@ With ES6's TypedArrays and classes finalized and ES7 SIMD getting experimental t
 
 Since it would be potentially years before this would be implemented this proposal includes a new keyword "enum" for enumerated types and the following types:
 
-```js
+```
 number
 bool
 string
