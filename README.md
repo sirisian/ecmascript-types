@@ -6,7 +6,7 @@ With ES6's TypedArrays and classes finalized and ES7 SIMD getting experimental t
 
 It should be noted that the overlap in this proposal and current features in Javascript is expected. This is a gradual upgrade for the language.
 
-## Types Proposed
+### Types Proposed
 
 Since it would be potentially years before this would be implemented this proposal includes a new keyword "enum" for enumerated types and the following types:
 
@@ -33,11 +33,11 @@ void
 
 These types bring ECMAScript in line or surpasses the type systems in most languages. For developers it cleans up a lot of the syntax, as described later, for TypedArrays, SIMD, and working with number types (floats vs signed and unsigned integers). It also allows for new language features like function overloading and a clean syntax for operator overloading. For implementors, added types offer a way to better optimize the JIT when specific types are used. For languages built on top of Javascript this allows more explicit type usage and closer matching to hardware.
 
-## Deprecated Keywords
+### Deprecated Keywords
 
 In theory the following current keywords could be deprecated in the very long-term: Boolean, Number, String, Object, Symbol, and the TypedArray objects. Their methods and features would be rolled into the new type system.
 
-## Variable Declaration With Type
+### Variable Declaration With Type
 
 This syntax is taken from ActionScript and many other proposals over the years. It's subjectively concise and readable.
 
@@ -47,7 +47,7 @@ let foo:Type = value;
 const foo:Type = value;
 ```
 
-## typeof Operator
+### typeof Operator
 
 One of the first complications with types is typeof's behavior. All of the above types would return their string conversion including bool. (I've spoken to many people now and "boolean" is seen as verbose among C++ and C# developers. Breaking this part of Java's influence probably wouldn't hurt to preserve consistency for the future).
 
@@ -57,13 +57,13 @@ var bar:uint8? // typeof bar == "uint8?"
 var baz:uint8[] // typeof baz == "uint8[]"
 ```
 
-## Nullable Types
+### Nullable Types
 
 ```js
 var foo:uint8? = null;
 ```
 
-## Variable-length Typed Arrays
+### Variable-length Typed Arrays
 
 ```js
 var foo:uint8[];
@@ -71,7 +71,7 @@ foo.push(1);
 var bar:uint8[] = [1, 2, 3, 4];
 ```
 
-## Fixed-length Typed Arrays:
+### Fixed-length Typed Arrays:
 
 ```js
 var foo:uint8[4];
@@ -80,7 +80,7 @@ foo.pop(); // invalid
 var bar:uint8[4] = [1, 2, 3, 4];
 ```
 
-## Mixing Variable-length and Fixed-length Arrays
+### Mixing Variable-length and Fixed-length Arrays
 
 ```js
 function Foo(p:boolean):uint8[] // default case, return a resizable array
@@ -99,7 +99,7 @@ function Foo(p:boolean):uint8[6] // return a resized foo
 }
 ```
 
-## Any Typed Array
+### Any Typed Array
 
 ```js
 var foo:any[];
@@ -107,13 +107,19 @@ var foo:[]; // same as any[]
 var foo:[]? = null; // nullable array
 ```
 
-## Explicit Casting
+### Explicit Casting
 
 ```js
 var foo = uint8(65535); // Cast taking the lowest 8 bits so the value 255, but note that foo is still typed as any
 ```
 
-## Typed Arrow Functions
+### Function signatures with constraints
+
+```js
+function Foo(a:int32, b:string, c:bigint[], callback:(bool, string) = (b, s = 'none') => b ? s : ''):int32 { }
+```
+
+### Typed Arrow Functions
 
 ```js
 var foo:(int32, string):string; // hold a reference to a signature of this type
@@ -121,39 +127,41 @@ var foo:(); // void is the default return type for a signature without a return 
 var foo = (s:string, x:int32) => s + x; // implicit return type of string
 var foo = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
 ```
-Function signatures with constraints.
-```js
-function Foo(a:int32, b:string, c:bigint[], callback:(bool, string) = (b, s = 'none') => b ? s : ''):int32 { }
-```
-Simplified binary shifts for integers:
+
+### Integer Binary Shifts
+
 ```js
 var a:int8 = -128;
 a >> 1; // -64, sign extension
 var b:uint8 = 128;
 b >> 1; // 64, no sign extension as would be expected with an unsigned type
 ```
-Intuitive integer division:
+
+### Integer Division
+
 ```js
 var a:int32 = 3;
 a /= 2; // 1
 ```
-Destructing assignment casting:
+
+### Destructing Assignment Casting
+
 ```js
 [a:uint32, b:float32] = Foo();
 ```
-Function overloading:
+
+### Function Overloading
+
 ```js
 function Foo(x:int32[]) { return "int32"; }
 function Foo(s:string[]) { return "string"; }
 Foo(["test"]); // "string"
 ```
-In this example Foo can no longer be used as a variable. It's up for debate if it should still be accessible through the variable "Foo". One possible way would be as an array like:
-```js
-Foo[(int32[])]
-```
-This would preserve its object view where each overload is really a separate function and the () operator picks the closest matching signature or throws a type error.
 
-Constructor overloading:
+Up for debate is if accessing the separate functions is required through anything than calling them. Functions are objects so using a key syntax with a string isn't ideal. Something like Foo["(int32[])"] wouldn't be viable.
+
+### Constructor Overloading
+
 ```js
 // 4 byte object
 class MyType
@@ -168,17 +176,25 @@ class MyType
         this.x = float32(y) * 2;
     }
 }
+
+### Implicit Casting
+
 ```
 Number would convert implicitly with precedence given to decimal, float128/80/64/32/16, uint64/32/16/8, int64/32/16/8. (Or whichever order makes the most sense). As an example using the MyType class:
 ```js
 var t:MyType = 1; // float32 constructor call
 var t:MyType = uint32(1); // uint32 constructor called
 ```
-Implicit constructors could also be added to the proposed SIMD classes to go from a scalar to a vector.
+### Implicit SIMD Constructors
+
+Going from a scalar to a vector:
+
 ```js
 var v:float32x4 = 1; // Equivalent to an ES7 SIMD splat, so var v = float32x4(1, 1, 1, 1);
 ```
-Implicit array conversion would also exist:
+
+### Implicit Array Cast
+
 ```js
 var t:MyType[] = [1, 2, 3, uint32(1)];
 ```
@@ -194,7 +210,9 @@ function AlwaysReturnValue(value:uint32)
 }
 function AlwaysReturnValue(value:float32) { /* ... */ }
 ```
-Class example and operator overloading:
+
+### Classes and Operator Overloading
+
 ```js
 class Vector2d
 {
@@ -227,7 +245,11 @@ class Vector2d
     }
 }
 ```
-Partial class in MyClass.js defining extensions to Vector2d:
+
+### Partial Class
+
+Example defined in say MyClass.js defining extensions to Vector2d defined above:
+
 ```js
 class Vector2d
 {
@@ -241,12 +263,17 @@ class Vector2d
     }
 }
 ```
+
+### SIMD Operators
+
 All SIMD types would have operator overloading added when used with the same type.
 ```js
 var a = uint32x4(1, 2, 3, 4) + uint32x4(5, 6, 7, 8); // uint32x4
 var b = uint32x4(1, 2, 3, 4) < uint32x4(5, 6, 7, 8); // bool32x4
 ```
 It's also possible to overload class operators to work with them, but the optimizations would be implementation specific if they result in SIMD instructions.
+
+### enum Type
 
 Enumerations with enum that support any type except function signatures.
 ```js
@@ -272,7 +299,8 @@ Get enum value as string:
 
 // Not sure what the syntax for this would be.
 
-Rest parameters in ES6 can be typed:
+### Rest Parameters (ES6)
+
 ```js
 function Foo(a:string, ...args:uint32) {}
 Foo('foo', 0, 1, 2, 3);
@@ -292,7 +320,10 @@ function Foo(...args1, callback:(), ...args2, callback:()) {}
 Foo('foo', 1, 1.0, () => {}, 'bar', 2, 2.0, () => {});
 ```
 
-Generic functions:
+## Undecided Section
+
+### Generic Functions
+
 ```js
 function Foo<T>(foo:T):T
 {
