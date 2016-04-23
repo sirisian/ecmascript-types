@@ -113,10 +113,13 @@ var foo:[]? = null; // nullable array
 
 ### Implicit Casting
 
-Number would convert implicitly with precedence given to decimal, float128/80/64/32/16, uint64/32/16/8, int64/32/16/8. (Or whichever order makes the most sense). As an example using the MyType class:
+Number would convert implicitly with precedence given to decimal, float128/80/64/32/16, uint64/32/16/8, int64/32/16/8. Examples are shown later with class constructor overloading.
+
 ```js
-var t:MyType = 1; // float32 constructor call
-var t:MyType = uint32(1); // uint32 constructor called
+function Foo(foo:float32) { }
+function Foo(foo:uint32 { }
+Foo(1); // float32 called
+Foo(uint32(1)); // uint32 called
 ```
 
 ### Explicit Casting
@@ -188,6 +191,12 @@ class MyType
         this.x = float32(y) * 2;
     }
 }
+```
+
+Implicit casting using the constructors:
+```js
+var t:MyType = 1; // float32 constructor call
+var t:MyType = uint32(1); // uint32 constructor called
 ```
 
 ### Implicit SIMD Constructors
