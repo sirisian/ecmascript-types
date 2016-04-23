@@ -55,13 +55,17 @@ One of the first complications with types is typeof's behavior. All of the above
 var foo:uint8; // typeof foo == "uint8"
 var bar:uint8? // typeof bar == "uint8?"
 var baz:uint8[] // typeof baz == "uint8[]"
+var foobar:(uint8):uint8; // typeof foobar == "(uint8):uint8"
 ```
 
 ### Nullable Types
 
+By default all types except any are non-nullable. The syntax below creates a nullable uint8 variable:
 ```js
-var foo:uint8? = null;
+var foo:uint8? = null; // typeof foo == "uint8?"
 ```
+
+Using any? would result in a syntax error since any already includes nullable types.
 
 ### Variable-length Typed Arrays
 
