@@ -107,6 +107,14 @@ var foo:[]; // same as any[]
 var foo:[]? = null; // nullable array
 ```
 
+### Implicit Casting
+
+Number would convert implicitly with precedence given to decimal, float128/80/64/32/16, uint64/32/16/8, int64/32/16/8. (Or whichever order makes the most sense). As an example using the MyType class:
+```js
+var t:MyType = 1; // float32 constructor call
+var t:MyType = uint32(1); // uint32 constructor called
+```
+
 ### Explicit Casting
 
 ```js
@@ -176,15 +184,8 @@ class MyType
         this.x = float32(y) * 2;
     }
 }
-
-### Implicit Casting
-
 ```
-Number would convert implicitly with precedence given to decimal, float128/80/64/32/16, uint64/32/16/8, int64/32/16/8. (Or whichever order makes the most sense). As an example using the MyType class:
-```js
-var t:MyType = 1; // float32 constructor call
-var t:MyType = uint32(1); // uint32 constructor called
-```
+
 ### Implicit SIMD Constructors
 
 Going from a scalar to a vector:
