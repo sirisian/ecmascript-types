@@ -1,6 +1,12 @@
 # ES8 Proposal: Optional Static Typing
 
-With ES6's TypedArrays and classes finalized and ES7 SIMD getting experimental tests, ECMAScript is in a good place to finally discuss types again. The demand for types as a different approach to code has been so strong in the past few years that separate languages have been created to deal with the perceived shortcomings. Types won't be an easy discussion, nor an easy addition, since they touch a large amount of the language; however, they are something that needs rigorous discussion. I'm hoping this initial proposal can be a way of pushing the ball forward. Turning this into an official proposal discussed by TC39 is the goal. This could very well be most of ES8 due to the complexity.
+## Introduction
+
+With ES6's TypedArrays and classes finalized and ES7 SIMD getting experimental tests, ECMAScript is in a good place to finally discuss types again. The demand for types as a different approach to code has been so strong in the past few years that separate languages have been created to deal with the perceived shortcomings. Types won't be an easy discussion, nor an easy addition, since they touch a large amount of the language; however, they are something that needs rigorous discussion. Turning this into an official proposal discussed by TC39 is the goal.
+
+It should be noted that the overlap in this proposal and current features in Javascript is expected. This is a gradual upgrade for the language.
+
+## Types Proposed
 
 Since it would be potentially years before this would be implemented this proposal includes a new keyword "enum" for enumerated types and the following types:
 
@@ -9,6 +15,7 @@ number
 bool
 string
 object
+symbol
 int8/16/32/64
 uint8/16/32/64
 bigint
@@ -26,31 +33,55 @@ void
 
 These types bring ECMAScript in line or surpasses the type systems in most languages. For developers it cleans up a lot of the syntax, as described later, for TypedArrays, SIMD, and working with number types (floats vs signed and unsigned integers). It also allows for new language features like function overloading and a clean syntax for operator overloading. For implementors, added types offer a way to better optimize the JIT when specific types are used. For languages built on top of Javascript this allows more explicit type usage and closer matching to hardware.
 
-In theory the following current keywords could be deprecated in the long-term: Boolean, Number, String, Object, and the TypedArray objects. Their methods and features would be rolled into the new type system.
+## Deprecated Keywords
 
-One of the first complications with types is typeof's behavior. All of the above types would return their string conversion including bool. (In my experience "boolean" is seen as verbose among C++ and C# developers. Breaking this part of Java's influence probably wouldn't hurt to preserve consistency for the future).
+In theory the following current keywords could be deprecated in the very long-term: Boolean, Number, String, Object, Symbol, and the TypedArray objects. Their methods and features would be rolled into the new type system.
 
-The next few parts cover type features that should be supported. The examples aren't meant to be exhaustive but rather show parts of the language that require new grammar and discussion.
+## Variable Declaration With Type
 
-Support for nullable types.
+This syntax is taken from ActionScript and many other proposals over the years. It's subjectively concise and readable.
+
+```js
+var foo:Type = value;
+let foo:Type = value;
+const foo:Type = value;
+```
+
+## typeof Operator
+
+One of the first complications with types is typeof's behavior. All of the above types would return their string conversion including bool. (I've spoken to many people now and "boolean" is seen as verbose among C++ and C# developers. Breaking this part of Java's influence probably wouldn't hurt to preserve consistency for the future).
+
+```js
+var foo:uint8; // typeof foo == "uint8"
+var bar:uint8? // typeof bar == "uint8?"
+var baz:uint8[] // typeof baz == "uint8[]"
+```
+
+## Nullable Types
 
 ```js
 var foo:uint8? = null;
 ```
-Support for resizable typed arrays.
+
+## Variable-length Typed Arrays
+
 ```js
 var foo:uint8[];
 foo.push(1);
 var bar:uint8[] = [1, 2, 3, 4];
 ```
-Support for fixed-length typed arrays:
+
+## Fixed-length Typed Arrays:
+
 ```js
 var foo:uint8[4];
 foo.push(0); // invalid
 foo.pop(); // invalid
 var bar:uint8[4] = [1, 2, 3, 4];
 ```
-Examples of mixing the two:
+
+## Mixing Variable-length and Fixed-length Arrays
+
 ```js
 function Foo(p:boolean):uint8[] // default case, return a resizable array
 
@@ -67,19 +98,23 @@ function Foo(p:boolean):uint8[6] // return a resized foo
     return p ? foo : bar;
 }
 ```
-Any array syntax:
+
+## Any Typed Array
+
 ```js
 var foo:any[];
 var foo:[]; // same as any[]
 var foo:[]? = null; // nullable array
 ```
 
-Explicit cast syntax:
+## Explicit Casting
+
 ```js
 var foo = uint8(65535); // Cast taking the lowest 8 bits so the value 255, but note that foo is still typed as any
 ```
 
-The ability to type any variable including arrow functions.
+## Typed Arrow Functions
+
 ```js
 var foo:(int32, string):string; // hold a reference to a signature of this type
 var foo:(); // void is the default return type for a signature without a return type
@@ -344,3 +379,7 @@ Previous discussions:
 This one contains a lot of my old thoughts (at least the stuff from 8 months ago).  https://esdiscuss.org/topic/proposal-for-new-floating-point-and-integer-data-types  
 https://esdiscuss.org/topic/optional-strong-typing  
 https://esdiscuss.org/topic/optional-argument-types  
+
+TypeScript has Union Types. Overview of their original proposal is below. I'm putting this here because I know others will reference it. I'm very much for using interfaces, but it clearly has benefits for legacy and interacting with 3rd party types:
+
+https://github.com/Microsoft/TypeScript/issues/805
