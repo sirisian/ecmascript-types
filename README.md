@@ -428,3 +428,19 @@ https://esdiscuss.org/topic/optional-argument-types
 TypeScript has Union Types. Overview of their original proposal is below. I'm putting this here because I know others will reference it. I'm very much for using interfaces, but it clearly has benefits for legacy and interacting with 3rd party types:
 
 https://github.com/Microsoft/TypeScript/issues/805
+
+
+Required Changes to the Specification:
+
+### 6.1 ECMAScript Language Types
+
+Would need to include the types listed above. Probably in a more verbose view than a list.
+
+### 6.1.?
+
+New sections would need to be added to cover every new type proposed above. Not too bad.
+
+### 11.6.2.1
+
+Move enum from 11.6.2.2 to 11.6.2.1.
+
