@@ -361,7 +361,6 @@ Foo('foo', 1, 1.0, () => {}, 'bar', 2, 2.0, () => {});
 
 ### TypedArray Views
 
-```
 Should there be a new syntax for TypedArray views like:
 ```js
 var a1:uint64[] = [2, 0, 1, 3];
@@ -395,7 +394,9 @@ function Foo<T>(foo:T):T
     var bar:T;
 }
 ```
+
 Generic classes:
+
 ```js
 class Vector2d<T>
 {
@@ -408,6 +409,7 @@ class Vector2d<T>
     }
 }
 ```
+
 Generic constraints aren't defined here but would need to be. TypeScript has their extends type syntax. Being able to constrain T to an interface seems like an obvious requirement. Also being able to constrain to a list of specific types or specifically to numeric, floating point, or integer types. Another consideration is being able to support a default type. Also generic specialization for specific types that require custom definitions. There's probably more to consider, but those are the big ideas for generics.
 
 Typedefs or aliases for types are a requirement. Not sure what the best syntax is for proposing these. There's a lot of ways to approach them. TypeScript has a system, but I haven't see alternatives so it's hard for me to judge if it's the best or most ideal syntax.
@@ -419,6 +421,7 @@ I left value type classes out of this discussion since I'm still not sure how th
 ### Unions
 
 Unions are another topic not covered mostly because the syntax is very subjective. Without an added keyword the following might work in the grammar. The example uses an anonymous group unioned with an array of 3 elements. Using a class with x, y, and z members would also work.
+
 ```js
 class Vector3d
 {
@@ -446,6 +449,7 @@ class Color
         };
     }
 }
+```
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
