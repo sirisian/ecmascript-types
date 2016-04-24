@@ -105,8 +105,7 @@ function Foo(p:boolean):uint8[6] // return a resized foo
 ### Any Typed Array
 
 ```js
-var foo:any[];
-var foo:[]; // same as any[]
+var foo:[]; // Using any[] is a syntax error
 var foo:[]? = null; // nullable array
 ```
 
@@ -172,7 +171,22 @@ function Foo(s:string[]) { return "string"; }
 Foo(["test"]); // "string"
 ```
 
-Up for debate is if accessing the separate functions is required through anything than calling them. Functions are objects so using a key syntax with a string isn't ideal. Something like Foo["(int32[])"] wouldn't be viable.
+Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like Foo["(int32[])"] wouldn't be viable. It's possible Reflect could have something added to it to allow access.
+
+### Object Typing
+
+Syntax:
+
+```js
+var o = { a:uint8:1 };
+```
+
+This syntax works with any arrays:
+
+```js
+var o = { a:[] }; // Normal array syntax works as expected and the type is inferred to be any[]
+var o = { a:[]:[] }; // With typing this is identical to the above
+```
 
 ### Constructor Overloading
 
@@ -211,6 +225,9 @@ var v:float32x4 = 1; // Equivalent to an ES7 SIMD splat, so var v = float32x4(1,
 ```js
 var t:MyType[] = [1, 2, 3, uint32(1)];
 ```
+
+### Decorators
+
 Types would function exactly like you'd expect with decorators in ES7, but with the addition that they can be overloaded:
 ```js
 function AlwaysReturnValue(value:uint32)
@@ -333,9 +350,37 @@ function Foo(...args1, callback:(), ...args2, callback:()) {}
 Foo('foo', 1, 1.0, () => {}, 'bar', 2, 2.0, () => {});
 ```
 
-## Undecided Section
+## Undecided Topics
+
+### TypedArray Views
+
+```
+Should there be a new syntax for TypedArray views like:
+```js
+var a1:uint64[] = [2, 0, 1, 3];
+var a2:uint32[] = a1(1, 2); // Creates a view of a1 at offset 1 with 2 elements. So [0, 1].
+```
+That might be asking too much though. In a very compact form:
+```js
+var foo = (uint64[](a1(1, 2))[0]; // foo would be 1
+```
+Bit conversions aren't much cleaner. Right now according to the changes going from an int8 to an uint8 requires:
+```js
+uint8(int8[]([value]).buffer)[0]
+```
+Ideally there should be a very elegant way to do a bitconversion from any type that's the same number of bits.
+
+This has been brought up before, but possible solutions due to compatability issues would be to introduce "use types"; or since ES6 has them Brenden once suggested something like:
+```js
+import {int8, int16, int32, int64} from "@valueobjects";
+//import "@valueobjects";
+```
+
+## Overview of Future Considerations and Concerns
 
 ### Generic Functions
+
+While generics aren't included in this proposal I'm including an overview for future implementations just to show the general syntax. This is more to show that a generic syntax can be seamlessly added with no issues.
 
 ```js
 function Foo<T>(foo:T):T
@@ -360,21 +405,23 @@ Generic constraints aren't defined here but would need to be. TypeScript has the
 
 Typedefs or aliases for types are a requirement. Not sure what the best syntax is for proposing these. There's a lot of ways to approach them. TypeScript has a system, but I haven't see alternatives so it's hard for me to judge if it's the best or most ideal syntax.
 
-Undecided Topics:
+### Value Type Classes
 
 I left value type classes out of this discussion since I'm still not sure how they'll be proposed. Doesn't sound like they have a strong proposal still or syntax.
 
-Unions are another topic not covered mostly because the syntax is very subjective. Without an added keyword the following might work in the grammar. The example uses an anonymous group unioned with an array of 3 elements. Using a class with x, y, and z members would also work. (Or using an interface syntax if one is added could work).
+### Unions
+
+Unions are another topic not covered mostly because the syntax is very subjective. Without an added keyword the following might work in the grammar. The example uses an anonymous group unioned with an array of 3 elements. Using a class with x, y, and z members would also work.
 ```js
 class Vector3d
 {
     {
+        a: float32[3]
         {
-            x: float32;
-            y: float32;
-            z: float32;
-        }
-        a: float32[3];
+            x:float32,
+            y:float32,
+            z:float32
+        };
     }
 }
 ```
@@ -383,37 +430,15 @@ Another example would be:
 class Color
 {
     {
+        Vector: float32x4
         {
-            Red: float32;
-            Green: float32;
-            Blue: float32;
-            Alpha: float32;
-        }
-        Vector: float32x4;
+            Red:float32,
+            Green:float32,
+            Blue:float32,
+            Alpha:float32
+        };
     }
 }
-```
-Should there be a new syntax for TypedArray views like:
-```js
-var a1:uint32[] = [2, 0, 1, 3];
-var a2:uint64[] = a1(1, 2); // Creates a view of a1 at offset 1 with 2 elements. So [0, 1].
-```
-That might be asking too much though. In a very compact form:
-```js
-var foo = (uint64[](a1(1, 2))[0]; // foo would be 1
-```
-Bit conversions aren't much cleaner. Right now according to the changes going from an int8 to an uint8 requires:
-```js
-uint8(int8[]([value]).buffer)[0]
-```
-Ideally there should be a very elegant way to do a bitconversion from any type that's the same number of bits.
-
-This has been brought up before, but possible solutions due to compatability issues would be to introduce "use types"; or since ES6 has them Brenden once suggested something like:
-```js
-import {int8, int16, int32, int64} from "@valueobjects";
-//import "@valueobjects";
-```
-This concludes my proposal on types and the many facets of the language that would be potentially touched. The goal is essentially to turn this, or something similar, into a rough draft. Essentially build a foundation to start from expanding on edge cases and changes required in each part of the language. I'm sure with enough minds looking at each section this could be very well defined by the time ES8 is being considered.
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
@@ -453,4 +478,8 @@ Theese contain the operator definitions. Would probably need to include at least
 ### 12.14.5 Destructuring Assignment
 
 Type casting syntax described above would need to be included.
+
+### 13.3.2 Variable Statement
+
+Would need to cover the optional typing syntax and grammar.
 
