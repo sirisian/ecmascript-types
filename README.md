@@ -88,7 +88,6 @@ var bar:uint8[4] = [1, 2, 3, 4];
 
 ```js
 function Foo(p:boolean):uint8[] // default case, return a resizable array
-
 {
     var foo:uint8[4] = [1, 2, 3, 4];
     var bar:uint8[6] = [1, 2, 3, 4, 5, 6];
