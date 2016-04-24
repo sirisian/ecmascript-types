@@ -54,8 +54,8 @@ One of the first complications with types is typeof's behavior. All of the above
 ```js
 var foo:uint8; // typeof foo == "uint8"
 var bar:uint8? // typeof bar == "uint8?"
-var baz:uint8[] // typeof baz == "uint8[]"
-var foobar:(uint8):uint8; // typeof foobar == "function" <-- ideally this would return "(uint8):uint8", but alas backwards compatability probably kills this idea
+var baz:uint8[] // typeof baz == "object", ideally this would return "uint8[]", but it's not necessary
+var foobar:(uint8):uint8; // typeof foobar == "function", ideally this would return "(uint8):uint8", but it's not necessary
 ```
 
 ### Nullable Types
@@ -65,7 +65,13 @@ By default all types except any are non-nullable. The syntax below creates a nul
 var foo:uint8? = null; // typeof foo == "uint8?"
 ```
 
-Using any? would result in a syntax error since any already includes nullable types.
+### any Type
+
+Using "any?" would result in a syntax error since "any" already includes nullable types. As would using "any[]" since it already includes array types. Using just "[]" would be the type for arrays that can contain anything. For example:
+
+```js
+var foo:[];
+```
 
 ### Variable-length Typed Arrays
 
@@ -139,6 +145,7 @@ var foo:(int32, string):string; // hold a reference to a signature of this type
 var foo:(); // void is the default return type for a signature without a return type
 var foo = (s:string, x:int32) => s + x; // implicit return type of string
 var foo = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
+var foo = x:uint8 => x + y; // single parameter
 ```
 
 ### Integer Binary Shifts
@@ -483,3 +490,10 @@ Type casting syntax described above would need to be included.
 
 Would need to cover the optional typing syntax and grammar.
 
+### 14 ECMAScript Language: Functions and Classes
+
+This sections grammar would need to have FunctionDeclaration in the grammar redefined to include an optional typed return value. FormalParameter would require optional types added.
+
+### 14.2 Arrow Function Definitions
+
+The grammar rule ArrowFunction needs an optional return type and ArrowParameters needs optional type information per each parameter.
