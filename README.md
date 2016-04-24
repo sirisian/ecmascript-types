@@ -55,7 +55,7 @@ One of the first complications with types is typeof's behavior. All of the above
 var foo:uint8; // typeof foo == "uint8"
 var bar:uint8? // typeof bar == "uint8?"
 var baz:uint8[] // typeof baz == "uint8[]"
-var foobar:(uint8):uint8; // typeof foobar == "(uint8):uint8"
+var foobar:(uint8):uint8; // typeof foobar == "function" <-- ideally this would return "(uint8):uint8", but alas backwards compatability probably kills this idea
 ```
 
 ### Nullable Types
@@ -411,25 +411,24 @@ Ideally there should be a very elegant way to do a bitconversion from any type t
 This has been brought up before, but possible solutions due to compatability issues would be to introduce "use types"; or since ES6 has them Brenden once suggested something like:
 ```js
 import {int8, int16, int32, int64} from "@valueobjects";
+//import "@valueobjects";
 ```
 This concludes my proposal on types and the many facets of the language that would be potentially touched. The goal is essentially to turn this, or something similar, into a rough draft. Essentially build a foundation to start from expanding on edge cases and changes required in each part of the language. I'm sure with enough minds looking at each section this could be very well defined by the time ES8 is being considered.
 
-Example:  
+# Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
+
+# Previous discussions
 
 Current Mailing List Thread: https://esdiscuss.org/topic/es8-proposal-optional-static-typing
 
-Previous discussions:  
-This one contains a lot of my old thoughts (at least the stuff from 8 months ago).  https://esdiscuss.org/topic/proposal-for-new-floating-point-and-integer-data-types  
+This one contains a lot of my old thoughts (at least the stuff from 8 months ago):   https://esdiscuss.org/topic/proposal-for-new-floating-point-and-integer-data-types  
 https://esdiscuss.org/topic/optional-strong-typing  
 https://esdiscuss.org/topic/optional-argument-types  
 
-TypeScript has Union Types. Overview of their original proposal is below. I'm putting this here because I know others will reference it. I'm very much for using interfaces, but it clearly has benefits for legacy and interacting with 3rd party types:
+Also I'll put this here, but having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed.
 
-https://github.com/Microsoft/TypeScript/issues/805
-
-
-Required Changes to the Specification:
+# Required Changes to the Specification:
 
 ### 6.1 ECMAScript Language Types
 
@@ -442,4 +441,8 @@ New sections would need to be added to cover every new type proposed above. Not 
 ### 11.6.2.1
 
 Move enum from 11.6.2.2 to 11.6.2.1.
+
+### 12.5.6 The typeof Operator
+
+The table needs to be updated with all the new types and nullable type explanation.
 
