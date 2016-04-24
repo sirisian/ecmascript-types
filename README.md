@@ -446,3 +446,11 @@ Move enum from 11.6.2.2 to 11.6.2.1.
 
 The table needs to be updated with all the new types and nullable type explanation.
 
+### 12.5.7 to 12.11
+
+Theese contain the operator definitions. Would probably need to include at least a brief change to explain the behavior of all the types. SIMD ones would require the most explanation.
+
+### 12.14.5 Destructuring Assignment
+
+Type casting syntax described above would need to be included.
+
