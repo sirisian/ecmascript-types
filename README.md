@@ -219,6 +219,22 @@ var t:MyType = 1; // float32 constructor call
 var t:MyType = uint32(1); // uint32 constructor called
 ```
 
+### parseFloat and parseInt For Each New Type
+
+For integers (including bigint) the parse function would have the signature parse(string, radix = 10).
+
+```js
+var foo:uint8 = uint8.parse('1', 10);
+var foo:uint8 = uint8.parse('1'); // Same as the above with a default 10 for radix
+var foo:uint8 = '1'; // Calls parse automatically making it identical to the above
+```
+
+For floats, decimals, and rational the signature is just parse(string)
+
+```js
+var foo:float32 = float32.parse('1.2');
+```
+
 ### Implicit SIMD Constructors
 
 Going from a scalar to a vector:
@@ -472,7 +488,7 @@ Would need to include the types listed above. Probably in a more verbose view th
 
 ### 6.1.?
 
-New sections would need to be added to cover every new type proposed above. Not too bad.
+New sections would need to be added to cover every new type proposed above. Not too bad, most of the types are very well defined regarding ranges and behavior. The ones that need a bit of work are bigint, rational, and complex.
 
 ### 11.6.2.1
 
@@ -501,3 +517,34 @@ This sections grammar would need to have FunctionDeclaration in the grammar rede
 ### 14.2 Arrow Function Definitions
 
 The grammar rule ArrowFunction needs an optional return type and ArrowParameters needs optional type information per each parameter.
+
+### 14.3 Method Definitions
+
+Grammar requires typing information as defined above. Specifically MethodDefinition's first rule and the get and set ones.
+
+### 14.5 Class Definitions
+
+Grammar requires typing information for members and methods. Specifically ClassElement and MethodDefinition. ConstructorMethod is referenced as being a MethodDefinition so it should be fine after the MethodDefinition changes.
+
+### 19.2 Function Objects
+
+Needs to support type information in the constructor. Examples from the documentation with typed examples:
+
+```js
+new Function("a:string", "b:uint8", "c:int32", "return a+b+c")
+new Function("a:string, b:uint8, c:int32", "return a+b+c") 
+new Function("a:string,b:uint8", "c:int32", "return a+b+c") 
+```
+
+Syntax to define a return type:
+
+```js
+new Function("a:string", "b:uint8[]", "c:int32", ":string", "return a+b+c")
+```
+
+
+
+### New Sections for Each Type
+
+As described before each type needs a parse function to turn a string into the type.
+
