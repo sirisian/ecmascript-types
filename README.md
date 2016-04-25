@@ -408,7 +408,7 @@ import {int8, int16, int32, int64} from "@valueobjects";
 
 ### Generic Functions
 
-While generics aren't included in this proposal I'm including an overview for future implementations just to show the general syntax. This is more to show that a generic syntax can be seamlessly added with no issues.
+This section is to show that a generic syntax can be seamlessly added with no syntax issues. A generic function example:
 
 ```js
 function Foo<T>(foo:T):T
@@ -417,7 +417,7 @@ function Foo<T>(foo:T):T
 }
 ```
 
-Generic classes:
+A generic class example:
 
 ```js
 class Vector2d<T>
@@ -440,38 +440,9 @@ Typedefs or aliases for types are a requirement. Not sure what the best syntax i
 
 I left value type classes out of this discussion since I'm still not sure how they'll be proposed. Doesn't sound like they have a strong proposal still or syntax.
 
-### Unions
+### Union Types
 
-Unions are another topic not covered mostly because the syntax is very subjective. Without an added keyword the following might work in the grammar. The example uses an anonymous group unioned with an array of 3 elements. Using a class with x, y, and z members would also work.
-
-```js
-class Vector3d
-{
-    {
-        a: float32[3]
-        {
-            x:float32,
-            y:float32,
-            z:float32
-        };
-    }
-}
-```
-Another example would be:
-```js
-class Color
-{
-    {
-        Vector: float32x4
-        {
-            Red:float32,
-            Green:float32,
-            Blue:float32,
-            Alpha:float32
-        };
-    }
-}
-```
+Having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed.
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
@@ -483,8 +454,6 @@ Current Mailing List Thread: https://esdiscuss.org/topic/es8-proposal-optional-s
 This one contains a lot of my old thoughts (at least the stuff from 8 months ago):   https://esdiscuss.org/topic/proposal-for-new-floating-point-and-integer-data-types  
 https://esdiscuss.org/topic/optional-strong-typing  
 https://esdiscuss.org/topic/optional-argument-types  
-
-Also I'll put this here, but having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed.
 
 # Required Changes to the Specification:
 
