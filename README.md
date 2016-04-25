@@ -540,5 +540,5 @@ var g = new GeneratorFunction("a:float32", ":float32", "yield a * 2");
 THIS SECTION IS A WIP
 
 *VariableDeclaration*<sub>[In, Yield]</sub>:  
-&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield] *Initializer*[?In, ?Yield]opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*BindingPattern*<sub>[?Yield] *Initializer*[?In, ?Yield]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield]</sub>*Initializer*<sub>[?In, ?Yield]opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*BindingPattern*<sub>[?Yield]</sub>*Initializer*<sub>[?In, ?Yield]</sub>  
