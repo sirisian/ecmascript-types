@@ -52,10 +52,10 @@ const foo:Type = value;
 One of the first complications with types is typeof's behavior. All of the above types would return their string conversion including bool. (I've spoken to many people now and "boolean" is seen as verbose among C++ and C# developers. Breaking this part of Java's influence probably wouldn't hurt to preserve consistency for the future).
 
 ```js
-var foo:uint8; // typeof foo == "uint8"
-var bar:uint8?; // typeof bar == "uint8?"
-var baz:uint8[]; // typeof baz == "object", ideally this would return "uint8[]", but it's not necessary
-var foobar:(uint8):uint8; // typeof foobar == "function", ideally this would return "(uint8):uint8", but it's not necessary
+var foo:uint8 = 0; // typeof foo == "uint8"
+var bar:uint8? = 0; // typeof bar == "uint8?"
+var baz:uint8[] = []; // typeof baz == "object", ideally this would return "uint8[]", but it's not necessary
+var foobar:(uint8):uint8 = x => x * x; // typeof foobar == "function", ideally this would return "(uint8):uint8", but it's not necessary
 ```
 
 ### Nullable Types
