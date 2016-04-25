@@ -53,8 +53,8 @@ One of the first complications with types is typeof's behavior. All of the above
 
 ```js
 var foo:uint8; // typeof foo == "uint8"
-var bar:uint8? // typeof bar == "uint8?"
-var baz:uint8[] // typeof baz == "object", ideally this would return "uint8[]", but it's not necessary
+var bar:uint8?; // typeof bar == "uint8?"
+var baz:uint8[]; // typeof baz == "object", ideally this would return "uint8[]", but it's not necessary
 var foobar:(uint8):uint8; // typeof foobar == "function", ideally this would return "(uint8):uint8", but it's not necessary
 ```
 
