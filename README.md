@@ -191,7 +191,7 @@ var o = { a:uint8:1 };
 This syntax works with any arrays:
 
 ```js
-var o = { a:[] }; // Normal array syntax works as expected and the type is inferred to be any[]
+var o = { a:[] }; // Normal array syntax works as expected
 var o = { a:[]:[] }; // With typing this is identical to the above
 ```
 
@@ -383,10 +383,12 @@ DataView, Date, Error, EvalError, InternalError, Map, Promise, Proxy, RangeError
 
 ### TypedArray Views
 
+THIS SECTION IS WIP
+
 Should there be a new syntax for TypedArray views like:
 ```js
 var a1:uint64[] = [2, 0, 1, 3];
-var a2:uint32[] = a1(1, 2); // Creates a view of a1 at offset 1 with 2 elements. So [0, 1].
+var a2:uint32[] = a1(1, 2);
 ```
 That might be asking too much though. In a very compact form:
 ```js
@@ -535,3 +537,8 @@ var g = new GeneratorFunction("a:float32", ":float32", "yield a * 2");
 
 ### A.1 Lexical Grammar 
 
+THIS SECTION IS A WIP
+
+VariableDeclaration<sub>[In, Yield]</sub>:  
+&nbsp;&nbsp;&nbsp;&nbsp;BindingIdentifier<sub>[?Yield]Initializer[?In, ?Yield]opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;BindingPattern<sub>[?Yield] Initializer[?In, ?Yield]</sub>  
