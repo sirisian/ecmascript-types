@@ -556,3 +556,13 @@ As described before each type needs a parse function to turn a string into the t
 
 All the math operations need to be overloaded to work with the integer, float, and decimal types. Meaning if they take in the type they should return the same type.
 
+### 25.2.2 Properties of the GeneratorFunction Constructor
+
+Similar to Function the constructor needs to be changed to allow types. For example:
+
+```js
+var g = new GeneratorFunction("a:float32", ":float32", "yield a * 2");
+```
+
+### A.1 Lexical Grammar 
+
