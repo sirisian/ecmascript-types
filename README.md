@@ -373,6 +373,12 @@ function Foo(...args1, callback:(), ...args2, callback:()) {}
 Foo('foo', 1, 1.0, () => {}, 'bar', 2, 2.0, () => {});
 ```
 
+### Global Objects
+
+The following global objects could be used as types:
+
+DataView, Date, Error, EvalError, InternalError, Map, Promise, Proxy, RangeError, ReferenceError, RegExp, Set, SyntaxError, TypeError, URIError, WeakMap, WeakSet
+
 ## Undecided Topics
 
 ### TypedArray Views
@@ -542,9 +548,11 @@ Syntax to define a return type:
 new Function("a:string", "b:uint8[]", "c:int32", ":string", "return a+b+c")
 ```
 
-
-
 ### New Sections for Each Type
 
-As described before each type needs a parse function to turn a string into the type.
+As described before each type needs a parse function to turn a string into the type. Also for float and decimal .EPSILON needs defined in their section. Also for all the integer (not bigint), float, and decimal types need MIN_VALUE and MAX_VALUE defined in their section.
+
+### 20.2 The Math Object
+
+All the math operations need to be overloaded to work with the integer, float, and decimal types. Meaning if they take in the type they should return the same type.
 
