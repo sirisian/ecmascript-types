@@ -1,10 +1,8 @@
 # ES8 Proposal: Optional Static Typing
 
-## Introduction
+## Rationale
 
-With ES6's TypedArrays and classes finalized and ES7 SIMD getting experimental tests, ECMAScript is in a good place to finally discuss types again. The demand for types as a different approach to code has been so strong in the past few years that separate languages have been created to deal with the perceived shortcomings. Types won't be an easy discussion, nor an easy addition, since they touch a large amount of the language; however, they are something that needs rigorous discussion. Turning this into an official proposal discussed by TC39 is the goal.
-
-It should be noted that the overlap in this proposal and current features in Javascript is expected. This is a gradual upgrade for the language.
+With ES6's TypedArrays and classes finalized and ES7 SIMD getting experimental tests, ECMAScript is in a good place to finally discuss types again. The demand for types as a different approach to code has been so strong in the past few years that separate languages have been created to deal with the perceived shortcomings. Types won't be an easy discussion, nor an easy addition, since they touch a large amount of the language; however, they are something that needs rigorous discussion.
 
 ### Types Proposed
 
