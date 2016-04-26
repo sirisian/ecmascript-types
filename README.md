@@ -109,7 +109,7 @@ function Foo(p:boolean):uint8[6] // return a resized foo
 ### Any Typed Array
 
 ```js
-var foo:[]; // Using any[] is a syntax error
+var foo:[]; // Using any[] is a syntax error as explained before
 var foo:[]? = null; // nullable array
 ```
 
@@ -444,7 +444,20 @@ I left value type classes out of this discussion since I'm still not sure how th
 
 ### Union Types
 
-Having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed.
+Having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed. (I imagine someone will create an interfaces proposal before that happens though).
+
+### "use stricter";
+
+Would bring all the types into the language, without the use of import, and change typeof's behavior returning the actual type. In this mode the following would occur:
+
+```js
+var foo:(); // typeof foo == "()", notice how void is left off the return
+var foo:uint8[]; // typeof foo == "uint8[]"
+var foo:(uint8):uint8; // typeof foo == "(uint8):uint8"
+var foo:MyClass; // typeof foo == "MyClass"
+```
+
+This relies on features like Array.isArray to be used. Function.isFunction could be added to check if something is a function.
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
