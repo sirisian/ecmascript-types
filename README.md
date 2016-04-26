@@ -115,7 +115,7 @@ var foo:[]? = null; // nullable array
 
 ### Implicit Casting
 
-Number would convert implicitly with precedence given to decimal, float128/80/64/32/16, uint64/32/16/8, int64/32/16/8. Examples are shown later with class constructor overloading.
+The default numeric type Number would convert implicitly with precedence given to decimal28/64/32, float128/80/64/32/16, uint64/32/16/8, int64/32/16/8. (This is up for debate). Examples are shown later with class constructor overloading.
 
 ```js
 function Foo(foo:float32) { }
@@ -129,6 +129,8 @@ Foo(uint32(1)); // uint32 called
 ```js
 var foo = uint8(65535); // Cast taking the lowest 8 bits so the value 255, but note that foo is still typed as any
 ```
+
+Many truncation rules have intuitive rules going from larger bits to smaller bits or signed types to unsigned types. Type casts like decimal to float or float to decimal would need to be clear.
 
 ### Function signatures with constraints
 
