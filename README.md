@@ -395,7 +395,7 @@ var foo:uint8[]; // typeof foo == "uint8[]"
 var foo:MyClass; // typeof foo == "MyClass"
 ```
 
-This relies on features like Array.isArray to be used to check if someone is an array. Function.isFunction would be added to check if something is a function.
+This relies on features like Array.isArray to be used to check if something is an array. Function.isFunction would be added to check if something is a function.
 
 Similar to ES5's strict mode ES8's stricter mode would change the semantics of the language. Binary operators which used to have simplified rules would now function intuitively.
 
