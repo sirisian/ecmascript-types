@@ -1,5 +1,7 @@
 # ES8 Proposal: Optional Static Typing
 
+Current status of this proposal is -1. It's in a theoretical state at the moment to better understand how types could function in Javascript and the long-term future benefits or complications they could cause to future proposals.
+
 ## Rationale
 
 With ES6's TypedArrays and classes finalized and ES7 SIMD getting experimental tests, ECMAScript is in a good place to finally discuss types again. The demand for types as a different approach to code has been so strong in the past few years that separate languages have been created to deal with the perceived shortcomings. Types won't be an easy discussion, nor an easy addition, since they touch a large amount of the language; however, they are something that needs rigorous discussion.
@@ -33,11 +35,11 @@ These types bring ECMAScript in line or surpasses the type systems in most langu
 
 ### Deprecated Keywords
 
-In theory the following current keywords could be deprecated in the very long-term: Boolean, Number, String, Object, Symbol, and the TypedArray objects. Their methods and features would be rolled into the new type system.
+In theory the following current keywords could be deprecated in the very long-term: Boolean, Number, String, Symbol, and the TypedArray objects. Their methods and features would be rolled into the new type system.
 
 ### Variable Declaration With Type
 
-This syntax is taken from ActionScript and many other proposals over the years. It's subjectively concise and readable.
+This syntax is taken from ActionScript and other proposals over the years. It's subjectively concise, readable, and consistent throughout the proposal.
 
 ```js
 var foo:Type = value;
@@ -379,6 +381,49 @@ The following global objects could be used as types:
 
 DataView, Date, Error, EvalError, InternalError, Map, Promise, Proxy, RangeError, ReferenceError, RegExp, Set, SyntaxError, TypeError, URIError, WeakMap, WeakSet
 
+### "use stricter";
+
+THIS SECTION IS WIP
+
+Would bring all the types into the language, without the use of import (as described below), and change typeof's behavior returning the actual type. In this mode the following would occur:
+
+```js
+var foo:(); // typeof foo == "()", a function with no parameters and return type any
+var foo:():void; // typeof foo == "():void", a function with no parameters and no return type
+var foo:(uint8):uint8; // typeof foo == "(uint8):uint8"
+var foo:uint8[]; // typeof foo == "uint8[]"
+var foo:MyClass; // typeof foo == "MyClass"
+```
+
+This relies on features like Array.isArray to be used to check if someone is an array. Function.isFunction would be added to check if something is a function.
+
+Similar to ES5's strict mode ES8's stricter mode would change the semantics of the language. Binary operators which used to have simplified rules would now function intuitively.
+
+```js
+function Foo(a:float32, b:float32, c:float32)
+{
+    if (a < b < c) // a < b && b < c, no longer (a < b) < c
+    {
+    }
+    else if (a < b == c)
+    {
+    }
+}
+```
+
+```js
+function Foo(x:uint8)
+{
+    if (0 < x <= 5) // Number < uint8 <= Number, Number casts to uint8 in both cases.
+    {
+    }
+}
+```
+
+Types no longer lead to situations where the language can compare true or false to a non-boolean type. In stricter mode the grammar rules are effectively changed. (Other changes, like operator overloading, will probably change them also).
+
+Lot to think about for this section.
+
 ## Undecided Topics
 
 ### TypedArray Views
@@ -399,6 +444,8 @@ Bit conversions aren't much cleaner. Right now according to the changes going fr
 uint8(int8[]([value]).buffer)[0]
 ```
 Ideally there should be a very elegant way to do a bitconversion from any type that's the same number of bits.
+
+### Import Types
 
 This has been brought up before, but possible solutions due to compatability issues would be to introduce "use types"; or since ES6 has them Brenden once suggested something like:
 ```js
@@ -445,19 +492,6 @@ I left value type classes out of this discussion since I'm still not sure how th
 ### Union Types
 
 Having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed. (I imagine someone will create an interfaces proposal before that happens though).
-
-### "use stricter";
-
-Would bring all the types into the language, without the use of import, and change typeof's behavior returning the actual type. In this mode the following would occur:
-
-```js
-var foo:(); // typeof foo == "()", notice how void is left off the return
-var foo:uint8[]; // typeof foo == "uint8[]"
-var foo:(uint8):uint8; // typeof foo == "(uint8):uint8"
-var foo:MyClass; // typeof foo == "MyClass"
-```
-
-This relies on features like Array.isArray to be used. Function.isFunction could be added to check if something is a function.
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
