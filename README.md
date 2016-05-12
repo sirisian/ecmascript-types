@@ -1,6 +1,6 @@
 # ES8 Proposal: Optional Static Typing
 
-Current status of this proposal is -1. It's in a theoretical state at the moment to better understand how types could function in Javascript and the long-term future benefits or complications they could cause to future proposals.
+Current status of this proposal is -1. It's in a theoretical state at the moment to better understand how types could function in Javascript and the long-term future benefits or complications they could cause to future proposals. This proposal also introduces a "stricter" mode to formulate a long-term ECMAScript.
 
 ## Rationale
 
@@ -422,7 +422,26 @@ function Foo(x:uint8)
 
 Types no longer lead to situations where the language can compare true or false to a non-boolean type. In stricter mode the grammar rules are effectively changed. (Other changes, like operator overloading, will probably change them also).
 
-Lot to think about for this section.
+#### Automatic semicolon inseration (ASI) removal
+
+This mode removes automatic semicolon insertion (ASI) rules. These rules are generally veiwed as a mistake which added unnecessary grammar to the language while allowing sloppy code. With this change is also a change to the grammar for continue, break, return, throw, arrow function, and yield. In stricter evaluation they new lines are no longer an issue and braces are allowed to line up. As an example of a now valid and intuitive program:
+
+```js
+return
+{
+    a: 1
+};
+```
+
+#### Trailing comma removal
+
+ES5 added trailing commas. This mode removes the feature requiring more strict usage of undefined and trailing commas. Examples that are now syntax errors:
+
+```js
+var a = [,]; // syntax error
+var b = [,,]; // syntax error
+var c = {a:1,} // syntax error
+```
 
 ## Undecided Topics
 
@@ -584,7 +603,7 @@ var g = new GeneratorFunction("a:float32", ":float32", "yield a * 2");
 
 ### A.1 Lexical Grammar 
 
-THIS SECTION IS A WIP
+THIS SECTION IS A WIP which will contain the stricture grammar changes also.
 
 *VariableDeclaration*<sub>[In, Yield]</sub>:  
 &nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield]</sub> *Initializer*<sub>[?In, ?Yield]opt</sub>  
