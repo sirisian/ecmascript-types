@@ -385,7 +385,7 @@ DataView, Date, Error, EvalError, InternalError, Map, Promise, Proxy, RangeError
 
 THIS SECTION IS WIP
 
-Would bring all the types into the language, without the use of import (as described below), and change typeof's behavior returning the actual type. In this mode the following would occur:
+This is a extension of strict mode. Stricter mode would bring all the types into the language, without the use of import (as described below), and change typeof's behavior returning the actual type. In this mode the following would occur:
 
 ```js
 var foo:(); // typeof foo == "()", a function with no parameters and return type any
@@ -537,6 +537,10 @@ New sections would need to be added to cover every new type proposed above. Not 
 
 Move enum from 11.6.2.2 to 11.6.2.1.
 
+### 11.9 Automatic Semicolon Insertion
+
+Make a comment that in stricter mode that ASI is not applied.
+
 ### 12.5.6 The typeof Operator
 
 The table needs to be updated with all the new types and nullable type explanation.
@@ -605,6 +609,17 @@ var g = new GeneratorFunction("a:float32", ":float32", "yield a * 2");
 
 THIS SECTION IS A WIP which will contain the stricture grammar changes also.
 
+*Keyword* :: **one of**
+**break** **do** **in** **typeof** **case** **else** **instanceof** **var** **catch** **export** **new** **void** **class** **extends** **return** **while** **const** **finally** **super** **with** **continue** **for** **switch** **yield** **debugger** **function** **this** **default** **if** **throw** **delete** **import** **try** **enum**
+
+*FutureReservedWord* ::  
+**await**
+
+&nbsp;&nbsp;&nbsp;&nbsp;The  following  tokens  are  also  considered  to  be *FutureReservedWords* when  parsing  stricter  mode  code (See ??.??.??)
+
+&nbsp;&nbsp;&nbsp;&nbsp;**number** **bool** **string** **object** **symbol** **int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64** **bigint** **float16** **float32** **float64** **float80** **float128** **decimal32** **decimal64** **decimal128** **bool8x16** **bool16x8** **bool32x4** **bool64x2** **bool8x32** **bool16x16** **bool32x8** **bool64x4** **int8x16** **int16x8** **int32x4** **int64x2** **int8x32** **int16x16** **int32x8** **int64x4** **uint8x16** **uint16x8** **uint32x4** **uint64x2** **uint8x32** **uint16x16** **uint32x8** **uint64x4** **float32x4** **float64x2** **float32x8** **float64x4** **rational** **complex** **any**
+
 *VariableDeclaration*<sub>[In, Yield]</sub>:  
 &nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield]</sub> *Initializer*<sub>[?In, ?Yield]opt</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*BindingPattern*<sub>[?Yield]</sub> *Initializer*<sub>[?In, ?Yield]</sub>  
+
