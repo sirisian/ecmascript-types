@@ -537,6 +537,16 @@ New sections would need to be added to cover every new type proposed above. Not 
 
 Move enum from 11.6.2.2 to 11.6.2.1.
 
+### 11.8.3.1 Static Semantics: MV’s
+
+This needs to be changed to work with more than Number. Ideally this operation is delayed until the type is determined. As an example the following should be intuitively legal without any Number conversion done.
+
+```js
+var a:uint64 = 0xffffffffffffffff;
+```
+
+The same could be true for bigint support.
+
 ### 11.9 Automatic Semicolon Insertion
 
 Make a comment that in stricter mode that ASI is not applied.
