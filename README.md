@@ -375,6 +375,33 @@ function Foo(...args1, callback:(), ...args2, callback:()) {}
 Foo('foo', 1, 1.0, () => {}, 'bar', 2, 2.0, () => {});
 ```
 
+### Try Catch
+
+Catch clauses can be typed allowing for minimal conditional catch clauses.
+
+```js
+try
+{
+    // Statement that throws
+}
+catch (e:TypeError)
+{
+    // Statements to handle TypeError exceptions
+}
+catch (e:RangeError)
+{
+    // Statements to handle RangeError exceptions
+}
+catch (e:EvalError)
+{
+    // Statements to handle EvalError exceptions
+}
+catch (e)
+{
+    // Statements to handle any unspecified exceptions
+}
+```
+
 ### Global Objects
 
 The following global objects could be used as types:
