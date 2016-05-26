@@ -594,6 +594,10 @@ Type casting syntax described above would need to be included.
 
 Would need to cover the optional typing syntax and grammar.
 
+### 13.15 The try Statement
+
+CatchParameter needs to be modified to allow type constraints.
+
 ### 14 ECMAScript Language: Functions and Classes
 
 This sections grammar would need to have FunctionDeclaration in the grammar redefined to include an optional typed return value. FormalParameter would require optional types added.
