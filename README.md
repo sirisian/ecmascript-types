@@ -58,6 +58,24 @@ var baz:uint8[] = []; // typeof baz == "object", ideally this would return "uint
 var foobar:(uint8):uint8 = x => x * x; // typeof foobar == "function", ideally this would return "(uint8):uint8", but it's not necessary
 ```
 
+### instanceof Operator
+
+THIS SECTION IS WIP
+
+```js
+if (value instanceof uint8) {}
+```
+
+Also this would be nice for function signatures.
+
+```js
+if (value instanceof (uint8):uint8) {}
+```
+
+That would imply Object.getPrototypeOf(value) === ((uint8):uint8).prototype
+
+I'm not well versed on if this makes sense though, but it would be like each typed function has a prototype defined by the signature.
+
 ### Nullable Types
 
 By default all types except any are non-nullable. The syntax below creates a nullable uint8 variable:
