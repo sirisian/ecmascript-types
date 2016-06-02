@@ -60,7 +60,7 @@ var foobar:(uint8):uint8 = x => x * x; // typeof foobar == "function", ideally t
 
 ### instanceof Operator
 
-THIS SECTION IS WIP
+THIS SECTION IS A WIP
 
 ```js
 if (value instanceof uint8) {}
@@ -364,6 +364,7 @@ Custom sequential functions for numerical and string types (these aren't closure
 ```js
 enum Count:float32 { Zero = (index, name) => index * 100, One, Two }; // 0, 100, 200
 enum Count:string { Zero = (index, name) => name, One, Two = (index, name) => name.toLowerCase(), Three }; // "Zero", "One", "two", "three"
+enum Flags:uint32 { None = 0, Flag1 = (index, name) => 1 << index, Flag2, Flag3 } // 0, 1, 2, 4
 ```
 Index operator:
 ```js
@@ -430,7 +431,7 @@ DataView, Date, Error, EvalError, InternalError, Map, Promise, Proxy, RangeError
 
 ### "use stricter";
 
-THIS SECTION IS WIP
+THIS SECTION IS A WIP
 
 This is a extension of strict mode. Stricter mode would bring all the types into the language, without the use of import (as described below), and change typeof's behavior returning the actual type. In this mode the following would occur:
 
@@ -494,7 +495,7 @@ var c = {a:1,} // syntax error
 
 ### TypedArray Views
 
-THIS SECTION IS WIP
+THIS SECTION IS A WIP
 
 Should there be a new syntax for TypedArray views like:
 ```js
