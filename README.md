@@ -348,7 +348,7 @@ It's also possible to overload class operators to work with them, but the optimi
 
 ### enum Type
 
-Enumerations with enum that support any type except function signatures.
+Enumerations with enum that support any type including functions.
 ```js
 enum Count { Zero, One, Two }; // Starts at 0
 var c:Count = Count.Zero;
@@ -357,8 +357,10 @@ enum Count { One = 1, Two, Three }; // Two is 2 since these are sequential
 var c:Count = Count.One;
 
 enum Count:float32 { Zero, One, Two };
+
+enum Counter:(float32):float32 { Zero = x => 0, One = x => x + 1, Two = x => x + 2 }
 ```
-Custom sequential function (these aren't closures):
+Custom sequential functions for numerical and string types (these aren't closures):
 ```js
 enum Count:float32 { Zero = (index, name) => index * 100, One, Two }; // 0, 100, 200
 enum Count:string { Zero = (index, name) => name, One, Two = (index, name) => name.toLowerCase(), Three }; // "Zero", "One", "two", "three"
@@ -366,7 +368,7 @@ enum Count:string { Zero = (index, name) => name, One, Two = (index, name) => na
 Index operator:
 ```js
 enum Count { Zero, One, Two };
-Count[0];
+Count[0]; // 0
 ```
 Get enum value as string:
 
