@@ -96,7 +96,6 @@ let foo:[];
 ```js
 let foo:uint8[];
 foo.push(1);
-foo[foo.length] = 2;
 let bar:uint8[] = [1, 2, 3, 4];
 ```
 
