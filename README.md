@@ -481,14 +481,6 @@ function Foo(x:uint8)
 
 Types no longer lead to situations where the language can compare true or false to a non-boolean type. In stricter mode the grammar rules are effectively changed. (Other changes, like operator overloading, will probably change them also).
 
-#### Operator "in" and the "stricter mode"
-
-Accepts only strings or symbols at the left position. Otherwise, it results on a "type error".
-
-#### Operator "delete" and the "stricter mode"
-
-Accepts to delete only strings or symbols. Otherwise, it results on a "type error".
-
 #### Automatic semicolon inseration (ASI) removal
 
 This mode removes automatic semicolon insertion (ASI) rules. These rules are generally veiwed as a mistake which added unnecessary grammar to the language while allowing sloppy code. With this change is also a change to the grammar for continue, break, return, throw, arrow function, and yield. In stricter evaluation they new lines are no longer an issue and braces are allowed to line up. As an example of a now valid and intuitive program:
