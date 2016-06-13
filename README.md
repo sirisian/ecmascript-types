@@ -42,11 +42,10 @@ In theory the following current keywords could be deprecated in the very long-te
 This syntax is taken from ActionScript and other proposals over the years. It's subjectively concise, readable, and consistent throughout the proposal.
 
 ```js
+var foo:Type = value;
 let foo:Type = value;
 const foo:Type = value;
 ```
-
-Note: The "var" keyword will no longer be valid (see "use stricter")
 
 ### typeof Operator
 
