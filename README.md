@@ -42,20 +42,21 @@ In theory the following current keywords could be deprecated in the very long-te
 This syntax is taken from ActionScript and other proposals over the years. It's subjectively concise, readable, and consistent throughout the proposal.
 
 ```js
-var foo:Type = value;
 let foo:Type = value;
 const foo:Type = value;
 ```
+
+Note: The "var" keyword will no longer be valid (see "use stricter")
 
 ### typeof Operator
 
 One of the first complications with types is typeof's behavior. All of the above types would return their string conversion including bool. (I've spoken to many people now and "boolean" is seen as verbose among C++ and C# developers. Breaking this part of Java's influence probably wouldn't hurt to preserve consistency for the future).
 
 ```js
-var foo:uint8 = 0; // typeof foo == "uint8"
-var bar:uint8? = 0; // typeof bar == "uint8?"
-var baz:uint8[] = []; // typeof baz == "object", ideally this would return "uint8[]", but it's not necessary
-var foobar:(uint8):uint8 = x => x * x; // typeof foobar == "function", ideally this would return "(uint8):uint8", but it's not necessary
+let foo:uint8 = 0; // typeof foo == "uint8"
+let bar:uint8? = 0; // typeof bar == "uint8?"
+let baz:uint8[] = []; // typeof baz == "object", ideally this would return "uint8[]", but it's not necessary
+let foobar:(uint8):uint8 = x => x * x; // typeof foobar == "function", ideally this would return "(uint8):uint8", but it's not necessary
 ```
 
 ### instanceof Operator
@@ -80,7 +81,7 @@ I'm not well versed on if this makes sense though, but it would be like each typ
 
 By default all types except any are non-nullable. The syntax below creates a nullable uint8 variable:
 ```js
-var foo:uint8? = null; // typeof foo == "uint8?"
+let foo:uint8? = null; // typeof foo == "uint8?"
 ```
 
 ### any Type
@@ -88,24 +89,27 @@ var foo:uint8? = null; // typeof foo == "uint8?"
 Using "any?" would result in a syntax error since "any" already includes nullable types. As would using "any[]" since it already includes array types. Using just "[]" would be the type for arrays that can contain anything. For example:
 
 ```js
-var foo:[];
+let foo:[];
 ```
 
 ### Variable-length Typed Arrays
 
 ```js
-var foo:uint8[];
+let foo:uint8[];
 foo.push(1);
-var bar:uint8[] = [1, 2, 3, 4];
+foo[foo.length] = 2;
+let bar:uint8[] = [1, 2, 3, 4];
 ```
 
 ### Fixed-length Typed Arrays:
 
 ```js
-var foo:uint8[4];
+let foo:uint8[4];
 foo.push(0); // invalid
 foo.pop(); // invalid
-var bar:uint8[4] = [1, 2, 3, 4];
+foo[0] = 1; // valid
+foo[foo.length] = 2;  // invalid
+let bar:uint8[4] = [1, 2, 3, 4];
 ```
 
 ### Mixing Variable-length and Fixed-length Arrays
@@ -113,15 +117,15 @@ var bar:uint8[4] = [1, 2, 3, 4];
 ```js
 function Foo(p:boolean):uint8[] // default case, return a resizable array
 {
-    var foo:uint8[4] = [1, 2, 3, 4];
-    var bar:uint8[6] = [1, 2, 3, 4, 5, 6];
+    let foo:uint8[4] = [1, 2, 3, 4];
+    let bar:uint8[6] = [1, 2, 3, 4, 5, 6];
     return p ? foo : bar;
 }
 
 function Foo(p:boolean):uint8[6] // return a resized foo
 {
-    var foo:uint8[4] = [1, 2, 3, 4];
-    var bar:uint8[6] = [1, 2, 3, 4, 5, 6];
+    let foo:uint8[4] = [1, 2, 3, 4];
+    let bar:uint8[6] = [1, 2, 3, 4, 5, 6];
     return p ? foo : bar;
 }
 ```
@@ -129,8 +133,32 @@ function Foo(p:boolean):uint8[6] // return a resized foo
 ### Any Typed Array
 
 ```js
-var foo:[]; // Using any[] is a syntax error as explained before
-var foo:[]? = null; // nullable array
+let foo:[]; // Using any[] is a syntax error as explained before
+let foo:[]? = null; // nullable array
+```
+
+An index is no longer a property of an array :
+
+```js
+const bar:uint8[] = [1, 2, 3, 4];
+0 in bar   // type error
+delete bar[0];    // type error
+```
+
+But "0" could be a property of the array :
+
+```js
+const bar:uint8[] = [1, 2, 3, 4];
+bar['0'] = 1;
+'0' in bar // true
+delete bar['0'];  // deletes property "0"
+```
+
+Empty slots : Typed array slots are zero-ed at creation, and empty slots no longer exists
+
+```js
+const foo:uint8[4];
+foo[0] === 0;  // true
 ```
 
 ### Implicit Casting
@@ -147,7 +175,7 @@ Foo(uint32(1)); // uint32 called
 ### Explicit Casting
 
 ```js
-var foo = uint8(65535); // Cast taking the lowest 8 bits so the value 255, but note that foo is still typed as any
+let foo = uint8(65535); // Cast taking the lowest 8 bits so the value 255, but note that foo is still typed as any
 ```
 
 Many truncation rules have intuitive rules going from larger bits to smaller bits or signed types to unsigned types. Type casts like decimal to float or float to decimal would need to be clear.
@@ -161,26 +189,26 @@ function Foo(a:int32, b:string, c:bigint[], callback:(bool, string) = (b, s = 'n
 ### Typed Arrow Functions
 
 ```js
-var foo:(int32, string):string; // hold a reference to a signature of this type
-var foo:(); // void is the default return type for a signature without a return type
-var foo = (s:string, x:int32) => s + x; // implicit return type of string
-var foo = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
-var foo = x:uint8 => x + y; // single parameter
+let foo:(int32, string):string; // hold a reference to a signature of this type
+let foo:(); // void is the default return type for a signature without a return type
+let foo = (s:string, x:int32) => s + x; // implicit return type of string
+let foo = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
+let foo = x:uint8 => x + y; // single parameter
 ```
 
 ### Integer Binary Shifts
 
 ```js
-var a:int8 = -128;
+let a:int8 = -128;
 a >> 1; // -64, sign extension
-var b:uint8 = 128;
+let b:uint8 = 128;
 b >> 1; // 64, no sign extension as would be expected with an unsigned type
 ```
 
 ### Integer Division
 
 ```js
-var a:int32 = 3;
+let a:int32 = 3;
 a /= 2; // 1
 ```
 
@@ -205,14 +233,14 @@ Up for debate is if accessing the separate functions is required. Functions are 
 Syntax:
 
 ```js
-var o = { a:uint8:1 };
+let o = { a:uint8:1 };
 ```
 
 This syntax works with any arrays:
 
 ```js
-var o = { a:[] }; // Normal array syntax works as expected
-var o = { a:[]:[] }; // With typing this is identical to the above
+let o = { a:[] }; // Normal array syntax works as expected
+let o = { a:[]:[] }; // With typing this is identical to the above
 ```
 
 ### Constructor Overloading
@@ -235,8 +263,8 @@ class MyType
 
 Implicit casting using the constructors:
 ```js
-var t:MyType = 1; // float32 constructor call
-var t:MyType = uint32(1); // uint32 constructor called
+let t:MyType = 1; // float32 constructor call
+let t:MyType = uint32(1); // uint32 constructor called
 ```
 
 ### parseFloat and parseInt For Each New Type
@@ -244,15 +272,15 @@ var t:MyType = uint32(1); // uint32 constructor called
 For integers (including bigint) the parse function would have the signature parse(string, radix = 10).
 
 ```js
-var foo:uint8 = uint8.parse('1', 10);
-var foo:uint8 = uint8.parse('1'); // Same as the above with a default 10 for radix
-var foo:uint8 = '1'; // Calls parse automatically making it identical to the above
+let foo:uint8 = uint8.parse('1', 10);
+let foo:uint8 = uint8.parse('1'); // Same as the above with a default 10 for radix
+let foo:uint8 = '1'; // Calls parse automatically making it identical to the above
 ```
 
 For floats, decimals, and rational the signature is just parse(string)
 
 ```js
-var foo:float32 = float32.parse('1.2');
+let foo:float32 = float32.parse('1.2');
 ```
 
 ### Implicit SIMD Constructors
@@ -260,13 +288,13 @@ var foo:float32 = float32.parse('1.2');
 Going from a scalar to a vector:
 
 ```js
-var v:float32x4 = 1; // Equivalent to an ES7 SIMD splat, so var v = float32x4(1, 1, 1, 1);
+let v:float32x4 = 1; // Equivalent to an ES7 SIMD splat, so let v = float32x4(1, 1, 1, 1);
 ```
 
 ### Implicit Array Cast
 
 ```js
-var t:MyType[] = [1, 2, 3, uint32(1)];
+let t:MyType[] = [1, 2, 3, uint32(1)];
 ```
 
 ### Decorators
@@ -341,8 +369,8 @@ class Vector2d
 
 All SIMD types would have operator overloading added when used with the same type.
 ```js
-var a = uint32x4(1, 2, 3, 4) + uint32x4(5, 6, 7, 8); // uint32x4
-var b = uint32x4(1, 2, 3, 4) < uint32x4(5, 6, 7, 8); // bool32x4
+let a = uint32x4(1, 2, 3, 4) + uint32x4(5, 6, 7, 8); // uint32x4
+let b = uint32x4(1, 2, 3, 4) < uint32x4(5, 6, 7, 8); // bool32x4
 ```
 It's also possible to overload class operators to work with them, but the optimizations would be implementation specific if they result in SIMD instructions.
 
@@ -351,10 +379,10 @@ It's also possible to overload class operators to work with them, but the optimi
 Enumerations with enum that support any type including functions.
 ```js
 enum Count { Zero, One, Two }; // Starts at 0
-var c:Count = Count.Zero;
+let c:Count = Count.Zero;
 
 enum Count { One = 1, Two, Three }; // Two is 2 since these are sequential
-var c:Count = Count.One;
+let c:Count = Count.One;
 
 enum Count:float32 { Zero, One, Two };
 
@@ -383,7 +411,7 @@ Foo('foo', 0, 1, 2, 3);
 ```
 Rest parameters are valid for signatures:
 ```js
-var foo:(...:uint8);
+let foo:(...:uint8);
 ```
 Multiple rest parameters can be used:
 ```js
@@ -436,11 +464,11 @@ THIS SECTION IS A WIP
 This is a extension of strict mode. Stricter mode would bring all the types into the language, without the use of import (as described below), and change typeof's behavior returning the actual type. In this mode the following would occur:
 
 ```js
-var foo:(); // typeof foo == "()", a function with no parameters and return type any
-var foo:():void; // typeof foo == "():void", a function with no parameters and no return type
-var foo:(uint8):uint8; // typeof foo == "(uint8):uint8"
-var foo:uint8[]; // typeof foo == "uint8[]"
-var foo:MyClass; // typeof foo == "MyClass"
+let foo:(); // typeof foo == "()", a function with no parameters and return type any
+let foo:():void; // typeof foo == "():void", a function with no parameters and no return type
+let foo:(uint8):uint8; // typeof foo == "(uint8):uint8"
+let foo:uint8[]; // typeof foo == "uint8[]"
+let foo:MyClass; // typeof foo == "MyClass"
 ```
 
 This relies on features like Array.isArray to be used to check if something is an array. Function.isFunction would be added to check if something is a function.
@@ -470,6 +498,22 @@ function Foo(x:uint8)
 
 Types no longer lead to situations where the language can compare true or false to a non-boolean type. In stricter mode the grammar rules are effectively changed. (Other changes, like operator overloading, will probably change them also).
 
+#### "var" keyword
+
+No longer valid on "stricter mode".
+
+```js
+var foo:uint8 = 1;    // syntax error
+```
+
+#### Operator "in" and the "stricter mode"
+
+Accepts only strings or symbols at the left position. Otherwise, it results on a "type error".
+
+#### Operator "delete" and the "stricter mode"
+
+Accepts to delete only strings or symbols. Otherwise, it results on a "type error".
+
 #### Automatic semicolon inseration (ASI) removal
 
 This mode removes automatic semicolon insertion (ASI) rules. These rules are generally veiwed as a mistake which added unnecessary grammar to the language while allowing sloppy code. With this change is also a change to the grammar for continue, break, return, throw, arrow function, and yield. In stricter evaluation they new lines are no longer an issue and braces are allowed to line up. As an example of a now valid and intuitive program:
@@ -486,9 +530,9 @@ return
 ES5 added trailing commas. This mode removes the feature requiring more strict usage of undefined and trailing commas. Examples that are now syntax errors:
 
 ```js
-var a = [,]; // syntax error
-var b = [,,]; // syntax error
-var c = {a:1,} // syntax error
+let a = [,]; // syntax error
+let b = [,,]; // syntax error
+let c = {a:1,} // syntax error
 ```
 
 ## Undecided Topics
@@ -499,12 +543,12 @@ THIS SECTION IS A WIP
 
 Should there be a new syntax for TypedArray views like:
 ```js
-var a1:uint64[] = [2, 0, 1, 3];
-var a2:uint32[] = a1(1, 2);
+let a1:uint64[] = [2, 0, 1, 3];
+let a2:uint32[] = a1(1, 2);
 ```
 That might be asking too much though. In a very compact form:
 ```js
-var foo = (uint64[](a1(1, 2))[0]; // foo would be 1
+let foo = (uint64[](a1(1, 2))[0]; // foo would be 1
 ```
 Bit conversions aren't much cleaner. Right now according to the changes going from an int8 to an uint8 requires:
 ```js
@@ -529,7 +573,7 @@ This section is to show that a generic syntax can be seamlessly added with no sy
 ```js
 function Foo<T>(foo:T):T
 {
-    var bar:T;
+    let bar:T;
 }
 ```
 
@@ -590,7 +634,7 @@ Move enum from 11.6.2.2 to 11.6.2.1.
 This needs to be changed to work with more than Number. Ideally this operation is delayed until the type is determined. As an example the following should be intuitively legal without any Number conversion done.
 
 ```js
-var a:uint64 = 0xffffffffffffffff;
+let a:uint64 = 0xffffffffffffffff;
 ```
 
 The same could be true for bigint support.
@@ -664,7 +708,7 @@ All the math operations need to be overloaded to work with the integer, float, a
 Similar to Function the constructor needs to be changed to allow types. For example:
 
 ```js
-var g = new GeneratorFunction("a:float32", ":float32", "yield a * 2");
+let g = new GeneratorFunction("a:float32", ":float32", "yield a * 2");
 ```
 
 ### A.1 Lexical Grammar 
