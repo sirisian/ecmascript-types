@@ -112,6 +112,8 @@ foo[foo.length] = 2;  // invalid
 let bar:uint8[4] = [1, 2, 3, 4];
 ```
 
+Typed arrays would be zero-ed at creation.
+
 ### Mixing Variable-length and Fixed-length Arrays
 
 ```js
@@ -137,28 +139,11 @@ let foo:[]; // Using any[] is a syntax error as explained before
 let foo:[]? = null; // nullable array
 ```
 
-An index is no longer a property of an array :
+Deleting a typed array element results in a type error:
 
 ```js
 const bar:uint8[] = [1, 2, 3, 4];
-0 in bar   // type error
-delete bar[0];    // type error
-```
-
-But "0" could be a property of the array :
-
-```js
-const bar:uint8[] = [1, 2, 3, 4];
-bar['0'] = 1;
-'0' in bar // true
-delete bar['0'];  // deletes property "0"
-```
-
-Empty slots : Typed array slots are zero-ed at creation, and empty slots no longer exists
-
-```js
-const foo:uint8[4];
-foo[0] === 0;  // true
+delete bar[0]; // throws TypeError
 ```
 
 ### Implicit Casting
@@ -497,14 +482,6 @@ function Foo(x:uint8)
 ```
 
 Types no longer lead to situations where the language can compare true or false to a non-boolean type. In stricter mode the grammar rules are effectively changed. (Other changes, like operator overloading, will probably change them also).
-
-#### "var" keyword
-
-No longer valid on "stricter mode".
-
-```js
-var foo:uint8 = 1;    // syntax error
-```
 
 #### Operator "in" and the "stricter mode"
 
