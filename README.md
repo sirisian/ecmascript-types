@@ -99,6 +99,15 @@ foo.push(1);
 let bar:uint8[] = [1, 2, 3, 4];
 ```
 
+The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
+
+```js
+let foo:uint8[] = [1, 2, 3, 4];
+foo['0'] = 'foobar'; // property '0'
+'0' in foo; // true
+delete foo['0'];
+```
+
 ### Fixed-length Typed Arrays:
 
 ```js
