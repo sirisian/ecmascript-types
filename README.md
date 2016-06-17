@@ -492,7 +492,7 @@ Types no longer lead to situations where the language can compare true or false 
 
 #### Automatic semicolon inseration (ASI) removal
 
-This mode removes automatic semicolon insertion (ASI) rules. These rules are generally veiwed as a mistake which added unnecessary grammar to the language while allowing sloppy code. With this change is also a change to the grammar for continue, break, return, throw, arrow function, and yield. In stricter evaluation they new lines are no longer an issue and braces are allowed to line up. As an example of a now valid and intuitive program:
+This mode removes automatic semicolon insertion (ASI) rules. These rules are generally veiwed as a mistake which added unnecessary grammar to the language while allowing sloppy code. With this change is also a change to the grammar for continue, break, return, throw, arrow function, and yield. In stricter evaluation new lines are no longer an issue and braces are allowed to line up. As an example of a now valid and intuitive program:
 
 ```js
 return
