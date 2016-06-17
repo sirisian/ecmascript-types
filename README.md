@@ -689,7 +689,7 @@ let g = new GeneratorFunction("a:float32", ":float32", "yield a * 2");
 
 ### A.1 Lexical Grammar 
 
-THIS SECTION IS A WIP which will contain the stricture grammar changes also.
+THIS SECTION IS A WIP which will contain the stricter grammar changes also.
 
 *Keyword* :: **one of**  
 &nbsp;&nbsp;&nbsp;&nbsp;**break** **do** **in** **typeof** **case** **else** **instanceof** **var** **catch** **export** **new** **void** **class** **extends** **return** **while** **const** **finally** **super** **with** **continue** **for** **switch** **yield** **debugger** **function** **this** **default** **if** **throw** **delete** **import** **try** **enum**
