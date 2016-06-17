@@ -453,7 +453,7 @@ DataView, Date, Error, EvalError, InternalError, Map, Promise, Proxy, RangeError
 
 THIS SECTION IS A WIP
 
-This is a extension of strict mode. Stricter mode would bring all the types into the language, without the use of import (as described below), and change typeof's behavior returning the actual type. In this mode the following would occur:
+This is an extension of strict mode. Stricter mode would bring all the types into the language, without the use of import (as described below), and change typeof's behavior returning the actual type. In this mode the following would occur:
 
 ```js
 let foo:(); // typeof foo == "()", a function with no parameters and return type any
