@@ -534,7 +534,7 @@ Ideally there should be a very elegant way to do a bitconversion from any type t
 
 ### Import Types
 
-This has been brought up before, but possible solutions due to compatability issues would be to introduce "use types"; or since ES6 has them Brenden once suggested something like:
+This has been brought up before, but possible solutions due to compatability issues would be to introduce special imports. Brenden once suggested something like:
 ```js
 import {int8, int16, int32, int64} from "@valueobjects";
 //import "@valueobjects";
