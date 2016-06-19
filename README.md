@@ -749,7 +749,7 @@ THIS SECTION IS A WIP which will contain the stricter mode grammar changes also.
 
 
 *EnumDeclaration* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**enum** *BindingIdentifier* *Type*<sub>opt</sub> **{** *EnumElementList* **}**
+&nbsp;&nbsp;&nbsp;&nbsp;**enum** *Identifier* *Type*<sub>opt</sub> **{** *EnumElementList* **}**
 
 *EnumElementList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*EnumElement*  
