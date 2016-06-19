@@ -727,7 +727,11 @@ THIS SECTION IS A WIP which will contain the stricter mode grammar changes also.
 &nbsp;&nbsp;&nbsp;&nbsp;**:** *FunctionSignature* **?**<sub>opt</sub>
 
 *TypeArray* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**[** *NumericaLiteral*<sub>opt</sub> **]**
+&nbsp;&nbsp;&nbsp;&nbsp;**[** *TypeArrayExpression*<sub>opt</sub> **]**
+
+*TypeArrayExpression* :  
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*
 
 *FunctionSignature* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**(** *FunctionSignatureElementList* **)**
