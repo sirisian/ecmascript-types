@@ -723,8 +723,8 @@ THIS SECTION IS A WIP which will contain the stricter mode grammar changes also.
 &nbsp;&nbsp;&nbsp;&nbsp;**number** **bool** **string** **object** **symbol** **int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64** **bigint** **float16** **float32** **float64** **float80** **float128** **decimal32** **decimal64** **decimal128** **bool8x16** **bool16x8** **bool32x4** **bool64x2** **bool8x32** **bool16x16** **bool32x8** **bool64x4** **int8x16** **int16x8** **int32x4** **int64x2** **int8x32** **int16x16** **int32x8** **int64x4** **uint8x16** **uint16x8** **uint32x4** **uint64x2** **uint8x32** **uint16x16** **uint32x8** **uint64x4** **float32x4** **float64x2** **float32x8** **float64x4** **rational** **complex** **any**
 
 *Type* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*:* *BindingIdentifier*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*:* *FunctionSignature* **?**<sub>opt</sub>
+&nbsp;&nbsp;&nbsp;&nbsp;**:** *BindingIdentifier*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;**:** *FunctionSignature* **?**<sub>opt</sub>
 
 *TypeArray* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**[** *NumericaLiteral*<sub>opt</sub> **]**
@@ -749,7 +749,7 @@ THIS SECTION IS A WIP which will contain the stricter mode grammar changes also.
 
 *EnumElementList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*EnumElement*  
-&nbsp;&nbsp;&nbsp;&nbsp;*EnumElementList*, *EnumElement*  
+&nbsp;&nbsp;&nbsp;&nbsp;*EnumElementList* **,** *EnumElement*  
 
 *EnumElement* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier*  
