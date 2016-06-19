@@ -206,8 +206,29 @@ a /= 2; // 1
 
 ### Destructing Assignment Casting
 
+Array destructuring with default values:
+
 ```js
-[a:uint32, b:float32] = Foo();
+[a:uint32 = 1, b:float32 = 2] = Foo();
+```
+
+Object destructuring with default values:
+
+```js
+{ a:uint8 = 1, b:uint8 = 2 } = { a: 2 };
+```
+
+Object destructuring with default value and new name:
+
+```js
+let { a:uint8:b = 1 } = { a: 2 }; // b is 2
+```
+
+Alternatively assigning to an already declared variable:
+
+```js
+let b:uint8;
+({ a:uint8:b = 1 } = { a: 2 }); // b is 2
 ```
 
 ### Function Overloading
