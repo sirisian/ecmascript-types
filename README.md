@@ -238,6 +238,7 @@ Also for completeness using destructuring with functions:
 {
     console.log(a, ' ', b, ' ', c); // 2 1 0
 })({a: 1, b: 2}, [0]);
+```
 
 ### Function Overloading
 
