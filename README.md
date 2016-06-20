@@ -231,6 +231,14 @@ let b:uint8;
 ({ a:uint8:b = 1 } = { a: 2 }); // b is 2
 ```
 
+Also for completeness using destructuring with functions:
+
+```js
+(function({a:uint8:b = 0, b:uint8:a = 0}, [c])
+{
+    console.log(a, ' ', b, ' ', c); // 2 1 0
+})({a: 1, b: 2}, [0]);
+
 ### Function Overloading
 
 ```js
