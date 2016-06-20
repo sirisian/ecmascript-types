@@ -486,7 +486,7 @@ let foo:MyClass; // typeof foo == "MyClass"
 
 This relies on features like Array.isArray to be used to check if something is an array. Function.isFunction would be added to check if something is a function.
 
-Similar to ES5's strict mode ES8's stricter mode would change the semantics of the language. Binary operators which used to have simplified rules would now function intuitively.
+Similar to ES5's strict mode, stricter mode would change the semantics of the language. Binary operators which used to have simplified rules would now function intuitively.
 
 ```js
 function Foo(a:float32, b:float32, c:float32)
@@ -718,12 +718,14 @@ THIS SECTION IS A WIP which will contain the stricter mode grammar changes also.
 *FutureReservedWord* ::  
 &nbsp;&nbsp;&nbsp;&nbsp;**await**
 
-&nbsp;&nbsp;&nbsp;&nbsp;The  following  tokens  are  also  considered  to  be *FutureReservedWords* when  parsing  stricter  mode  code (See ??.??.??)
+&nbsp;&nbsp;&nbsp;&nbsp;The  following  tokens  are considered  to  be *Types* when  parsing  stricter  mode  code (See ??.??.??)
 
-&nbsp;&nbsp;&nbsp;&nbsp;**number** **bool** **string** **object** **symbol** **int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64** **bigint** **float16** **float32** **float64** **float80** **float128** **decimal32** **decimal64** **decimal128** **bool8x16** **bool16x8** **bool32x4** **bool64x2** **bool8x32** **bool16x16** **bool32x8** **bool64x4** **int8x16** **int16x8** **int32x4** **int64x2** **int8x32** **int16x16** **int32x8** **int64x4** **uint8x16** **uint16x8** **uint32x4** **uint64x2** **uint8x32** **uint16x16** **uint32x8** **uint64x4** **float32x4** **float64x2** **float32x8** **float64x4** **rational** **complex** **any**
+*ReservedTypes* :: **one of**  
+&nbsp;&nbsp;&nbsp;&nbsp;**number** **bool** **string** **object** **symbol** **int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64** **bigint** **float16** **float32** **float64** **float80** **float128** **decimal32** **decimal64** **decimal128** **bool8x16** **bool16x8** **bool32x4** **bool64x2** **bool8x32** **bool16x16** **bool32x8** **bool64x4** **int8x16** **int16x8** **int32x4** **int64x2** **int8x32** **int16x16** **int32x8** **int64x4** **uint8x16** **uint16x8** **uint32x4** **uint64x2** **uint8x32** **uint16x16** **uint32x8** **uint64x4** **float32x4** **float64x2** **float32x8** **float64x4** **rational** **complex** **any** **DataView** **Date** **Error** **EvalError** **InternalError** **Map** **Promise, Proxy** **RangeError** **ReferenceError** **RegExp** **Set** **SyntaxError** **TypeError** **URIError** **WeakMap** **WeakSet**
 
 *Type* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *BindingIdentifier*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;**:** *ReservedTypes*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub> 
+&nbsp;&nbsp;&nbsp;&nbsp;**:** *Identifier*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;**:** *FunctionSignature* **?**<sub>opt</sub>
 
 *TypeArray* :  
