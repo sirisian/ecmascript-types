@@ -236,7 +236,7 @@ Also for completeness using destructuring with functions:
 ```js
 (function({a:uint8:b = 0, b:uint8:a = 0}, [c:uint8])
 {
-    console.log(a, ' ', b, ' ', c); // 2 1 0
+    // a = 2, b = 1, c = 0
 })({a: 1, b: 2}, [0]);
 ```
 
