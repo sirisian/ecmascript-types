@@ -162,7 +162,7 @@ delete bar[0]; // throws TypeError
 
 ### Implicit Casting
 
-The default numeric type Number would convert implicitly with precedence given to decimal28/64/32, float128/80/64/32/16, uint64/32/16/8, int64/32/16/8. (This is up for debate). Examples are shown later with class constructor overloading.
+The default numeric type Number would convert implicitly with precedence given to decimal128/64/32, float128/80/64/32/16, uint64/32/16/8, int64/32/16/8. (This is up for debate). Examples are shown later with class constructor overloading.
 
 ```js
 function Foo(foo:float32) { }
