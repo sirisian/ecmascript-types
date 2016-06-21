@@ -426,11 +426,15 @@ enum Flags:uint32 { None = 0, Flag1 = (index, name) => 1 << index, Flag2, Flag3 
 Index operator:
 ```js
 enum Count { Zero, One, Two };
-Count[0]; // 0
+Count[0]; // Count.Zero
+Count['Zero']; // Count.Zero
 ```
+
 Get enum value as string:
 
-// Not sure what the syntax for this would be.
+```js
+Count.toString(Count.Zero); // 'Zero'
+```
 
 ### Rest Parameters (ES6)
 
