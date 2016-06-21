@@ -108,6 +108,13 @@ foo['0'] = 'foobar'; // property '0'
 delete foo['0'];
 ```
 
+TypedArray views:
+
+```js
+let foo:uint64[] = [1];
+let bar = uint32[](foo, 0, 2);
+```
+
 ### Fixed-length Typed Arrays:
 
 ```js
@@ -542,25 +549,6 @@ let c = {a:1,} // syntax error
 ```
 
 ## Undecided Topics
-
-### TypedArray Views
-
-THIS SECTION IS A WIP
-
-Should there be a new syntax for TypedArray views like:
-```js
-let a1:uint64[] = [2, 0, 1, 3];
-let a2:uint32[] = a1(1, 2);
-```
-That might be asking too much though. In a very compact form:
-```js
-let foo = (uint64[](a1(1, 2))[0]; // foo would be 1
-```
-Bit conversions aren't much cleaner. Right now according to the changes going from an int8 to an uint8 requires:
-```js
-uint8(int8[]([value]).buffer)[0]
-```
-Ideally there should be a very elegant way to do a bitconversion from any type that's the same number of bits.
 
 ### Import Types
 
