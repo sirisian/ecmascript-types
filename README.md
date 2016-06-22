@@ -682,15 +682,15 @@ Grammar requires typing information for members and methods. Specifically ClassE
 Needs to support type information in the constructor. Examples from the documentation with typed examples:
 
 ```js
-new Function("a:string", "b:uint8", "c:int32", "return a+b+c")
-new Function("a:string, b:uint8, c:int32", "return a+b+c") 
-new Function("a:string,b:uint8", "c:int32", "return a+b+c") 
+new Function("a:string", "b:uint8", "c:int32", "return a + b + c;")
+new Function("a:string, b:uint8, c:int32", "return a + b + c;") 
+new Function("a:string,b:uint8", "c:int32", "return a + b + c;") 
 ```
 
 Syntax to define a return type:
 
 ```js
-new Function("a:string", "b:uint8[]", "c:int32", ":string", "return a+b+c")
+new Function("a:string", "b:uint8[]", "c:int32", ":string", "return a + b + c;")
 ```
 
 ### New Sections for Each Type
@@ -706,7 +706,7 @@ All the math operations need to be overloaded to work with the integer, float, a
 Similar to Function the constructor needs to be changed to allow types. For example:
 
 ```js
-let g = new GeneratorFunction("a:float32", ":float32", "yield a * 2");
+new GeneratorFunction("a:float32", ":float32", "yield a * 2;");
 ```
 
 ### A.1 Lexical Grammar 
