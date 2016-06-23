@@ -436,6 +436,14 @@ Get enum value as string:
 Count.toString(Count.Zero); // 'Zero'
 ```
 
+It seems like there needs to be an expression form also. Something akin to Function or GeneratorFunction which allows the construction of features with strings. It's not clear to me if this is required or beneficial, but it could be. I guess the syntax would look like:
+
+```js
+new enum('a', 0, 'b', 1);
+new enum(':uint8', 'a', 0, 'b', 1);
+new enum(':string', 'None', 'none', 'Flag1', '(index, name) => name', 'Flag2', 'Flag3'); // This doesn't make much sense though since the value pairing is broken. Need a different syntax
+```
+
 ### Rest Parameters (ES6)
 
 ```js
