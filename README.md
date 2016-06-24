@@ -652,6 +652,11 @@ Make a comment that in stricter mode that ASI is not applied.
 
 The table needs to be updated with all the new types and nullable type explanation.
 
+### 12.10 Relational Operators
+### 12.11 Equality Operators
+
+In stricter mode the grammar rules and behavior of these operators change as defined before. This section needs to cover the new behavior with respect to all integer, floating point, decimal, and other types. (Determine at the very least which types must use the new rules).
+
 ### 12.5.7 to 12.11
 
 Theese contain the operator definitions. Would probably need to include at least a brief change to explain the behavior of all the types. SIMD ones would require the most explanation.
