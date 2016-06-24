@@ -275,7 +275,6 @@ let o = { a:[]:[] }; // With typing this is identical to the above
 ### Constructor Overloading
 
 ```js
-// 4 byte object
 class MyType
 {
     x:float32; // Able to define members outside of the constructor
