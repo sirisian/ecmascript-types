@@ -272,6 +272,31 @@ let o = { a:[] }; // Normal array syntax works as expected
 let o = { a:[]:[] }; // With typing this is identical to the above
 ```
 
+Object.defineProperty and Object.defineProperties have a type property in the descriptor that accepts a type or string representing a type:
+
+```js
+Object.defineProperty(o, 'foo', { type: uint8 }); // using the type
+Object.defineProperty(o, 'foo', { type: 'uint8' }); // using a string representing the type
+```
+
+```js
+Object.defineProperties(o,
+{
+    'foo':
+    {
+        type: uint8,
+        value: 0,
+        writable: true
+    },
+    'bar':
+    {
+        type: string,
+        value: 'Hello',
+        writable: true
+    }
+});
+```
+
 ### Constructor Overloading
 
 ```js
