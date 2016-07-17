@@ -634,6 +634,10 @@ I left value type classes out of this discussion since I'm still not sure how th
 
 Having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed. (I imagine someone will create an interfaces proposal before that happens though).
 
+### Numeric Literals
+
+Many languages have numeric literal suffixes to indicate a number is a specific data type. This isn't necessary if explicit casts are used. Since there are so many types, the use of suffixes would not be overly readable. The goal was to keep type names to a minimum number of characters also so that literals are less needed.
+
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
 
