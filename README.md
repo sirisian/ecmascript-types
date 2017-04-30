@@ -578,7 +578,9 @@ Many languages have numeric literal suffixes to indicate a number is a specific 
 
 ### Private, Public, and Static types and methods
 
-Unlike other proposals adding types allows for robust type checking that allows for private, public, and static member and method checks.
+Unlike other proposals adding types allows for robust type checking that allows for private, public, and static member and method checks. It can be added like this:
+
+https://github.com/sirisian/ecmascript-public-private-static
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
