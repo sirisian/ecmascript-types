@@ -576,6 +576,10 @@ Having function overloading removes most use cases for TypeScript's union types 
 
 Many languages have numeric literal suffixes to indicate a number is a specific data type. This isn't necessary if explicit casts are used. Since there are so many types, the use of suffixes would not be overly readable. The goal was to keep type names to a minimum number of characters also so that literals are less needed.
 
+### Private, Public, and Static types and methods
+
+Unlike other proposals adding types allows for robust type checking that allows for private, public, and static member and method checks.
+
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
 
