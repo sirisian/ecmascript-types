@@ -602,6 +602,19 @@ Would need to include the types listed above. Probably in a more verbose view th
 
 New sections would need to be added to cover every new type proposed above. Not too bad, most of the types are very well defined regarding ranges and behavior. The ones that need a bit of work are bigint, rational, and complex.
 
+https://en.wikipedia.org/wiki/Half-precision_floating-point_format  
+https://en.wikipedia.org/wiki/Single-precision_floating-point_format  
+https://en.wikipedia.org/wiki/Double-precision_floating-point_format  
+https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format
+
+https://en.wikipedia.org/wiki/Decimal32_floating-point_format  
+https://en.wikipedia.org/wiki/Decimal64_floating-point_format  
+https://en.wikipedia.org/wiki/Decimal128_floating-point_format
+
+https://en.wikipedia.org/wiki/Rational_data_type
+
+https://en.wikipedia.org/wiki/Complex_data_type
+
 ### 11.6.2.1
 
 Move enum from 11.6.2.2 to 11.6.2.1.
