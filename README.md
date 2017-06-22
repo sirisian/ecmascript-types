@@ -149,6 +149,12 @@ let foo:uint8[10:uint64];
 let bar = foo.length; // uint64 with value 10
 ```
 
+```js
+let n = 10;
+let foo:uint8[n:uint64];
+let bar = foo.length; // uint64 with value 10
+```
+
 ### Mixing Variable-length and Fixed-length Arrays
 
 ```js
