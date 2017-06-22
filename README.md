@@ -228,20 +228,20 @@ Object destructuring with default values:
 Object destructuring with default value and new name:
 
 ```js
-let { a:uint8:b = 1 } = { a: 2 }; // b is 2
+let { a:uint8: b = 1 } = { a: 2 }; // b is 2
 ```
 
 Alternatively assigning to an already declared variable:
 
 ```js
 let b:uint8;
-({ a:uint8:b = 1 } = { a: 2 }); // b is 2
+({ a:uint8: b = 1 } = { a: 2 }); // b is 2
 ```
 
 Also for completeness using destructuring with functions:
 
 ```js
-(function({a:uint8:b = 0, b:uint8:a = 0}, [c:uint8])
+(function({a:uint8: b = 0, b:uint8: a = 0}, [c:uint8])
 {
     // a = 2, b = 1, c = 0
 })({a: 1, b: 2}, [0]);
@@ -262,20 +262,20 @@ Up for debate is if accessing the separate functions is required. Functions are 
 Syntax:
 
 ```js
-let o = { a:uint8:1 };
+let o = { a:uint8: 1 };
 ```
 
 This syntax works with any arrays:
 
 ```js
 let o = { a:[] }; // Normal array syntax works as expected
-let o = { a:[]:[] }; // With typing this is identical to the above
+let o = { a:[]: [] }; // With typing this is identical to the above
 ```
 
 Object.defineProperty and Object.defineProperties have a type property in the descriptor that accepts a type or string representing a type:
 
 ```js
-Object.defineProperty(o, 'foo', { type: uint8 }); // using the type
+Object.defineProperty(o, 'foo', { type:uint8 }); // using the type
 Object.defineProperty(o, 'foo', { type: 'uint8' }); // using a string representing the type
 ```
 
@@ -284,13 +284,13 @@ Object.defineProperties(o,
 {
     'foo':
     {
-        type: uint8,
+        type:uint8,
         value: 0,
         writable: true
     },
     'bar':
     {
-        type: string,
+        type:string,
         value: 'Hello',
         writable: true
     }
@@ -370,8 +370,8 @@ function AlwaysReturnValue(value:float32) { /* ... */ }
 ```js
 class Vector2d
 {
-    x: float32;
-    y: float32;
+    x:float32;
+    y:float32;
     constructor(x:float32 = 0, y:float32 = 0)
     {
         this.x = x;
@@ -550,8 +550,8 @@ A generic class example:
 ```js
 class Vector2d<T>
 {
-    x: T;
-    y: T;
+    x:T;
+    y:T;
     constructor(x:T = 0, y:T = 0) // T could be inferred, but that might be asking too much. In any case T must have a constructor supporting a parameter 0 if this is a class.
     {
         this.x = x;
