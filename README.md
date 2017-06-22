@@ -115,7 +115,7 @@ let foo:uint64[] = [1];
 let bar = uint32[](foo, 0, 2);
 ```
 
-### Fixed-length Typed Arrays:
+### Fixed-length Typed Arrays
 
 ```js
 let foo:uint8[4];
@@ -127,6 +127,27 @@ let bar:uint8[4] = [1, 2, 3, 4];
 ```
 
 Typed arrays would be zero-ed at creation.
+
+### Array length Type
+
+Valid types for defining the length of an array are as follows:
+
+int8/16/32/64
+uint8/16/32/64
+
+By default length is uint32.
+
+Syntax:
+
+```js
+let foo:uint8[int8];
+let bar = foo.length; // int8
+```
+
+```js
+let foo:uint8[10:uint64];
+let bar = foo.length; // uint64 with value 10
+```
 
 ### Mixing Variable-length and Fixed-length Arrays
 
