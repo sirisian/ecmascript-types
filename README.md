@@ -128,33 +128,6 @@ let bar:uint8[4] = [1, 2, 3, 4];
 
 Typed arrays would be zero-ed at creation.
 
-### Array length Type
-
-Valid types for defining the length of an array are as follows:
-
-int8/16/32/64
-uint8/16/32/64
-
-By default length is uint32.
-
-Syntax:
-
-```js
-let foo:uint8[int8];
-let bar = foo.length; // int8
-```
-
-```js
-let foo:uint8[10:uint64];
-let bar = foo.length; // uint64 with value 10
-```
-
-```js
-let n = 10;
-let foo:uint8[n:uint64];
-let bar = foo.length; // uint64 with value 10
-```
-
 ### Mixing Variable-length and Fixed-length Arrays
 
 ```js
@@ -185,6 +158,41 @@ Deleting a typed array element results in a type error:
 ```js
 const bar:uint8[] = [1, 2, 3, 4];
 delete bar[0]; // throws TypeError
+```
+
+### Array length Type And Operations
+
+Valid types for defining the length of an array are as follows:
+
+int8/16/32/64
+uint8/16/32/64
+
+By default length is uint32.
+
+Syntax:
+
+```js
+let foo:uint8[int8];
+let bar = foo.length; // int8
+```
+
+```js
+let foo:uint8[10:uint64];
+let bar = foo.length; // uint64 with value 10
+```
+
+```js
+let n = 10;
+let foo:uint8[n:uint64];
+let bar = foo.length; // uint64 with value 10
+```
+
+Setting the length reallocates the array truncating when applicable.
+
+```js
+let foo:uint8[10];
+foo.length = 5;
+foo.length = 15;
 ```
 
 ### Implicit Casting
