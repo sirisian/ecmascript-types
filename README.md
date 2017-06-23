@@ -164,7 +164,7 @@ delete bar[0]; // throws TypeError
 
 Valid types for defining the length of an array are as follows:
 
-int8/16/32/64
+int8/16/32/64  
 uint8/16/32/64
 
 By default length is uint32.
@@ -193,6 +193,37 @@ Setting the length reallocates the array truncating when applicable.
 let foo:uint8[10];
 foo.length = 5;
 foo.length = 15;
+```
+
+### Multidimensional and Jagged Array Support Via User-defined Index Operators
+
+Rather than definining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the index constructor creates an indexing function. More than one can defined as long as they have unique signatures.
+
+An example of a user-defined index to access a 16 element grid with (x, y) coordinates:
+
+```js
+let grid = new uint8[16:uint32, (x:uint32, y:uint32) => y * 4 + x];
+// grid[0] = 10; // type error, expected two arguments
+grid[2, 1] = 10;
+```
+
+```js
+let grid = new uint8[16:uint32, i => i, (x:uint32, y:uint32) => y * 4 + x];
+grid[0] = 10;
+grid[2, 1] = 10;
+```
+
+For a variable-length array it works as expected where the user drops the length:
+
+```js
+var grid = new uint8[(x, y, z) => z * 4 * 4 + y * 4 + x];
+var grid2 = new uint8[uint64, (x, y, z) => z * 4 * 4 + y * 4 + x];
+```
+
+Views also work as expected allowing one to apply custom indexing to existing arrays:
+
+```js
+var gridView = new uint32[(x, y, z) => z * 4 * 4 + y * 4 + x](grid.buffer);
 ```
 
 ### Implicit Casting
