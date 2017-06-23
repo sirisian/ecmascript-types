@@ -223,7 +223,7 @@ var grid2 = new uint8[uint64, (x, y, z) => z * 4 * 4 + y * 4 + x];
 Views also work as expected allowing one to apply custom indexing to existing arrays:
 
 ```js
-var gridView = new uint32[(x, y, z) => z * 4 * 4 + y * 4 + x](grid.buffer);
+var gridView = new uint32[(x, y, z) => z * 4 * 4 + y * 4 + x](grid);
 ```
 
 ### Implicit Casting
