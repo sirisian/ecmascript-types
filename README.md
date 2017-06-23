@@ -197,13 +197,13 @@ foo.length = 15;
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 
-Rather than definining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the index constructor creates an indexing function. More than one can defined as long as they have unique signatures.
+Rather than definining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the "index constructor" creates an indexing function. More than one can be defined as long as they have unique signatures.
 
 An example of a user-defined index to access a 16 element grid with (x, y) coordinates:
 
 ```js
 let grid = new uint8[16:uint32, (x:uint32, y:uint32) => y * 4 + x];
-// grid[0] = 10; // type error, expected two arguments
+// grid[0] = 10; // throws Error, invalid arguments
 grid[2, 1] = 10;
 ```
 
@@ -407,7 +407,7 @@ let foo:float32 = float32.parse('1.2');
 Going from a scalar to a vector:
 
 ```js
-let v:float32x4 = 1; // Equivalent to an ES7 SIMD splat, so let v = float32x4(1, 1, 1, 1);
+let v:float32x4 = 1; // Equivalent to let v = float32x4(1, 1, 1, 1);
 ```
 
 ### Implicit Array Cast
