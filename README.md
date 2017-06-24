@@ -193,7 +193,7 @@ foo.length = 15;
 Like TypedArray views this array syntax allows any array, even arrays of typed objects to be viewed as different objects. Stride would have performance implications but would allow for a single view to access elements with padding between elements.
 
 ```js
-let view = new Type[](buffer [, byteOffset [, length]]);
+let view = new Type[](buffer [, byteOffset [, byteLength [, byteStride]]]);
 ```
 
 ```js
