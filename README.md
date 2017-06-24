@@ -198,7 +198,7 @@ let view = new Type[](buffer [, byteOffset [, byteLength [, byteStride]]]);
 
 ```js
 let foo:uint64[] = [1];
-let bar = uint32[](foo, 0, 2);
+let bar = uint32[](foo, 0, 8);
 ```
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
