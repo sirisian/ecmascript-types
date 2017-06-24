@@ -108,13 +108,6 @@ foo['0'] = 'foobar'; // property '0'
 delete foo['0'];
 ```
 
-TypedArray views:
-
-```js
-let foo:uint64[] = [1];
-let bar = uint32[](foo, 0, 2);
-```
-
 ### Fixed-length Typed Arrays
 
 ```js
@@ -193,6 +186,19 @@ Setting the length reallocates the array truncating when applicable.
 let foo:uint8[10];
 foo.length = 5;
 foo.length = 15;
+```
+
+### Array views:
+
+Like TypedArray views this array syntax allows any array, even arrays of typed objects to be viewed as different objects. Stride would have performance implications but would allow for a single view to access elements with padding between elements.
+
+```js
+let view = new Type[](buffer [, byteOffset [, length]]);
+```
+
+```js
+let foo:uint64[] = [1];
+let bar = uint32[](foo, 0, 2);
 ```
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
