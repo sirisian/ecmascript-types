@@ -426,7 +426,7 @@ let t:MyType[] = [1, 2, 3, uint32(1)];
 
 ### Decorators
 
-Types would function exactly like you'd expect with decorators in ES7, but with the addition that they can be overloaded:
+Types would function exactly like you'd expect with decorators, but with the addition that they can be overloaded:
 ```js
 function AlwaysReturnValue(value:uint32)
 {
@@ -542,7 +542,7 @@ new enum(':uint8', 'a', 0, 'b', 1);
 new enum(':string', 'None', 'none', 'Flag1', '(index, name) => name', 'Flag2', 'Flag3'); // This doesn't make much sense though since the value pairing is broken. Need a different syntax
 ```
 
-### Rest Parameters (ES6)
+### Rest Parameters
 
 ```js
 function Foo(a:string, ...args:uint32) {}
