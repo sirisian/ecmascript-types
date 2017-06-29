@@ -193,13 +193,15 @@ foo.length = 15;
 Like TypedArray views this array syntax allows any array, even arrays of typed objects to be viewed as different objects. Stride would have performance implications but would allow for a single view to access elements with padding between elements.
 
 ```js
-let view = new Type[](buffer [, byteOffset [, byteLength [, byteStride]]]);
+let view = Type[](buffer [, byteOffset [, byteLength [, byteStride]]]);
 ```
 
 ```js
 let foo:uint64[] = [1];
 let bar = uint32[](foo, 0, 8);
 ```
+
+Take special note of the lack of "new" in this syntax. Adding new in the above case would pass the arguments to the constructor for each element.
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 
@@ -593,11 +595,11 @@ catch (e)
 Arbitrary arrays can be allocated into using the placement new syntax. This works with both a single instance and array of instances.
 
 ```js
-let foo = new(buffer, byteOffset) Type(20);
+let foo = new(buffer, byteOffset) MyType(20);
 ```
 
 ```js
-let foo = new(buffer, byteOffset, byteStride) Type[10](20);
+let foo = new(buffer, byteOffset, byteStride) MyType[10](20);
 ```
 
 ### Global Objects
