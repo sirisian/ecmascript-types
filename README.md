@@ -588,6 +588,18 @@ catch (e)
 }
 ```
 
+### Placement New
+
+Arbitrary arrays can be allocated into using the placement new syntax. This works with both a single instance and array of instances.
+
+```js
+let foo = new(buffer, byteOffset) Type(20);
+```
+
+```js
+let foo = new(buffer, byteOffset, byteStride) Type[10](20);
+```
+
 ### Global Objects
 
 The following global objects could be used as types:
