@@ -1,4 +1,4 @@
-# ES8 Proposal: Optional Static Typing
+# ECMAScript Proposal: Optional Static Typing
 
 Current status of this proposal is -1. It's in a theoretical state at the moment to better understand how types could function in Javascript and the long-term future benefits or complications they could cause to future proposals.
 
