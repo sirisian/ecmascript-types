@@ -394,6 +394,11 @@ let t:MyType = 1; // float32 constructor call
 let t:MyType = uint32(1); // uint32 constructor called
 ```
 
+Constructing arrays all of the same type:
+```js
+let t = new MyType[5](1);
+```
+
 ### parseFloat and parseInt For Each New Type
 
 For integers (including bigint) the parse function would have the signature parse(string, radix = 10).
