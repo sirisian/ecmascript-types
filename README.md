@@ -429,7 +429,7 @@ let foo:float32x4 = 1; // Equivalent to let foo = float32x4(1, 1, 1, 1);
 let foo:MyType[] = [1, 2, 3, uint32(1)];
 ```
 
-### Initializer list for array of class instances
+### Initializer List for Array of Class Instances
 
 Implicit array casting already exists for single variables as defined above. It's possible one might want to compactly create instances. The following syntax is proposed:
 
