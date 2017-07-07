@@ -479,7 +479,7 @@ class Vector2d
 }
 ```
 
-### Partial Class
+### Class Extension
 
 Example defined in say MyClass.js defining extensions to Vector2d defined above:
 
@@ -496,6 +496,8 @@ class Vector2d
     }
 }
 ```
+
+Note that no members may be defined in an extension class. The new methods are simply appended to the existing class definition.
 
 ### SIMD Operators
 
@@ -672,6 +674,16 @@ Many languages have numeric literal suffixes to indicate a number is a specific 
 Unlike other proposals adding types allows for robust type checking that allows for private, public, and static member and method checks. It can be added like this:
 
 https://github.com/sirisian/ecmascript-public-private-static
+
+### Partial Class
+
+```js
+partial class MyType
+{
+}
+```
+
+Partial classes are when you define a single class into multiple pieces. When using partial classes the ordering members would be undefined. What this means is you cannot create views of a partial class using the normal array syntax and this would throw an error.
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
