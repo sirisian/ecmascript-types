@@ -443,6 +443,8 @@ let foo = new MyType[] = [new MyType(10, 20), new MyType(30, 40), 10];
 
 Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that [(10, 20), 30] is [20, 30] when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
 
+Initializer lists work well with SIMD to create compact arrays of vectors:
+
 ```js
 let foo = new float32x4[] =
 [
