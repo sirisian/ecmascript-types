@@ -454,6 +454,15 @@ let foo = new float32x4[] =
 ];
 ```
 
+The syntax also has to work with typed functions intuitively:
+```js
+function Foo(foo:float32x4)
+{
+}
+
+Foo([(1, 2, 3, 4)]);
+```
+
 ### Decorators
 
 Types would function exactly like you'd expect with decorators, but with the addition that they can be overloaded:
