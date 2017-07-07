@@ -420,14 +420,28 @@ let foo:float32 = float32.parse('1.2');
 Going from a scalar to a vector:
 
 ```js
-let v:float32x4 = 1; // Equivalent to let v = float32x4(1, 1, 1, 1);
+let foo:float32x4 = 1; // Equivalent to let foo = float32x4(1, 1, 1, 1);
 ```
 
 ### Implicit Array Cast
 
 ```js
-let t:MyType[] = [1, 2, 3, uint32(1)];
+let foo:MyType[] = [1, 2, 3, uint32(1)];
 ```
+
+### Initializer list for array of class instances
+
+Implicit array casting already exists for single variables as defined above. It's possible one might want to compactly create instances. The following syntax is proposed:
+
+```js
+let foo = new MyType[] = [(10, 20), (30, 40), 10];
+```
+This would be equivalent to:
+```js
+let foo = new MyType[] = [new MyType(10, 20), new MyType(30, 40), 10];
+```
+
+Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that [(10, 20), 30] is [20, 30] when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
 
 ### Decorators
 
