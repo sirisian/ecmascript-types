@@ -643,6 +643,35 @@ let foo = new(buffer, byteOffset) MyType(20);
 let foo = new(buffer, byteOffset, byteStride) MyType[10](20);
 ```
 
+### Control Structures
+
+## if else
+
+A table should be included here with every type and which values evaluate to executing. At first glance it might just be 0 and NaN do not execute and all other values do. SIMD types probably would not implicitly cast to boolean and attempting to would produce a TypeError indicating no implicit cat is available.
+
+## switch
+
+The variable used in a switch statement must be integral. Specifically int8/16/32/64, uint8/16/32/64, and Number. Most languages do not allow floating point case statements unless they also support ranges. This could be considered later.
+
+Enumerations can be used dependent on if their type is integral.
+```js
+let foo:uint32 = 10;
+switch (foo)
+{
+    case 10:
+        break;
+    case `baz`: // TypeError unexpected string literal, expected uint32 literal
+        break;
+}
+```
+
+```js
+let foo:float32 = 1.23;
+switch (foo) // TypeError float32 cannot be used in the switch variable
+{
+}
+```
+
 ### Global Objects
 
 The following global objects could be used as types:
