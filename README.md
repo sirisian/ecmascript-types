@@ -651,9 +651,9 @@ A table should be included here with every type and which values evaluate to exe
 
 ## switch
 
-The variable used in a switch statement must be integral. Specifically int8/16/32/64, uint8/16/32/64, and Number. Most languages do not allow floating point case statements unless they also support ranges. This could be considered later.
+The variable when typed in a switch statement must be integral or a string type. Specifically int8/16/32/64, uint8/16/32/64, number, and string. Most languages do not allow floating point case statements unless they also support ranges. (This could be considered later with causing backwards compatability issues).
 
-Enumerations can be used dependent on if their type is integral.
+Enumerations can be used dependent on if their type is integral or string.
 ```js
 let foo:uint32 = 10;
 switch (foo)
@@ -747,6 +747,19 @@ partial class MyType
 ```
 
 Partial classes are when you define a single class into multiple pieces. When using partial classes the ordering members would be undefined. What this means is you cannot create views of a partial class using the normal array syntax and this would throw an error.
+
+### Switch ranges
+
+If case ranges were added and switches were allowed to use non-integral and non-string types then the following syntax could be used in future proposals without conflicting since this proposal would throw a TypeError restricting all cases of its usage keeping the behavior open for later ideas.
+
+```js
+let foo:float32 = 1 / 5;
+switch (foo)
+{
+    case 0..0.99:
+        break;
+}
+```
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
