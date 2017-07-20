@@ -647,7 +647,7 @@ let foo = new(buffer, byteOffset, byteStride) MyType[10](20);
 
 ## if else
 
-A table should be included here with every type and which values evaluate to executing. At first glance it might just be 0 and NaN do not execute and all other values do. SIMD types probably would not implicitly cast to boolean and attempting to would produce a TypeError indicating no implicit cat is available.
+A table should be included here with every type and which values evaluate to executing. At first glance it might just be 0 and NaN do not execute and all other values do. SIMD types probably would not implicitly cast to boolean and attempting to would produce a TypeError indicating no implicit cast is available.
 
 ## switch
 
