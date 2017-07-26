@@ -769,7 +769,7 @@ Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
 Current Mailing List Thread: https://esdiscuss.org/topic/optional-static-typing-part-2  
 
 Original thread: https://esdiscuss.org/topic/es8-proposal-optional-static-typing  
-This one contains a lot of my old thoughts (at least the stuff from 8 months ago):   https://esdiscuss.org/topic/proposal-for-new-floating-point-and-integer-data-types  
+This one contains a lot of my old thoughts:   https://esdiscuss.org/topic/proposal-for-new-floating-point-and-integer-data-types  
 https://esdiscuss.org/topic/optional-strong-typing  
 https://esdiscuss.org/topic/optional-argument-types  
 
