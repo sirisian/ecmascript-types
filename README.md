@@ -240,7 +240,7 @@ The default numeric type Number would convert implicitly with precedence given t
 
 ```js
 function Foo(foo:float32) { }
-function Foo(foo:uint32 { }
+function Foo(foo:uint32) { }
 Foo(1); // float32 called
 Foo(uint32(1)); // uint32 called
 ```
