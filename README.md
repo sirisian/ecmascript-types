@@ -672,6 +672,38 @@ switch (foo) // TypeError float32 cannot be used in the switch variable
 }
 ```
 
+### Member memory alignment and offset
+
+Two new keys would be added to the Object.defineProperty called align and offset. For consistency between codebases two reserved decorators would be created called align and offset. These would just set the underlying keys with byte values. Offset is always defined as the number of bytes from the start of the instance allocation in memory. It's possible to create a union by defining overlapping offsets.
+
+Along with the member decorators, two class reserved properties would be created, align and size. These would control the allocated memory alignment of the instances and the allocated size of the object.
+
+```js
+@align(16) // Foo.align = 16; Defines the class memory alignment to be 16 byte aligned
+@size(32) // Foo.size = 32; Defines the class as 32 bytes. Pads with zeros when allocating
+class Foo
+{
+    @offset(2)
+    x:float32; // Aligned to 16 bytes because of the class alignment and offset by 2 bytes because of the property alignment
+    @align(4)
+    y:float32x4; // 2 (from the offset above) + 4 (for x) is 6 bytes and we said it has to be aligned to 4 bytes so 8 bytes offset from the start of the allocation. Instead of @align(4) we could have put @offset(8)
+}
+```
+
+These language features only apply if all the properties in a class are typed. Adding properties later with Object.defineProperty is allowed, but new properties are appended to the end. It's likely that one would need to remove and readd all the properties if the goal is to change the structure. Or offset could be modified with Object.defineProperty to rearrange the properties.
+
+As example of overlapping properties using offset creating a union where both properties map to the same memory:
+
+```js
+class Foo // 16 bytes
+{
+    @offset(0)
+    x:float32x4;
+    @offset(0)
+    y:int32x4;
+}
+```
+
 ### Global Objects
 
 The following global objects could be used as types:
@@ -758,6 +790,26 @@ switch (foo)
 {
     case 0..0.99:
         break;
+}
+```
+
+### Bit-fields
+
+These are incredibly niche. That said I've had at least one person mention them to me in an issue. C itself has many rules like that property order is undefined allowing properties to be rearranged more optimally meaning the memory layout isn't defined. This would all have to be defined probably since some view this as a benefit and others view it as a design problem. Controlling options with decorators might be ideal. Packing and other rules would also need to be clearly defined.
+
+Would allow the following types to define bit lengths.
+
+```
+bool
+int8/16/32/64
+uint8/16/32/64
+```
+
+```js
+class Vector2d
+{
+    x:uint8(4); // 4 bits
+    y:uint8(4); // 4 bits
 }
 ```
 
