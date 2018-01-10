@@ -836,7 +836,7 @@ Or
 catch (e:Error => console.log(e.message))
 ```
 
-This accomplishes exception filters without requiring a second keyword. That said it would probably not be a true lambda and instead be limited to only expressions.
+This accomplishes exception filters without requiring a keyword like "when". That said it would probably not be a true lambda and instead be limited to only expressions.
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
