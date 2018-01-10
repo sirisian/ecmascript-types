@@ -96,45 +96,45 @@ let foo:[];
 ```js
 let foo:uint8[];
 foo.push(1);
-let bar:uint8[] = [1, 2, 3, 4];
+let bar:uint8[] = [0, 1, 2, 3];
 ```
 
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
 
 ```js
-let foo:uint8[] = [1, 2, 3, 4];
-foo['0'] = 'foobar'; // property '0'
-'0' in foo; // true
-delete foo['0'];
+let foo:uint8[] = [0, 1, 2, 3];
+foo['a'] = 'foobar';
+'a' in foo; // true
+delete foo['a'];
 ```
 
 ### Fixed-length Typed Arrays
 
 ```js
 let foo:uint8[4];
-foo.push(0); // invalid
-foo.pop(); // invalid
+// foo.push(0); TypeError: foo is fixed-length
+// foo.pop(); TypeError: foo is fixed-length
 foo[0] = 1; // valid
-foo[foo.length] = 2;  // invalid
-let bar:uint8[4] = [1, 2, 3, 4];
+// foo[foo.length] = 2; Out of range
+let bar:uint8[4] = [0, 1, 2, 3];
 ```
 
-Typed arrays would be zero-ed at creation.
+Typed arrays would be zero-ed at creation. That is the allocated memory would be set to all zeroes.
 
 ### Mixing Variable-length and Fixed-length Arrays
 
 ```js
 function Foo(p:boolean):uint8[] // default case, return a resizable array
 {
-    let foo:uint8[4] = [1, 2, 3, 4];
-    let bar:uint8[6] = [1, 2, 3, 4, 5, 6];
+    let foo:uint8[4] = [0, 1, 2, 3];
+    let bar:uint8[6] = [0, 1, 2, 3, 4, 5];
     return p ? foo : bar;
 }
 
 function Foo(p:boolean):uint8[6] // return a resized foo
 {
-    let foo:uint8[4] = [1, 2, 3, 4];
-    let bar:uint8[6] = [1, 2, 3, 4, 5, 6];
+    let foo:uint8[4] = [0, 1, 2, 3];
+    let bar:uint8[6] = [0, 1, 2, 3, 4, 5];
     return p ? foo : bar;
 }
 ```
@@ -149,8 +149,8 @@ let foo:[]? = null; // nullable array
 Deleting a typed array element results in a type error:
 
 ```js
-const bar:uint8[] = [1, 2, 3, 4];
-delete bar[0]; // throws TypeError
+const bar:uint8[] = [0, 1, 2, 3];
+// delete bar[0]; TypeError
 ```
 
 ### Array length Type And Operations
@@ -165,27 +165,32 @@ By default length is uint32.
 Syntax:
 
 ```js
-let foo:uint8[int8];
-let bar = foo.length; // int8
+let foo:uint8[int8] = [0, 1, 2, 3, 4];
+let bar = foo.length; // length is type int8
 ```
 
 ```js
-let foo:uint8[10:uint64];
-let bar = foo.length; // uint64 with value 10
+let foo:uint8[5:uint64] = [0, 1, 2, 3, 4];
+let bar = foo.length; // length is type uint64 with value 5
 ```
 
 ```js
-let n = 10;
-let foo:uint8[n:uint64];
-let bar = foo.length; // uint64 with value 10
+let n = 5;
+let foo:uint8[n:uint64] = [0, 1, 2, 3, 4];
+let bar = foo.length; // length is type uint64 with value 5
 ```
 
 Setting the length reallocates the array truncating when applicable.
 
 ```js
-let foo:uint8[10];
-foo.length = 5;
-foo.length = 15;
+let foo:uint8[] = [0, 1, 2, 3, 4];
+foo.length = 4; // [0, 1, 2, 4]
+foo.length = 6; // [0, 1, 2, 4, 0, 0]
+```
+
+```js
+let foo:uint8[5] = [0, 1, 2, 3, 4];
+// foo.length = 4; TypeError foo is fixed-length
 ```
 
 ### Array views:
@@ -205,13 +210,13 @@ Take special note of the lack of "new" in this syntax. Adding new in the above c
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 
-Rather than definining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the "index constructor" creates an indexing function. More than one can be defined as long as they have unique signatures.
+Rather than definining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the "index constructor" creates an indexing function. More than one can be defined as long as they have unique signatures. The signature (x:string) is reserved for keys and can't be used.
 
 An example of a user-defined index to access a 16 element grid with (x, y) coordinates:
 
 ```js
 let grid = new uint8[16:uint32, (x:uint32, y:uint32) => y * 4 + x];
-// grid[0] = 10; // throws Error, invalid arguments
+// grid[0] = 10; Error, invalid arguments
 grid[2, 1] = 10;
 ```
 
