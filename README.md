@@ -820,6 +820,24 @@ class Vector2d
 }
 ```
 
+### Exception filters
+
+See https://github.com/sirisian/ecmascript-types/issues/22
+
+A very compact syntax can be used later for exception filters:
+
+```js
+catch (e:Error => e.message == `foo`)
+```
+
+Or
+
+```js
+catch (e:Error => console.log(e.message))
+```
+
+This accomplishes exception filters without requiring a second keyword. That said it would probably not be a true lambda and instead be limited to only expressions.
+
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
 
