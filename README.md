@@ -94,9 +94,10 @@ let foo:[];
 ### Variable-length Typed Arrays
 
 ```js
-let foo:uint8[];
-foo.push(1);
+let foo:uint8[]; // []
+foo.push(0); // [0]
 let bar:uint8[] = [0, 1, 2, 3];
+let baz:uint8[]?; // null
 ```
 
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
@@ -111,12 +112,13 @@ delete foo['a'];
 ### Fixed-length Typed Arrays
 
 ```js
-let foo:uint8[4];
+let foo:uint8[4]; // [0, 0, 0, 0]
 // foo.push(0); TypeError: foo is fixed-length
 // foo.pop(); TypeError: foo is fixed-length
 foo[0] = 1; // valid
 // foo[foo.length] = 2; Out of range
 let bar:uint8[4] = [0, 1, 2, 3];
+let baz:uint8[4]?; // null
 ```
 
 Typed arrays would be zero-ed at creation. That is the allocated memory would be set to all zeroes.
