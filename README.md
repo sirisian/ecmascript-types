@@ -599,9 +599,10 @@ enum.prototype.entries() // Array Iterator with [key, value]
 enum.prototype.forEach((key, value, enumeration) => {})
 enum.prototype.filter((key, value, enumeration) => {}) // returns an Array
 enum.prototype.map((key, value, enumeration) => {}) // returns an Array
+enum.prototype[@@iterator]()
 ```
 
-enum.prototype[@@iterator]() would work like so:
+Iteration would work like this:
 
 ```js
 enum Count { Zero, One, Two };
