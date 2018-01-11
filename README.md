@@ -590,6 +590,28 @@ new enum(':uint8', 'a', 0, 'b', 1);
 new enum(':string', 'None', 'none', 'Flag1', '(index, name) => name', 'Flag2', 'Flag3'); // This doesn't make much sense though since the value pairing is broken. Need a different syntax
 ```
 
+Similar to Array there would be a number of reserved functions:
+
+```js
+enum.prototype.keys() // Array Iterator with the string keys
+enum.prototype.values() // Array Iterator with the values
+enum.prototype.entries() // Array Iterator with [key, value]
+enum.prototype.forEach((key, value, enumeration) => {})
+enum.prototype.filter((key, value, enumeration) => {}) // returns an Array
+enum.prototype.map((key, value, enumeration) => {}) // returns an Array
+```
+
+enum.prototype[@@iterator]() would work like so:
+
+```js
+enum Count { Zero, One, Two };
+
+for (let [key, value] of Count)
+{
+    // key = 'Zero', value = 0
+}
+```
+
 ### Rest Parameters
 
 ```js
