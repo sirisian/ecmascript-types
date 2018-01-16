@@ -752,7 +752,7 @@ import {int8, int16, int32, int64} from "@valueobjects";
 
 ## Overview of Future Considerations and Concerns
 
-### Generic Functions
+### Generics
 
 This section is to show that a generic syntax can be seamlessly added with no syntax issues. A generic function example:
 
@@ -781,6 +781,12 @@ class Vector2d<T>
 Generic constraints aren't defined here but would need to be. TypeScript has their extends type syntax. Being able to constrain T to an interface seems like an obvious requirement. Also being able to constrain to a list of specific types or specifically to numeric, floating point, or integer types. Another consideration is being able to support a default type. Also generic specialization for specific types that require custom definitions. There's probably more to consider, but those are the big ideas for generics.
 
 Typedefs or aliases for types are a requirement. Not sure what the best syntax is for proposing these. There's a lot of ways to approach them. TypeScript has a system, but I haven't seen alternatives so it's hard for me to judge if it's the best or most ideal syntax.
+
+### Interfaces
+
+Taken from TypeScript an interface allows for structural subtyping, essentiall structure matching.
+
+See: https://www.typescriptlang.org/docs/handbook/interfaces.html
 
 ### Value Type Classes
 
