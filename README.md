@@ -33,6 +33,8 @@ any
 void
 ```
 
+These types once imported behave like a const and cannot be reassigned.
+
 ### Deprecated Keywords
 
 In theory the following current keywords could be deprecated in the very long-term: Boolean, Number, String, Symbol, and the TypedArray objects. Their methods and features would be rolled into the new type system.
