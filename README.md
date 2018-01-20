@@ -330,6 +330,40 @@ Also for completeness using destructuring with functions:
 })({a: 1, b: 2}, [0]);
 ```
 
+### Typed Assignment
+
+A variable by default is typed 'any' meaning its dynamic and its type changes depending on the last assigned value. As an example one can write:
+
+```js
+let a = new MyType();
+a = 5; // foo is type 'any' and is 5
+```
+If one wants to constrain the type of foo they can write:
+```js
+let a:MyType = new MyType();
+// a = 5; // TypeError, foo is type MyType
+```
+
+This redundancy in declaring types for the variable can be removed with a typed assignment:
+
+```js
+let a := new MyType(); // foo is MyType
+// a = 5; // TypeError, foo is type MyType
+```
+
+This new form of assignment is useful with both var and let declarations. With const it has no uses:
+
+```js
+const a = new MyType(); // a is type MyType
+const b:MyType = new MyType(); // Redundant, b is type MyType even without explicitly specifying the type
+const c := new MyType(); // Redundant, b is type MyType even without explicitly specifying the type
+const d:MyType = 1; // Calls a matching constructor
+const e:uint8 = 1; // Without the type this would have been typed Number
+class A {}
+class B extends A {}
+const f:A = new B(); // This might not even be useful to allow
+```
+
 ### Function Overloading
 
 ```js
