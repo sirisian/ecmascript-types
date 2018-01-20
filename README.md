@@ -10,7 +10,7 @@ The types described below bring ECMAScript in line or surpasses the type systems
 
 ### Types Proposed
 
-Since it would be potentially years before this would be implemented this proposal includes a new keyword "enum" for enumerated types and the following types:
+Since it would be potentially years before this would be implemented this proposal includes a new keyword ```enum``` for enumerated types and the following types:
 
 ```
 number
@@ -74,7 +74,7 @@ Also this would be nice for function signatures.
 if (value instanceof (uint8):uint8) {}
 ```
 
-That would imply ```Object.getPrototypeOf(value) === ((uint8):uint8).prototype```
+That would imply ```Object.getPrototypeOf(value) === ((uint8):uint8).prototype```.
 
 I'm not well versed on if this makes sense though, but it would be like each typed function has a prototype defined by the signature.
 
