@@ -846,7 +846,7 @@ Many languages have numeric literal suffixes to indicate a number is a specific 
 
 Unlike other proposals adding types allows for robust type checking that allows for private, public, and static member and method checks. It can be added like this:
 
-https://github.com/sirisian/ecmascript-public-private-static
+https://github.com/sirisian/ecmascript-class-member-modifiers
 
 ### Partial Class
 
