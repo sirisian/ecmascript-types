@@ -33,11 +33,11 @@ any
 void
 ```
 
-These types once imported behave like a const and cannot be reassigned.
+These types once imported behave like a ```const``` declaration and cannot be reassigned.
 
 ### Deprecated Keywords
 
-In theory the following current keywords could be deprecated in the very long-term: Boolean, Number, String, Symbol, and the TypedArray objects. Their methods and features would be rolled into the new type system.
+In theory the following current keywords could be deprecated in the very long-term: ```Boolean```, ```Number```, ```String```, ```Symbol```, and the ```TypedArray``` objects. Their methods and features would be rolled into the new type system.
 
 ### Variable Declaration With Type
 
@@ -51,7 +51,7 @@ const foo:Type = value;
 
 ### typeof Operator
 
-One of the first complications with types is typeof's behavior. All of the above types would return their string conversion including bool. (I've spoken to many people now and "boolean" is seen as verbose among C++ and C# developers. Breaking this part of Java's influence probably wouldn't hurt to preserve consistency for the future).
+One of the first complications with types is ```typeof```'s behavior. All of the above types would return their string conversion including ```bool```. (I've spoken to many people now and "boolean" is seen as verbose among C++ and C# developers. Breaking this part of Java's influence probably wouldn't hurt to preserve consistency for the future).
 
 ```js
 let foo:uint8 = 0; // typeof foo == "uint8"
@@ -74,20 +74,20 @@ Also this would be nice for function signatures.
 if (value instanceof (uint8):uint8) {}
 ```
 
-That would imply Object.getPrototypeOf(value) === ((uint8):uint8).prototype
+That would imply ```Object.getPrototypeOf(value) === ((uint8):uint8).prototype```
 
 I'm not well versed on if this makes sense though, but it would be like each typed function has a prototype defined by the signature.
 
 ### Nullable Types
 
-By default all types except any are non-nullable. The syntax below creates a nullable uint8 variable:
+All types except ```any``` are non-nullable. The syntax below creates a nullable ```uint8``` typed variable:
 ```js
 let foo:uint8? = null; // typeof foo == "uint8?"
 ```
 
 ### any Type
 
-Using "any?" would result in a syntax error since "any" already includes nullable types. As would using "any[]" since it already includes array types. Using just "[]" would be the type for arrays that can contain anything. For example:
+Using ```any?``` would result in a syntax error since ```any``` already includes nullable types. As would using ```any[]``` since it already includes array types. Using just ```[]``` would be the type for arrays that can contain anything. For example:
 
 ```js
 let foo:[];
@@ -161,10 +161,10 @@ const bar:uint8[] = [0, 1, 2, 3];
 
 Valid types for defining the length of an array are as follows:
 
-int8/16/32/64  
-uint8/16/32/64
+```int8/16/32/64  
+uint8/16/32/64```
 
-By default length is uint32.
+By default ```length``` is ```uint32```.
 
 Syntax:
 
@@ -184,7 +184,7 @@ let foo:uint8[n:uint64] = [0, 1, 2, 3, 4];
 let bar = foo.length; // length is type uint64 with value 5
 ```
 
-Setting the length reallocates the array truncating when applicable.
+Setting the ```length``` reallocates the array truncating when applicable.
 
 ```js
 let foo:uint8[] = [0, 1, 2, 3, 4];
@@ -199,7 +199,7 @@ let foo:uint8[5] = [0, 1, 2, 3, 4];
 
 ### Array views:
 
-Like TypedArray views this array syntax allows any array, even arrays of typed objects to be viewed as different objects. Stride would have performance implications but would allow for a single view to access elements with padding between elements.
+Like ```TypedArray``` views this array syntax allows any array, even arrays of typed objects to be viewed as different objects. Stride would have performance implications but would allow for a single view to access elements with padding between elements.
 
 ```js
 let view = Type[](buffer [, byteOffset [, byteLength [, byteStride]]]);
@@ -210,13 +210,13 @@ let foo:uint64[] = [1];
 let bar = uint32[](foo, 0, 8);
 ```
 
-Take special note of the lack of "new" in this syntax. Adding new in the above case would pass the arguments to the constructor for each element.
+Take special note of the lack of ```new``` in this syntax. Adding new in the above case would pass the arguments to the constructor for each element.
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 
-Rather than definining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the "index constructor" creates an indexing function. More than one can be defined as long as they have unique signatures. The signature (x:string) is reserved for keys and can't be used.
+Rather than definining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the "index constructor" creates an indexing function. More than one can be defined as long as they have unique signatures. The signature ```(x:string)``` is reserved for keys and can't be used.
 
-An example of a user-defined index to access a 16 element grid with (x, y) coordinates:
+An example of a user-defined index to access a 16 element grid with ```(x, y)``` coordinates:
 
 ```js
 let grid = new uint8[16:uint32, (x:uint32, y:uint32) => y * 4 + x];
@@ -245,7 +245,7 @@ var gridView = new uint32[(x, y, z) => z * 4 * 4 + y * 4 + x](grid);
 
 ### Implicit Casting
 
-The default numeric type Number would convert implicitly with precedence given to decimal128/64/32, float128/80/64/32/16, uint64/32/16/8, int64/32/16/8. (This is up for debate). Examples are shown later with class constructor overloading.
+The default numeric type Number would convert implicitly with precedence given to ```decimal128/64/32```, ```float128/80/64/32/16```, ```uint64/32/16/8```, ```int64/32/16/8```. (This is up for debate). Examples are shown later with class constructor overloading.
 
 ```js
 function Foo(foo:float32) { }
@@ -332,7 +332,7 @@ Also for completeness using destructuring with functions:
 
 ### Typed Assignment
 
-A variable by default is typed **any** meaning its dynamic and its type changes depending on the last assigned value. As an example one can write:
+A variable by default is typed ```any``` meaning its dynamic and its type changes depending on the last assigned value. As an example one can write:
 
 ```js
 let a = new MyType();
@@ -351,7 +351,7 @@ let a := new MyType(); // a is type MyType
 // a = 5; // TypeError, a is type MyType
 ```
 
-This new form of assignment is useful with both var and let declarations. With const it has no uses:
+This new form of assignment is useful with both ```var``` and ```let``` declarations. With ```const``` it has no uses:
 
 ```js
 const a = new MyType(); // a is type MyType
@@ -372,7 +372,7 @@ function Foo(s:string[]) { return "string"; }
 Foo(["test"]); // "string"
 ```
 
-Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like Foo["(int32[])"] wouldn't be viable. It's possible Reflect could have something added to it to allow access.
+Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like ```Foo["(int32[])"]``` wouldn't be viable. It's possible ```Reflect``` could have something added to it to allow access.
 
 ### Object Typing
 
@@ -389,10 +389,10 @@ let o = { a:[] }; // Normal array syntax works as expected
 let o = { a:[]: [] }; // With typing this is identical to the above
 ```
 
-Object.defineProperty and Object.defineProperties have a type property in the descriptor that accepts a type or string representing a type:
+```Object.defineProperty``` and ```Object.defineProperties``` have a type property in the descriptor that accepts a type or string representing a type:
 
 ```js
-Object.defineProperty(o, 'foo', { type:uint8 }); // using the type
+Object.defineProperty(o, 'foo', { type: uint8 }); // using the type
 Object.defineProperty(o, 'foo', { type: 'uint8' }); // using a string representing the type
 ```
 
@@ -401,13 +401,13 @@ Object.defineProperties(o,
 {
     'foo':
     {
-        type:uint8,
+        type: uint8,
         value: 0,
         writable: true
     },
     'bar':
     {
-        type:string,
+        type: string,
         value: 'Hello',
         writable: true
     }
@@ -444,7 +444,7 @@ let t = new MyType[5](1);
 
 ### parseFloat and parseInt For Each New Type
 
-For integers (including bigint) the parse function would have the signature parse(string, radix = 10).
+For integers (including bigint) the parse function would have the signature ```parse(string, radix = 10)```.
 
 ```js
 let foo:uint8 = uint8.parse('1', 10);
@@ -452,7 +452,7 @@ let foo:uint8 = uint8.parse('1'); // Same as the above with a default 10 for rad
 let foo:uint8 = '1'; // Calls parse automatically making it identical to the above
 ```
 
-For floats, decimals, and rational the signature is just parse(string)
+For floats, decimals, and rational the signature is just ```parse(string)```.
 
 ```js
 let foo:float32 = float32.parse('1.2');
@@ -484,7 +484,7 @@ This would be equivalent to:
 let foo = new MyType[] = [new MyType(10, 20), new MyType(30, 40), 10];
 ```
 
-Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that [(10, 20), 30] is [20, 30] when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
+Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that ```[(10, 20), 30]``` is ```[20, 30]``` when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
 
 Initializer lists work well with SIMD to create compact arrays of vectors:
 
@@ -508,7 +508,7 @@ Foo([(1, 2, 3, 4)]);
 
 ### Decorators
 
-Types would function exactly like you'd expect with decorators, but with the addition that they can be overloaded:
+Types would function exactly like you'd expect with decorators, but with the addition that they can be overloaded.
 ```js
 function AlwaysReturnValue(value:uint32)
 {
@@ -558,7 +558,7 @@ class Vector2d
 
 ### Class Extension
 
-Example defined in say MyClass.js defining extensions to Vector2d defined above:
+Example defined in say ```MyClass.js``` defining extensions to ```Vector2d``` defined above:
 
 ```js
 class Vector2d
@@ -587,7 +587,7 @@ It's also possible to overload class operators to work with them, but the optimi
 
 ### enum Type
 
-Enumerations with enum that support any type including functions.
+Enumerations with ```enum``` that support any type including functions.
 ```js
 enum Count { Zero, One, Two }; // Starts at 0
 let c:Count = Count.Zero;
@@ -612,7 +612,7 @@ Count[0]; // Count.Zero
 Count['Zero']; // Count.Zero
 ```
 
-Get enum value as string:
+Get ```enum``` value as string:
 
 ```js
 Count.toString(Count.Zero); // 'Zero'
@@ -626,7 +626,7 @@ new enum(':uint8', 'a', 0, 'b', 1);
 new enum(':string', 'None', 'none', 'Flag1', '(index, name) => name', 'Flag2', 'Flag3'); // This doesn't make much sense though since the value pairing is broken. Need a different syntax
 ```
 
-Similar to Array there would be a number of reserved functions:
+Similar to ```Array``` there would be a number of reserved functions:
 
 ```js
 enum.prototype.keys() // Array Iterator with the string keys
@@ -717,7 +717,7 @@ A table should be included here with every type and which values evaluate to exe
 
 ## switch
 
-The variable when typed in a switch statement must be integral or a string type. Specifically int8/16/32/64, uint8/16/32/64, number, and string. Most languages do not allow floating point case statements unless they also support ranges. (This could be considered later with causing backwards compatability issues).
+The variable when typed in a switch statement must be integral or a string type. Specifically ```int8/16/32/64```, ```uint8/16/32/64```, ```number```, and ```string```. Most languages do not allow floating point case statements unless they also support ranges. (This could be considered later with causing backwards compatability issues).
 
 Enumerations can be used dependent on if their type is integral or string.
 ```js
@@ -740,9 +740,9 @@ switch (foo) // TypeError float32 cannot be used in the switch variable
 
 ### Member memory alignment and offset
 
-Two new keys would be added to the Object.defineProperty called align and offset. For consistency between codebases two reserved decorators would be created called align and offset that would set the underlying keys with byte values. Align defines the memory address to be a multiple of a given number. On some software architectures specialized move operations and cache boundaries can use these for small advantages. Offset is always defined as the number of bytes from the start of the instance allocation in memory. It's possible to create a union by defining overlapping offsets.
+Two new keys would be added to the Object.defineProperty called ```align``` and ```offset```. For consistency between codebases two reserved decorators would be created called ```@align``` and ```@offset``` that would set the underlying keys with byte values. Align defines the memory address to be a multiple of a given number. On some software architectures specialized move operations and cache boundaries can use these for small advantages. Offset is always defined as the number of bytes from the start of the instance allocation in memory. It's possible to create a union by defining overlapping offsets.
 
-Along with the member decorators, two class reserved properties would be created, align and size. These would control the allocated memory alignment of the instances and the allocated size of the instances.
+Along with the member decorators, two class reserved properties would be created, ```align``` and ```size```. These would control the allocated memory alignment of the instances and the allocated size of the instances.
 
 ```js
 @align(16) // Foo.align = 16; Defines the class memory alignment to be 16 byte aligned
@@ -756,9 +756,11 @@ class Foo
 }
 ```
 
-These language features only apply if all the properties in a class are typed. Adding properties later with Object.defineProperty is allowed, but new properties are appended to the end. It's likely that one would need to remove and readd all the properties if the goal is to change the structure. Or offset could be modified with Object.defineProperty to rearrange the properties.
+These language features only apply if all the properties in a class are typed along with the complete prototype chain. Adding properties later with ```Object.defineProperty``` is allowed, but new properties are appended to the end. Modifying properties in a ```super``` class would not be allowed. It's likely that one would need to remove and readd all the properties if the goal is to change the structure. Or ```offset``` could be modified with ```Object.defineProperty``` to rearrange the properties.
 
-An example of overlapping properties using offset creating a union where both properties map to the same memory:
+WIP: The behavior of modifying plain old data classes that are already used in arrays needs to be well-defined.
+
+An example of overlapping properties using ```offset``` creating a union where both properties map to the same memory:
 
 ```js
 class Foo // 16 bytes
@@ -774,7 +776,7 @@ class Foo // 16 bytes
 
 The following global objects could be used as types:
 
-DataView, Date, Error, EvalError, InternalError, Map, Promise, Proxy, RangeError, ReferenceError, RegExp, Set, SyntaxError, TypeError, URIError, WeakMap, WeakSet
+```DataView```, ```Date```, ```Error```, ```EvalError```, ```InternalError```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SyntaxError```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakSet```
 
 ## Undecided Topics
 
@@ -814,13 +816,13 @@ class Vector2d<T>
 }
 ```
 
-Generic constraints aren't defined here but would need to be. TypeScript has their extends type syntax. Being able to constrain T to an interface seems like an obvious requirement. Also being able to constrain to a list of specific types or specifically to numeric, floating point, or integer types. Another consideration is being able to support a default type. Also generic specialization for specific types that require custom definitions. There's probably more to consider, but those are the big ideas for generics.
+Generic constraints aren't defined here but would need to be. TypeScript has their extends type syntax. Being able to constrain ```T``` to an interface seems like an obvious requirement. Also being able to constrain to a list of specific types or specifically to numeric, floating point, or integer types. Another consideration is being able to support a default type. Also generic specialization for specific types that require custom definitions. There's probably more to consider, but those are the big ideas for generics.
 
 Typedefs or aliases for types are a requirement. Not sure what the best syntax is for proposing these. There's a lot of ways to approach them. TypeScript has a system, but I haven't seen alternatives so it's hard for me to judge if it's the best or most ideal syntax.
 
 ### Interfaces
 
-Taken from TypeScript an interface allows for structural subtyping, essentiall structure matching.
+Taken from TypeScript an interface allows for structural subtyping, essentially structure matching.
 
 See: https://www.typescriptlang.org/docs/handbook/interfaces.html
 
@@ -830,7 +832,11 @@ I left value type classes out of this discussion since I'm still not sure how th
 
 ### Union Types
 
-Having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed. (I imagine someone will create an interfaces proposal before that happens though).
+Having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed.
+
+```js
+let a:string|uint32 = `hello`;
+```
 
 ### Numeric Literals
 
@@ -854,7 +860,7 @@ Partial classes are when you define a single class into multiple pieces. When us
 
 ### Switch ranges
 
-If case ranges were added and switches were allowed to use non-integral and non-string types then the following syntax could be used in future proposals without conflicting since this proposal would throw a TypeError restricting all cases of its usage keeping the behavior open for later ideas.
+If case ranges were added and switches were allowed to use non-integral and non-string types then the following syntax could be used in future proposals without conflicting since this proposal would throw a ```TypeError``` restricting all cases of its usage keeping the behavior open for later ideas.
 
 ```js
 let foo:float32 = 1 / 5;
@@ -908,8 +914,9 @@ Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
 
 # Previous discussions
 
-Current Mailing List Thread: https://esdiscuss.org/topic/optional-static-typing-part-2  
+Current Mailing List Thread: https://esdiscuss.org/topic/proposal-optional-static-typing-part-3
 
+Second Thread: https://esdiscuss.org/topic/optional-static-typing-part-2  
 Original thread: https://esdiscuss.org/topic/es8-proposal-optional-static-typing  
 This one contains a lot of my old thoughts:   https://esdiscuss.org/topic/proposal-for-new-floating-point-and-integer-data-types  
 https://esdiscuss.org/topic/optional-strong-typing  
