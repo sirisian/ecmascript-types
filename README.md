@@ -909,6 +909,20 @@ catch (e:Error => console.log(e.message))
 
 This accomplishes exception filters without requiring a keyword like "when". That said it would probably not be a true lambda and instead be limited to only expressions.
 
+### Named Arguments
+
+Named arguments comes up once in a while as a compact way to skip default parameters.
+
+```js
+function f(a:uint8, b:string = 0, ...args:string) {}
+f(8, args:`a`, `b`);
+
+function g(option1:string, option2:string) {}
+// g(option2: `a`); Error no signature for g matches (option2:string)
+```
+
+The above syntax is probably what would be used and it has no obvious conflicts with types.
+
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
 
