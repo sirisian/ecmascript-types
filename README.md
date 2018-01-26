@@ -161,8 +161,10 @@ const bar:uint8[] = [0, 1, 2, 3];
 
 Valid types for defining the length of an array are as follows:
 
-```int8/16/32/64  
-uint8/16/32/64```
+```
+int8/16/32/64  
+uint8/16/32/64
+```
 
 By default ```length``` is ```uint32```.
 
