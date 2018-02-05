@@ -965,7 +965,7 @@ https://en.wikipedia.org/wiki/Complex_data_type
 
 Move enum from 11.6.2.2 to 11.6.2.1.
 
-### 11.8.3.1 Static Semantics: MV’s
+### 11.8.3.1 Static Semantics: MV
 
 This needs to be changed to work with more than Number. Ideally this operation is delayed until the type is determined. As an example the following should be intuitively legal without any Number conversion done.
 
@@ -1056,7 +1056,7 @@ THIS SECTION IS A WIP
 &nbsp;&nbsp;&nbsp;&nbsp;**break** **do** **in** **typeof** **case** **else** **instanceof** **var** **catch** **export** **new** **void** **class** **extends** **return** **while** **const** **finally** **super** **with** **continue** **for** **switch** **yield** **debugger** **function** **this** **default** **if** **throw** **delete** **import** **try** **enum**
 
 *FutureReservedWord* ::  
-&nbsp;&nbsp;&nbsp;&nbsp;**await**
+
 
 *Type* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**:** *ReservedTypes*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub>  
@@ -1096,3 +1096,24 @@ THIS SECTION IS A WIP
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier*  
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier* **=** *Literal*  
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier* **=** *ArrowFunction*
+
+
+*PropertyDefinition*<sub>[Yield, Await]</sub> :  
+&nbsp;&nbsp;&nbsp;&nbsp;*IdentifierReference*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*CoverInitializedName*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub> **:** *AssignmentExpression*<sub>[+In, ?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*MethodDefinition*<sub>[?Yield, ?Await]</sub>  
+
+*FunctionDeclaration*[Yield, Await, Default] :  
+&nbsp;&nbsp;&nbsp;&nbsp;**function** *BindingIdentifier*[?Yield, ?Await] **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
+&nbsp;&nbsp;&nbsp;&nbsp;[+Default]*function* **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
+
+*FunctionExpression* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**function** BindingIdentifier[~Yield, ~Await]opt **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
+
+*SingleNameBinding*<sub>[Yield, Await]</sub> :  
+&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Initializer*<sub>[+In, ?Yield, ?Await]opt<sub>  
+
+BindingRestElement<sub>[Yield, Await]</sub> :  
+&nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingPattern*<sub>[?Yield, ?Await]</sub>  
