@@ -1055,8 +1055,12 @@ THIS SECTION IS A WIP
 *Keyword* :: **one of**  
 &nbsp;&nbsp;&nbsp;&nbsp;**break** **do** **in** **typeof** **case** **else** **instanceof** **var** **catch** **export** **new** **void** **class** **extends** **return** **while** **const** **finally** **super** **with** **continue** **for** **switch** **yield** **debugger** **function** **this** **default** **if** **throw** **delete** **import** **try** **enum**
 
+This would be empty:  
 *FutureReservedWord* ::  
 
+
+IntegerType* ::  
+&nbsp;&nbsp;&nbsp;&nbsp;**int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64**
 
 *Type* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**:** *ReservedTypes*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub>  
@@ -1068,9 +1072,25 @@ THIS SECTION IS A WIP
 
 *TypeArrayExpression* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **,** *TypeArrayIndexList*  
+&nbsp;&nbsp;&nbsp;&nbsp;*IntegerType*  
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **:** *IntegerType*  
+
+
+TODO: Define the ```new uint8[5:uint64, x => x]``` grammar completely  
+
+*newTypedArray* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**new** *Idenitifier* **[** *newTypedArrayIndexParameters* **]**  
+
+*newTypedArrayIndexParameters* :
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  **:** *IntegerType*  
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  **:** *IntegerType*  **,** *TypeArrayIndexList*  
+&nbsp;&nbsp;&nbsp;&nbsp;*IntegerType*  
+&nbsp;&nbsp;&nbsp;&nbsp;*IntegerType* **,** *TypeArrayIndexList*  
 &nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*  
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression* **:** *IntegerType*  
 &nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression* **,** *TypeArrayIndexList*  
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression* **:** *IntegerType* **,** *TypeArrayIndexList*  
 
 *TypeArrayIndexList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction*  
@@ -1123,6 +1143,11 @@ THIS SECTION IS A WIP
 &nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingPattern*<sub>[?Yield, ?Await]</sub>
 
+*CatchParameter*<sub>[Yield, Await]</sub> :  
+&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*BindingPattern*<sub>[?Yield, ?Await]</sub>  
+
+
 #### A.4 Functions and Classes
 
 *FunctionDeclaration*[Yield, Await, Default] :  
@@ -1130,4 +1155,14 @@ THIS SECTION IS A WIP
 &nbsp;&nbsp;&nbsp;&nbsp;[+Default]*function* **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
 
 *FunctionExpression* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**function** BindingIdentifier[~Yield, ~Await]opt **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
+&nbsp;&nbsp;&nbsp;&nbsp;**function** BindingIdentifier[~Yield, ~Await]opt **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
+
+*ClassElement*<sub>[Yield, Await]</sub> :  
+&nbsp;&nbsp;&nbsp;&nbsp;*PublicMemberDefinition*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*MethodDefinition*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*staticMethodDefinition*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;;
+
+*PublicMemberDefinition* :  
+&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *Type*<sub>opt</sub> **;**
+
