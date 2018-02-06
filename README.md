@@ -1067,10 +1067,10 @@ THIS SECTION IS A WIP
 &nbsp;&nbsp;&nbsp;&nbsp;**[** *TypeArrayExpression*<sub>opt</sub> **]**
 
 *TypeArrayExpression* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* 
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **,** *TypeArrayIndexList*<sub>opt</sub> 
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression* **,** *TypeArrayIndexList*<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **,** *TypeArrayIndexList*  
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*  
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression* **,** *TypeArrayIndexList*  
 
 *TypeArrayIndexList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction*  
