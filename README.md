@@ -1067,8 +1067,14 @@ THIS SECTION IS A WIP
 &nbsp;&nbsp;&nbsp;&nbsp;**[** *TypeArrayExpression*<sub>opt</sub> **]**
 
 *TypeArrayExpression* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*  
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* 
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **,** *TypeArrayIndexList*<sub>opt</sub> 
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression* **,** *TypeArrayIndexList*<sub>opt</sub>  
+
+*TypeArrayIndexList* :  
+&nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction*  
+&nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction* **,** *TypeArrayIndexList*  
 
 *FunctionSignature* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**(** *FunctionSignatureElementList* **)**  
@@ -1107,8 +1113,8 @@ THIS SECTION IS A WIP
 #### A.3 Statements
 
 *BindingProperty*<sub>[Yield, Await]</sub> :
-&nbsp;&nbsp;&nbsp;&nbsp;*SingleNameBinding*<sub>[?Yield, ?Await]</sub>
-&nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub> **:** *BindingElement*<sub>[?Yield, ?Await]</sub>
+&nbsp;&nbsp;&nbsp;&nbsp;*SingleNameBinding*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub> **:** *BindingElement*<sub>[?Yield, ?Await]</sub>  
 
 *SingleNameBinding*<sub>[Yield, Await]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Initializer*<sub>[+In, ?Yield, ?Await] opt<sub>  
@@ -1125,7 +1131,3 @@ THIS SECTION IS A WIP
 
 *FunctionExpression* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**function** BindingIdentifier[~Yield, ~Await]opt **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
-
-
-
-  
