@@ -1067,23 +1067,22 @@ THIS SECTION IS A WIP
 &nbsp;&nbsp;&nbsp;&nbsp;**[** *TypeArrayExpression*<sub>opt</sub> **]**
 
 *TypeArrayExpression* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*  
 
 *FunctionSignature* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**(** *FunctionSignatureElementList* **)**
+&nbsp;&nbsp;&nbsp;&nbsp;**(** *FunctionSignatureElementList* **)**  
 
 *FunctionSignatureElementList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignatureElement*  
-&nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignatureElementList* **,** *FunctionSignatureElement*
+&nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignatureElementList* **,** *FunctionSignatureElement*  
 
 *FunctionSignatureElement* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *Type*<sub>opt</sub>
+&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *Type*<sub>opt</sub>  
 
-*VariableDeclaration*<sub>[In, Yield]</sub>:  
+*VariableDeclaration*<sub>[In, Yield]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield]</sub> *Type*<sub>opt</sub> *Initializer*<sub>[?In, ?Yield]opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*BindingPattern*<sub>[?Yield]</sub> *Type*<sub>opt</sub> *Initializer*<sub>[?In, ?Yield]</sub>  
-
+&nbsp;&nbsp;&nbsp;&nbsp;*BindingPattern*<sub>[?Yield]</sub> *Initializer*<sub>[?In, ?Yield]</sub>  
 
 *EnumDeclaration* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**enum** *Identifier* *Type*<sub>opt</sub> **{** *EnumElementList* **}**
@@ -1097,12 +1096,28 @@ THIS SECTION IS A WIP
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier* **=** *Literal*  
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier* **=** *ArrowFunction*
 
+#### A.2 Expressions
 
 *PropertyDefinition*<sub>[Yield, Await]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;*IdentifierReference*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*CoverInitializedName*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub> **:** *AssignmentExpression*<sub>[+In, ?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*MethodDefinition*<sub>[?Yield, ?Await]</sub>  
+
+#### A.3 Statements
+
+*BindingProperty*<sub>[Yield, Await]</sub> :
+&nbsp;&nbsp;&nbsp;&nbsp;*SingleNameBinding*<sub>[?Yield, ?Await]</sub>
+&nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub> **:** *BindingElement*<sub>[?Yield, ?Await]</sub>
+
+*SingleNameBinding*<sub>[Yield, Await]</sub> :  
+&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Initializer*<sub>[+In, ?Yield, ?Await] opt<sub>  
+
+*BindingRestElement*<sub>[Yield, Await]</sub> :  
+&nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingPattern*<sub>[?Yield, ?Await]</sub>
+
+#### A.4 Functions and Classes
 
 *FunctionDeclaration*[Yield, Await, Default] :  
 &nbsp;&nbsp;&nbsp;&nbsp;**function** *BindingIdentifier*[?Yield, ?Await] **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
@@ -1111,9 +1126,6 @@ THIS SECTION IS A WIP
 *FunctionExpression* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**function** BindingIdentifier[~Yield, ~Await]opt **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
 
-*SingleNameBinding*<sub>[Yield, Await]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Initializer*<sub>[+In, ?Yield, ?Await]opt<sub>  
 
-BindingRestElement<sub>[Yield, Await]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingPattern*<sub>[?Yield, ?Await]</sub>  
+
+  
