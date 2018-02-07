@@ -1122,10 +1122,10 @@ IntegerType* :: **one of**
 *newTypedArrayIndexParameters* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*<sub>opt</sub> *ColonIntegerType*<sub>opt</sub> *ColonTypeArrayIndexList*<sub>opt</sub>  
 
-*placementNew* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression* **)**  
-&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression* **,** *AssignmentExpression* **)**  
-&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression* **,** *AssignmentExpression* **,** *AssignmentExpression* **)**  
+*placementNew*<sub>[Yield, Await]</sub> :  
+&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **)**  
+&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **,** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **)**  
+&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **,** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **,** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **)**  
 
 *MemberExpression*<sub>[Yield, Await]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;*PrimaryExpression*<sub>[?Yield, ?Await]</sub>  
@@ -1135,7 +1135,7 @@ IntegerType* :: **one of**
 &nbsp;&nbsp;&nbsp;&nbsp;*SuperProperty*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*MetaProperty*  
 &nbsp;&nbsp;&nbsp;&nbsp;*new MemberExpression*<sub>[?Yield, ?Await]</sub> *Arguments*<sub>[?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;**new** *placementNew* *Idenitifier* **[** *newTypedArrayIndexParameters* **]**
+&nbsp;&nbsp;&nbsp;&nbsp;**new** *placementNew*<sub>[?Yield, ?Await]</sub> *Idenitifier* **[** *newTypedArrayIndexParameters* **]**
 
 #### A.3 Statements
 
