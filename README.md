@@ -1059,7 +1059,7 @@ This would be empty:
 *FutureReservedWord* ::  
 
 
-IntegerType* ::  
+IntegerType* :: **one of**  
 &nbsp;&nbsp;&nbsp;&nbsp;**int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64**
 
 *Type* :  
@@ -1074,23 +1074,6 @@ IntegerType* ::
 &nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
 &nbsp;&nbsp;&nbsp;&nbsp;*IntegerType*  
 &nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **:** *IntegerType*  
-
-
-TODO: Define the ```new uint8[5:uint64, x => x]``` grammar completely  
-
-*newTypedArray* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**new** *Idenitifier* **[** *newTypedArrayIndexParameters* **]**  
-
-*newTypedArrayIndexParameters* :
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  **:** *IntegerType*  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  **:** *IntegerType*  **,** *TypeArrayIndexList*  
-&nbsp;&nbsp;&nbsp;&nbsp;*IntegerType*  
-&nbsp;&nbsp;&nbsp;&nbsp;*IntegerType* **,** *TypeArrayIndexList*  
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*  
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression* **:** *IntegerType*  
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression* **,** *TypeArrayIndexList*  
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression* **:** *IntegerType* **,** *TypeArrayIndexList*  
 
 *TypeArrayIndexList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction*  
@@ -1130,6 +1113,30 @@ TODO: Define the ```new uint8[5:uint64, x => x]``` grammar completely
 &nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub> **:** *AssignmentExpression*<sub>[+In, ?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*MethodDefinition*<sub>[?Yield, ?Await]</sub>  
 
+*ColonIntegerType* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**:** *IntegerType*  
+
+*ColonTypeArrayIndexList* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**,** *TypeArrayIndexList*  
+
+*newTypedArrayIndexParameters* :
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*<sub>opt</sub> *ColonIntegerType*<sub>opt</sub> *ColonTypeArrayIndexList*<sub>opt</sub>  
+
+*placementNew* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression* **)**  
+&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression* **,** *AssignmentExpression* **)**  
+&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression* **,** *AssignmentExpression* **,** *AssignmentExpression* **)**  
+
+*MemberExpression*<sub>[Yield, Await]</sub> :  
+&nbsp;&nbsp;&nbsp;&nbsp;*PrimaryExpression*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*MemberExpression*<sub>[?Yield, ?Await]</sub> **[** *Expression*<sub>[+In, ?Yield, ?Await]</sub> **]**  
+&nbsp;&nbsp;&nbsp;&nbsp;*MemberExpression*<sub>[?Yield, ?Await]</sub> **.** *IdentifierName*  
+&nbsp;&nbsp;&nbsp;&nbsp;*MemberExpression*<sub>[?Yield, ?Await]</sub> *TemplateLiteral*<sub>[?Yield, ?Await, +Tagged]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*SuperProperty*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*MetaProperty*  
+&nbsp;&nbsp;&nbsp;&nbsp;*new MemberExpression*<sub>[?Yield, ?Await] *Arguments*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;**new** *placementNew* *Idenitifier* **[** *newTypedArrayIndexParameters* **]**
+
 #### A.3 Statements
 
 *BindingProperty*<sub>[Yield, Await]</sub> :
@@ -1155,14 +1162,14 @@ TODO: Define the ```new uint8[5:uint64, x => x]``` grammar completely
 &nbsp;&nbsp;&nbsp;&nbsp;[+Default]*function* **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
 
 *FunctionExpression* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**function** BindingIdentifier[~Yield, ~Await]opt **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
+&nbsp;&nbsp;&nbsp;&nbsp;**function** *BindingIdentifier*<sub>[~Yield, ~Await] opt</sub> **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
 
 *ClassElement*<sub>[Yield, Await]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;*PublicMemberDefinition*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*MemberDefinition*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*MethodDefinition*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*staticMethodDefinition*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;;
 
-*PublicMemberDefinition* :  
+*MemberDefinition* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *Type*<sub>opt</sub> **;**
 
