@@ -1119,7 +1119,7 @@ IntegerType* :: **one of**
 *ColonTypeArrayIndexList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**,** *TypeArrayIndexList*  
 
-*newTypedArrayIndexParameters* :
+*newTypedArrayIndexParameters* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*<sub>opt</sub> *ColonIntegerType*<sub>opt</sub> *ColonTypeArrayIndexList*<sub>opt</sub>  
 
 *placementNew* :  
@@ -1134,7 +1134,7 @@ IntegerType* :: **one of**
 &nbsp;&nbsp;&nbsp;&nbsp;*MemberExpression*<sub>[?Yield, ?Await]</sub> *TemplateLiteral*<sub>[?Yield, ?Await, +Tagged]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*SuperProperty*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*MetaProperty*  
-&nbsp;&nbsp;&nbsp;&nbsp;*new MemberExpression*<sub>[?Yield, ?Await] *Arguments*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*new MemberExpression*<sub>[?Yield, ?Await]</sub> *Arguments*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;**new** *placementNew* *Idenitifier* **[** *newTypedArrayIndexParameters* **]**
 
 #### A.3 Statements
