@@ -1059,7 +1059,7 @@ This would be empty:
 *FutureReservedWord* ::  
 
 
-IntegerType* :: **one of**  
+*IntegerType* :: **one of**  
 &nbsp;&nbsp;&nbsp;&nbsp;**int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64**
 
 *TypedArrayExpression* :  
@@ -1075,15 +1075,15 @@ IntegerType* :: **one of**
 &nbsp;&nbsp;&nbsp;&nbsp;**:** *Identifier*<sub>opt</sub> *TypedArray*<sub>opt</sub> **?**<sub>opt</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;**:** *FunctionSignature* **?**<sub>opt</sub>
 
-*FunctionSignature* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**(** *FunctionSignatureElementList* **)**  
+*FunctionSignatureElement* :  
+&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *Type*<sub>opt</sub>  
 
 *FunctionSignatureElementList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignatureElement*  
 &nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignatureElementList* **,** *FunctionSignatureElement*  
 
-*FunctionSignatureElement* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *Type*<sub>opt</sub>  
+*FunctionSignature* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**(** *FunctionSignatureElementList* **)** *Type*<sub>opt</sub>  
 
 *VariableDeclaration*<sub>[In, Yield]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield]</sub> *Type*<sub>opt</sub> *Initializer*<sub>[?In, ?Yield]opt</sub>  
