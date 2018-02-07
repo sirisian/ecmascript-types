@@ -1062,22 +1062,18 @@ This would be empty:
 IntegerType* :: **one of**  
 &nbsp;&nbsp;&nbsp;&nbsp;**int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64**
 
-*Type* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *ReservedTypes*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *Identifier*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *FunctionSignature* **?**<sub>opt</sub>
-
-*TypeArray* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**[** *TypeArrayExpression*<sub>opt</sub> **]**
-
-*TypeArrayExpression* :  
+*TypedArrayExpression* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
 &nbsp;&nbsp;&nbsp;&nbsp;*IntegerType*  
 &nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **:** *IntegerType*  
 
-*TypeArrayIndexList* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction*  
-&nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction* **,** *TypeArrayIndexList*  
+*TypedArray* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**[** *TypedArrayExpression*<sub>opt</sub> **]**
+
+*Type* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**:** *ReservedTypes*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;**:** *Identifier*<sub>opt</sub> *TypedArray*<sub>opt</sub> **?**<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;**:** *FunctionSignature* **?**<sub>opt</sub>
 
 *FunctionSignature* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**(** *FunctionSignatureElementList* **)**  
@@ -1116,13 +1112,17 @@ IntegerType* :: **one of**
 *ColonIntegerType* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**:** *IntegerType*  
 
-*ColonTypeArrayIndexList* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**,** *TypeArrayIndexList*  
+*TypedArrayIndexList* :  
+&nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction*  
+&nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction* **,** *TypedArrayIndexList*  
 
-*newTypedArrayIndexParameters* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*<sub>opt</sub> *ColonIntegerType*<sub>opt</sub> *ColonTypeArrayIndexList*<sub>opt</sub>  
+*ColonTypedArrayIndexList* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**,** *TypedArrayIndexList*  
 
-*placementNew*<sub>[Yield, Await]</sub> :  
+*TypedArrayIndexParameters* :  
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*<sub>opt</sub> *ColonIntegerType*<sub>opt</sub> *ColonTypedArrayIndexList*<sub>opt</sub>  
+
+*PlacementNew*<sub>[Yield, Await]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **)**  
 &nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **,** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **)**  
 &nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **,** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **,** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **)**  
@@ -1135,7 +1135,7 @@ IntegerType* :: **one of**
 &nbsp;&nbsp;&nbsp;&nbsp;*SuperProperty*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*MetaProperty*  
 &nbsp;&nbsp;&nbsp;&nbsp;*new MemberExpression*<sub>[?Yield, ?Await]</sub> *Arguments*<sub>[?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;**new** *placementNew*<sub>[?Yield, ?Await]</sub> *Idenitifier* **[** *newTypedArrayIndexParameters* **]**
+&nbsp;&nbsp;&nbsp;&nbsp;**new** *PlacementNew*<sub>[?Yield, ?Await]</sub> *Idenitifier* **[** *TypedArrayIndexParameters* **]**
 
 #### A.3 Statements
 
