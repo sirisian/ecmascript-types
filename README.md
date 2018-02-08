@@ -25,7 +25,7 @@ Since it would be potentially years before this would be implemented this propos
 ```bool8x16```, ```bool16x8```, ```bool32x4```, ```bool64x2```, ```bool8x32```, ```bool16x16```, ```bool32x8```, ```bool64x4```  
 ```int8x16```, ```int16x8```, ```int32x4```, ```int64x2```, ```int8x32```, ```int16x16```, ```int32x8```, ```int64x4```  
 ```uint8x16```, ```uint16x8```, ```uint32x4```, ```uint64x2```, ```uint8x32```, ```uint16x16```, ```uint32x8```, ```uint64x4```  
-```float32x4```, ```float64x2```, ```float32x8```, ```float64x4``` 
+```float32x4```, ```float64x2```, ```float32x8```, ```float64x4```  
 ```rational```  
 ```complex```  
 ```any```  
@@ -970,7 +970,7 @@ Would need to include the types listed above. Probably in a more verbose view th
 
 ```int8.parse(string, radix = 10)```
 
-### 6.1.8.2 Unsigned
+#### 6.1.8.2 Unsigned
 
 ```uint8```, ```uint16```, ```uint32```, ```uint64```
 
@@ -1071,7 +1071,7 @@ CatchParameter needs to be modified to allow type constraints.
 
 ### 14 ECMAScript Language: Functions and Classes
 
-This sections grammar would need to have FunctionDeclaration in the grammar redefined to include an optional typed return value. FormalParameter would require optional types added.
+Function overloading would need to be included and the expected operations for matching a list of arguments to parameters and types. This will also need to cover cases like ambiguous function overloading.
 
 ### 14.2 Arrow Function Definitions
 
