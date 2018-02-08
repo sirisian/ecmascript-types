@@ -1070,11 +1070,6 @@ This would be empty:
 *TypedArray* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**[** *TypedArrayExpression*<sub>opt</sub> **]**
 
-*Type* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *ReservedTypes*<sub>opt</sub> *TypeArray*<sub>opt</sub> **?**<sub>opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *Identifier*<sub>opt</sub> *TypedArray*<sub>opt</sub> **?**<sub>opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *FunctionSignature* **?**<sub>opt</sub>
-
 *FunctionSignatureElement* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *Type*<sub>opt</sub>  
 
@@ -1085,12 +1080,20 @@ This would be empty:
 *FunctionSignature* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**(** *FunctionSignatureElementList* **)** *Type*<sub>opt</sub>  
 
+*Type* :  
+&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *TypedArray*<sub>opt</sub> **?**<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*TypedArray* **?**<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignature* **?**<sub>opt</sub>  
+
+*ColonType* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**:** *Type*  
+
 *VariableDeclaration*<sub>[In, Yield]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield]</sub> *Type*<sub>opt</sub> *Initializer*<sub>[?In, ?Yield]opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield]</sub> *ColonType*<sub>opt</sub> *Initializer*<sub>[?In, ?Yield]opt</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*BindingPattern*<sub>[?Yield]</sub> *Initializer*<sub>[?In, ?Yield]</sub>  
 
 *EnumDeclaration* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**enum** *Identifier* *Type*<sub>opt</sub> **{** *EnumElementList* **}**
+&nbsp;&nbsp;&nbsp;&nbsp;**enum** *Identifier* *ColonType*<sub>opt</sub> **{** *EnumElementList* **}**
 
 *EnumElementList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*EnumElement*  
@@ -1106,7 +1109,7 @@ This would be empty:
 *PropertyDefinition*<sub>[Yield, Await]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;*IdentifierReference*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*CoverInitializedName*<sub>[?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub> **:** *AssignmentExpression*<sub>[+In, ?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *ColonType*<sub>opt</sub> **:** *AssignmentExpression*<sub>[+In, ?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*MethodDefinition*<sub>[?Yield, ?Await]</sub>  
 
 *ColonIntegerType* :  
@@ -1141,28 +1144,28 @@ This would be empty:
 
 *BindingProperty*<sub>[Yield, Await]</sub> :
 &nbsp;&nbsp;&nbsp;&nbsp;*SingleNameBinding*<sub>[?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub> **:** *BindingElement*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *ColonType*<sub>opt</sub> **:** *BindingElement*<sub>[?Yield, ?Await]</sub>  
 
 *SingleNameBinding*<sub>[Yield, Await]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Initializer*<sub>[+In, ?Yield, ?Await] opt<sub>  
 
 *BindingRestElement*<sub>[Yield, Await]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingIdentifier*<sub>[?Yield, ?Await]</sub> *ColonType*<sub>opt</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;**...** *BindingPattern*<sub>[?Yield, ?Await]</sub>
 
 *CatchParameter*<sub>[Yield, Await]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield, ?Await]</sub> *Type*<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield, ?Await]</sub> *ColonType*<sub>opt</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*BindingPattern*<sub>[?Yield, ?Await]</sub>  
 
 
 #### A.4 Functions and Classes
 
 *FunctionDeclaration*[Yield, Await, Default] :  
-&nbsp;&nbsp;&nbsp;&nbsp;**function** *BindingIdentifier*[?Yield, ?Await] **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
-&nbsp;&nbsp;&nbsp;&nbsp;[+Default]*function* **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
+&nbsp;&nbsp;&nbsp;&nbsp;**function** *BindingIdentifier*[?Yield, ?Await] **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *ColonType*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
+&nbsp;&nbsp;&nbsp;&nbsp;[+Default]*function* **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *ColonType*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
 
 *FunctionExpression* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**function** *BindingIdentifier*<sub>[~Yield, ~Await] opt</sub> **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *Type*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
+&nbsp;&nbsp;&nbsp;&nbsp;**function** *BindingIdentifier*<sub>[~Yield, ~Await] opt</sub> **(** *FormalParameters*<sub>[~Yield, ~Await]</sub> **)** *ColonType*<sub>opt</sub> **{** *FunctionBody*<sub>[~Yield, ~Await]</sub> **}**  
 
 *ClassElement*<sub>[Yield, Await]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;*MemberDefinition*<sub>[?Yield, ?Await]</sub>  
@@ -1171,5 +1174,5 @@ This would be empty:
 &nbsp;&nbsp;&nbsp;&nbsp;;
 
 *MemberDefinition* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *Type*<sub>opt</sub> **;**
+&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *ColonType*<sub>opt</sub> **;**
 
