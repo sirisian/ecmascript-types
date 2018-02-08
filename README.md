@@ -1142,8 +1142,8 @@ This would be empty:
 &nbsp;&nbsp;&nbsp;&nbsp;*MemberExpression*<sub>[?Yield, ?Await]</sub> *TemplateLiteral*<sub>[?Yield, ?Await, +Tagged]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*SuperProperty*<sub>[?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*MetaProperty*  
-&nbsp;&nbsp;&nbsp;&nbsp;*new MemberExpression*<sub>[?Yield, ?Await]</sub> *Arguments*<sub>[?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;**new** *PlacementNew*<sub>[?Yield, ?Await]</sub> *Idenitifier* **[** *TypedArrayIndexParameters* **]**
+&nbsp;&nbsp;&nbsp;&nbsp;**new** *MemberExpression*<sub>[?Yield, ?Await]</sub> *Arguments*<sub>[?Yield, ?Await]</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;**new** *PlacementNew*<sub>[?Yield, ?Await] opt</sub> *Idenitifier* **[** *TypedArrayIndexParameters* **]**
 
 #### A.3 Statements
 
