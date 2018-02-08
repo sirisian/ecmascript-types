@@ -1071,7 +1071,7 @@ This would be empty:
 &nbsp;&nbsp;&nbsp;&nbsp;**[** *TypedArrayExpression*<sub>opt</sub> **]**
 
 *FunctionSignatureElement* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *Type*<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *ColonType*<sub>opt</sub>  
 
 *FunctionSignatureElementList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignatureElement*  
@@ -1105,6 +1105,11 @@ This would be empty:
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier* **=** *ArrowFunction*
 
 #### A.2 Expressions
+
+*BindingIdentifier*<sub>[Yield, Await]</sub> :  
+*Identifier* *ColonType*<sub>opt</sub>  
+**yield**  
+**await**  
 
 *PropertyDefinition*<sub>[Yield, Await]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;*IdentifierReference*<sub>[?Yield, ?Await]</sub>  
