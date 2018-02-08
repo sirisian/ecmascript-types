@@ -944,22 +944,93 @@ https://esdiscuss.org/topic/optional-argument-types
 
 Would need to include the types listed above. Probably in a more verbose view than a list.
 
-### 6.1.?
+### 6.1.3 The Boolean Type
 
-New sections would need to be added to cover every new type proposed above. Not too bad, most of the types are very well defined regarding ranges and behavior. The ones that need a bit of work are bigint, rational, and complex.
+```bool``` is an alias for ```Boolean``` when types are used.
+
+### 6.1.4 The String Type
+
+```string``` is an alias for ```String``` when types are used.
+
+### 6.1.5 The Symbol Type
+
+```symbol``` is an alias for ```Symbol``` when types are used.
+
+### 6.1.6 The Number Type
+
+```number``` is an alias for ```Number``` when types are used.
+
+### 6.1.7 The Object Type
+
+```object``` is an alias for ```Number``` when types are used.
+
+### 6.1.8 Integral Types
+
+#### 6.1.8.1 Signed
+
+```int8```, ```int16```, ```int32```, ```int64```
+
+```int8.parse(string, radix = 10)```
+
+### 6.1.8.2 Unsigned
+
+```uint8```, ```uint16```, ```uint32```, ```uint64```
+
+```uint8.parse(string, radix = 10)```
+
+### 6.1.9 Big Integer
+
+```bigint```
+
+```bigint.parse(string, radix = 10)```
+
+### 6.1.10 Float
+
+```float16```, ```float32```, ```float64```, ```float80```, ```float128```
+
+TODO: Requirements in the spec? Is referring to the specs for each sufficient?
 
 https://en.wikipedia.org/wiki/Half-precision_floating-point_format  
 https://en.wikipedia.org/wiki/Single-precision_floating-point_format  
 https://en.wikipedia.org/wiki/Double-precision_floating-point_format  
 https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format
 
+### 6.1.11 Decimal
+
+```decimal32```, ```decimal64```, ```decimal128```
+
 https://en.wikipedia.org/wiki/Decimal32_floating-point_format  
 https://en.wikipedia.org/wiki/Decimal64_floating-point_format  
 https://en.wikipedia.org/wiki/Decimal128_floating-point_format
 
+### 6.1.12 SIMD
+
+```bool8x16```, ```bool16x8```, ```bool32x4```, ```bool64x2```, ```bool8x32```, ```bool16x16```, ```bool32x8```, ```bool64x4```  
+```int8x16```, ```int16x8```, ```int32x4```, ```int64x2```, ```int8x32```, ```int16x16```, ```int32x8```, ```int64x4```  
+```uint8x16```, ```uint16x8```, ```uint32x4```, ```uint64x2```, ```uint8x32```, ```uint16x16```, ```uint32x8```, ```uint64x4```  
+```float32x4```, ```float64x2```, ```32x8```, ```64x4```  
+
+### 6.1.13 Rational
+
+```rational```
+
 https://en.wikipedia.org/wiki/Rational_data_type
 
+### 6.1.14 Complex
+
+```complex```
+
 https://en.wikipedia.org/wiki/Complex_data_type
+
+### 6.1.15 Any
+
+```any```
+
+### 6.1.16 Void
+
+```void```
+
+Used solely in function signatures to denote that a return value does not exist.
 
 ### 11.6.2.1
 
@@ -1059,13 +1130,13 @@ This would be empty:
 *FutureReservedWord* ::  
 
 
-*IntegerType* :: **one of**  
+*IntegralType* :: **one of**  
 &nbsp;&nbsp;&nbsp;&nbsp;**int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64**
 
 *TypedArrayExpression* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
-&nbsp;&nbsp;&nbsp;&nbsp;*IntegerType*  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **:** *IntegerType*  
+&nbsp;&nbsp;&nbsp;&nbsp;*IntegralType*  
+&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **:** *IntegralType*  
 
 *TypedArray* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**[** *TypedArrayExpression*<sub>opt</sub> **]**
@@ -1117,8 +1188,8 @@ This would be empty:
 &nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *ColonType*<sub>opt</sub> **:** *AssignmentExpression*<sub>[+In, ?Yield, ?Await]</sub>  
 &nbsp;&nbsp;&nbsp;&nbsp;*MethodDefinition*<sub>[?Yield, ?Await]</sub>  
 
-*ColonIntegerType* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *IntegerType*  
+*ColonIntegralType* :  
+&nbsp;&nbsp;&nbsp;&nbsp;**:** *IntegralType*  
 
 *TypedArrayIndexList* :  
 &nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction*  
@@ -1128,7 +1199,7 @@ This would be empty:
 &nbsp;&nbsp;&nbsp;&nbsp;**,** *TypedArrayIndexList*  
 
 *TypedArrayIndexParameters* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*<sub>opt</sub> *ColonIntegerType*<sub>opt</sub> *ColonTypedArrayIndexList*<sub>opt</sub>  
+&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*<sub>opt</sub> *ColonIntegralType*<sub>opt</sub> *ColonTypedArrayIndexList*<sub>opt</sub>  
 
 *PlacementNew*<sub>[Yield, Await]</sub> :  
 &nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **)**  
