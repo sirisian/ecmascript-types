@@ -1030,6 +1030,48 @@ https://en.wikipedia.org/wiki/Complex_data_type
 
 Used solely in function signatures to denote that a return value does not exist.
 
+
+### 7.2.12 SameValueNonNumber ( x, y )
+
+TODO:...
+
+The internal comparison abstract operation SameValueNonNumber(x, y), where neither x nor y are Number values, produces true or false. Such a comparison is performed as follows:
+
+    Assert: Type(x) is not Number.
+    Assert: Type(x) is the same as Type(y).
+    If Type(x) is Undefined, return true.
+    If Type(x) is Null, return true.
+    If Type(x) is String, then
+        If x and y are exactly the same sequence of code units (same length and same code units at corresponding indices), return true; otherwise, return false.
+    If Type(x) is Boolean, then
+        If x and y are both true or both false, return true; otherwise, return false.
+    If Type(x) is Symbol, then
+        If x and y are both the same Symbol value, return true; otherwise, return false.
+    If x and y are the same Object value, return true. Otherwise, return false. 
+
+
+
+### 7.2.14 Abstract Equality Comparison
+
+The comparison x == y, where x and y are values, produces true or false. Such a comparison is performed as follows:
+
+1. If Type(x) is the same as Type(y), then
+    a. Return the result of performing Strict Equality Comparison x === y.
+2. If Type(x) has an implicit cast to Type(y), then
+    a. 
+3. 
+2. If x is null and y is undefined, return true.
+3. If x is undefined and y is null, return true.
+4. If Type(x) is Number and Type(y) is String, return the result of the comparison x == ! ToNumber(y).
+5. If Type(x) is String and Type(y) is Number, return the result of the comparison ! ToNumber(x) == y.
+6. If Type(x) is Boolean, return the result of the comparison ! ToNumber(x) == y.
+7. If Type(y) is Boolean, return the result of the comparison x == ! ToNumber(y).
+8. If Type(x) is either String, Number, or Symbol and Type(y) is Object, return the result of the comparison x == ToPrimitive(y).
+9. If Type(x) is Object and Type(y) is either String, Number, or Symbol, return the result of the comparison ToPrimitive(x) == y.
+10. Return false. 
+
+
+
 ### 11.6.2.1
 
 Move enum from 11.6.2.2 to 11.6.2.1.
@@ -1049,6 +1091,8 @@ The same could be true for bigint support.
 The table needs to be updated with all the new types and nullable type explanation.
 
 ### 12.10 Relational Operators
+
+
 ### 12.11 Equality Operators
 
 Not sure if something needs to be changed in these.
