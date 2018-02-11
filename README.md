@@ -944,23 +944,23 @@ Would need to include the types listed above. Probably in a more verbose view th
 
 ### 6.1.3 The Boolean Type
 
-```bool``` is an alias for ```Boolean``` when types are used.
+```bool``` is an alias for ```Boolean``` when ```bool``` is imported.
 
 ### 6.1.4 The String Type
 
-```string``` is an alias for ```String``` when types are used.
+```string``` is an alias for ```String``` when ```string``` is imported.
 
 ### 6.1.5 The Symbol Type
 
-```symbol``` is an alias for ```Symbol``` when types are used.
+```symbol``` is an alias for ```Symbol``` when ```symbol``` is imported.
 
 ### 6.1.6 The Number Type
 
-```number``` is an alias for ```Number``` when types are used.
+```number``` is an alias for ```Number``` when ```number``` is imported.
 
 ### 6.1.7 The Object Type
 
-```object``` is an alias for ```Number``` when types are used.
+```object``` is an alias for ```Number``` when ```object``` is imported.
 
 ### 6.1.8 Integral Types
 
