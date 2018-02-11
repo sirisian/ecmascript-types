@@ -20,9 +20,6 @@
     list-style-type: none;
     margin: 0; padding: 0;
   }
-  #ecma-logo {
-    width: 500px;
-  }
   .unicode-property-table {
     table-layout: fixed;
     width: 100%;
@@ -33,90 +30,50 @@
     list-style: none;
   }
 </style>
-<script>
-  if (location.hostname === 'tc39.github.io' && location.protocol !== 'https:') {
-    location.protocol = 'https:';
-  }
-</script>
 <pre class=metadata>
-  title: ECMAScript&reg; 2018 Language&nbsp;Specification
-  shortname: ECMA-262
-  status: draft
-  location: https://tc39.github.io/ecma262/
+  title: Types
+  status: proposal
+  stage: -1
+  location: https://github.com/sirisian/ecmascript-types
+  copyright: false
+  contributors: Brandon Andrews (Sirisian)
 </pre>
-<p><img src="img/ecma-logo.svg" id=ecma-logo></p>
-<div id=metadata-block>
-  <h1>Contributing to this Specification</h1>
-  <p>This specification is developed on GitHub with the help of the ECMAScript community. There are a number of ways to contribute to the development of this specification:</p>
+<div id="metadata-block">
+  <h1>Contributing to this Proposal</h1>
+  <p>This proposal is maintained on Github:</p>
   <ul>
-    <li>GitHub Repository: <a href="https://github.com/tc39/ecma262">https://github.com/tc39/ecma262</a></li>
-    <li>Issues: <a href="https://github.com/tc39/ecma262/issues">All Issues</a>, <a href="https://github.com/tc39/ecma262/issues/new">File a New Issue</a></li>
-    <li>Pull Requests: <a href="https://github.com/tc39/ecma262/pulls">All Pull Requests</a>, <a href="https://github.com/tc39/ecma262/pulls/new">Create a New Pull Request</a></li>
-    <li>Test Suite: <a href="https://github.com/tc39/test262">Test262</a></li>
-    <li>Editor: Brian Terlson (<a href="mailto:brian.terlson at microsoft dot com">E-mail</a>, <a href="https://twitter.com/bterlson">Twitter</a>, <a href="https://github.com/bterlson">GitHub</a>)</li>
-    <li>
-      <p>Community:</p>
-      <ul>
-        <li>Mailing list: <a href="https://esdiscuss.org">es-discuss</a></li>
-        <li>IRC: <a href="ircs://irc.freenode.net:6667">#tc39</a> on <a href="https://freenode.net/kb/answer/chat">freenode</a></li>
-      </ul>
-    </li>
+    <li>GitHub Repository:  <a href="https://github.com/sirisian/ecmascript-types">https://github.com/tc39/ecma262</a></li>
+    <li>Issues:  <a href="https://github.com/sirisian/ecmascript-types/issues">Issues</a></li>
   </ul>
-  <p>Refer to the <emu-xref href="#sec-colophon">colophon</emu-xref> for more information on how this document is created.</p>
 </div>
 <emu-intro id="sec-intro">
   <h1>Introduction</h1>
-  <p>This Ecma Standard defines the ECMAScript 2018 Language. It is the ninth edition of the ECMAScript Language Specification. Since publication of the first edition in 1997, ECMAScript has grown to be one of the world's most widely used general-purpose programming languages. It is best known as the language embedded in web browsers but has also been widely adopted for server and embedded applications.</p>
-  <p>ECMAScript is based on several originating technologies, the most well-known being JavaScript (Netscape) and JScript (Microsoft). The language was invented by Brendan Eich at Netscape and first appeared in that company's Navigator 2.0 browser. It has appeared in all subsequent browsers from Netscape and in all browsers from Microsoft starting with Internet Explorer 3.0.</p>
-  <p>The development of the ECMAScript Language Specification started in November 1996. The first edition of this Ecma Standard was adopted by the Ecma General Assembly of June 1997.</p>
-  <p>That Ecma Standard was submitted to ISO/IEC JTC 1 for adoption under the fast-track procedure, and approved as international standard ISO/IEC 16262, in April 1998. The Ecma General Assembly of June 1998 approved the second edition of ECMA-262 to keep it fully aligned with ISO/IEC 16262. Changes between the first and the second edition are editorial in nature.</p>
-  <p>The third edition of the Standard introduced powerful regular expressions, better string handling, new control statements, try/catch exception handling, tighter definition of errors, formatting for numeric output and minor changes in anticipation of future language growth. The third edition of the ECMAScript standard was adopted by the Ecma General Assembly of December 1999 and published as ISO/IEC 16262:2002 in June 2002.</p>
-  <p>After publication of the third edition, ECMAScript achieved massive adoption in conjunction with the World Wide Web where it has become the programming language that is supported by essentially all web browsers. Significant work was done to develop a fourth edition of ECMAScript. However, that work was not completed and not published as the fourth edition of ECMAScript but some of it was incorporated into the development of the sixth edition.</p>
-  <p>The fifth edition of ECMAScript (published as ECMA-262 5<sup>th</sup> edition) codified de facto interpretations of the language specification that have become common among browser implementations and added support for new features that had emerged since the publication of the third edition. Such features include accessor properties, reflective creation and inspection of objects, program control of property attributes, additional array manipulation functions, support for the JSON object encoding format, and a strict mode that provides enhanced error checking and program security. The fifth edition was adopted by the Ecma General Assembly of December 2009.</p>
-  <p>The fifth edition was submitted to ISO/IEC JTC 1 for adoption under the fast-track procedure, and approved as international standard ISO/IEC 16262:2011. Edition 5.1 of the ECMAScript Standard incorporated minor corrections and is the same text as ISO/IEC 16262:2011. The 5.1 Edition was adopted by the Ecma General Assembly of June 2011.</p>
-  <p>Focused development of the sixth edition started in 2009, as the fifth edition was being prepared for publication. However, this was preceded by significant experimentation and language enhancement design efforts dating to the publication of the third edition in 1999. In a very real sense, the completion of the sixth edition is the culmination of a fifteen year effort. The goals for this addition included providing better support for large applications, library creation, and for use of ECMAScript as a compilation target for other languages. Some of its major enhancements included modules, class declarations, lexical block scoping, iterators and generators, promises for asynchronous programming, destructuring patterns, and proper tail calls. The ECMAScript library of built-ins was expanded to support additional data abstractions including maps, sets, and arrays of binary numeric values as well as additional support for Unicode supplemental characters in strings and regular expressions. The built-ins were also made extensible via subclassing. The sixth edition provides the foundation for regular, incremental language and library enhancements. The sixth edition was adopted by the General Assembly of June 2015.</p>
-  <p>ECMAScript 2016 was the first ECMAScript edition released under Ecma TC39's new yearly release cadence and open development process. A plain-text source document was built from the ECMAScript 2015 source document to serve as the base for further development entirely on GitHub. Over the year of this standard's development, hundreds of pull requests and issues were filed representing thousands of bug fixes, editorial fixes and other improvements. Additionally, numerous software tools were developed to aid in this effort including Ecmarkup, Ecmarkdown, and Grammarkdown. ES2016 also included support for a new exponentiation operator and adds a new method to Array.prototype called `includes`.</p>
-  <p>This specification introduces Async Functions, Shared Memory, and Atomics along with smaller language and library enhancements, bug fixes, and editorial updates. Async functions improve the asynchronous programming experience by providing syntax for promise-returning functions. Shared Memory and Atomics introduce a new memory model that allows multi-agent programs to communicate using atomic operations that ensure a well-defined execution order even on parallel CPUs. This specification also includes new static methods on Object: `Object.values`, `Object.entries`, and `Object.getOwnPropertyDescriptors`.</p>
-  <p>Dozens of individuals representing many organizations have made very significant contributions within Ecma TC39 to the development of this edition and to the prior editions. In addition, a vibrant community has emerged supporting TC39's ECMAScript efforts. This community has reviewed numerous drafts, filed thousands of bug reports, performed implementation experiments, contributed test suites, and educated the world-wide developer community about ECMAScript. Unfortunately, it is impossible to identify and acknowledge every person and organization who has contributed to this effort.</p>
-  <p>
-    Allen Wirfs-Brock<br>
-    ECMA-262, 6<sup>th</sup> Edition Project Editor
-  </p>
-  <p>
-    Brian Terlson<br>
-    ECMA-262, 7<sup>th</sup> Edition Project Editor
-  </p>
+  <p>This proposal </p>
+  <h1>Rationale</h1>
+  <p>With TypedArrays and classes finalized, ECMAScript is in a good place to finally discuss types again. The demand for types as a different approach to code has been so strong in the past few years that separate languages have been created to deal with the perceived shortcomings. Types won't be an easy discussion, nor an easy addition, since they touch a large amount of the language; however, they are something that needs rigorous discussion.</p>
+  <p>The types described below bring ECMAScript in line or surpasses the type systems in most languages. For developers it cleans up a lot of the syntax, as described later, for TypedArrays, SIMD, and working with number types (floats vs signed and unsigned integers). It also allows for new language features like function overloading and a clean syntax for operator overloading. For implementors, added types offer a way to better optimize the JIT when specific types are used. For languages built on top of Javascript this allows more explicit type usage and closer matching to hardware.</p>
+  <h1>Types</h1>
+  <p>A new keyword <code>enum</code> for enumerated types and the following types:</p>
+  <code>number</code>
+  <code>bool</code>
+  <code>string</code>
+  <code>object</code>
+  <code>symbol</code>
+  <code>int8</code>, <code>int16</code>, <code>int32</code>, <code>int64</code>
+  <code>uint8</code>, <code>uint16</code>, <code>uint32</code>, <code>uint64</code>
+  <code>bigint</code>
+  <code>float16</code>, <code>float32</code>, <code>float64</code>, <code>float80</code>, <code>float128</code>
+  <code>decimal32</code>, <code>decimal64</code>, <code>decimal128</code>
+  <code>bool8x16</code>, <code>bool16x8</code>, <code>bool32x4</code>, <code>bool64x2</code>, <code>bool8x32</code>, <code>bool16x16</code>, <code>bool32x8</code>, <code>bool64x4</code>
+  <code>int8x16</code>, <code>int16x8</code>, <code>int32x4</code>, <code>int64x2</code>, <code>int8x32</code>, <code>int16x16</code>, <code>int32x8</code>, <code>int64x4</code>
+  <code>uint8x16</code>, <code>uint16x8</code>, <code>uint32x4</code>, <code>uint64x2</code>, <code>uint8x32</code>, <code>uint16x16</code>, <code>uint32x8</code>, <code>uint64x4</code>
+  <code>float32x4</code>, <code>float64x2</code>, <code>float32x8</code>, <code>float64x4</code>
+  <code>rational</code>
+  <code>complex</code>
+  <code>any</code>
+  <code>void</code>
+  <p>These types once imported behave like a const declaration and cannot be reassigned.</p>
 </emu-intro>
-
-<!-- es6num="1" -->
-<emu-clause id="sec-scope">
-  <h1>Scope</h1>
-  <p>This Standard defines the ECMAScript 2018 general-purpose programming language.</p>
-</emu-clause>
-
-<!-- es6num="2" -->
-<emu-clause id="sec-conformance">
-  <h1>Conformance</h1>
-  <p>A conforming implementation of ECMAScript must provide and support all the types, values, objects, properties, functions, and program syntax and semantics described in this specification.</p>
-  <p>A conforming implementation of ECMAScript must interpret source text input in conformance with the latest version of the Unicode Standard and ISO/IEC 10646.</p>
-  <p>A conforming implementation of ECMAScript that provides an application programming interface (API) that supports programs that need to adapt to the linguistic and cultural conventions used by different human languages and countries must implement the interface defined by the most recent edition of ECMA-402 that is compatible with this specification.</p>
-  <p>A conforming implementation of ECMAScript may provide additional types, values, objects, properties, and functions beyond those described in this specification. In particular, a conforming implementation of ECMAScript may provide properties not described in this specification, and values for those properties, for objects that are described in this specification.</p>
-  <p>A conforming implementation of ECMAScript may support program and regular expression syntax not described in this specification. In particular, a conforming implementation of ECMAScript may support program syntax that makes use of the &ldquo;future reserved words&rdquo; listed in subclause <emu-xref href="#sec-future-reserved-words"></emu-xref> of this specification.</p>
-  <p>A conforming implementation of ECMAScript must not implement any extension that is listed as a Forbidden Extension in subclause <emu-xref href="#sec-forbidden-extensions"></emu-xref>.</p>
-</emu-clause>
-
-<!-- es6num="3" -->
-<emu-clause id="sec-normative-references">
-  <h1>Normative References</h1>
-  <p>The following referenced documents are indispensable for the application of this document. For dated references, only the edition cited applies. For undated references, the latest edition of the referenced document (including any amendments) applies.</p>
-  <p>ISO/IEC 10646 <i>Information Technology &ndash; Universal Multiple-Octet Coded Character Set (UCS) plus Amendment 1:2005, Amendment 2:2006, Amendment 3:2008, and Amendment 4:2008</i>, plus additional amendments and corrigenda, or successor</p>
-  <p>ECMA-402, <i>ECMAScript 2015 Internationalization API Specification</i>.
-    <br>
-    <a href="https://ecma-international.org/publications/standards/Ecma-402.htm">https://ecma-international.org/publications/standards/Ecma-402.htm</a></p>
-  <p>ECMA-404, <i>The JSON Data Interchange Format</i>.
-    <br>
-    <a href="https://ecma-international.org/publications/standards/Ecma-404.htm">https://ecma-international.org/publications/standards/Ecma-404.htm</a></p>
-</emu-clause>
 
 <!-- es6num="4" -->
 <emu-clause id="sec-overview">
@@ -2866,6 +2823,84 @@
           </table>
         </emu-table>
       </emu-clause>
+    </emu-clause>
+
+    <!-- es6num="6.1.8" -->
+    <emu-clause id="sec-ecmascript-language-types-integral-types">
+      <h1><span class="secnum">6.1.8</span>The Integral Types</h1>
+      <p></p>
+      
+      <!-- es6num="6.1.8.1" -->
+      <emu-clause id="sec-ecmascript-language-types-integral-types-signed">
+        <h1><span class="secnum">6.1.8.1</span>Signed</h1>
+        <p><code>int8</code>, <code>int16</code>, <code>int32</code>, <code>int64</code></p>
+      </emu-clause>
+      
+       <!-- es6num="6.1.8.2" -->
+      <emu-clause id="sec-ecmascript-language-types-integral-types-unsigned">
+        <h1><span class="secnum">6.1.8.2</span>Unsigned</h1>
+        <p><code>uint8</code>, <code>uint16</code>, <code>uint32</code>, <code>uint64</code></p>
+      </emu-clause>
+    </emu-clause>
+
+    <!-- es6num="6.1.9" -->
+    <emu-clause id="sec-ecmascript-language-types-bigint-type">
+      <h1><span class="secnum">6.1.9</span>The Big Integer Type</h1>
+      <p><code>bigint</code></p>
+    </emu-clause>
+
+    <!-- es6num="6.1.10" -->
+    <emu-clause id="sec-ecmascript-language-types-float-types">
+      <h1><span class="secnum">6.1.10</span>The Float Types</h1>
+      <p><code>float16</code>, <code>float32</code>, <code>float64</code>, <code>float80</code>, <code>float128</code></p>
+      <p>TODO: Expand based on the individual specs.</p>
+      <p>https://en.wikipedia.org/wiki/Half-precision_floating-point_format</p>
+      <p>https://en.wikipedia.org/wiki/Single-precision_floating-point_format</p>
+      <p>https://en.wikipedia.org/wiki/Double-precision_floating-point_format</p>
+      <p>https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format</p>
+    </emu-clause>
+
+    <!-- es6num="6.1.11" -->
+    <emu-clause id="sec-ecmascript-language-types-decimal-type">
+      <h1><span class="secnum">6.1.11</span>Integral Types</h1>
+      <p><code>decimal32</code>, <code>decimal64</code>, <code>decimal128</code></p>
+      <p>https://en.wikipedia.org/wiki/Decimal32_floating-point_format</p>
+      <p>https://en.wikipedia.org/wiki/Decimal64_floating-point_format</p>
+      <p>https://en.wikipedia.org/wiki/Decimal128_floating-point_format</p>
+    </emu-clause>
+
+    <!-- es6num="6.1.12" -->
+    <emu-clause id="sec-ecmascript-language-types-simd-types">
+      <h1><span class="secnum">6.1.12</span>The SIMD Types</h1>
+      <p></p>
+    </emu-clause>
+
+    <!-- es6num="6.1.13" -->
+    <emu-clause id="sec-ecmascript-language-types-rational-type">
+      <h1><span class="secnum">6.1.13</span>The Rational Type</h1>
+      <p><code>rational</code></p>
+      <p>https://en.wikipedia.org/wiki/Rational_data_type</p>
+    </emu-clause>
+
+    <!-- es6num="6.1.14" -->
+    <emu-clause id="sec-ecmascript-language-types-complex-type">
+      <h1><span class="secnum">6.1.14</span>The Complex Type</h1>
+      <p><code>complex</code></p>
+      <p>https://en.wikipedia.org/wiki/Complex_data_type</p>
+    </emu-clause>
+
+    <!-- es6num="6.1.15" -->
+    <emu-clause id="sec-ecmascript-language-types-integral-types">
+      <h1><span class="secnum">6.1.15</span>The Any Type</h1>
+      <p><code>any</code></p>
+      <p>Represents any type.</p>
+    </emu-clause>
+
+    <!-- es6num="6.1.16" -->
+    <emu-clause id="sec-ecmascript-language-types-integral-types">
+      <h1><span class="secnum">6.1.16</span>The Void Type</h1>
+      <p><code>void</code></p>
+      <p>Used solely in function signatures to denote that a return value does not exist.</p>
     </emu-clause>
   </emu-clause>
 
