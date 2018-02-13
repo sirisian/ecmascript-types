@@ -1161,49 +1161,6 @@ Similar to Function the constructor needs to be changed to allow types. For exam
 new GeneratorFunction("a:float32", ":float32", "yield a * 2;");
 ```
 
-### A.1 Lexical Grammar 
-
-THIS SECTION IS A WIP
-
-*Keyword* :: **one of**  
-&nbsp;&nbsp;&nbsp;&nbsp;**break** **do** **in** **typeof** **case** **else** **instanceof** **var** **catch** **export** **new** **void** **class** **extends** **return** **while** **const** **finally** **super** **with** **continue** **for** **switch** **yield** **debugger** **function** **this** **default** **if** **throw** **delete** **import** **try** **enum**
-
-This would be empty:  
-*FutureReservedWord* ::  
-
-
-*IntegralType* :: **one of**  
-&nbsp;&nbsp;&nbsp;&nbsp;**int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64**
-
-*TypedArrayExpression* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
-&nbsp;&nbsp;&nbsp;&nbsp;*IntegralType*  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **:** *IntegralType*  
-
-*TypedArray* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**[** *TypedArrayExpression*<sub>opt</sub> **]**
-
-*FunctionSignatureElement* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *ColonType*<sub>opt</sub>  
-
-*FunctionSignatureElementList* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignatureElement*  
-&nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignatureElementList* **,** *FunctionSignatureElement*  
-
-*FunctionSignature* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**(** *FunctionSignatureElementList* **)** *Type*<sub>opt</sub>  
-
-*Type* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *TypedArray*<sub>opt</sub> **?**<sub>opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*TypedArray* **?**<sub>opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignature* **?**<sub>opt</sub>  
-
-*ColonType* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *Type*  
-
-*VariableDeclaration*<sub>[In, Yield]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield]</sub> *ColonType*<sub>opt</sub> *Initializer*<sub>[?In, ?Yield]opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*BindingPattern*<sub>[?Yield]</sub> *Initializer*<sub>[?In, ?Yield]</sub>  
 
 *EnumDeclaration* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**enum** *Identifier* *ColonType*<sub>opt</sub> **{** *EnumElementList* **}**
