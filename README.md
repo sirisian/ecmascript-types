@@ -311,7 +311,7 @@ Object destructuring with default values:
 Object destructuring with default value and new name:
 
 ```js
-let { a: b = 1 }: { b: uint8 } = { a: 2 }; // b is 2
+let { a: b = 1 }: { b:uint8 } = { a: 2 }; // b is 2
 ```
 
 Alternatively assigning to an already declared variable:
@@ -362,6 +362,12 @@ const e:uint8 = 1; // Without the type this would have been typed Number
 class A {}
 class B extends A {}
 const f:A = new B(); // This might not even be useful to allow
+```
+
+This assignment also works with destructuring:
+
+```js
+let { a, b } := { a:uint8: 1, b:uint32: 2 }; // a is type uint8 and b is type uint32
 ```
 
 ### Function Overloading
