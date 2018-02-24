@@ -311,20 +311,20 @@ Object destructuring with default values:
 Object destructuring with default value and new name:
 
 ```js
-let { a: b = 1 }: { b:uint8 } = { a: 2 }; // b is 2
+let { a: b = 1 }: { a:uint8 } = { a: 2 }; // b is 2
 ```
 
 Alternatively assigning to an already declared variable:
 
 ```js
 let b:uint8;
-({ a: b = 1 }:{ b:uint8 } = { a: 2 }); // b is 2
+({ a: b = 1 }:{ a:uint8 } = { a: 2 }); // b is 2
 ```
 
 Also for completeness using destructuring with functions:
 
 ```js
-(function({a: b = 0, b: a = 0}:{ b:uint8, a:uint8 }, [c:uint8])
+(function({a: b = 0, b: a = 0}:{ a:uint8, b:uint8 }, [c:uint8])
 {
     // a = 2, b = 1, c = 0
 })({a: 1, b: 2}, [0]);
