@@ -33,6 +33,11 @@
   {
     text-decoration: line-through;
   }
+
+  emu-production[collapsed] emu-mods
+  {
+    display: inline-block !important;
+  }
 </style>
 <pre class=metadata>
   title: Optional Static Typing
@@ -46,7 +51,7 @@
   <h1>Contributing to this Proposal</h1>
   <p>This proposal is maintained on Github:</p>
   <ul>
-    <li>GitHub Repository:  <a href="https://github.com/sirisian/ecmascript-types">https://github.com/tc39/ecma262</a></li>
+    <li>GitHub Repository:  <a href="https://github.com/sirisian/ecmascript-types">https://github.com/sirisian/ecmascript-types</a></li>
     <li>Issues:  <a href="https://github.com/sirisian/ecmascript-types/issues">Issues</a></li>
   </ul>
 </div>
@@ -10057,21 +10062,8 @@
         <h2>Syntax</h2>
         <emu-grammar type="definition">
           Keyword :: one of
-            `await`
-            `break`
-            `case` `catch` `class` `const` `continue`
-            <ins>`enum`</ins>
-            `debugger` `default` `delete` `do`
-            `else` `export` `extends`
-            `finally` `for` `function`
-            `if` `import` `in` `instanceof`
-            `new`
-            `return`
-            `super` `switch`
-            `this` `throw` `try` `typeof`
-            `var` `void`
-            `while` `with`
-            `yield`
+            <del>`await` `break` `case` `catch` `class` `const` `continue` `debugger` `default` `delete` `do` `else` `export` `extends` `finally` `for` `function` `if` `import` `in` `instanceof` `new` `return` `super` `switch` `this` `throw` `try` `typeof` `var` `void` `while` `with` `yield`</del>
+            <ins>`await` `break` `case` `catch` `class` `const` `continue` `debugger` `default` `delete` `do` `else` `enum` `export` `extends` `finally` `for` `function` `if` `import` `in` `instanceof` `new` `return` `super` `switch` `this` `throw` `try` `typeof` `var` `void` `while` `with` `yield`</ins>
         </emu-grammar>
         <emu-note>
           <p>In some contexts `yield` and `await` are given the semantics of an |Identifier|. See <emu-xref href="#sec-identifiers-static-semantics-early-errors"></emu-xref>. In strict mode code, `let` and `static` are treated as reserved words through static semantic restrictions (see <emu-xref href="#sec-identifiers-static-semantics-early-errors"></emu-xref>, <emu-xref href="#sec-let-and-const-declarations-static-semantics-early-errors"></emu-xref>, <emu-xref href="#sec-for-in-and-for-of-statements-static-semantics-early-errors"></emu-xref>, and <emu-xref href="#sec-class-definitions-static-semantics-early-errors"></emu-xref>) rather than the lexical grammar.</p>
@@ -11249,7 +11241,7 @@
         <ins>DecimalDigits `:` IntegralType</ins>
 
       <ins>TypedArray :</ins>
-        <ins>`[` TypedArrayExpressionopt `]`</ins>
+        <ins>`[` TypedArrayExpression? `]`</ins>
 
       <ins>FunctionSignatureElement :</ins>
         <ins>Identifier ColonType?</ins>
@@ -11349,7 +11341,8 @@
       <emu-grammar>
         IdentifierReference[Yield, Await] : Identifier
 
-        BindingIdentifier[Yield, Await] : Identifier
+        <del>BindingIdentifier[Yield, Await] : Identifier</del>
+        <ins>BindingIdentifier[Yield, Await] : Identifier ColonType?</ins>
 
         LabelIdentifier[Yield, Await] : Identifier
       </emu-grammar>
@@ -11382,7 +11375,10 @@
     <emu-clause id="sec-identifiers-static-semantics-boundnames">
       <h1>Static Semantics: BoundNames</h1>
       <emu-see-also-para op="BoundNames"></emu-see-also-para>
-      <emu-grammar>BindingIdentifier : Identifier</emu-grammar>
+      <emu-grammar>
+        <del>BindingIdentifier : Identifier</del>
+        <ins>BindingIdentifier : Identifier ColonType?</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return a new List containing the StringValue of |Identifier|.
       </emu-alg>
@@ -11854,7 +11850,8 @@
         PropertyDefinition[Yield, Await] :
           IdentifierReference[?Yield, ?Await]
           CoverInitializedName[?Yield, ?Await]
-          PropertyName[?Yield, ?Await] `:` AssignmentExpression[+In, ?Yield, ?Await]
+          <del>PropertyName[?Yield, ?Await] `:` AssignmentExpression[+In, ?Yield, ?Await]</del>
+          <ins>PropertyName[?Yield, ?Await] ColonType? `:` AssignmentExpression[+In, ?Yield, ?Await]</ins>
           MethodDefinition[?Yield, ?Await]
 
         PropertyName[Yield, Await] :
@@ -11960,7 +11957,10 @@
         <emu-alg>
           1. Return StringValue of |IdentifierReference|.
         </emu-alg>
-        <emu-grammar>PropertyDefinition : PropertyName `:` AssignmentExpression</emu-grammar>
+        <emu-grammar>
+          <del>PropertyDefinition : PropertyName `:` AssignmentExpression</del>
+          <ins>PropertyDefinition : PropertyName ColonType? `:` AssignmentExpression</ins>
+        </emu-grammar>
         <emu-alg>
           1. Return PropName of |PropertyName|.
         </emu-alg>
@@ -14527,7 +14527,8 @@
 
         AssignmentProperty[Yield, Await] :
           IdentifierReference[?Yield, ?Await] Initializer[+In, ?Yield, ?Await]?
-          PropertyName[?Yield, ?Await] `:` AssignmentElement[?Yield, ?Await]
+          <del>PropertyName[?Yield, ?Await] `:` AssignmentElement[?Yield, ?Await]</del>
+          <ins>PropertyName[?Yield, ?Await] ColonType? `:` AssignmentElement[?Yield, ?Await]</ins>
 
         AssignmentElement[Yield, Await] :
           DestructuringAssignmentTarget[?Yield, ?Await] Initializer[+In, ?Yield, ?Await]?
@@ -14844,6 +14845,7 @@
 
     Declaration[Yield, Await] :
       HoistableDeclaration[?Yield, ?Await, ~Default]
+      <ins>EnumDeclaration</ins>
       ClassDeclaration[?Yield, ?Await, ~Default]
       LexicalDeclaration[+In, ?Yield, ?Await]
 
@@ -15684,7 +15686,8 @@
 
         BindingProperty[Yield, Await] :
           SingleNameBinding[?Yield, ?Await]
-          PropertyName[?Yield, ?Await] `:` BindingElement[?Yield, ?Await]
+          <del>PropertyName[?Yield, ?Await] `:` BindingElement[?Yield, ?Await]</del>
+          <ins>PropertyName[?Yield, ?Await] ColonType? `:` BindingElement[?Yield, ?Await]</ins>
 
         BindingElement[Yield, Await] :
           SingleNameBinding[?Yield, ?Await]
@@ -18334,11 +18337,14 @@
     <h2>Syntax</h2>
     <emu-grammar type="definition">
       FunctionDeclaration[Yield, Await, Default] :
-        `function` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[~Yield, ~Await] `)` `{` FunctionBody[~Yield, ~Await] `}`
-        [+Default] `function` `(` FormalParameters[~Yield, ~Await] `)` `{` FunctionBody[~Yield, ~Await] `}`
+        <del>`function` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[~Yield, ~Await] `)` `{` FunctionBody[~Yield, ~Await] `}`</del>
+        <ins>`function` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[~Yield, ~Await] `)` ColonType? `{` FunctionBody[~Yield, ~Await] `}`</ins>
+        <del>[+Default] `function` `(` FormalParameters[~Yield, ~Await] `)` `{` FunctionBody[~Yield, ~Await] `}`</del>
+        <ins>[+Default] `function` `(` FormalParameters[~Yield, ~Await] `)` ColonType? `{` FunctionBody[~Yield, ~Await] `}`</ins>
 
       FunctionExpression :
-        `function` BindingIdentifier[~Yield, ~Await]? `(` FormalParameters[~Yield, ~Await] `)` `{` FunctionBody[~Yield, ~Await] `}`
+        <del>`function` BindingIdentifier[~Yield, ~Await]? `(` FormalParameters[~Yield, ~Await] `)` `{` FunctionBody[~Yield, ~Await] `}`</del>
+        <ins>`function` BindingIdentifier[~Yield, ~Await]? `(` FormalParameters[~Yield, ~Await] `)` ColonType? `{` FunctionBody[~Yield, ~Await] `}`</ins>
 
       UniqueFormalParameters[Yield, Await] :
         FormalParameters[?Yield, ?Await]
@@ -18382,11 +18388,14 @@
     <emu-clause id="sec-function-definitions-static-semantics-early-errors">
       <h1>Static Semantics: Early Errors</h1>
       <emu-grammar>
-        FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`
+        <del>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
 
-        FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`
+        <del>FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
 
-        FunctionExpression : `function` BindingIdentifier? `(` FormalParameters `)` `{` FunctionBody `}`
+        <del>FunctionExpression : `function` BindingIdentifier? `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionExpression : `function` BindingIdentifier? `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
       </emu-grammar>
       <ul>
         <li>
@@ -18456,11 +18465,17 @@
     <emu-clause id="sec-function-definitions-static-semantics-boundnames">
       <h1>Static Semantics: BoundNames</h1>
       <emu-see-also-para op="BoundNames"></emu-see-also-para>
-      <emu-grammar>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return the BoundNames of |BindingIdentifier|.
       </emu-alg>
-      <emu-grammar>FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return &laquo; `"*default*"` &raquo;.
       </emu-alg>
@@ -18491,11 +18506,14 @@
       <p>With parameter _symbol_.</p>
       <emu-see-also-para op="Contains"></emu-see-also-para>
       <emu-grammar>
-        FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`
+        <del>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
 
-        FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`
+        <del>FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
 
-        FunctionExpression : `function` BindingIdentifier? `(` FormalParameters `)` `{` FunctionBody `}`
+        <del>FunctionExpression : `function` BindingIdentifier? `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionExpression : `function` BindingIdentifier? `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return *false*.
@@ -18572,11 +18590,17 @@
     <emu-clause id="sec-function-definitions-static-semantics-hasname">
       <h1>Static Semantics: HasName</h1>
       <emu-see-also-para op="HasName"></emu-see-also-para>
-      <emu-grammar>FunctionExpression : `function` `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionExpression : `function` `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionExpression : `function` `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return *false*.
       </emu-alg>
-      <emu-grammar>FunctionExpression : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionExpression : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionExpression : `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return *true*.
       </emu-alg>
@@ -18599,9 +18623,11 @@
       <h1>Static Semantics: IsConstantDeclaration</h1>
       <emu-see-also-para op="IsConstantDeclaration"></emu-see-also-para>
       <emu-grammar>
-        FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`
+        <del>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
 
-        FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`
+        <del>FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return *false*.
@@ -18612,7 +18638,10 @@
     <emu-clause id="sec-function-definitions-static-semantics-isfunctiondefinition">
       <h1>Static Semantics: IsFunctionDefinition</h1>
       <emu-see-also-para op="IsFunctionDefinition"></emu-see-also-para>
-      <emu-grammar>FunctionExpression : `function` BindingIdentifier? `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionExpression : `function` BindingIdentifier? `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionExpression : `function` BindingIdentifier? `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return *true*.
       </emu-alg>
@@ -18774,7 +18803,10 @@
       <h1>Runtime Semantics: InstantiateFunctionObject</h1>
       <p>With parameter _scope_.</p>
       <emu-see-also-para op="InstantiateFunctionObject"></emu-see-also-para>
-      <emu-grammar>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. If the function code for |FunctionDeclaration| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
         1. Let _name_ be StringValue of |BindingIdentifier|.
@@ -18783,7 +18815,10 @@
         1. Perform SetFunctionName(_F_, _name_).
         1. Return _F_.
       </emu-alg>
-      <emu-grammar>FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Let _F_ be FunctionCreate(~Normal~, |FormalParameters|, |FunctionBody|, _scope_, *true*).
         1. Perform MakeConstructor(_F_).
@@ -18798,18 +18833,27 @@
     <!-- es6num="14.1.20" -->
     <emu-clause id="sec-function-definitions-runtime-semantics-evaluation">
       <h1>Runtime Semantics: Evaluation</h1>
-      <emu-grammar>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return NormalCompletion(~empty~).
       </emu-alg>
       <emu-note>
         <p>An alternative semantics is provided in <emu-xref href="#sec-block-level-function-declarations-web-legacy-compatibility-semantics"></emu-xref>.</p>
       </emu-note>
-      <emu-grammar>FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionDeclaration : `function` `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionDeclaration : `function` `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return NormalCompletion(~empty~).
       </emu-alg>
-      <emu-grammar>FunctionExpression : `function` `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionExpression : `function` `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionExpression : `function` `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. If the function code for |FunctionExpression| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
         1. Let _scope_ be the LexicalEnvironment of the running execution context.
@@ -18817,7 +18861,10 @@
         1. Perform MakeConstructor(_closure_).
         1. Return _closure_.
       </emu-alg>
-      <emu-grammar>FunctionExpression : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>FunctionExpression : `function` BindingIdentifier `(` FormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>FunctionExpression : `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. If the function code for |FunctionExpression| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
         1. Let _scope_ be the running execution context's LexicalEnvironment.
@@ -18868,7 +18915,8 @@
       is recognized the following grammar is used to refine the interpretation of |CoverParenthesizedExpressionAndArrowParameterList|:</p>
     <emu-grammar type="definition">
       ArrowFormalParameters[Yield, Await] :
-        `(` UniqueFormalParameters[?Yield, ?Await] `)`
+        <del>`(` UniqueFormalParameters[?Yield, ?Await] `)`</del>
+        <ins>`(` UniqueFormalParameters[?Yield, ?Await] `)` ColonType?</ins>
     </emu-grammar>
 
     <!-- es6num="14.2.1" -->
@@ -19108,10 +19156,12 @@
     <h2>Syntax</h2>
     <emu-grammar type="definition">
       MethodDefinition[Yield, Await] :
-        PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[~Yield, ~Await] `)` `{` FunctionBody[~Yield, ~Await] `}`
+        <del>PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[~Yield, ~Await] `)` `{` FunctionBody[~Yield, ~Await] `}`</del>
+        <ins>PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[~Yield, ~Await] `)` ColonType? `{` FunctionBody[~Yield, ~Await] `}`</ins>
         GeneratorMethod[?Yield, ?Await]
         AsyncMethod[?Yield, ?Await]
-        `get` PropertyName[?Yield, ?Await] `(` `)` `{` FunctionBody[~Yield, ~Await] `}`
+        <del>`get` PropertyName[?Yield, ?Await] `(` `)` `{` FunctionBody[~Yield, ~Await] `}`</del>
+        <ins>`get` PropertyName[?Yield, ?Await] `(` `)` ColonType? `{` FunctionBody[~Yield, ~Await] `}`</ins>
         `set` PropertyName[?Yield, ?Await] `(` PropertySetParameterList `)` `{` FunctionBody[~Yield, ~Await] `}`
 
       PropertySetParameterList :
@@ -19121,7 +19171,10 @@
     <!-- es6num="14.3.1" -->
     <emu-clause id="sec-method-definitions-static-semantics-early-errors">
       <h1>Static Semantics: Early Errors</h1>
-      <emu-grammar>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <ul>
         <li>
           It is a Syntax Error if ContainsUseStrict of |FunctionBody| is *true* and IsSimpleParameterList of |UniqueFormalParameters| is *false*.
@@ -19151,8 +19204,10 @@
       <emu-see-also-para op="ComputedPropertyContains"></emu-see-also-para>
       <emu-grammar>
         MethodDefinition :
-          PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`
-          `get` PropertyName `(` `)` `{` FunctionBody `}`
+          <del>PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</del>
+          <ins>PropertyName `(` UniqueFormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+          <del>`get` PropertyName `(` `)` `{` FunctionBody `}`</del>
+          <ins>`get` PropertyName `(` `)` ColonType? `{` FunctionBody `}`</ins>
           `set` PropertyName `(` PropertySetParameterList `)` `{` FunctionBody `}`
       </emu-grammar>
       <emu-alg>
@@ -19175,12 +19230,18 @@
     <emu-clause id="sec-method-definitions-static-semantics-hasdirectsuper">
       <h1>Static Semantics: HasDirectSuper</h1>
       <emu-see-also-para op="HasDirectSuper"></emu-see-also-para>
-      <emu-grammar>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. If |UniqueFormalParameters| Contains |SuperCall| is *true*, return *true*.
         1. Return |FunctionBody| Contains |SuperCall|.
       </emu-alg>
-      <emu-grammar>MethodDefinition : `get` PropertyName `(` `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>MethodDefinition : `get` PropertyName `(` `)` `{` FunctionBody `}`</del>
+        <ins>MethodDefinition : `get` PropertyName `(` `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return |FunctionBody| Contains |SuperCall|.
       </emu-alg>
@@ -19197,8 +19258,10 @@
       <emu-see-also-para op="PropName"></emu-see-also-para>
       <emu-grammar>
         MethodDefinition :
-          PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`
-          `get` PropertyName `(` `)` `{` FunctionBody `}`
+          <del>PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</del>
+          <ins>PropertyName `(` UniqueFormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+          <del>`get` PropertyName `(` `)` `{` FunctionBody `}`</del>
+          <ins>`get` PropertyName `(` `)` ColonType? `{` FunctionBody `}`</ins>
           `set` PropertyName `(` PropertySetParameterList `)` `{` FunctionBody `}`
       </emu-grammar>
       <emu-alg>
@@ -19209,7 +19272,10 @@
     <!-- es6num="14.3.7" -->
     <emu-clause id="sec-static-semantics-specialmethod">
       <h1>Static Semantics: SpecialMethod</h1>
-      <emu-grammar>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return *false*.
       </emu-alg>
@@ -19217,7 +19283,8 @@
         MethodDefinition :
           GeneratorMethod
           AsyncMethod
-          `get` PropertyName `(` `)` `{` FunctionBody `}`
+          <del>`get` PropertyName `(` `)` `{` FunctionBody `}`</del>
+          <ins>`get` PropertyName `(` `)` ColonType? `{` FunctionBody `}`</ins>
           `set` PropertyName `(` PropertySetParameterList `)` `{` FunctionBody `}`
       </emu-grammar>
       <emu-alg>
@@ -19229,7 +19296,10 @@
     <emu-clause id="sec-runtime-semantics-definemethod">
       <h1>Runtime Semantics: DefineMethod</h1>
       <p>With parameters _object_ and optional parameter _functionPrototype_.</p>
-      <emu-grammar>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Let _propKey_ be the result of evaluating |PropertyName|.
         1. ReturnIfAbrupt(_propKey_).
@@ -19252,7 +19322,10 @@
       <h1>Runtime Semantics: PropertyDefinitionEvaluation</h1>
       <p>With parameters _object_ and _enumerable_.</p>
       <emu-see-also-para op="PropertyDefinitionEvaluation"></emu-see-also-para>
-      <emu-grammar>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` `{` FunctionBody `}`</del>
+        <ins>MethodDefinition : PropertyName `(` UniqueFormalParameters `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Let _methodDef_ be DefineMethod of |MethodDefinition| with argument _object_.
         1. ReturnIfAbrupt(_methodDef_).
@@ -19260,7 +19333,10 @@
         1. Let _desc_ be the PropertyDescriptor{[[Value]]: _methodDef_.[[Closure]], [[Writable]]: *true*, [[Enumerable]]: _enumerable_, [[Configurable]]: *true*}.
         1. Return ? DefinePropertyOrThrow(_object_, _methodDef_.[[Key]], _desc_).
       </emu-alg>
-      <emu-grammar>MethodDefinition : `get` PropertyName `(` `)` `{` FunctionBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>MethodDefinition : `get` PropertyName `(` `)` `{` FunctionBody `}`</del>
+        <ins>MethodDefinition : `get` PropertyName `(` `)` ColonType? `{` FunctionBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Let _propKey_ be the result of evaluating |PropertyName|.
         1. ReturnIfAbrupt(_propKey_).
@@ -19294,14 +19370,18 @@
     <h2>Syntax</h2>
     <emu-grammar type="definition">
       GeneratorMethod[Yield, Await] :
-        `*` PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[+Yield, ~Await] `)` `{` GeneratorBody `}`
+        <del>`*` PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[+Yield, ~Await] `)` `{` GeneratorBody `}`</del>
+        <ins>`*` PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[+Yield, ~Await] `)` ColonType? `{` GeneratorBody `}`</ins>
 
       GeneratorDeclaration[Yield, Await, Default] :
-        `function` `*` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[+Yield, ~Await] `)` `{` GeneratorBody `}`
-        [+Default] `function` `*` `(` FormalParameters[+Yield, ~Await] `)` `{` GeneratorBody `}`
+        <del>`function` `*` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[+Yield, ~Await] `)` `{` GeneratorBody `}`</del>
+        <ins>`function` `*` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[+Yield, ~Await] `)` ColonType? `{` GeneratorBody `}`</ins>
+        <del>[+Default] `function` `*` `(` FormalParameters[+Yield, ~Await] `)` `{` GeneratorBody `}`</del>
+        <ins>[+Default] `function` `*` `(` FormalParameters[+Yield, ~Await] `)` ColonType? `{` GeneratorBody `}`</ins>
 
       GeneratorExpression :
-        `function` `*` BindingIdentifier[+Yield, ~Await]? `(` FormalParameters[+Yield, ~Await] `)` `{` GeneratorBody `}`
+        <del>`function` `*` BindingIdentifier[+Yield, ~Await]? `(` FormalParameters[+Yield, ~Await] `)` `{` GeneratorBody `}`</del>
+        <ins>`function` `*` BindingIdentifier[+Yield, ~Await]? `(` FormalParameters[+Yield, ~Await] `)` ColonType? `{` GeneratorBody `}`</ins>
 
       GeneratorBody :
         FunctionBody[+Yield, ~Await]
@@ -19324,7 +19404,10 @@
     <!-- es6num="14.4.1" -->
     <emu-clause id="sec-generator-function-definitions-static-semantics-early-errors">
       <h1>Static Semantics: Early Errors</h1>
-      <emu-grammar>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <ul>
         <li>
           It is a Syntax Error if HasDirectSuper of |GeneratorMethod| is *true*.
@@ -19340,11 +19423,14 @@
         </li>
       </ul>
       <emu-grammar>
-        GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`
+        <del>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
 
-        GeneratorDeclaration : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`
+        <del>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
 
-        GeneratorExpression : `function` `*` BindingIdentifier? `(` FormalParameters `)` `{` GeneratorBody `}`
+        <del>GeneratorExpression : `function` `*` BindingIdentifier? `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorExpression : `function` `*` BindingIdentifier? `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
       </emu-grammar>
       <ul>
         <li>
@@ -19381,11 +19467,17 @@
     <emu-clause id="sec-generator-function-definitions-static-semantics-boundnames">
       <h1>Static Semantics: BoundNames</h1>
       <emu-see-also-para op="BoundNames"></emu-see-also-para>
-      <emu-grammar>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return the BoundNames of |BindingIdentifier|.
       </emu-alg>
-      <emu-grammar>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return &laquo; `"*default*"` &raquo;.
       </emu-alg>
@@ -19399,7 +19491,10 @@
       <h1>Static Semantics: ComputedPropertyContains</h1>
       <p>With parameter _symbol_.</p>
       <emu-see-also-para op="ComputedPropertyContains"></emu-see-also-para>
-      <emu-grammar>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return the result of ComputedPropertyContains for |PropertyName| with argument _symbol_.
       </emu-alg>
@@ -19411,11 +19506,14 @@
       <p>With parameter _symbol_.</p>
       <emu-see-also-para op="Contains"></emu-see-also-para>
       <emu-grammar>
-        GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`
+        <del>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
 
-        GeneratorDeclaration : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`
+        <del>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
 
-        GeneratorExpression : `function` `*` BindingIdentifier? `(` FormalParameters `)` `{` GeneratorBody `}`
+        <del>GeneratorExpression : `function` `*` BindingIdentifier? `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorExpression : `function` `*` BindingIdentifier? `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return *false*.
@@ -19429,7 +19527,10 @@
     <emu-clause id="sec-generator-function-definitions-static-semantics-hasdirectsuper">
       <h1>Static Semantics: HasDirectSuper</h1>
       <emu-see-also-para op="HasDirectSuper"></emu-see-also-para>
-      <emu-grammar>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. If |UniqueFormalParameters| Contains |SuperCall| is *true*, return *true*.
         1. Return |GeneratorBody| Contains |SuperCall|.
@@ -19440,11 +19541,17 @@
     <emu-clause id="sec-generator-function-definitions-static-semantics-hasname">
       <h1>Static Semantics: HasName</h1>
       <emu-see-also-para op="HasName"></emu-see-also-para>
-      <emu-grammar>GeneratorExpression : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorExpression : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <del>GeneratorExpression : `function` `*` `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</del>
+      </emu-grammar>
       <emu-alg>
         1. Return *false*.
       </emu-alg>
-      <emu-grammar>GeneratorExpression : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorExpression : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorExpression : `function` `*` BindingIdentifier `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return *true*.
       </emu-alg>
@@ -19455,9 +19562,11 @@
       <h1>Static Semantics: IsConstantDeclaration</h1>
       <emu-see-also-para op="IsConstantDeclaration"></emu-see-also-para>
       <emu-grammar>
-        GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`
+        <del>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
 
-        GeneratorDeclaration : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`
+        <del>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return *false*.
@@ -19468,7 +19577,10 @@
     <emu-clause id="sec-generator-function-definitions-static-semantics-isfunctiondefinition">
       <h1>Static Semantics: IsFunctionDefinition</h1>
       <emu-see-also-para op="IsFunctionDefinition"></emu-see-also-para>
-      <emu-grammar>GeneratorExpression : `function` `*` BindingIdentifier? `(` FormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorExpression : `function` `*` BindingIdentifier? `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorExpression : `function` `*` BindingIdentifier? `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return *true*.
       </emu-alg>
@@ -19478,7 +19590,10 @@
     <emu-clause id="sec-generator-function-definitions-static-semantics-propname">
       <h1>Static Semantics: PropName</h1>
       <emu-see-also-para op="PropName"></emu-see-also-para>
-      <emu-grammar>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Return PropName of |PropertyName|.
       </emu-alg>
@@ -19503,7 +19618,10 @@
       <h1>Runtime Semantics: InstantiateFunctionObject</h1>
       <p>With parameter _scope_.</p>
       <emu-see-also-para op="InstantiateFunctionObject"></emu-see-also-para>
-      <emu-grammar>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorDeclaration : `function` `*` BindingIdentifier `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. If the function code for |GeneratorDeclaration| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
         1. Let _name_ be StringValue of |BindingIdentifier|.
@@ -19513,7 +19631,10 @@
         1. Perform SetFunctionName(_F_, _name_).
         1. Return _F_.
       </emu-alg>
-      <emu-grammar>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorDeclaration : `function` `*` `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Let _F_ be GeneratorFunctionCreate(~Normal~, |FormalParameters|, |GeneratorBody|, _scope_, *true*).
         1. Let _prototype_ be ObjectCreate(%GeneratorPrototype%).
@@ -19531,7 +19652,10 @@
       <h1>Runtime Semantics: PropertyDefinitionEvaluation</h1>
       <p>With parameters _object_ and _enumerable_.</p>
       <emu-see-also-para op="PropertyDefinitionEvaluation"></emu-see-also-para>
-      <emu-grammar>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorMethod : `*` PropertyName `(` UniqueFormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. Let _propKey_ be the result of evaluating |PropertyName|.
         1. ReturnIfAbrupt(_propKey_).
@@ -19550,7 +19674,10 @@
     <!-- es6num="14.4.14" -->
     <emu-clause id="sec-generator-function-definitions-runtime-semantics-evaluation">
       <h1>Runtime Semantics: Evaluation</h1>
-      <emu-grammar>GeneratorExpression : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorExpression : `function` `*` `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorExpression : `function` `*` `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. If the function code for this |GeneratorExpression| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
         1. Let _scope_ be the LexicalEnvironment of the running execution context.
@@ -19559,7 +19686,10 @@
         1. Perform DefinePropertyOrThrow(_closure_, `"prototype"`, PropertyDescriptor{[[Value]]: _prototype_, [[Writable]]: *true*, [[Enumerable]]: *false*, [[Configurable]]: *false*}).
         1. Return _closure_.
       </emu-alg>
-      <emu-grammar>GeneratorExpression : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</emu-grammar>
+      <emu-grammar>
+        <del>GeneratorExpression : `function` `*` BindingIdentifier `(` FormalParameters `)` `{` GeneratorBody `}`</del>
+        <ins>GeneratorExpression : `function` `*` BindingIdentifier `(` FormalParameters `)` ColonType? `{` GeneratorBody `}`</ins>
+      </emu-grammar>
       <emu-alg>
         1. If the function code for this |GeneratorExpression| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
         1. Let _scope_ be the running execution context's LexicalEnvironment.
@@ -20011,15 +20141,20 @@
     <h2>Syntax</h2>
     <emu-grammar type="definition">
       AsyncFunctionDeclaration[Yield, Await, Default] :
-        `async` [no LineTerminator here] `function` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`
-        [+Default] `async` [no LineTerminator here] `function` `(` FormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`
+        <del>`async` [no LineTerminator here] `function` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`</del>
+        <ins>`async` [no LineTerminator here] `function` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[~Yield, +Await] `)` ColonType? `{` AsyncFunctionBody `}`</ins>
+        <del>[+Default] `async` [no LineTerminator here] `function` `(` FormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`</del>
+        <ins>[+Default] `async` [no LineTerminator here] `function` `(` FormalParameters[~Yield, +Await] `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
       AsyncFunctionExpression :
-        `async` [no LineTerminator here] `function` `(` FormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`
-        `async` [no LineTerminator here] `function` BindingIdentifier[~Yield, +Await] `(` FormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`
+        <del>`async` [no LineTerminator here] `function` `(` FormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`</del>
+        <del>`async` [no LineTerminator here] `function` `(` FormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`</del>
+        <del>`async` [no LineTerminator here] `function` BindingIdentifier[~Yield, +Await] `(` FormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`</del>
+        <ins>`async` [no LineTerminator here] `function` BindingIdentifier[~Yield, +Await] `(` FormalParameters[~Yield, +Await] `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
       AsyncMethod[Yield, Await] :
-        `async` [no LineTerminator here] PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`
+        <del>`async` [no LineTerminator here] PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[~Yield, +Await] `)` `{` AsyncFunctionBody `}`</del>
+        <ins>`async` [no LineTerminator here] PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[~Yield, +Await] `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
       AsyncFunctionBody :
         FunctionBody[~Yield, +Await]
@@ -20048,7 +20183,8 @@
     <emu-clause id="sec-async-function-definitions-static-semantics-early-errors">
       <h1>Static Semantics: Early Errors</h1>
       <emu-grammar>
-        AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <ul>
         <li>It is a Syntax Error if ContainsUseStrict of |AsyncFunctionBody| is *true* and IsSimpleParameterList of |UniqueFormalParameters| is *false*.</li>
@@ -20057,13 +20193,17 @@
         <li>It is a Syntax Error if any element of the BoundNames of |UniqueFormalParameters| also occurs in the LexicallyDeclaredNames of |AsyncFunctionBody|.</li>
       </ul>
       <emu-grammar>
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
-        AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
-        AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <ul>
         <li>It is a Syntax Error if ContainsUseStrict of |AsyncFunctionBody| is *true* and IsSimpleParameterList of |FormalParameters| is *false*.</li>
@@ -20081,13 +20221,15 @@
     <emu-clause id="sec-async-function-definitions-static-semantics-BoundNames">
       <h1>Static Semantics: BoundNames</h1>
       <emu-grammar>
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return the BoundNames of |BindingIdentifier|.
       </emu-alg>
       <emu-grammar>
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return &laquo;`"*default*"`&raquo;.
@@ -20099,7 +20241,8 @@
       <h1>Static Semantics: ComputedPropertyContains</h1>
       <p>With parameter _symbol_.</p>
       <emu-grammar>
-        AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return the result of ComputedPropertyContains for |PropertyName| with argument _symbol_.
@@ -20110,13 +20253,17 @@
       <h1>Static Semantics: Contains</h1>
       <p>With parameter _symbol_.</p>
       <emu-grammar>
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
-        AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
-        AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return *false*.
@@ -20126,7 +20273,8 @@
     <emu-clause id="sec-async-function-definitions-static-semantics-HasDirectSuper">
       <h1>Static Semantics: HasDirectSuper</h1>
       <emu-grammar>
-        AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. If |UniqueFormalParameters| Contains |SuperCall| is *true*, return *true*.
@@ -20137,13 +20285,15 @@
     <emu-clause id="sec-async-function-definitions-static-semantics-HasName">
       <h1>Static Semantics: HasName</h1>
       <emu-grammar>
-        AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return *false*.
       </emu-alg>
       <emu-grammar>
-        AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return *true*.
@@ -20153,9 +20303,11 @@
     <emu-clause id="sec-async-function-definitions-static-semantics-IsConstantDeclaration">
       <h1>Static Semantics: IsConstantDeclaration</h1>
       <emu-grammar>
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return *false*.
@@ -20165,9 +20317,11 @@
     <emu-clause id="sec-async-function-definitions-static-semantics-IsFunctionDefinition">
       <h1>Static Semantics: IsFunctionDefinition</h1>
       <emu-grammar>
-        AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
 
-        AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return *true*.
@@ -20177,7 +20331,8 @@
     <emu-clause id="sec-async-function-definitions-static-semantics-PropName">
       <h1>Static Semantics: PropName</h1>
       <emu-grammar>
-        AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return PropName of |PropertyName|.
@@ -20188,7 +20343,8 @@
       <h1>Runtime Semantics: InstantiateFunctionObject</h1>
       <p>With parameter _scope_.</p>
       <emu-grammar>
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. If the function code for |AsyncFunctionDeclaration| is strict mode code, let _strict_ be *true*. Otherwise, let _strict_ be *false*.
@@ -20198,7 +20354,8 @@
         1. Return _F_.
       </emu-alg>
       <emu-grammar>
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. If the function code for |AsyncFunctionDeclaration| is strict mode code, let _strict_ be *true*. Otherwise, let _strict_ be *false*.
@@ -20229,7 +20386,8 @@
       <h1>Runtime Semantics: PropertyDefinitionEvaluation</h1>
       <p>With parameters _object_ and _enumerable_.</p>
       <emu-grammar>
-        AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncMethod : `async` [no LineTerminator here] PropertyName `(` UniqueFormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Let _propKey_ be the result of evaluating |PropertyName|.
@@ -20246,21 +20404,24 @@
     <emu-clause id="sec-async-function-definitions-runtime-semantics-evaluation">
       <h1>Runtime Semantics: Evaluation</h1>
       <emu-grammar>
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return NormalCompletion(~empty~).
       </emu-alg>
 
       <emu-grammar>
-        AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionDeclaration : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. Return NormalCompletion(~empty~).
       </emu-alg>
 
       <emu-grammar>
-        AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionExpression : `async` [no LineTerminator here] `function` `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. If the function code for |AsyncFunctionExpression| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
@@ -20270,7 +20431,8 @@
       </emu-alg>
 
       <emu-grammar>
-        AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`
+        <del>AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` `{` AsyncFunctionBody `}`</del>
+        <ins>AsyncFunctionExpression : `async` [no LineTerminator here] `function` BindingIdentifier `(` FormalParameters `)` ColonType? `{` AsyncFunctionBody `}`</ins>
       </emu-grammar>
       <emu-alg>
         1. If the function code for |AsyncFunctionExpression| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
@@ -20866,6 +21028,28 @@
         <p>For example, a tail position call should only grow an implementation's activation record stack by the amount that the size of the target function's activation record exceeds the size of the calling function's activation record. If the target function's activation record is smaller, then the total size of the stack should decrease.</p>
       </emu-note>
     </emu-clause>
+  </emu-clause>
+
+  <!-- es6num="14.9" -->
+  <emu-clause id="sec-enum-definitions">
+    <h1><ins>Enum Definitions</ins></h1>
+    <h2><ins>Syntax</ins></h2>
+    <emu-grammar type="definition">
+      <ins>EnumDeclaration :</ins>
+        <ins>`enum` Identifier ColonType? `{` EnumElementList `}`</ins>
+
+      <ins>EnumElementList :</ins>
+        <ins>EnumElement</ins>
+        <ins>EnumElementList `,` EnumElement</ins>
+
+      <ins>EnumElement :</ins>
+        <ins>Identifier</ins>
+        <ins>Identifier `=` Literal</ins>
+        <ins>Identifier `=` ArrowFunction</ins>
+    </emu-grammar>
+    <emu-note>
+      <p><ins>The ArrowFunction is not a closure and cannot reference parameters. TODO: Include algorithm details.</ins></p>
+    </emu-note>
   </emu-clause>
 </emu-clause>
 
