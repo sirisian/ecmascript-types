@@ -326,7 +326,7 @@ Destructuring with functions:
 })({a: 1, b: 2}, [0]);
 ```
 
-Nested object destructuring:
+Deep object destructuring:
 
 ```js
 const o: { a: { a2: uint8 } } = { a: { a2: 1 } };
