@@ -33,10 +33,6 @@ Since it would be potentially years before this would be implemented this propos
 
 These types once imported behave like a ```const``` declaration and cannot be reassigned.
 
-### Deprecated Keywords
-
-In theory the following current keywords could be deprecated in the very long-term: ```Boolean```, ```Number```, ```String```, ```Symbol```, and the ```TypedArray``` objects. Their methods and features would be rolled into the new type system.
-
 ### Variable Declaration With Type
 
 This syntax is taken from ActionScript and other proposals over the years. It's subjectively concise, readable, and consistent throughout the proposal.
