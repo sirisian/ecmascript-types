@@ -317,13 +317,20 @@ let b:uint8;
 ({ a: b = 1 }:{ a:uint8 } = { a: 2 }); // b is 2
 ```
 
-Also for completeness using destructuring with functions:
+Destructuring with functions:
 
 ```js
 (function({a: b = 0, b: a = 0}:{ a:uint8, b:uint8 }, [c:uint8])
 {
     // a = 2, b = 1, c = 0
 })({a: 1, b: 2}, [0]);
+```
+
+Nested object destructuring:
+
+```js
+const o: { a: { a2: uint8 } } = { a: { a2: 1 } };
+const { a: { a2: b } }: { a: { a2: uint32 } } = o; // b is 1 and type uint32
 ```
 
 ### Typed Assignment
