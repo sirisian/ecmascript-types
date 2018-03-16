@@ -305,26 +305,26 @@ Array destructuring with default values:
 Object destructuring with default values:
 
 ```js
-{ a:uint8 = 1, b:uint8 = 2 } = { a: 2 };
+{ a = 1, b = 2 }:{ a:uint8, b:uint8 } = { a: 2 };
 ```
 
 Object destructuring with default value and new name:
 
 ```js
-let { a:uint8: b = 1 } = { a: 2 }; // b is 2
+let { a: b = 1 }: { a:uint8 } = { a: 2 }; // b is 2
 ```
 
 Alternatively assigning to an already declared variable:
 
 ```js
 let b:uint8;
-({ a:uint8: b = 1 } = { a: 2 }); // b is 2
+({ a: b = 1 }:{ a:uint8 } = { a: 2 }); // b is 2
 ```
 
 Also for completeness using destructuring with functions:
 
 ```js
-(function({a:uint8: b = 0, b:uint8: a = 0}, [c:uint8])
+(function({a: b = 0, b: a = 0}:{ a:uint8, b:uint8 }, [c:uint8])
 {
     // a = 2, b = 1, c = 0
 })({a: 1, b: 2}, [0]);
@@ -362,6 +362,12 @@ const e:uint8 = 1; // Without the type this would have been typed Number
 class A {}
 class B extends A {}
 const f:A = new B(); // This might not even be useful to allow
+```
+
+This assignment also works with destructuring:
+
+```js
+let { a, b } := { a:uint8: 1, b:uint32: 2 }; // a is type uint8 and b is type uint32
 ```
 
 ### Function Overloading
@@ -1161,49 +1167,6 @@ Similar to Function the constructor needs to be changed to allow types. For exam
 new GeneratorFunction("a:float32", ":float32", "yield a * 2;");
 ```
 
-### A.1 Lexical Grammar 
-
-THIS SECTION IS A WIP
-
-*Keyword* :: **one of**  
-&nbsp;&nbsp;&nbsp;&nbsp;**break** **do** **in** **typeof** **case** **else** **instanceof** **var** **catch** **export** **new** **void** **class** **extends** **return** **while** **const** **finally** **super** **with** **continue** **for** **switch** **yield** **debugger** **function** **this** **default** **if** **throw** **delete** **import** **try** **enum**
-
-This would be empty:  
-*FutureReservedWord* ::  
-
-
-*IntegralType* :: **one of**  
-&nbsp;&nbsp;&nbsp;&nbsp;**int8** **int16** **int32** **int64** **uint8** **uint16** **uint32** **uint64**
-
-*TypedArrayExpression* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits*  
-&nbsp;&nbsp;&nbsp;&nbsp;*IntegralType*  
-&nbsp;&nbsp;&nbsp;&nbsp;*DecimalDigits* **:** *IntegralType*  
-
-*TypedArray* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**[** *TypedArrayExpression*<sub>opt</sub> **]**
-
-*FunctionSignatureElement* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *ColonType*<sub>opt</sub>  
-
-*FunctionSignatureElementList* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignatureElement*  
-&nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignatureElementList* **,** *FunctionSignatureElement*  
-
-*FunctionSignature* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**(** *FunctionSignatureElementList* **)** *Type*<sub>opt</sub>  
-
-*Type* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*Identifier* *TypedArray*<sub>opt</sub> **?**<sub>opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*TypedArray* **?**<sub>opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*FunctionSignature* **?**<sub>opt</sub>  
-
-*ColonType* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *Type*  
-
-*VariableDeclaration*<sub>[In, Yield]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;*BindingIdentifier*<sub>[?Yield]</sub> *ColonType*<sub>opt</sub> *Initializer*<sub>[?In, ?Yield]opt</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*BindingPattern*<sub>[?Yield]</sub> *Initializer*<sub>[?In, ?Yield]</sub>  
 
 *EnumDeclaration* :  
 &nbsp;&nbsp;&nbsp;&nbsp;**enum** *Identifier* *ColonType*<sub>opt</sub> **{** *EnumElementList* **}**
