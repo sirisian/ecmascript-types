@@ -301,26 +301,26 @@ Array destructuring with default values:
 Object destructuring with default values:
 
 ```js
-{ a = 1, b = 2 }:{ a:uint8, b:uint8 } = { a: 2 };
+{ (a:uint8) = 1, (b:uint8) = 2 } = { a: 2 };
 ```
 
 Object destructuring with default value and new name:
 
 ```js
-let { a: b = 1 }: { a:uint8 } = { a: 2 }; // b is 2
+let { (a:uint8): b = 1 } = { a: 2 }; // b is 2
 ```
 
-Alternatively assigning to an already declared variable:
+Assigning to an already declared variable:
 
 ```js
 let b:uint8;
-({ a: b = 1 }:{ a:uint8 } = { a: 2 }); // b is 2
+({ a: b = 1 } = { a: 2 }); // b is 2
 ```
 
 Destructuring with functions:
 
 ```js
-(function({a: b = 0, b: a = 0}:{ a:uint8, b:uint8 }, [c:uint8])
+(({ (a:uint8): b = 0, (b:uint8): a = 0}, [c:uint8]) =>
 {
     // a = 2, b = 1, c = 0
 })({a: 1, b: 2}, [0]);
@@ -329,8 +329,7 @@ Destructuring with functions:
 Nested/deep object destructuring:
 
 ```js
-const o: { a: { a2: uint8 } } = { a: { a2: 1 } };
-const { a: { a2: b } }: { a: { a2: uint32 } } = o; // b is 1 and type uint32
+const { a: { (a2:uint32): b, a3: [, c:uint8] } } = { a: { a2: 1, a3: [2, 3] } }; // b is 1, c is 3
 ```
 
 ### Typed Assignment
