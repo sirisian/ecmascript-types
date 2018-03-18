@@ -332,6 +332,12 @@ Nested/deep object destructuring:
 const { a: { (a2:uint32): b, a3: [, c:uint8] } } = { a: { a2: 1, a3: [2, 3] } }; // b is 1, c is 3
 ```
 
+Destructuring objects with arrays:
+
+```js
+const { (a:uint8[]) } = { a: [1, 2, 3] } }; // a is [1, 2, 3] with type uint8[]
+```
+
 ### Typed Assignment
 
 A variable by default is typed ```any``` meaning its dynamic and its type changes depending on the last assigned value. As an example one can write:
