@@ -210,7 +210,7 @@ Take special note of the lack of ```new``` in this syntax. Adding new in the abo
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 
-Rather than definining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the "index constructor" creates an indexing function. More than one can be defined as long as they have unique signatures. The signature ```(x:string)``` is reserved for keys and can't be used.
+Rather than defining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the "index constructor" creates an indexing function. More than one can be defined as long as they have unique signatures. The signature ```(x:string)``` is reserved for keys and can't be used.
 
 An example of a user-defined index to access a 16 element grid with ```(x, y)``` coordinates:
 
