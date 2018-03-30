@@ -393,14 +393,23 @@ Up for debate is if accessing the separate functions is required. Functions are 
 Syntax:
 
 ```js
-let o = { a:uint8: 1 };
+let o = { (a:uint8): 1 };
+```
+This syntax is used because like destructuring there are ambiguousness parse trees.
+
+```js
+let a = [];
+let o = { a };
+o = { a:[] };
+o = { (a:uint8[]) }; // cast a to uint8[]
+o = { (a:uint8[]):[] }; // new object with property a set to an empty array of type uint8[]
 ```
 
 This syntax works with any arrays:
 
 ```js
 let o = { a:[] }; // Normal array syntax works as expected
-let o = { a:[]: [] }; // With typing this is identical to the above
+let o = { (a:[]): [] }; // With typing this is identical to the above
 ```
 
 ```Object.defineProperty``` and ```Object.defineProperties``` have a type property in the descriptor that accepts a type or string representing a type:
