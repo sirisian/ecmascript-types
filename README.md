@@ -395,7 +395,7 @@ Syntax:
 ```js
 let o = { (a:uint8): 1 };
 ```
-This syntax is used because like destructuring there are ambiguousness parse trees.
+This syntax is used because like destructuring the grammar cannot differentiate the multiple cases where types are included or excluded resulting in an ambiguous grammar. The parenthesis cleanly solves this.
 
 ```js
 let a = [];
