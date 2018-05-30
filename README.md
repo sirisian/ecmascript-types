@@ -13,7 +13,7 @@ The types described below bring ECMAScript in line or surpasses the type systems
 Since it would be potentially years before this would be implemented this proposal includes a new keyword ```enum``` for enumerated types and the following types:
 
 ```number```  
-```bool```  
+```boolean```  
 ```string```  
 ```object```  
 ```symbol```  
@@ -22,7 +22,7 @@ Since it would be potentially years before this would be implemented this propos
 ```bigint```  
 ```float16```, ```float32```, ```float64```, ```float80```, ```float128```  
 ```decimal32```, ```decimal64```, ```decimal128```  
-```bool8x16```, ```bool16x8```, ```bool32x4```, ```bool64x2```, ```bool8x32```, ```bool16x16```, ```bool32x8```, ```bool64x4```  
+```boolean8x16```, ```boolean16x8```, ```boolean32x4```, ```boolean64x2```, ```boolean8x32```, ```boolean16x16```, ```boolean32x8```, ```boolean64x4```  
 ```int8x16```, ```int16x8```, ```int32x4```, ```int64x2```, ```int8x32```, ```int16x16```, ```int32x8```, ```int64x4```  
 ```uint8x16```, ```uint16x8```, ```uint32x4```, ```uint64x2```, ```uint8x32```, ```uint16x16```, ```uint32x8```, ```uint64x4```  
 ```float32x4```, ```float64x2```, ```float32x8```, ```float64x4```  
@@ -45,7 +45,7 @@ const foo:Type = value;
 
 ### typeof Operator
 
-One of the first complications with types is ```typeof```'s behavior. All of the above types would return their string conversion including ```bool```. (I've spoken to many people now and "boolean" is seen as verbose among C++ and C# developers. Breaking this part of Java's influence probably wouldn't hurt to preserve consistency for the future).
+One of the first complications with types is ```typeof```'s behavior. All of the above types would return their string conversion.
 
 ```js
 let foo:uint8 = 0; // typeof foo == "uint8"
@@ -261,7 +261,7 @@ Many truncation rules have intuitive rules going from larger bits to smaller bit
 ### Function signatures with constraints
 
 ```js
-function Foo(a:int32, b:string, c:bigint[], callback:(bool, string) = (b, s = 'none') => b ? s : ''):int32 { }
+function Foo(a:int32, b:string, c:bigint[], callback:(boolean, string) = (b, s = 'none') => b ? s : ''):int32 { }
 ```
 
 ### Typed Arrow Functions
@@ -604,7 +604,7 @@ Note that no members may be defined in an extension class. The new methods are s
 All SIMD types would have operator overloading added when used with the same type.
 ```js
 let a = uint32x4(1, 2, 3, 4) + uint32x4(5, 6, 7, 8); // uint32x4
-let b = uint32x4(1, 2, 3, 4) < uint32x4(5, 6, 7, 8); // bool32x4
+let b = uint32x4(1, 2, 3, 4) < uint32x4(5, 6, 7, 8); // boolean32x4
 ```
 It's also possible to overload class operators to work with them, but the optimizations would be implementation specific if they result in SIMD instructions.
 
@@ -901,7 +901,7 @@ These are incredibly niche. That said I've had at least one person mention them 
 Would allow the following types to define bit lengths.
 
 ```
-bool
+boolean
 int8/16/32/64
 uint8/16/32/64
 ```
@@ -967,7 +967,7 @@ Would need to include the types listed above. Probably in a more verbose view th
 
 ### 6.1.3 The Boolean Type
 
-```bool``` is an alias for ```Boolean``` when ```bool``` is imported.
+```boolean``` is an alias for ```Boolean``` when ```boolean``` is imported.
 
 ### 6.1.4 The String Type
 
@@ -1026,7 +1026,7 @@ https://en.wikipedia.org/wiki/Decimal128_floating-point_format
 
 ### 6.1.12 SIMD
 
-```bool8x16```, ```bool16x8```, ```bool32x4```, ```bool64x2```, ```bool8x32```, ```bool16x16```, ```bool32x8```, ```bool64x4```  
+```boolean8x16```, ```boolean16x8```, ```boolean32x4```, ```boolean64x2```, ```boolean8x32```, ```boolean16x16```, ```boolean32x8```, ```boolean64x4```  
 ```int8x16```, ```int16x8```, ```int32x4```, ```int64x2```, ```int8x32```, ```int16x16```, ```int32x8```, ```int64x4```  
 ```uint8x16```, ```uint16x8```, ```uint32x4```, ```uint64x2```, ```uint8x32```, ```uint16x16```, ```uint32x8```, ```uint64x4```  
 ```float32x4```, ```float64x2```, ```float32x8```, ```float64x4```  
