@@ -349,14 +349,14 @@ a = 5; // a is type any and is 5
 If one wants to constrain the variable type they can write:
 ```js
 let a:MyType = new MyType();
-// a = 5; // TypeError, a is type MyType
+// a = 5; // Equivelant to using implicit casting: a = MyType(5);
 ```
 
 This redundancy in declaring types for the variable can be removed with a typed assignment:
 
 ```js
 let a := new MyType(); // a is type MyType
-// a = 5; // TypeError, a is type MyType
+// a = 5; // Equivelant to using implicit casting: a = MyType(5);
 ```
 
 This new form of assignment is useful with both ```var``` and ```let``` declarations. With ```const``` it has no uses:
