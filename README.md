@@ -626,7 +626,7 @@ Custom sequential functions for numerical and string types (these aren't closure
 ```js
 enum Count:float32 { Zero = (index, name) => index * 100, One, Two }; // 0, 100, 200
 enum Count:string { Zero = (index, name) => name, One, Two = (index, name) => name.toLowerCase(), Three }; // "Zero", "One", "two", "three"
-enum Flags:uint32 { None = 0, Flag1 = (index, name) => 1 << index, Flag2, Flag3 } // 0, 1, 2, 4
+enum Flags:uint32 { None = 0, Flag1 = (index, name) => 1 << (index - 1), Flag2, Flag3 } // 0, 1, 2, 4
 ```
 Index operator:
 ```js
