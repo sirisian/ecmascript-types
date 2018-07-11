@@ -481,6 +481,8 @@ For floats, decimals, and rational the signature is just ```parse(string)```.
 let foo:float32 = float32.parse('1.2');
 ```
 
+TODO: Define the expected inputs allowed. (See: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseFloat). Also should a failure throw or return NaN if the type supports it. I'm leaning toward throwing in all cases where erroneous values are parsed. It's usually not in the program's design that NaN is an expected value and parsing to NaN just created hidden bugs.
+
 ### Implicit SIMD Constructors
 
 Going from a scalar to a vector:
