@@ -290,7 +290,7 @@ let a:int32 = 3;
 a /= 2; // 1
 ```
 
-### Destructing Assignment Casting
+### Destructuring Assignment Casting
 
 Array destructuring with default values:
 
