@@ -985,7 +985,7 @@ Would need to include the types listed above. Probably in a more verbose view th
 
 ### 6.1.7 The Object Type
 
-```object``` is an alias for ```Number``` when ```object``` is imported.
+```object``` is an alias for ```Object``` when ```object``` is imported.
 
 ### 6.1.8 Integral Types
 
