@@ -165,7 +165,7 @@ By default ```length``` is ```uint32```.
 Syntax:
 
 ```js
-let foo:uint8[int8] = [0, 1, 2, 3, 4];
+let foo:uint8[:int8] = [0, 1, 2, 3, 4];
 let bar = foo.length; // length is type int8
 ```
 
@@ -337,6 +337,78 @@ Destructuring objects with arrays:
 ```js
 const { (a:uint8[]) } = { a: [1, 2, 3] } }; // a is [1, 2, 3] with type uint8[]
 ```
+
+### Typed return values for destructuring
+
+```js
+function Foo():[uint8, uint32]
+{
+    return [1, 2];
+}
+const { a, b } = Foo();
+```
+
+Overloaded example for the return type:
+
+```js
+function Foo():[int32]
+{
+    return [1];
+}
+function Foo():[int32, int32]
+{
+    return [2, 3];
+}
+const [a] = Foo();
+const [a, ...b] = Foo(); // a is 2 and b is [3]
+```
+
+```js
+function Foo():[int32]
+{
+    return [1];
+}
+function Foo():[float32]
+{
+    return [2.0];
+}
+const [a:int32] = Foo();
+const [a:float32] = Foo();
+```
+
+Typed object return:
+
+Object renaming:
+
+```js
+function Foo():{ (a:uint8), (b:float32) }
+{
+    return { a: 1, b: 2 };
+}
+const { a, b } = Foo(); // { a: 1, b: 2 }
+```
+
+Object defaults:
+
+```js
+function Foo():{ (a:uint8): c, (b:float32) = 10 }
+{
+    return { a: 1 };
+}
+const { c, b } = Foo(); // { c: 1, b: 10 }
+```
+
+TypeError example:
+
+```js
+function Foo():[int32, float32]
+{
+    return [1, 2];
+    // return [1]; // TypeError, expected float32 in returned array for second element
+}
+```
+
+WIP: Syntax for optional return values. Unknown, but needed for objects.
 
 ### Typed Assignment
 
