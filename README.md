@@ -378,8 +378,6 @@ const [a:float32] = Foo();
 
 Typed object return:
 
-Object renaming:
-
 ```js
 function Foo():{ (a:uint8), (b:float32) }
 {
@@ -388,14 +386,23 @@ function Foo():{ (a:uint8), (b:float32) }
 const { a, b } = Foo(); // { a: 1, b: 2 }
 ```
 
-Object defaults:
-
+Object renaming:
 ```js
-function Foo():{ (a:uint8): c, (b:float32) = 10 }
+function F():{ (a:uint8): c }
 {
     return { a: 1 };
 }
-const { c, b } = Foo(); // { c: 1, b: 10 }
+const { c } = F(); // { c: 1 }
+```
+
+Object defaults:
+
+```js
+function Foo():{ (a:uint8), (b:float32) = 10 }
+{
+    return { a: 1 };
+}
+const { a, b } = Foo(); // { a: 1, b: 10 }
 ```
 
 TypeError example:
