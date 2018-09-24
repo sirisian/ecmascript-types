@@ -340,16 +340,52 @@ const { (a:uint8[]) } = { a: [1, 2, 3] } }; // a is [1, 2, 3] with type uint8[]
 
 ### Typed return values for destructuring
 
+Basic array destructuring:
 ```js
 function Foo():[uint8, uint32]
 {
     return [1, 2];
 }
+const [a, b] = Foo();
+```
+
+Array defaults
+```js
+function Foo():[uint8, uint32 = 10]
+{
+    return [1];
+}
+const [a, b] = Foo(); // a is 1 and b is 10
+```
+
+Basic object destructuring:
+```js
+function Foo():{ (a:uint8), (b:float32) }
+{
+    return { a: 1, b: 2 };
+}
 const { a, b } = Foo();
 ```
 
-Overloaded example for the return type:
+Object renaming:
+```js
+function Foo():{ (a:uint8): c }
+{
+    return { a: 1 };
+}
+const { c } = Foo(); // { c: 1 }
+```
 
+Object defaults:
+```js
+function Foo():{ (a:uint8), (b:float32) = 10 }
+{
+    return { a: 1 };
+}
+const { a, b } = Foo(); // { a: 1, b: 10 }
+```
+
+Overloaded example for the return type:
 ```js
 function Foo():[int32]
 {
@@ -359,10 +395,18 @@ function Foo():[int32, int32]
 {
     return [2, 3];
 }
-const [a] = Foo();
+function Foo():{ (a:uint8), (b:float32) }
+{
+    return { a: 1, b: 2 };
+}
+const [a] = Foo(); // a is 1
 const [a, ...b] = Foo(); // a is 2 and b is [3]
+const { a, b } = Foo(); // a is 1 and b is 2
 ```
 
+TODO: Define the behavior when defining the same signature for a function.
+
+Explicitly selecting an overload:
 ```js
 function Foo():[int32]
 {
@@ -374,35 +418,6 @@ function Foo():[float32]
 }
 const [a:int32] = Foo();
 const [a:float32] = Foo();
-```
-
-Typed object return:
-
-```js
-function Foo():{ (a:uint8), (b:float32) }
-{
-    return { a: 1, b: 2 };
-}
-const { a, b } = Foo(); // { a: 1, b: 2 }
-```
-
-Object renaming:
-```js
-function F():{ (a:uint8): c }
-{
-    return { a: 1 };
-}
-const { c } = F(); // { c: 1 }
-```
-
-Object defaults:
-
-```js
-function Foo():{ (a:uint8), (b:float32) = 10 }
-{
-    return { a: 1 };
-}
-const { a, b } = Foo(); // { a: 1, b: 10 }
 ```
 
 TypeError example:
