@@ -482,6 +482,28 @@ Foo(["test"]); // "string"
 
 Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like ```Foo["(int32[])"]``` wouldn't be viable. It's possible ```Reflect``` could have something added to it to allow access.
 
+### Generator Overloading
+
+```js
+var o = {};
+o[Symbol.iterator] =
+[
+    function* ():int32
+    {
+        yield* [1, 2, 3];
+    },
+    function* ():[int32, int32]
+    {
+        yield* [[0, 1], [1, 2], [2, 3]];
+    }
+];
+
+[...o:int32]; // [1, 2, 3] Explicit selection of the generator return signature
+for (const a:int32 of o) {} // Type is optional in this case
+[...o:[int32, int32]]; // [[0, 1], [1, 2], [2, 3]]
+for (const [a:int32, b:int32] of o) {} // Type is optional in this case
+```
+
 ### Object Typing
 
 Syntax:
