@@ -531,6 +531,13 @@ Object.defineProperties(o,
 });
 ```
 
+The type information is also available in the property descriptor:
+```js
+let o = { a:uint8 };
+const pD.type = Object.getOwnPropertyDescriptor(obj, 'a');
+pD.type; // uint8
+```
+
 ### Constructor Overloading
 
 ```js
