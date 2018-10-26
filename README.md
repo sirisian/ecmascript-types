@@ -482,6 +482,17 @@ Foo(["test"]); // "string"
 
 Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like ```Foo["(int32[])"]``` wouldn't be viable. It's possible ```Reflect``` could have something added to it to allow access.
 
+#### Async Functions and overloading
+
+```async``` does not create a unique signature. Consider the following:
+
+```js
+async function F() {}
+// function F() { return new Promise(resolve => {}); } // TypeError: "A function with that signature already exists"
+await F();
+```
+While ```async``` functions and synchronous functions can have the same name, they must have unique signatures.
+
 ### Generator Overloading
 
 ```js
