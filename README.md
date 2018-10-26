@@ -491,7 +491,7 @@ async function F() {}
 // function F() { return new Promise(resolve => {}); } // TypeError: "A function with that signature already exists"
 await F();
 ```
-While ```async``` functions and synchronous functions can have the same name, they must have unique signatures.
+While ```async``` functions and synchronous functions can overload the same name, they must have unique signatures.
 
 ### Generator Overloading
 
