@@ -432,6 +432,117 @@ function Foo():[int32, float32]
 
 WIP: Syntax for optional return values. Unknown, but needed for objects.
 
+### Interfaces
+
+Interfaces can be used to type objects, arrays, and functions. This allows users to remove redundant type information that is used in multiple places such as in destructuring calls. In addition interfaces can be used to define contracts for classes and their required properties.
+
+TODO: Include optional properties.
+
+#### Object Interfaces
+
+```js
+interface IExample
+{
+    a:string;
+    b:(uint32):void;
+}
+```
+
+```js
+function Foo():IExample
+{
+    return { a: 'foo', b: 1 };
+}
+```
+
+#### Array Interfaces
+
+```js
+interface IExample
+[
+    string,
+    uint32
+];
+```
+
+```js
+function Foo():IExample
+{
+    return ['foo', 1];
+}
+```
+
+#### Function Interfaces
+
+With function overloading an interface can place multiple function constraints.
+
+```js
+interface IExample
+{
+    (string, uint32):void,
+    (uint32):void
+}
+```
+
+```js
+function Foo(a:IExample)
+{
+    a('foo', 1);
+    // a('foo'); // TypeError: No matching signature for (string).
+}
+```
+
+Would this syntax conflict if named arguments were added? Is it even important to consider. TypeScript names their function parameters. Unpacking properties for object parameters maybe:
+
+```js
+interface IExample
+{
+    ({(a:uint32):b}):void
+}
+function Foo(a:IExample)
+{
+    a({a:1}); // 1
+}
+Foo(({a:b}) => b);
+```
+Kind of an oddly specific example though for the interface. One that might not make sense to support since what the user probably wanted to write was:
+```js
+interface IExample
+{
+    ({(b:uint32)}):void
+}
+```
+The added ```a``` doesn't add any information since the real constraint is that b is an uint32. Does supporting a constraint on renaming add anything to the syntax? If not then one can drop the parenthesis for destructuring arguments type constraints.
+
+```js
+interface IExample
+{
+    ({b:uint32}):void
+}
+```
+This now reads as a function that takes an object with a property b:uint32 and unpacks that b. Compare that to:
+
+```js
+interface IExample
+{
+    (a:{b:uint32}):void
+}
+```
+This reads as a function that takes an object with a property b:uint32 and doesn't unpack it. The a means very little here. So the final syntax is:
+
+```js
+interface IExample
+{
+    (:{b:uint32}):void
+}
+```
+
+I'm rambling. I'll move some of this to an issue and create more examples.
+
+TODO: Create examples of the above where interfaces are nested in the definition. For example ```interface Foo { (:Bar):void }```
+
+TODO: Extending interfaces and implementing interfaces in classes
+
 ### Typed Assignment
 
 A variable by default is typed ```any``` meaning its dynamic and its type changes depending on the last assigned value. As an example one can write:
