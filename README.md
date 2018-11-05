@@ -483,8 +483,6 @@ function Foo(a:IExample)
 }
 ```
 
-Argument names in function interfaces are optional, but if they are included then the implementing function must match the signature exactly. This is done in case named parameters are added later.
-
 Signature equality checks ignore renaming:
 
 ```js
@@ -506,6 +504,22 @@ interface IExample
     (:{a:uint32;}):void
 }
 ```
+
+Argument names in function interfaces are optional, but if they are included then the implementing function must match the signature exactly. This is done in case named parameters are added later. Note that if an interface is used then the name can be changed in the passed in function. For example:
+
+```js
+interface IExample
+{
+    (:string = 5, named:uint32):void;
+}
+function Foo(a:IExample)
+{
+    a(named: 10); // 10
+}
+Foo((a, b) => b);
+```
+
+The interface in this example defines the mapping for "named" to the second parameter.
 
 #### Nested Interfaces
 
