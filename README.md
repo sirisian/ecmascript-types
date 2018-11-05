@@ -521,6 +521,27 @@ Foo((a, b) => b);
 
 The interface in this example defines the mapping for "named" to the second parameter.
 
+It might not be obvious at first glance, but there are two separate syntaxes for defining function type constraints. One without an interface, for single non-overloaded function signatures, and with interface, for either constraining the parameter names or to define overloaded function type constraints.
+
+```js
+function (a:(uint32, uint32):void) {} // Using non-overloaded function signature
+function (a:{ (:uint32, :uint32):void; }) {} // Identical to the above using Interface syntax
+```
+Most of the time users will use the first syntax, but the latter can be used if a function uses multiple overloaded signatures:
+```js
+function (a:{ (:uint32):void; (:string):void; })
+{
+    a(1);
+    a('foo');
+}
+```
+The other use case as explained is to apply strict parameter names:
+
+```js
+var a:{ (b:uint32):void; };
+// a = c => 1; // TypeError: First parameter name must be "b".
+```
+
 #### Nested Interfaces
 
 ```js
