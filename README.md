@@ -360,25 +360,16 @@ const [a, b] = Foo(); // a is 1 and b is 10
 
 Basic object destructuring:
 ```js
-function Foo():{ (a:uint8), (b:float32) }
+function Foo():{ a:uint8; b:float32; }
 {
     return { a: 1, b: 2 };
 }
 const { a, b } = Foo();
 ```
 
-Object renaming:
-```js
-function Foo():{ (a:uint8): c }
-{
-    return { a: 1 };
-}
-const { c } = Foo(); // { c: 1 }
-```
-
 Object defaults:
 ```js
-function Foo():{ (a:uint8), (b:float32) = 10 }
+function Foo():{ a:uint8; b:float32 = 10; }
 {
     return { a: 1 };
 }
@@ -395,7 +386,7 @@ function Foo():[int32, int32]
 {
     return [2, 3];
 }
-function Foo():{ (a:uint8), (b:float32) }
+function Foo():{ a:uint8; b:float32; }
 {
     return { a: 1, b: 2 };
 }
@@ -444,7 +435,7 @@ TODO: Include optional properties.
 interface IExample
 {
     a:string;
-    b:(uint32):void;
+    b:(:uint32):void;
 }
 ```
 
@@ -479,8 +470,8 @@ With function overloading an interface can place multiple function constraints.
 ```js
 interface IExample
 {
-    (string, uint32):void,
-    (uint32):void
+    (:string, :uint32):void;
+    (:uint32):void;
 }
 ```
 
@@ -492,56 +483,45 @@ function Foo(a:IExample)
 }
 ```
 
-Would this syntax conflict if named arguments were added? Is it even important to consider. TypeScript names their function parameters. Unpacking properties for object parameters maybe:
+Argument names in function interfaces are optional, but if they are included then the implementing function must match the signature exactly. This is done in case named parameters are added later.
+
+Signature equality checks ignore renaming:
 
 ```js
 interface IExample
 {
-    ({(a:uint32):b}):void
+    ({(a:uint32)}):void
 }
 function Foo(a:IExample)
 {
     a({a:1}); // 1
 }
-Foo(({a:b}) => b);
+Foo(({(a:uint32):b}) => b); // This works since the signature check ignores any renaming
 ```
-Kind of an oddly specific example though for the interface. One that might not make sense to support since what the user probably wanted to write was:
+
+An example of taking a typed object:
 ```js
 interface IExample
 {
-    ({(b:uint32)}):void
+    (:{a:uint32;}):void
 }
 ```
-The added ```a``` doesn't add any information since the real constraint is that b is an uint32. Does supporting a constraint on renaming add anything to the syntax? If not then one can drop the parenthesis for destructuring arguments type constraints.
+
+#### Nested Interfaces
 
 ```js
-interface IExample
-{
-    ({b:uint32}):void
-}
-```
-This now reads as a function that takes an object with a property b:uint32 and unpacks that b. Compare that to:
-
-```js
-interface IExample
-{
-    (a:{b:uint32}):void
-}
-```
-This reads as a function that takes an object with a property b:uint32 and doesn't unpack it. The a means very little here. So the final syntax is:
-
-```js
-interface IExample
-{
-    (:{b:uint32}):void
-}
+interface Foo { a:uint32; }
+interface Bar { (:Foo):void }
+// interface Bar { (:{ a:uint32; }):void }
 ```
 
-I'm rambling. I'll move some of this to an issue and create more examples.
+#### Extending Interfaces
 
-TODO: Create examples of the above where interfaces are nested in the definition. For example ```interface Foo { (:Bar):void }```
+TODO:
 
-TODO: Extending interfaces and implementing interfaces in classes
+### Implementing Interfaces
+
+TODO: Class examples
 
 ### Typed Assignment
 
