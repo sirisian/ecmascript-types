@@ -421,13 +421,9 @@ function Foo():[int32, float32]
 }
 ```
 
-WIP: Syntax for optional return values. Unknown, but needed for objects.
-
 ### Interfaces
 
 Interfaces can be used to type objects, arrays, and functions. This allows users to remove redundant type information that is used in multiple places such as in destructuring calls. In addition, interfaces can be used to define contracts for classes and their required properties.
-
-TODO: Include optional properties.
 
 #### Object Interfaces
 
@@ -435,16 +431,20 @@ TODO: Include optional properties.
 interface IExample
 {
     a:string;
-    b:(:uint32):void;
+    b:(uint32):uint32;
+    ?c:any; // Optional property. A default value can be assigned like:
+    // ?c:any = [];
 }
 ```
 
 ```js
 function Foo():IExample
 {
-    return { a: 'foo', b: 1 };
+    return { a: 'foo', b: x => x };
 }
 ```
+
+The syntax for optional properties could have the question mark before or after the property as this does not conflict with the type. It's unclear which is more consistent or ideal.
 
 #### Array Interfaces
 
@@ -452,7 +452,9 @@ function Foo():IExample
 interface IExample
 [
     string,
-    uint32
+    uint32,
+    ?string // Optional item. A default value can be assigned like:
+    // ?string = 10
 ];
 ```
 
@@ -463,6 +465,8 @@ function Foo():IExample
 }
 ```
 
+An optional nullable item would look like ```?uint32?``` which looks odd, but is why the question mark is before the type.
+
 #### Function Interfaces
 
 With function overloading an interface can place multiple function constraints.
@@ -472,6 +476,8 @@ interface IExample
 {
     (:string, :uint32):void;
     (:uint32):void;
+    ?(:string, :string):void; // Optional overload. A default value can be assigned like:
+    // ?(:string, :string):void = (x, y) => x + y;
 }
 ```
 
