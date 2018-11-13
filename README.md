@@ -425,7 +425,7 @@ WIP: Syntax for optional return values. Unknown, but needed for objects.
 
 ### Interfaces
 
-Interfaces can be used to type objects, arrays, and functions. This allows users to remove redundant type information that is used in multiple places such as in destructuring calls. In addition interfaces can be used to define contracts for classes and their required properties.
+Interfaces can be used to type objects, arrays, and functions. This allows users to remove redundant type information that is used in multiple places such as in destructuring calls. In addition, interfaces can be used to define contracts for classes and their required properties.
 
 TODO: Include optional properties.
 
@@ -560,7 +560,7 @@ TODO: Class examples
 
 ### Typed Assignment
 
-A variable by default is typed ```any``` meaning its dynamic and its type changes depending on the last assigned value. As an example one can write:
+A variable by default is typed ```any``` meaning it's dynamic and its type changes depending on the last assigned value. As an example one can write:
 
 ```js
 let a = new MyType();
