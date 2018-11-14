@@ -273,6 +273,14 @@ let foo = (s:string, x:int32) => s + x; // implicit return type of string
 let foo = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
 let foo = x:uint8 => x + y; // single parameter
 ```
+Like other types they can be made nullable. An example showing an edge case:
+```js
+let foo:(uint32?)?:uint32? = null;
+```
+This can be written also using the interfaces syntax, which is explained later:
+```js
+let foo:{ (:uint32?):uint32; }? = null;
+```
 
 ### Integer Binary Shifts
 
