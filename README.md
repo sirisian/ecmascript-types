@@ -273,7 +273,7 @@ let foo = (s:string, x:int32) => s + x; // implicit return type of string
 let foo = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
 let foo = x:uint8 => x + y; // single parameter
 ```
-Like other types they can be made nullable. An example showing an edge case:
+Like other types they can be made nullable. An example showing an extreme case where everything is made nullable:
 ```js
 let foo:(uint32?)?:uint32? = null;
 ```
