@@ -855,6 +855,35 @@ class Vector2d
 }
 ```
 
+The following symbols can be used also. The class/object syntax is identical to ```Symbol.iterator```.
+
+```
+Symbol.addition
+Symbol.subtraction
+Symbol.multiplication
+Symbol.division
+Symbol.remainder
+Symbol.exponentiation
+Symbol.leftShift
+Symbol.rightShift
+Symbol.unsignedRightShift
+Symbol.bitwiseAND
+Symbol.bitwiseOR
+Symbol.bitwiseXOR
+Symbol.bitwiseNOT
+Symbol.lessThan
+Symbol.lessThanOrEqual
+Symbol.greaterThan
+Symbol.greaterThanOrEqual
+Symbol.logicalAND
+Symbol.logicalOR
+Symbol.logicalNOT
+Symbol.increment
+Symbol.decrement
+Symbol.unaryNegation
+Symbol.unaryPlus
+```
+
 ### Class Extension
 
 Example defined in say ```MyClass.js``` defining extensions to ```Vector2d``` defined above:
