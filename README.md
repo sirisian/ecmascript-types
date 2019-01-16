@@ -822,42 +822,21 @@ function AlwaysReturnValue(value:float32) { /* ... */ }
 
 ### Classes and Operator Overloading
 
-```js
-class Vector2d
-{
-    x:float32;
-    y:float32;
-    constructor(x:float32 = 0, y:float32 = 0)
-    {
-        this.x = x;
-        this.y = y;
-    }
-    Length():float32
-    {
-        return Math.sqrt(x * x + y * y); // uses Math.sqrt(v:float32):float32 due to input and return type
-    }
-    get X():float64 // return implicit cast
-    {
-        return this.x;
-    }
-    set X(x:float64)
-    {
-        this.x = x / 2;
-    }
-    operator +(v:Vector2d)
-    {
-        return new vector2d(this.x + v.x, this.y + v.y);
-    }
-    operator ==(v:Vector2d)
-    {
-        // equality check between this and v
-    }
-}
-```
-
-The following symbols can be used also. The class/object syntax is identical to ```Symbol.iterator```.
+The following symbols can be used to define operator overloading as well as a compact operator syntax.
 
 ```
+Symbol.additionAssignment
+Symbol.subtractionAssignment
+Symbol.multiplicationAssignment
+Symbol.divisionAssignment
+Symbol.remainderAssignment
+Symbol.exponentiationAssignment
+Symbol.leftShiftAssignment
+Symbol.rightShiftAssignment
+Symbol.unsignedRightShiftAssignment
+Symbol.bitwiseANDAssignment
+Symbol.bitwiseXORAssignment
+Symbol.bitwiseORAssignment
 Symbol.addition
 Symbol.subtraction
 Symbol.multiplication
@@ -882,6 +861,48 @@ Symbol.increment
 Symbol.decrement
 Symbol.unaryNegation
 Symbol.unaryPlus
+```
+
+```js
+class Vector2d
+{
+    x:float32;
+    y:float32;
+    constructor(x:float32 = 0, y:float32 = 0)
+    {
+        this.x = x;
+        this.y = y;
+    }
+    Length():float32
+    {
+        return Math.sqrt(x * x + y * y); // uses Math.sqrt(v:float32):float32 due to input and return type
+    }
+    get X():float64 // return implicit cast
+    {
+        return this.x;
+    }
+    set X(x:float64)
+    {
+        this.x = x / 2;
+    }
+    operator +(v:Vector2d) // Same as [Symbol.addition](v:Vector2d)
+    {
+        return new vector2d(this.x + v.x, this.y + v.y);
+    }
+    operator ==(v:Vector2d)
+    {
+        // equality check between this and v
+    }
+}
+```
+
+```js
+var a = { b: 0 };
+a[Symbol.additionAssignment] = function(value)
+{
+  this.b += value;
+};
+a += 5; // a.b is 5
 ```
 
 ### Class Extension
