@@ -864,6 +864,50 @@ Symbol.unaryPlus
 ```
 
 ```js
+class A
+{
+  operator +=(rhs) { }
+  operator -=(rhs)
+  operator *=(rhs) { }
+  operator /=(rhs) { }
+  operator %=(rhs) { }
+  operator **=(rhs) { }
+  operator <<=(rhs) { }
+  operator >>=(rhs) { }
+  operator >>>=(rhs) { }
+  operator &=(rhs) { }
+  operator ^=(rhs) { }
+  operator |=(rhs) { }
+  operator +(rhs) { }
+  operator -(rhs) { }
+  operator *(rhs) { }
+  operator /(rhs) { }
+  operator %(rhs) { }
+  operator **(rhs) { }
+  operator <<(rhs) { }
+  operator >>(rhs) { }
+  operator >>>(rhs) { }
+  operator &(rhs) { }
+  operator |(rhs) { }
+  operator ^(rhs) { }
+  operator ~() { }
+  operator <(rhs) { }
+  operator <=(rhs) { }
+  operator >(rhs) { }
+  operator >=(rhs) { }
+  operator &&(rhs) { }
+  operator ||(rhs) { }
+  operator !() { }
+  operator ++() { }
+  operator --() { }
+  operator -() { }
+  operator +() { }
+}
+```
+
+Examples:
+
+```js
 class Vector2d
 {
     x:float32;
