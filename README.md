@@ -867,7 +867,7 @@ Symbol.unaryPlus
 class A
 {
   operator +=(rhs) { }
-  operator -=(rhs)
+  operator -=(rhs) { }
   operator *=(rhs) { }
   operator /=(rhs) { }
   operator %=(rhs) { }
