@@ -822,7 +822,7 @@ function AlwaysReturnValue(value:float32) { /* ... */ }
 
 ### Classes and Operator Overloading
 
-The following symbols can be used to define operator overloading as well as a compact operator syntax.
+The following symbols can be used to define operator overloading.
 
 ```
 Symbol.additionAssignment
@@ -862,6 +862,8 @@ Symbol.decrement
 Symbol.unaryNegation
 Symbol.unaryPlus
 ```
+
+In addition, a compact syntax is proposed with signatures. These can be overloaded to work with various types. Note that the unary operators have no parameters which differentiates them from the binary operators.
 
 ```js
 class A
