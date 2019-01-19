@@ -704,12 +704,18 @@ Object.defineProperties(o,
 });
 ```
 
-The type information is also available in the property descriptor:
+The type information is also available in the property descriptor accessed with ```Object.getOwnPropertyDescriptor``` or ```Object.getOwnPropertyDescriptors```:
+
 ```js
-let o = { a:uint8 };
-const pD.type = Object.getOwnPropertyDescriptor(obj, 'a');
-pD.type; // uint8
+const o = { a:uint8 };
+const descriptor = Object.getOwnPropertyDescriptor(o, 'a');
+descriptor.type; // uint8
+
+const descriptors = Object.getOwnPropertyDescriptors(o);
+descriptors.a.type; // uint8
 ```
+
+Note that the ```type``` descriptor is the actual type and not a string.
 
 ### Constructor Overloading
 
