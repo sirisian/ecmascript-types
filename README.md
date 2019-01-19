@@ -38,9 +38,9 @@ These types once imported behave like a ```const``` declaration and cannot be re
 This syntax is taken from ActionScript and other proposals over the years. It's subjectively concise, readable, and consistent throughout the proposal.
 
 ```js
-var foo:Type = value;
-let foo:Type = value;
-const foo:Type = value;
+var a:Type = value;
+let b:Type = value;
+const c:Type = value;
 ```
 
 ### typeof Operator
@@ -48,10 +48,10 @@ const foo:Type = value;
 One of the first complications with types is ```typeof```'s behavior. All of the above types would return their string conversion.
 
 ```js
-let foo:uint8 = 0; // typeof foo == "uint8"
-let bar:uint8? = 0; // typeof bar == "uint8?"
-let baz:uint8[] = []; // typeof baz == "object"
-let foobar:(uint8):uint8 = x => x * x; // typeof foobar == "function"
+let a:uint8 = 0; // typeof a == "uint8"
+let b:uint8? = 0; // typeof b == "uint8?"
+let c:uint8[] = []; // typeof c == "object"
+let d:(uint8):uint8 = x => x * x; // typeof d == "function"
 ```
 
 ### instanceof Operator
@@ -59,16 +59,16 @@ let foobar:(uint8):uint8 = x => x * x; // typeof foobar == "function"
 THIS SECTION IS A WIP
 
 ```js
-if (value instanceof uint8) {}
+if (a instanceof uint8) {}
 ```
 
 Also this would be nice for function signatures.
 
 ```js
-if (value instanceof (uint8):uint8) {}
+if (a instanceof (uint8):uint8) {}
 ```
 
-That would imply ```Object.getPrototypeOf(value) === ((uint8):uint8).prototype```.
+That would imply ```Object.getPrototypeOf(a) === ((uint8):uint8).prototype```.
 
 I'm not well versed on if this makes sense though, but it would be like each typed function has a prototype defined by the signature.
 
@@ -76,7 +76,7 @@ I'm not well versed on if this makes sense though, but it would be like each typ
 
 All types except ```any``` are non-nullable. The syntax below creates a nullable ```uint8``` typed variable:
 ```js
-let foo:uint8? = null; // typeof foo == "uint8?"
+let a:uint8? = null; // typeof a == "uint8?"
 ```
 
 ### any Type
@@ -84,37 +84,37 @@ let foo:uint8? = null; // typeof foo == "uint8?"
 Using ```any?``` would result in a syntax error since ```any``` already includes nullable types. As would using ```any[]``` since it already includes array types. Using just ```[]``` would be the type for arrays that can contain anything. For example:
 
 ```js
-let foo:[];
+let a:[];
 ```
 
 ### Variable-length Typed Arrays
 
 ```js
-let foo:uint8[]; // []
-foo.push(0); // [0]
-let bar:uint8[] = [0, 1, 2, 3];
-let baz:uint8[]?; // null
+let a:uint8[]; // []
+a.push(0); // [0]
+let b:uint8[] = [0, 1, 2, 3];
+let c:uint8[]?; // null
 ```
 
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
 
 ```js
-let foo:uint8[] = [0, 1, 2, 3];
-foo['a'] = 'foobar';
-'a' in foo; // true
-delete foo['a'];
+let a:uint8[] = [0, 1, 2, 3];
+a['a'] = 0;
+'a' in a; // true
+delete a['a'];
 ```
 
 ### Fixed-length Typed Arrays
 
 ```js
-let foo:uint8[4]; // [0, 0, 0, 0]
-// foo.push(0); TypeError: foo is fixed-length
-// foo.pop(); TypeError: foo is fixed-length
-foo[0] = 1; // valid
-// foo[foo.length] = 2; Out of range
-let bar:uint8[4] = [0, 1, 2, 3];
-let baz:uint8[4]?; // null
+let a:uint8[4]; // [0, 0, 0, 0]
+// a.push(0); TypeError: a is fixed-length
+// a.pop(); TypeError: a is fixed-length
+a[0] = 1; // valid
+// a[a.length] = 2; Out of range
+let b:uint8[4] = [0, 1, 2, 3];
+let c:uint8[4]?; // null
 ```
 
 Typed arrays would be zero-ed at creation. That is the allocated memory would be set to all zeroes.
@@ -122,33 +122,33 @@ Typed arrays would be zero-ed at creation. That is the allocated memory would be
 ### Mixing Variable-length and Fixed-length Arrays
 
 ```js
-function Foo(p:boolean):uint8[] // default case, return a resizable array
+function F(c:boolean):uint8[] // default case, return a resizable array
 {
-    let foo:uint8[4] = [0, 1, 2, 3];
-    let bar:uint8[6] = [0, 1, 2, 3, 4, 5];
-    return p ? foo : bar;
+    let a:uint8[4] = [0, 1, 2, 3];
+    let b:uint8[6] = [0, 1, 2, 3, 4, 5];
+    return c ? a : b;
 }
 
-function Foo(p:boolean):uint8[6] // return a resized foo
+function F(c:boolean):uint8[6] // Resizes a if c is true
 {
-    let foo:uint8[4] = [0, 1, 2, 3];
-    let bar:uint8[6] = [0, 1, 2, 3, 4, 5];
-    return p ? foo : bar;
+    let a:uint8[4] = [0, 1, 2, 3];
+    let b:uint8[6] = [0, 1, 2, 3, 4, 5];
+    return c ? a : b;
 }
 ```
 
 ### Any Typed Array
 
 ```js
-let foo:[]; // Using any[] is a syntax error as explained before
-let foo:[]? = null; // nullable array
+let a:[]; // Using any[] is a syntax error as explained before
+let b:[]? = null; // nullable array
 ```
 
 Deleting a typed array element results in a type error:
 
 ```js
-const bar:uint8[] = [0, 1, 2, 3];
-// delete bar[0]; TypeError
+const a:uint8[] = [0, 1, 2, 3];
+// delete a[0]; TypeError: a is fixed-length
 ```
 
 ### Array length Type And Operations
@@ -165,32 +165,32 @@ By default ```length``` is ```uint32```.
 Syntax:
 
 ```js
-let foo:uint8[:int8] = [0, 1, 2, 3, 4];
-let bar = foo.length; // length is type int8
+let a:uint8[:int8] = [0, 1, 2, 3, 4];
+let bar = a.length; // length is type int8
 ```
 
 ```js
-let foo:uint8[5:uint64] = [0, 1, 2, 3, 4];
-let bar = foo.length; // length is type uint64 with value 5
+let a:uint8[5:uint64] = [0, 1, 2, 3, 4];
+let b = a.length; // length is type uint64 with value 5
 ```
 
 ```js
 let n = 5;
-let foo:uint8[n:uint64] = [0, 1, 2, 3, 4];
-let bar = foo.length; // length is type uint64 with value 5
+let a:uint8[n:uint64] = [0, 1, 2, 3, 4];
+let b = a.length; // length is type uint64 with value 5
 ```
 
 Setting the ```length``` reallocates the array truncating when applicable.
 
 ```js
-let foo:uint8[] = [0, 1, 2, 3, 4];
-foo.length = 4; // [0, 1, 2, 4]
-foo.length = 6; // [0, 1, 2, 4, 0, 0]
+let a:uint8[] = [0, 1, 2, 3, 4];
+a.length = 4; // [0, 1, 2, 4]
+a.length = 6; // [0, 1, 2, 4, 0, 0]
 ```
 
 ```js
-let foo:uint8[5] = [0, 1, 2, 3, 4];
-// foo.length = 4; TypeError foo is fixed-length
+let a:uint8[5] = [0, 1, 2, 3, 4];
+// a.length = 4; TypeError: a is fixed-length
 ```
 
 ### Array views:
@@ -202,8 +202,8 @@ let view = Type[](buffer [, byteOffset [, byteLength [, byteStride]]]);
 ```
 
 ```js
-let foo:uint64[] = [1];
-let bar = uint32[](foo, 0, 8);
+let a:uint64[] = [1];
+let b = uint32[](a, 0, 8);
 ```
 
 Take special note of the lack of ```new``` in this syntax. Adding new in the above case would pass the arguments to the constructor for each element.
@@ -244,16 +244,16 @@ var gridView = uint32[(x, y, z) => z * 4 * 4 + y * 4 + x](grid);
 The default numeric type Number would convert implicitly with precedence given to ```decimal128/64/32```, ```float128/80/64/32/16```, ```uint64/32/16/8```, ```int64/32/16/8```. (This is up for debate). Examples are shown later with class constructor overloading.
 
 ```js
-function Foo(foo:float32) { }
-function Foo(foo:uint32) { }
-Foo(1); // float32 called
-Foo(uint32(1)); // uint32 called
+function F(a:float32) { }
+function F(a:uint32) { }
+F(1); // float32 called
+F(uint32(1)); // uint32 called
 ```
 
 ### Explicit Casting
 
 ```js
-let foo = uint8(65535); // Cast taking the lowest 8 bits so the value 255, but note that foo is still typed as any
+let a = uint8(65535); // Cast taking the lowest 8 bits so the value 255, but note that a is still typed as any
 ```
 
 Many truncation rules have intuitive rules going from larger bits to smaller bits or signed types to unsigned types. Type casts like decimal to float or float to decimal would need to be clear.
@@ -261,25 +261,25 @@ Many truncation rules have intuitive rules going from larger bits to smaller bit
 ### Function signatures with constraints
 
 ```js
-function Foo(a:int32, b:string, c:bigint[], callback:(boolean, string) = (b, s = 'none') => b ? s : ''):int32 { }
+function F(a:int32, b:string, c:bigint[], callback:(boolean, string) = (b, s = 'none') => b ? s : ''):int32 { }
 ```
 
 ### Typed Arrow Functions
 
 ```js
-let foo:(int32, string):string; // hold a reference to a signature of this type
-let foo:(); // void is the default return type for a signature without a return type
-let foo = (s:string, x:int32) => s + x; // implicit return type of string
-let foo = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
-let foo = x:uint8 => x + y; // single parameter
+let a:(int32, string):string; // hold a reference to a signature of this type
+let b:(); // void is the default return type for a signature without a return type
+let c = (s:string, x:int32) => s + x; // implicit return type of string
+let d = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
+let e = x:uint8 => x + y; // single parameter
 ```
 Like other types they can be made nullable. An example showing an extreme case where everything is made nullable:
 ```js
-let foo:(uint32?)?:uint32? = null;
+let a:(uint32?)?:uint32? = null;
 ```
 This can be written also using the interfaces syntax, which is explained later:
 ```js
-let foo:{ (:uint32?):uint32; }? = null;
+let a:{ (:uint32?):uint32; }? = null;
 ```
 
 ### Integer Binary Shifts
@@ -303,7 +303,7 @@ a /= 2; // 1
 Array destructuring with default values:
 
 ```js
-[a:uint32 = 1, b:float32 = 2] = Foo();
+[a:uint32 = 1, b:float32 = 2] = F();
 ```
 
 Object destructuring with default values:
@@ -350,79 +350,79 @@ const { (a:uint8[]) } = { a: [1, 2, 3] } }; // a is [1, 2, 3] with type uint8[]
 
 Basic array destructuring:
 ```js
-function Foo():[uint8, uint32]
+function F():[uint8, uint32]
 {
     return [1, 2];
 }
-const [a, b] = Foo();
+const [a, b] = F();
 ```
 
 Array defaults
 ```js
-function Foo():[uint8, uint32 = 10]
+function F():[uint8, uint32 = 10]
 {
     return [1];
 }
-const [a, b] = Foo(); // a is 1 and b is 10
+const [a, b] = F(); // a is 1 and b is 10
 ```
 
 Basic object destructuring:
 ```js
-function Foo():{ a:uint8; b:float32; }
+function F():{ a:uint8; b:float32; }
 {
     return { a: 1, b: 2 };
 }
-const { a, b } = Foo();
+const { a, b } = F();
 ```
 
 Object defaults:
 ```js
-function Foo():{ a:uint8; b:float32 = 10; }
+function F():{ a:uint8; b:float32 = 10; }
 {
     return { a: 1 };
 }
-const { a, b } = Foo(); // { a: 1, b: 10 }
+const { a, b } = F(); // { a: 1, b: 10 }
 ```
 
 Overloaded example for the return type:
 ```js
-function Foo():[int32]
+function F():[int32]
 {
     return [1];
 }
-function Foo():[int32, int32]
+function F():[int32, int32]
 {
     return [2, 3];
 }
-function Foo():{ a:uint8; b:float32; }
+function F():{ a:uint8; b:float32; }
 {
     return { a: 1, b: 2 };
 }
-const [a] = Foo(); // a is 1
-const [a, ...b] = Foo(); // a is 2 and b is [3]
-const { a, b } = Foo(); // a is 1 and b is 2
+const [a] = F(); // a is 1
+const [b, ...c] = F(); // b is 2 and c is [3]
+const { a:d, b:e } = F(); // d is 1 and e is 2
 ```
 
 TODO: Define the behavior when defining the same signature for a function.
 
 Explicitly selecting an overload:
 ```js
-function Foo():[int32]
+function F():[int32]
 {
     return [1];
 }
-function Foo():[float32]
+function F():[float32]
 {
     return [2.0];
 }
-const [a:int32] = Foo();
-const [a:float32] = Foo();
+const [a:int32] = F();
+const [a:float32] = F();
 ```
 
 TypeError example:
 
 ```js
-function Foo():[int32, float32]
+function F():[int32, float32]
 {
     return [1, 2];
     // return [1]; // TypeError, expected float32 in returned array for second element
@@ -446,9 +446,9 @@ interface IExample
 ```
 
 ```js
-function Foo():IExample
+function F():IExample
 {
-    return { a: 'foo', b: x => x };
+    return { a: 'a', b: x => x };
 }
 ```
 
@@ -467,9 +467,9 @@ interface IExample
 ```
 
 ```js
-function Foo():IExample
+function F():IExample
 {
-    return ['foo', 1];
+    return ['a', 1];
 }
 ```
 
@@ -490,10 +490,10 @@ interface IExample
 ```
 
 ```js
-function Foo(a:IExample)
+function F(a:IExample)
 {
-    a('foo', 1);
-    // a('foo'); // TypeError: No matching signature for (string).
+    a('a', 1);
+    // a('a'); // TypeError: No matching signature for (string).
 }
 ```
 
@@ -504,11 +504,11 @@ interface IExample
 {
     ({(a:uint32)}):void
 }
-function Foo(a:IExample)
+function F(a:IExample)
 {
     a({a:1}); // 1
 }
-Foo(({(a:uint32):b}) => b); // This works since the signature check ignores any renaming
+F(({(a:uint32):b}) => b); // This works since the signature check ignores any renaming
 ```
 
 An example of taking a typed object:
@@ -526,11 +526,11 @@ interface IExample
 {
     (:string = 5, named:uint32):void;
 }
-function Foo(a:IExample)
+function F(a:IExample)
 {
     a(named: 10); // 10
 }
-Foo((a, b) => b);
+F((a, b) => b);
 ```
 
 The interface in this example defines the mapping for "named" to the second parameter.
@@ -546,7 +546,7 @@ Most of the time users will use the first syntax, but the latter can be used if 
 function (a:{ (:uint32):void; (:string):void; })
 {
     a(1);
-    a('foo');
+    a('a');
 }
 ```
 The other use case as explained is to apply strict parameter names:
@@ -559,9 +559,9 @@ var a:{ (b:uint32):void; };
 #### Nested Interfaces
 
 ```js
-interface Foo { a:uint32; }
-interface Bar { (:Foo):void }
-// interface Bar { (:{ a:uint32; }):void }
+interface IA { a:uint32; }
+interface IB { (:IA):void }
+// interface IB { (:{ a:uint32; }):void }
 ```
 
 #### Extending Interfaces
@@ -615,12 +615,12 @@ let { a, b } := { a:uint8: 1, b:uint32: 2 }; // a is type uint8 and b is type ui
 ### Function Overloading
 
 ```js
-function Foo(x:int32[]) { return "int32"; }
-function Foo(s:string[]) { return "string"; }
-Foo(["test"]); // "string"
+function F(x:int32[]) { return "int32"; }
+function F(s:string[]) { return "string"; }
+F(["test"]); // "string"
 ```
 
-Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like ```Foo["(int32[])"]``` wouldn't be viable. It's possible ```Reflect``` could have something added to it to allow access.
+Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like ```F["(int32[])"]``` wouldn't be viable. It's possible ```Reflect``` could have something added to it to allow access.
 
 #### Async Functions and overloading
 
@@ -682,23 +682,23 @@ let o = { (a:[]): [] }; // With typing this is identical to the above
 ```Object.defineProperty``` and ```Object.defineProperties``` have a type property in the descriptor that accepts a type or string representing a type:
 
 ```js
-Object.defineProperty(o, 'foo', { type: uint8 }); // using the type
-Object.defineProperty(o, 'foo', { type: 'uint8' }); // using a string representing the type
+Object.defineProperty(o, 'a', { type: uint8 }); // using the type
+Object.defineProperty(o, 'b', { type: 'uint8' }); // using a string representing the type
 ```
 
 ```js
 Object.defineProperties(o,
 {
-    'foo':
+    'a':
     {
         type: uint8,
         value: 0,
         writable: true
     },
-    'bar':
+    'b':
     {
         type: string,
-        value: 'Hello',
+        value: 'a',
         writable: true
     }
 });
@@ -750,15 +750,15 @@ let t = new MyType[5](1);
 For integers (including bigint) the parse function would have the signature ```parse(string, radix = 10)```.
 
 ```js
-let foo:uint8 = uint8.parse('1', 10);
-let foo:uint8 = uint8.parse('1'); // Same as the above with a default 10 for radix
-let foo:uint8 = '1'; // Calls parse automatically making it identical to the above
+let a:uint8 = uint8.parse('1', 10);
+let b:uint8 = uint8.parse('1'); // Same as the above with a default 10 for radix
+let c:uint8 = '1'; // Calls parse automatically making it identical to the above
 ```
 
 For floats, decimals, and rational the signature is just ```parse(string)```.
 
 ```js
-let foo:float32 = float32.parse('1.2');
+let a:float32 = float32.parse('1.2');
 ```
 
 TODO: Define the expected inputs allowed. (See: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseFloat). Also should a failure throw or return NaN if the type supports it. I'm leaning toward throwing in all cases where erroneous values are parsed. It's usually not in the program's design that NaN is an expected value and parsing to NaN just created hidden bugs.
@@ -768,13 +768,13 @@ TODO: Define the expected inputs allowed. (See: https://developer.mozilla.org/en
 Going from a scalar to a vector:
 
 ```js
-let foo:float32x4 = 1; // Equivalent to let foo = float32x4(1, 1, 1, 1);
+let a:float32x4 = 1; // Equivalent to let a = float32x4(1, 1, 1, 1);
 ```
 
 ### Implicit Array Cast
 
 ```js
-let foo:MyType[] = [1, 2, 3, uint32(1)];
+let a:MyType[] = [1, 2, 3, uint32(1)];
 ```
 
 ### Initializer List for Array of Class Instances
@@ -782,11 +782,11 @@ let foo:MyType[] = [1, 2, 3, uint32(1)];
 Implicit array casting already exists for single variables as defined above. It's possible one might want to compactly create instances. The following syntax is proposed:
 
 ```js
-let foo = new MyType[] = [(10, 20), (30, 40), 10];
+let a = new MyType[] = [(10, 20), (30, 40), 10];
 ```
 This would be equivalent to:
 ```js
-let foo = new MyType[] = [new MyType(10, 20), new MyType(30, 40), 10];
+let a = new MyType[] = [new MyType(10, 20), new MyType(30, 40), 10];
 ```
 
 Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that ```[(10, 20), 30]``` is ```[20, 30]``` when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
@@ -794,7 +794,7 @@ Due to the very specialized syntax it can't be introduced later. In ECMAScript t
 Initializer lists work well with SIMD to create compact arrays of vectors:
 
 ```js
-let foo = new float32x4[] =
+let a = new float32x4[] =
 [
     (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
     (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
@@ -804,11 +804,11 @@ let foo = new float32x4[] =
 
 The syntax also has to work with typed functions intuitively:
 ```js
-function Foo(foo:float32x4)
+function F(a:float32x4)
 {
 }
 
-Foo([(1, 2, 3, 4)]);
+F([(1, 2, 3, 4)]);
 ```
 
 ### Decorators
@@ -1050,25 +1050,31 @@ for (let [key, value] of Count)
 }
 ```
 
+Enum values can reference previous values:
+
+```js
+enum E { A = 0, B = A + 5 };
+```
+
 ### Rest Parameters
 
 ```js
-function Foo(a:string, ...args:uint32) {}
-Foo('foo', 0, 1, 2, 3);
+function F(a:string, ...args:uint32) {}
+F('a', 0, 1, 2, 3);
 ```
 Rest parameters are valid for signatures:
 ```js
-let foo:(...:uint8);
+let a:(...:uint8);
 ```
 Multiple rest parameters can be used:
 ```js
-function Foo(a:string, ...args:uint32, ...args2:string, callback:()) {}
-Foo('foo', 0, 1, 2, 'foo', 'bar', () => {});
+function F(a:string, ...args:uint32, ...args2:string, callback:()) {}
+F('a', 0, 1, 2, 'a', 'b', () => {});
 ```
 Dynamic types have less precedence than typed parameters:
 ```js
-function Foo(...args1, callback:(), ...args2, callback:()) {}
-Foo('foo', 1, 1.0, () => {}, 'bar', 2, 2.0, () => {});
+function F(...args1, callback:(), ...args2, callback:()) {}
+F('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
 ```
 
 ### Try Catch
@@ -1103,11 +1109,11 @@ catch (e)
 Arbitrary arrays can be allocated into using the placement new syntax. This works with both a single instance and array of instances.
 
 ```js
-let foo = new(buffer, byteOffset) MyType(20);
+let a = new(buffer, byteOffset) MyType(20);
 ```
 
 ```js
-let foo = new(buffer, byteOffset, byteStride) MyType[10](20);
+let a = new(buffer, byteOffset, byteStride) MyType[10](20);
 ```
 
 ### Control Structures
@@ -1122,8 +1128,8 @@ The variable when typed in a switch statement must be integral or a string type.
 
 Enumerations can be used dependent on if their type is integral or string.
 ```js
-let foo:uint32 = 10;
-switch (foo)
+let a:uint32 = 10;
+switch (a)
 {
     case 10:
         break;
@@ -1133,8 +1139,8 @@ switch (foo)
 ```
 
 ```js
-let foo:float32 = 1.23;
-//switch (foo) // TypeError float32 cannot be used in the switch variable
+let a:float32 = 1.23;
+//switch (a) // TypeError float32 cannot be used in the switch variable
 //{
 //}
 ```
@@ -1146,9 +1152,9 @@ Two new keys would be added to the Object.defineProperty called ```align``` and 
 Along with the member decorators, two class reserved properties would be created, ```align``` and ```size```. These would control the allocated memory alignment of the instances and the allocated size of the instances.
 
 ```js
-@align(16) // Foo.align = 16; Defines the class memory alignment to be 16 byte aligned
-@size(32) // Foo.size = 32; Defines the class as 32 bytes. Pads with zeros when allocating
-class Foo
+@align(16) // A.align = 16; Defines the class memory alignment to be 16 byte aligned
+@size(32) // A.size = 32; Defines the class as 32 bytes. Pads with zeros when allocating
+class A
 {
     @offset(2)
     x:float32; // Aligned to 16 bytes because of the class alignment and offset by 2 bytes because of the property alignment
@@ -1164,7 +1170,7 @@ WIP: The behavior of modifying plain old data classes that are already used in a
 An example of overlapping properties using ```offset``` creating a union where both properties map to the same memory:
 
 ```js
-class Foo // 16 bytes
+class A // 16 bytes
 {
     @offset(0)
     x:float32x4;
@@ -1196,9 +1202,9 @@ import {int8, int16, int32, int64} from "@valueobjects";
 This section is to show that a generic syntax can be seamlessly added with no syntax issues. A generic function example:
 
 ```js
-function Foo<T>(foo:T):T
+function A<T>(a:T):T
 {
-    let bar:T;
+    let b:T;
 }
 ```
 
@@ -1264,8 +1270,8 @@ Partial classes are when you define a single class into multiple pieces. When us
 If case ranges were added and switches were allowed to use non-integral and non-string types then the following syntax could be used in future proposals without conflicting since this proposal would throw a ```TypeError``` restricting all cases of its usage keeping the behavior open for later ideas.
 
 ```js
-let foo:float32 = 1 / 5;
-switch (foo)
+let a:float32 = 1 / 5;
+switch (a)
 {
     case 0..0.99:
         break;
@@ -1299,7 +1305,7 @@ See https://github.com/sirisian/ecmascript-types/issues/22
 A very compact syntax can be used later for exception filters:
 
 ```js
-catch (e:Error => e.message == `foo`)
+catch (e:Error => e.message == `a`)
 ```
 
 Or
@@ -1315,11 +1321,11 @@ This accomplishes exception filters without requiring a keyword like "when". Tha
 Named arguments comes up once in a while as a compact way to skip default parameters.
 
 ```js
-function f(a:uint8, b:string = 0, ...args:string) {}
-f(8, args:`a`, `b`);
+function F(a:uint8, b:string = 0, ...args:string) {}
+F(8, args:`a`, `b`);
 
-function g(option1:string, option2:string) {}
-// g(option2: `a`); Error no signature for g matches (option2:string)
+function G(option1:string, option2:string) {}
+// G(option2: `a`); Error no signature for G matches (option2:string)
 ```
 
 The above syntax is probably what would be used and it has no obvious conflicts with types.
