@@ -298,6 +298,43 @@ let a:int32 = 3;
 a /= 2; // 1
 ```
 
+### Expanding Representable Numbers
+
+In ECMAScript currently the following values are equal:
+
+```js
+let a = 2 ** 53;
+a == a + 1; // true
+```
+
+In order to bypass this behavior a variable must be explicitly typed.
+
+```js
+let a:uint64 = 2 ** 53;
+a == a + 1; // false
+```
+
+Ideally statements like the following will work as expected with the type propagating to the right hand side:
+
+```js
+let a:uint64 = 9007199254740992 + 9007199254740993; // 18014398509481985
+```
+
+In the following case the type propagates to the arguments.
+
+```js
+function F(a:uint64) {}
+F(9007199254740992 + 9007199254740993); // 18014398509481985
+```
+
+Consider where the literals are not directly typed. In this case they are typed as Number:
+
+```js
+function F(a:uint64) {}
+var a = 9007199254740992 + 9007199254740993;
+F(a); // 18014398509481984
+```
+
 ### Destructuring Assignment Casting
 
 Array destructuring with default values:
