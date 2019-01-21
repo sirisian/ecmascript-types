@@ -921,6 +921,8 @@ Symbol.bitwiseAND
 Symbol.bitwiseOR
 Symbol.bitwiseXOR
 Symbol.bitwiseNOT
+Symbol.equal
+Symbol.notEqual
 Symbol.lessThan
 Symbol.lessThanOrEqual
 Symbol.greaterThan
@@ -964,6 +966,8 @@ class A
   operator |(rhs) { }
   operator ^(rhs) { }
   operator ~() { }
+  operator ==(rhs) { }
+  operator !=(rhs) { }
   operator <(rhs) { }
   operator <=(rhs) { }
   operator >(rhs) { }
