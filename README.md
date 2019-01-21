@@ -659,6 +659,34 @@ F(["test"]); // "string"
 
 Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like ```F["(int32[])"]``` wouldn't be viable. It's possible ```Reflect``` could have something added to it to allow access.
 
+Signatures must match for a typed function:
+```js
+function F(a:uint8, b:string) {}
+// F(1); // TypeError: Function F has no matching signature
+```
+
+Adding a normal untyped function acts like a catch all for any arguments:
+
+```js
+function F() {} // untyped function
+function F(a:uint8) {}
+F(1, 2); // Calls the untyped function
+```
+
+If the intention is to created a typed function with no arguments then setting the return value is sufficient:
+
+```js
+function F():void {}
+// F(1); // TypeError: Function F has no matching signature
+```
+
+Duplicate signatures are not allowed:
+```js
+function F(a:uint8) {}
+// function F(a:uint8, b:string = `b`) {} // TypeError: A function declaration with that signature already exists
+F(8);
+```
+
 #### Async Functions and overloading
 
 ```async``` does not create a unique signature. Consider the following:
