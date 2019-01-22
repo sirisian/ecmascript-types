@@ -279,7 +279,7 @@ let a:(uint32?)?:uint32? = null;
 ```
 This can be written also using the interfaces syntax, which is explained later:
 ```js
-let a:{ (:uint32?):uint32; }? = null;
+let a:{ (uint32?):uint32; }? = null;
 ```
 
 ### Integer Binary Shifts
@@ -514,15 +514,15 @@ An optional nullable item would look like ```?uint32?``` which looks odd, but is
 
 #### Function Interfaces
 
-With function overloading an interface can place multiple function constraints.
+With function overloading an interface can place multiple function constraints. Unlike parameter lists in function declarations the type precedes the optional name.
 
 ```js
 interface IExample
 {
-    (:string, :uint32):void;
-    (:uint32):void;
-    ?(:string, :string):void; // Optional overload. A default value can be assigned like:
-    // ?(:string, :string):void = (x, y) => x + y;
+    (string, uint32):void;
+    (uint32):void;
+    ?(string, string):string; // Optional overload. A default value can be assigned like:
+    // (string, string):string = (x, y) => x + y;
 }
 ```
 
@@ -539,7 +539,7 @@ Signature equality checks ignore renaming:
 ```js
 interface IExample
 {
-    ({(a:uint32)}):void
+    ({(a:uint32)}):uint32
 }
 function F(a:IExample)
 {
@@ -552,16 +552,21 @@ An example of taking a typed object:
 ```js
 interface IExample
 {
-    (:{a:uint32;}):void
+    ({a:uint32;}):uint32
 }
+function F(a:IExample)
+{
+    F({a:1}); // 1
+}
+F(a => a.a);
 ```
 
-Argument names in function interfaces are optional, but if they are included then the implementing function must match the signature exactly. This is done in case named parameters are added later. Note that if an interface is used then the name can be changed in the passed in function. For example:
+Argument names in function interfaces are optional. This is done in case named parameters are added later. Note that if an interface is used then the name can be changed in the passed in function. For example:
 
 ```js
 interface IExample
 {
-    (:string = 5, named:uint32):void;
+    (string = 5, uint32:named):void;
 }
 function F(a:IExample)
 {
@@ -570,35 +575,29 @@ function F(a:IExample)
 F((a, b) => b);
 ```
 
-The interface in this example defines the mapping for "named" to the second parameter.
+The interface in this example defines the mapping for "named" to the second parameter. This proposal isn't presenting named parameters, but the above is just an example that a future proposal might present.
 
 It might not be obvious at first glance, but there are two separate syntaxes for defining function type constraints. One without an interface, for single non-overloaded function signatures, and with interface, for either constraining the parameter names or to define overloaded function type constraints.
 
 ```js
 function (a:(uint32, uint32):void) {} // Using non-overloaded function signature
-function (a:{ (:uint32, :uint32):void; }) {} // Identical to the above using Interface syntax
+function (a:{ (uint32, uint32):void; }) {} // Identical to the above using Interface syntax
 ```
-Most of the time users will use the first syntax, but the latter can be used if a function uses multiple overloaded signatures:
+Most of the time users will use the first syntax, but the latter can be used if a function is overloaded:
 ```js
-function (a:{ (:uint32):void; (:string):void; })
+function (a:{ (uint32):void; (string):void; })
 {
     a(1);
     a('a');
 }
-```
-The other use case as explained is to apply strict parameter names:
-
-```js
-var a:{ (b:uint32):void; };
-// a = c => 1; // TypeError: First parameter name must be "b".
 ```
 
 #### Nested Interfaces
 
 ```js
 interface IA { a:uint32; }
-interface IB { (:IA):void }
-// interface IB { (:{ a:uint32; }):void }
+interface IB { (IA):void }
+// interface IB { ({ a:uint32; }):void }
 ```
 
 #### Extending Interfaces
