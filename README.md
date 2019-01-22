@@ -478,18 +478,22 @@ interface IExample
     a:string;
     b:(uint32):uint32;
     ?c:any; // Optional property. A default value can be assigned like:
-    // ?c:any = [];
+    // c:any = [];
 }
-```
 
-```js
 function F():IExample
 {
     return { a: 'a', b: x => x };
 }
 ```
 
-The syntax for optional properties could have the question mark before or after the property as this does not conflict with the type. It's unclear which is more consistent or ideal.
+Similar to other types an object interface can be made nullable with ```?``` and also made into an array with ```[]```.
+
+```js
+function F(a:IExample[]?)
+{
+}
+```
 
 #### Array Interfaces
 
@@ -602,7 +606,41 @@ interface IB { (IA):void }
 
 #### Extending Interfaces
 
-TODO:
+Extending object interfaces:
+
+```js
+interface A
+{
+    a:string;
+}
+interface B extends A
+{
+    b:(uint32):uint32;
+}
+function F(c:B)
+{
+    c.a = 'a';
+    c.b = b => b;
+}
+```
+
+Extending function intefaces:
+
+```js
+interface A
+{
+    (string):void;
+}
+interface B extends A
+{
+    (string, string):void;
+}
+function F(a:B)
+{
+    a('a');
+    a('a', 'b');
+}
+```
 
 ### Implementing Interfaces
 
