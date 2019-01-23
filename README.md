@@ -1032,8 +1032,10 @@ class A
   operator &&(rhs) { }
   operator ||(rhs) { }
   operator !() { }
-  operator ++() { }
-  operator --() { }
+  operator ++() { } // prefix (++a)
+  operator ++(nothing) { } // postfix (a++)
+  operator --() { } // prefix (--a)
+  operator --(nothing) { } // postfix (a--)
   operator -() { }
   operator +() { }
 }
@@ -1114,7 +1116,7 @@ It's also possible to overload class operators to work with them, but the optimi
 
 ### enum Type
 
-Enumerations with ```enum``` that support any type including functions.
+Enumerations with ```enum``` that support any type including functions and symbols.
 ```js
 enum Count { Zero, One, Two }; // Starts at 0
 let c:Count = Count.Zero;
@@ -1126,12 +1128,35 @@ enum Count:float32 { Zero, One, Two };
 
 enum Counter:(float32):float32 { Zero = x => 0, One = x => x + 1, Two = x => x + 2 }
 ```
-Custom sequential functions for numerical and string types (these aren't closures):
+
+Custom sequential functions for types can be used. (Note these aren't closures):
 ```js
 enum Count:float32 { Zero = (index, name) => index * 100, One, Two }; // 0, 100, 200
 enum Count:string { Zero = (index, name) => name, One, Two = (index, name) => name.toLowerCase(), Three }; // "Zero", "One", "two", "three"
 enum Flags:uint32 { None = 0, Flag1 = (index, name) => 1 << (index - 1), Flag2, Flag3 } // 0, 1, 2, 4
 ```
+An enumeration that uses a non-numeric type must define a starting value. If a sequential function or an overloaded prefix increment operator is not found the next values will be equal to the previous value.
+
+```js
+// enum Count:string { Zero, One, Two }; // TypeError Zero is undefined
+enum Count:string { Zero = '0', One, Two }; // One and Two are also '0' because string has no prefix increment operator
+```
+
+```js
+class A
+{
+    constructor(value)
+    {
+        this.value = value;
+    }
+    operator ++() // prefix increment
+    {
+        return new A(this.value + 1);
+    }
+}
+enum ExampleA:A { Zero = new A(0), One, Two }; // One = new A(1), Two = new A(2) using the increment operator.
+```
+
 Index operator:
 ```js
 enum Count { Zero, One, Two };
