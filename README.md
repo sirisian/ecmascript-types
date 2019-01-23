@@ -644,7 +644,27 @@ function F(a:B)
 
 ### Implementing Interfaces
 
-TODO: Class examples
+```js
+interface A
+{
+    a:uint32;
+    b(uint32):uint32;
+}
+class B
+{
+}
+class C extends B implements A
+{
+    b(a)
+    {
+        return a;
+    }
+}
+const a = new C();
+a.a = a.b(5);
+```
+
+Note that since ```b``` isn't overloaded, defining the type of the member function ```b``` in the class ```C``` isn't necessary.
 
 ### Typed Assignment
 
