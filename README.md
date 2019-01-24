@@ -801,7 +801,7 @@ let o = { a:[] }; // Normal array syntax works as expected
 let o = { (a:[]): [] }; // With typing this is identical to the above
 ```
 
-```Object.defineProperty``` and ```Object.defineProperties``` have a type property in the descriptor that accepts a type or string representing a type:
+```Object.defineProperty``` and ```Object.defineProperties``` have a ```type``` key in the descriptor that accepts a type or string representing a type:
 
 ```js
 Object.defineProperty(o, 'a', { type: uint8 }); // using the type
@@ -837,7 +837,9 @@ const descriptors = Object.getOwnPropertyDescriptors(o);
 descriptors.a.type; // uint8
 ```
 
-Note that the ```type``` descriptor is the actual type and not a string.
+Note that the ```type``` key in the descriptor is the actual type and not a string.
+
+The key ```value``` for a property with a numeric type defined in this spec defaults to 0. This modifies the behavior that currently says that ```value``` is defaulted to undefined. It will still be undefined if no ```type``` is set in the descriptor. The SIMD types also default to 0 and string defaults to an empty string.
 
 ### Constructor Overloading
 
@@ -1298,13 +1300,32 @@ let a:float32 = 1.23;
 
 ### Member memory alignment and offset
 
-Two new keys would be added to the Object.defineProperty called ```align``` and ```offset```. For consistency between codebases two reserved decorators would be created called ```@align``` and ```@offset``` that would set the underlying keys with byte values. Align defines the memory address to be a multiple of a given number. On some software architectures specialized move operations and cache boundaries can use these for small advantages. Offset is always defined as the number of bytes from the start of the instance allocation in memory. It's possible to create a union by defining overlapping offsets.
-
-Along with the member decorators, two class reserved properties would be created, ```align``` and ```size```. These would control the allocated memory alignment of the instances and the allocated size of the instances.
+By default the memory layout of a typed class - a class where every property is typed - simply appends to the memory of the extended class. For example:
 
 ```js
-@align(16) // A.align = 16; Defines the class memory alignment to be 16 byte aligned
-@size(32) // A.size = 32; Defines the class as 32 bytes. Pads with zeros when allocating
+class A
+{
+    a:uint8;
+}
+class B extends A
+{
+    b:uint8;
+}
+// So the memory layout would be the same as:
+class AB
+{
+    a:uint8;
+    b:uint8;
+}
+```
+
+Two new keys would be added to the property descriptor called ```align``` and ```offset```. For consistency between codebases two reserved decorators would be created called ```@align``` and ```@offset``` that would set the underlying keys with byte values. Align defines the memory address to be a multiple of a given number. (On some software architectures specialized move operations and cache boundaries can use these for small advantages). Offset is always defined as the number of bytes from the start of the class allocation in memory. (The offset starts at 0 for each class. Negative offset values can be used to overlap the memory of base classes). It's possible to create a union by defining overlapping offsets.
+
+Along with the member decorators, two class reserved descriptor keys would be created, ```align``` and ```size```. These would control the allocated memory alignment of the instances and the allocated size of the instances.
+
+```js
+@align(16) // Defines the class memory alignment to be 16 byte aligned
+@size(32) // Defines the class as 32 bytes. Pads with zeros when allocating
 class A
 {
     @offset(2)
@@ -1314,20 +1335,55 @@ class A
 }
 ```
 
-These language features only apply if all the properties in a class are typed along with the complete prototype chain. Adding properties later with ```Object.defineProperty``` is allowed, but new properties are appended to the end. Modifying properties in a ```super``` class would not be allowed. It's likely that one would need to remove and readd all the properties if the goal is to change the structure. Or ```offset``` could be modified with ```Object.defineProperty``` to rearrange the properties.
+The following is an example of overlapping properties using ```offset``` creating a union where both properties map to the same memory. Notice the use of a negative offset to reach into a base class memory.
+
+```js
+class A
+{
+    a:uint8;
+}
+class B extends A
+{
+    @offset(-1)
+    b:uint8;
+}
+// So the memory layout would be the same as:
+class AB // size is 1 byte
+{
+    a:uint8;
+    @offset(0)
+    b:uint8;
+}
+const ab = new AB();
+ab.a = 10;
+ab.b == 10; // true
+```
+
+These descriptor features only apply if all the properties in a class are typed along with the complete prototype chain. Adding properties later with ```Object.defineProperty``` is allowed, and the memory layout is recalculated for the object.
 
 WIP: The behavior of modifying plain old data classes that are already used in arrays needs to be well-defined.
 
-An example of overlapping properties using ```offset``` creating a union where both properties map to the same memory:
-
 ```js
-class A // 16 bytes
+class A
 {
-    @offset(0)
-    x:float32x4;
-    @offset(0)
-    y:int32x4;
+    a:uint8;
+    constructor(a:uint8)
+    {
+        this.a = a;
+    }
 }
+const a:A[] = [0, 1, 2];
+
+Object.defineProperty(A, 'b',
+{
+  value: 0,
+  writable: true,
+  type: uint8
+});
+const b:A[] = [0, 1, 2];
+
+// a[0].b // TypeError: Undefined property b
+b[0].b; // 0
 ```
 
 ### Global Objects
