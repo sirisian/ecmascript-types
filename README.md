@@ -1788,47 +1788,6 @@ new GeneratorFunction("a:float32", ":float32", "yield a * 2;");
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier* **=** *Literal*  
 &nbsp;&nbsp;&nbsp;&nbsp;*Identifier* **=** *ArrowFunction*
 
-#### A.2 Expressions
-
-*BindingIdentifier*<sub>[Yield, Await]</sub> :  
-*Identifier* *ColonType*<sub>opt</sub>  
-**yield**  
-**await**  
-
-*PropertyDefinition*<sub>[Yield, Await]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;*IdentifierReference*<sub>[?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*CoverInitializedName*<sub>[?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*PropertyName*<sub>[?Yield, ?Await]</sub> *ColonType*<sub>opt</sub> **:** *AssignmentExpression*<sub>[+In, ?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*MethodDefinition*<sub>[?Yield, ?Await]</sub>  
-
-*ColonIntegralType* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**:** *IntegralType*  
-
-*TypedArrayIndexList* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction*  
-&nbsp;&nbsp;&nbsp;&nbsp;*ArrowFunction* **,** *TypedArrayIndexList*  
-
-*ColonTypedArrayIndexList* :  
-&nbsp;&nbsp;&nbsp;&nbsp;**,** *TypedArrayIndexList*  
-
-*TypedArrayIndexParameters* :  
-&nbsp;&nbsp;&nbsp;&nbsp;*AssignmentExpression*<sub>opt</sub> *ColonIntegralType*<sub>opt</sub> *ColonTypedArrayIndexList*<sub>opt</sub>  
-
-*PlacementNew*<sub>[Yield, Await]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **)**  
-&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **,** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **)**  
-&nbsp;&nbsp;&nbsp;&nbsp;**(** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **,** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **,** *AssignmentExpression*<sub>[?Yield, ?Await]</sub> **)**  
-
-*MemberExpression*<sub>[Yield, Await]</sub> :  
-&nbsp;&nbsp;&nbsp;&nbsp;*PrimaryExpression*<sub>[?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*MemberExpression*<sub>[?Yield, ?Await]</sub> **[** *Expression*<sub>[+In, ?Yield, ?Await]</sub> **]**  
-&nbsp;&nbsp;&nbsp;&nbsp;*MemberExpression*<sub>[?Yield, ?Await]</sub> **.** *IdentifierName*  
-&nbsp;&nbsp;&nbsp;&nbsp;*MemberExpression*<sub>[?Yield, ?Await]</sub> *TemplateLiteral*<sub>[?Yield, ?Await, +Tagged]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*SuperProperty*<sub>[?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;*MetaProperty*  
-&nbsp;&nbsp;&nbsp;&nbsp;**new** *MemberExpression*<sub>[?Yield, ?Await]</sub> *Arguments*<sub>[?Yield, ?Await]</sub>  
-&nbsp;&nbsp;&nbsp;&nbsp;**new** *PlacementNew*<sub>[?Yield, ?Await] opt</sub> *Idenitifier* **[** *TypedArrayIndexParameters* **]**
-
 #### A.3 Statements
 
 *BindingProperty*<sub>[Yield, Await]</sub> :
