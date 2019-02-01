@@ -188,7 +188,7 @@ let a:uint8[5] = [0, 1, 2, 3, 4];
 // a.length = 4; TypeError: a is fixed-length
 ```
 
-### Array views:
+### Array Views
 
 Like ```TypedArray``` views this array syntax allows any array, even arrays of typed objects to be viewed as different objects. Stride would have performance implications but would allow for a single view to access elements with padding between elements.
 
