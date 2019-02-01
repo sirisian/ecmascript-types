@@ -1137,7 +1137,7 @@ enum Count:float32 { Zero = (index, name) => index * 100, One, Two }; // 0, 100,
 enum Count:string { Zero = (index, name) => name, One, Two = (index, name) => name.toLowerCase(), Three }; // "Zero", "One", "two", "three"
 enum Flags:uint32 { None = 0, Flag1 = (index, name) => 1 << (index - 1), Flag2, Flag3 } // 0, 1, 2, 4
 ```
-An enumeration that uses a non-numeric type must define a starting value. If a sequential function or an overloaded prefix increment operator is not found the next values will be equal to the previous value.
+An enumeration that uses a non-numeric type must define a starting value. If a sequential function or an overloaded assignment operator is not found the next value will be equal to the previous value.
 
 ```js
 // enum Count:string { Zero, One, Two }; // TypeError Zero is undefined
@@ -1151,12 +1151,12 @@ class A
     {
         this.value = value;
     }
-    operator ++() // prefix increment
+    operator +(value:Number) // prefix increment
     {
-        return new A(this.value + 1);
+        return new A(this.value + value);
     }
 }
-enum ExampleA:A { Zero = new A(0), One, Two }; // One = new A(1), Two = new A(2) using the increment operator.
+enum ExampleA:A { Zero = new A(0), One, Two }; // One = new A(0) + 1, Two = One + 1 using the addition operator.
 ```
 
 Index operator:
@@ -1446,10 +1446,14 @@ I left value type classes out of this discussion since I'm still not sure how th
 
 ### Union Types
 
-Having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed.
+Having nullable types along with function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them. The way nullable types are defined in TypeScript using unions if it was preferred would conflict with the current proposal:
 
 ```js
-let a:string|uint32 = `hello`;
+let a:uint8? = null; // This proposal
+let a:uint8|null = null; // TypeScript syntax
+// Multiple types
+let a:uint8?|string? = null; // This proposal
+let a:uint8|string|null = null; // TypeScript syntax
 ```
 
 ### Numeric Literals
