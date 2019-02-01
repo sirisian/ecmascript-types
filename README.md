@@ -153,12 +153,7 @@ const a:uint8[] = [0, 1, 2, 3];
 
 ### Array length Type And Operations
 
-Valid types for defining the length of an array are as follows:
-
-```
-int8/16/32/64  
-uint8/16/32/64
-```
+Valid types for defining the length of an array are ```int8```, ```int16```, ```int32```, ```int64```, ```uint8```, ```uint16```, ```uint32```, and ```uint64```.
 
 By default ```length``` is ```uint32```.
 
