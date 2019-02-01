@@ -11288,7 +11288,8 @@
         PropertyDefinition[Yield, Await] :
           IdentifierReference[?Yield, ?Await]
           CoverInitializedName[?Yield, ?Await]
-          PropertyName[?Yield, ?Await] <ins>ColonType?</ins> `:` AssignmentExpression[+In, ?Yield, ?Await]
+          PropertyName[?Yield, ?Await] `:` AssignmentExpression[+In, ?Yield, ?Await]
+          `(` PropertyName[?Yield, ?Await] <ins>ColonType</ins> `)` `:` AssignmentExpression[+In, ?Yield, ?Await]
           MethodDefinition[?Yield, ?Await]
           `...` AssignmentExpression[+In, ?Yield, ?Await]
 
@@ -14243,6 +14244,7 @@
     Declaration[Yield, Await] :
       HoistableDeclaration[?Yield, ?Await, ~Default]
       ClassDeclaration[?Yield, ?Await, ~Default]
+      <ins>EnumDeclaration</ins>
       LexicalDeclaration[+In, ?Yield, ?Await]
 
     HoistableDeclaration[Yield, Await, Default] :
@@ -19590,6 +19592,29 @@
     </emu-clause>
   </emu-clause>
 
+  <emu-clause id="sec-enum-definitions">
+    <h1><ins>Enum Definitions</ins></h1>
+    <h2><ins>Syntax</ins></h2>
+    <emu-grammar type="definition">
+      <ins>EnumDeclaration :
+        `enum` Identifier ColonType? `{` EnumElementList `}`</ins>
+
+      <ins>EnumElementList :
+        EnumElement
+        EnumElementList `,` EnumElement</ins>
+
+      <ins>EnumElement :
+        Identifier
+        Identifier `=` Literal
+        Identifier `=` ArrowFunction
+        `[` AssignmentExpression[+In, ?Yield, ?Await] `]` `=` Literal
+        `[` AssignmentExpression[+In, ?Yield, ?Await] `]` `=` ArrowFunction</ins>
+    </emu-grammar>
+    <emu-note>
+      <p><ins>The ArrowFunction in EnumElement is not a closure and cannot reference variables.</ins></p>
+    </emu-note>
+  </emu-clause>
+
   <emu-clause id="sec-async-function-definitions">
     <h1>Async Function Definitions</h1>
     <h2>Syntax</h2>
@@ -20446,27 +20471,6 @@
         <p>For example, a tail position call should only grow an implementation's activation record stack by the amount that the size of the target function's activation record exceeds the size of the calling function's activation record. If the target function's activation record is smaller, then the total size of the stack should decrease.</p>
       </emu-note>
     </emu-clause>
-  </emu-clause>
-
-  <emu-clause id="sec-enum-definitions">
-    <h1><ins>Enum Definitions</ins></h1>
-    <h2><ins>Syntax</ins></h2>
-    <emu-grammar type="definition">
-      <ins>EnumDeclaration :
-        `enum` Identifier ColonType? `{` EnumElementList `}`</ins>
-
-      <ins>EnumElementList :
-        EnumElement
-        EnumElementList `,` EnumElement</ins>
-
-      <ins>EnumElement :
-        Identifier
-        Identifier `=` Literal
-        Identifier `=` ArrowFunction</ins>
-    </emu-grammar>
-    <emu-note>
-      <p><ins>The ArrowFunction is not a closure and cannot reference parameters. TODO: Include algorithm details.</ins></p>
-    </emu-note>
   </emu-clause>
 </emu-clause>
 
@@ -22398,6 +22402,7 @@
           `export` Declaration[~Yield, ~Await]
           `export` `default` HoistableDeclaration[~Yield, ~Await, +Default]
           `export` `default` ClassDeclaration[~Yield, ~Await, +Default]
+          <ins>`export` `default` EnumDeclaration</ins>
           `export` `default` [lookahead &lt;! {`function`, `async` [no |LineTerminator| here] `function`, `class`}] AssignmentExpression[+In, ~Yield, ~Await] `;`
 
         ExportClause :
@@ -22814,67 +22819,6 @@
 
 <emu-clause id="sec-error-handling-and-language-extensions">
   <h1>Error Handling and Language Extensions</h1>
-  <p>An implementation must report most errors at the time the relevant ECMAScript language construct is evaluated. An <dfn id="early-error">early error</dfn> is an error that can be detected and reported prior to the evaluation of any construct in the |Script| containing the error. The presence of an early error prevents the evaluation of the construct. An implementation must report early errors in a |Script| as part of parsing that |Script| in ParseScript. Early errors in a |Module| are reported at the point when the |Module| would be evaluated and the |Module| is never initialized. Early errors in <b>eval</b> code are reported at the time `eval` is called and prevent evaluation of the <b>eval</b> code. All errors that are not early errors are runtime errors.</p>
-  <p>An implementation must report as an early error any occurrence of a condition that is listed in a &ldquo;Static Semantics: Early Errors&rdquo; subclause of this specification.</p>
-  <p>An implementation shall not treat other kinds of errors as early errors even if the compiler can prove that a construct cannot execute without error under any circumstances. An implementation may issue an early warning in such a case, but it should not report the error until the relevant construct is actually executed.</p>
-  <p>An implementation shall report all errors as specified, except for the following:</p>
-  <ul>
-    <li>
-      Except as restricted in <emu-xref href="#sec-forbidden-extensions"></emu-xref>, an implementation may extend |Script| syntax, |Module| syntax, and regular expression pattern or flag syntax. To permit this, all operations (such as calling `eval`, using a regular expression literal, or using the `Function` or `RegExp` constructor) that are allowed to throw *SyntaxError* are permitted to exhibit implementation-defined behaviour instead of throwing *SyntaxError* when they encounter an implementation-defined extension to the script syntax or regular expression pattern or flag syntax.
-    </li>
-    <li>
-      Except as restricted in <emu-xref href="#sec-forbidden-extensions"></emu-xref>, an implementation may provide additional types, values, objects, properties, and functions beyond those described in this specification. This may cause constructs (such as looking up a variable in the global scope) to have implementation-defined behaviour instead of throwing an error (such as *ReferenceError*).
-    </li>
-  </ul>
-
-  <emu-clause id="sec-host-report-errors" aoid="HostReportErrors">
-    <h1>HostReportErrors ( _errorList_ )</h1>
-
-    <p>HostReportErrors is an implementation-defined abstract operation that allows host environments to report parsing errors, early errors, and runtime errors.</p>
-
-    <p>An implementation of HostReportErrors must complete normally in all cases. The default implementation of HostReportErrors is to unconditionally return an empty normal completion.</p>
-
-    <emu-note>
-      <p>_errorList_ will be a List of ECMAScript language values. If the errors are parsing errors or early errors, these will always be *SyntaxError* or *ReferenceError* objects. Runtime errors, however, can be any ECMAScript value.</p>
-    </emu-note>
-  </emu-clause>
-
-  <emu-clause id="sec-forbidden-extensions">
-    <h1>Forbidden Extensions</h1>
-    <p>An implementation must not extend this specification in the following ways:</p>
-    <ul>
-      <li>
-        ECMAScript function objects defined using syntactic constructors in strict mode code must not be created with own properties named `"caller"` or `"arguments"`. Such own properties also must not be created for function objects defined using an |ArrowFunction|, |MethodDefinition|, |GeneratorDeclaration|, |GeneratorExpression|, |AsyncGeneratorDeclaration|, |AsyncGeneratorExpression|, |ClassDeclaration|, |ClassExpression|, |AsyncFunctionDeclaration|, |AsyncFunctionExpression|, or |AsyncArrowFunction| regardless of whether the definition is contained in strict mode code. Built-in functions, strict functions created using the `Function` constructor, generator functions created using the `Generator` constructor, async functions created using the `AsyncFunction` constructor, and functions created using the `bind` method also must not be created with such own properties.
-      </li>
-      <li>
-        If an implementation extends any function object with an own property named `"caller"` the value of that property, as observed using [[Get]] or [[GetOwnProperty]], must not be a strict function object. If it is an accessor property, the function that is the value of the property's [[Get]] attribute must never return a strict function when called.
-      </li>
-      <li>
-        Neither mapped nor unmapped arguments objects may be created with an own property named `"caller"`.
-      </li>
-      <li>
-        The behaviour of the following methods must not be extended except as specified in ECMA-402: `Object.prototype.toLocaleString`, `Array.prototype.toLocaleString`, `Number.prototype.toLocaleString`, `Date.prototype.toLocaleDateString`, `Date.prototype.toLocaleString`, `Date.prototype.toLocaleTimeString`, `String.prototype.localeCompare`, %TypedArray%`.prototype.toLocaleString`.
-      </li>
-      <li>
-        The RegExp pattern grammars in <emu-xref href="#sec-patterns"></emu-xref> and <emu-xref href="#sec-regular-expressions-patterns"></emu-xref> must not be extended to recognize any of the source characters A-Z or a-z as |IdentityEscape[+U]| when the <sub>[U]</sub> grammar parameter is present.
-      </li>
-      <li>
-        The Syntactic Grammar must not be extended in any manner that allows the token `:` to immediately follow source text that matches the |BindingIdentifier| nonterminal symbol.
-      </li>
-      <li>
-        When processing strict mode code, the syntax of |NumericLiteral| must not be extended to include <emu-xref href="#prod-annexB-LegacyOctalIntegerLiteral"></emu-xref> and the syntax of |DecimalIntegerLiteral| must not be extended to include <emu-xref href="#prod-annexB-NonOctalDecimalIntegerLiteral"></emu-xref> as described in <emu-xref href="#sec-additional-syntax-numeric-literals"></emu-xref>.
-      </li>
-      <li>
-        |TemplateCharacter| must not be extended to include <emu-xref href="#prod-annexB-LegacyOctalEscapeSequence"></emu-xref> as defined in <emu-xref href="#sec-additional-syntax-string-literals"></emu-xref>.
-      </li>
-      <li>
-        When processing strict mode code, the extensions defined in <emu-xref href="#sec-labelled-function-declarations"></emu-xref>, <emu-xref href="#sec-block-level-function-declarations-web-legacy-compatibility-semantics"></emu-xref>, <emu-xref href="#sec-functiondeclarations-in-ifstatement-statement-clauses"></emu-xref>, and <emu-xref href="#sec-initializers-in-forin-statement-heads"></emu-xref> must not be supported.
-      </li>
-      <li>
-        When parsing for the |Module| goal symbol, the lexical grammar extensions defined in <emu-xref href="#sec-html-like-comments"></emu-xref> must not be supported.
-      </li>
-    </ul>
-  </emu-clause>
 </emu-clause>
 
 <emu-clause id="sec-ecmascript-standard-built-in-objects">
