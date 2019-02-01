@@ -1446,10 +1446,14 @@ I left value type classes out of this discussion since I'm still not sure how th
 
 ### Union Types
 
-Having function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them since none of their syntax conflicts with anything proposed.
+Having nullable types along with function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them. The way nullable types are defined in TypeScript using unions if it was preferred would conflict with the current proposal:
 
 ```js
-let a:string|uint32 = `hello`;
+let a:uint8? = null; // This proposal
+let a:uint8|null = null; // TypeScript syntax
+// Multiple types
+let a:uint8?|string? = null; // This proposal
+let a:uint8|string|null = null; // TypeScript syntax
 ```
 
 ### Numeric Literals
