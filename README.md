@@ -1022,8 +1022,8 @@ function AlwaysReturnValue(value:float32) { /* ... */ }
 ```
 
 ### Classes and Operator Overloading
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Grammar
+- [x] In Proposal Specification
+- [x] [Proposal Specification Grammar](http://sirisian.github.io/ecmascript-types/#prod-MethodDefinition)
 - [ ] Proposal Specification Algorithms
 
 The following symbols can be used to define operator overloading.
@@ -1074,46 +1074,46 @@ In addition, a compact syntax is proposed with signatures. These can be overload
 ```js
 class A
 {
-  operator +=(rhs) { }
-  operator -=(rhs) { }
-  operator *=(rhs) { }
-  operator /=(rhs) { }
-  operator %=(rhs) { }
-  operator **=(rhs) { }
-  operator <<=(rhs) { }
-  operator >>=(rhs) { }
-  operator >>>=(rhs) { }
-  operator &=(rhs) { }
-  operator ^=(rhs) { }
-  operator |=(rhs) { }
-  operator +(rhs) { }
-  operator -(rhs) { }
-  operator *(rhs) { }
-  operator /(rhs) { }
-  operator %(rhs) { }
-  operator **(rhs) { }
-  operator <<(rhs) { }
-  operator >>(rhs) { }
-  operator >>>(rhs) { }
-  operator &(rhs) { }
-  operator |(rhs) { }
-  operator ^(rhs) { }
-  operator ~() { }
-  operator ==(rhs) { }
-  operator !=(rhs) { }
-  operator <(rhs) { }
-  operator <=(rhs) { }
-  operator >(rhs) { }
-  operator >=(rhs) { }
-  operator &&(rhs) { }
-  operator ||(rhs) { }
-  operator !() { }
-  operator ++() { } // prefix (++a)
-  operator ++(nothing) { } // postfix (a++)
-  operator --() { } // prefix (--a)
-  operator --(nothing) { } // postfix (a--)
-  operator -() { }
-  operator +() { }
+  operator+=(rhs) { }
+  operator-=(rhs) { }
+  operator*=(rhs) { }
+  operator/=(rhs) { }
+  operator%=(rhs) { }
+  operator**=(rhs) { }
+  operator<<=(rhs) { }
+  operator>>=(rhs) { }
+  operator>>>=(rhs) { }
+  operator&=(rhs) { }
+  operator^=(rhs) { }
+  operator|=(rhs) { }
+  operator+(rhs) { }
+  operator-(rhs) { }
+  operator*(rhs) { }
+  operator/(rhs) { }
+  operator%(rhs) { }
+  operator**(rhs) { }
+  operator<<(rhs) { }
+  operator>>(rhs) { }
+  operator>>>(rhs) { }
+  operator&(rhs) { }
+  operator|(rhs) { }
+  operator^(rhs) { }
+  operator~() { }
+  operator==(rhs) { }
+  operator!=(rhs) { }
+  operator<(rhs) { }
+  operator<=(rhs) { }
+  operator>(rhs) { }
+  operator>=(rhs) { }
+  operator&&(rhs) { }
+  operator||(rhs) { }
+  operator!() { }
+  operator++() { } // prefix (++a)
+  operator++(nothing) { } // postfix (a++)
+  operator--() { } // prefix (--a)
+  operator--(nothing) { } // postfix (a--)
+  operator-() { }
+  operator+() { }
 }
 ```
 
@@ -1141,11 +1141,11 @@ class Vector2d
     {
         this.x = x / 2;
     }
-    operator +(v:Vector2d) // Same as [Symbol.addition](v:Vector2d)
+    operator+(v:Vector2d) // Same as [Symbol.addition](v:Vector2d)
     {
         return new vector2d(this.x + v.x, this.y + v.y);
     }
-    operator ==(v:Vector2d)
+    operator==(v:Vector2d)
     {
         // equality check between this and v
     }
@@ -1160,6 +1160,24 @@ a[Symbol.additionAssignment] = function(value)
 };
 a += 5; // a.b is 5
 ```
+
+#### Static Operator Overloading
+
+Classes can also implement static operator overloading.
+
+```js
+class A
+{
+  static operator+=(value)
+  {
+    this.x += value;
+  }
+}
+A.x = 0;
+A += 5; // A.x is 5
+```
+
+This is kind of niche, but it's consistent with other method definitions, so it's included.
 
 ### Class Extension
 - [ ] Proposal Specification Algorithms
