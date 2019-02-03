@@ -112,6 +112,8 @@ let a:uint8[]; // []
 a.push(0); // [0]
 let b:uint8[] = [0, 1, 2, 3];
 let c:uint8[]?; // null
+let d:uint8?[] = [0, null];
+let e:uint8?[]?; // null
 ```
 
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
