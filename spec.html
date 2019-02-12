@@ -1125,6 +1125,61 @@
                 If *false*, attempts to delete the property, change the property to be an accessor property, or change its attributes (other than [[Value]], or changing [[Writable]] to *false*) will fail.
               </td>
             </tr>
+            <tr>
+              <td>
+                <ins>[[Type]]</ins>
+              </td>
+              <td>
+                <ins>Type</ins>
+              </td>
+              <td>
+                <ins>Holds a referece to the type.</ins>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <ins>[[AlignAll]]</ins>
+              </td>
+              <td>
+                <ins>Number</ins>
+              </td>
+              <td>
+                <ins>Only valid on object types. If set, properties in the object must start at a multiple of the value in bytes. Properties will be padded to satisfy this constraint.</ins>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <ins>[[Offset]]</ins>
+              </td>
+              <td>
+                <ins>Number</ins>
+              </td>
+              <td>
+                <ins>The offset in bytes this property is from the start of the allocated memory for the type starting after any base type.</ins>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <ins>[[Align]]</ins>
+              </td>
+              <td>
+                <ins>Number</ins>
+              </td>
+              <td>
+                <ins>If set, the property must start at a multiple of the value in bytes. This overrides any AlignAll constraint.</ins>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <ins>[[Size]]</ins>
+              </td>
+              <td>
+                <ins>Number</ins>
+              </td>
+              <td>
+                <ins>Only valid on object types. If set, the size of the object is exactly the defined amount in bytes.</ins>
+              </td>
+            </tr>
             </tbody>
           </table>
         </emu-table>
@@ -11136,7 +11191,7 @@
         `(` FunctionSignatureElementList `)` ColonType?</ins>
 
       <ins>Type :
-        Identifier TypedArray? `?`?
+        Identifier `?`? TypedArray? `?`?
         TypedArray `?`?
         FunctionSignature `?`?</ins>
 
@@ -11707,7 +11762,7 @@
           IdentifierReference[?Yield, ?Await]
           CoverInitializedName[?Yield, ?Await]
           PropertyName[?Yield, ?Await] `:` AssignmentExpression[+In, ?Yield, ?Await]
-          `(` PropertyName[?Yield, ?Await] <ins>ColonType</ins> `)` `:` AssignmentExpression[+In, ?Yield, ?Await]
+          <ins>`(` PropertyName[?Yield, ?Await] ColonType `)` `:` AssignmentExpression[+In, ?Yield, ?Await]</ins>
           MethodDefinition[?Yield, ?Await]
           `...` AssignmentExpression[+In, ?Yield, ?Await]
 
@@ -12322,6 +12377,10 @@
         MetaProperty
         <del>`new` MemberExpression[?Yield, ?Await] Arguments[?Yield, ?Await]</del>
         <ins>`new` PlacementNew[?Yield, ?Await]? MemberExpression[?Yield, ?Await] Arguments[?Yield, ?Await]</ins>
+        <ins>Identifier `[` `]` `(` AssignmentExpression[?Yield, ?Await] `)`</ins>
+        <ins>Identifier `[` `]` `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`</ins>
+        <ins>Identifier `[` `]` `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`</ins>
+        <ins>Identifier `[` `]` `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`</ins>
 
       SuperProperty[Yield, Await] :
         `super` `[` Expression[+In, ?Yield, ?Await] `]`
@@ -19406,14 +19465,14 @@
     <h2>Syntax</h2>
     <emu-grammar type="definition">
       AsyncGeneratorMethod[Yield, Await] :
-        `async` [no LineTerminator here] `*` PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[+Yield, +Await] `)` `{` AsyncGeneratorBody `}`
+        `async` [no LineTerminator here] `*` PropertyName[?Yield, ?Await] `(` UniqueFormalParameters[+Yield, +Await] `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
 
       AsyncGeneratorDeclaration[Yield, Await, Default] :
-        `async` [no LineTerminator here] `function` `*` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[+Yield, +Await] `)` `{` AsyncGeneratorBody `}`
-        [+Default] `async` [no LineTerminator here] `function` `*` `(` FormalParameters[+Yield, +Await] `)` `{` AsyncGeneratorBody `}`
+        `async` [no LineTerminator here] `function` `*` BindingIdentifier[?Yield, ?Await] `(` FormalParameters[+Yield, +Await] `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
+        [+Default] `async` [no LineTerminator here] `function` `*` `(` FormalParameters[+Yield, +Await] `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
 
       AsyncGeneratorExpression :
-        `async` [no LineTerminator here] `function` `*` BindingIdentifier[+Yield, +Await]? `(` FormalParameters[+Yield, +Await] `)` `{` AsyncGeneratorBody `}`
+        `async` [no LineTerminator here] `function` `*` BindingIdentifier[+Yield, +Await]? `(` FormalParameters[+Yield, +Await] `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
 
       AsyncGeneratorBody :
         FunctionBody[+Yield, +Await]
@@ -19427,7 +19486,7 @@
 
     <emu-clause id="sec-async-generator-function-definitions-static-semantics-early-errors">
       <h1>Static Semantics: Early Errors</h1>
-      <emu-grammar>AsyncGeneratorMethod : `async` `*` PropertyName `(` UniqueFormalParameters `)` `{` AsyncGeneratorBody `}`</emu-grammar>
+      <emu-grammar>AsyncGeneratorMethod : `async` `*` PropertyName `(` UniqueFormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`</emu-grammar>
       <ul>
         <li>It is a Syntax Error if HasDirectSuper of |AsyncGeneratorMethod| is *true*.</li>
         <li>It is a Syntax Error if |UniqueFormalParameters| Contains |YieldExpression| is *true*.</li>
@@ -19436,11 +19495,11 @@
         <li>It is a Syntax Error if any element of the BoundNames of |UniqueFormalParameters| also occurs in the LexicallyDeclaredNames of |AsyncGeneratorBody|.</li>
       </ul>
       <emu-grammar>
-        AsyncGeneratorDeclaration : `async` `function` `*` BindingIdentifier `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorDeclaration : `async` `function` `*` BindingIdentifier `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
 
-        AsyncGeneratorDeclaration : `async` `function` `*` `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorDeclaration : `async` `function` `*` `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
 
-        AsyncGeneratorExpression : `async` `function` `*` BindingIdentifier? `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorExpression : `async` `function` `*` BindingIdentifier? `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
       </emu-grammar>
       <ul>
         <li>If the source code matching this production is strict mode code, the Early Error rules for <emu-grammar>UniqueFormalParameters : FormalParameters</emu-grammar> are applied.</li>
@@ -19459,11 +19518,11 @@
     <emu-clause id="sec-async-generator-function-definitions-static-semantics-boundnames">
       <h1>Static Semantics: BoundNames</h1>
       <emu-see-also-para op="BoundNames"></emu-see-also-para>
-      <emu-grammar>AsyncGeneratorDeclaration : `async` `function` `*` BindingIdentifier `(` FormalParameters `)` `{` AsyncGeneratorBody `}`</emu-grammar>
+      <emu-grammar>AsyncGeneratorDeclaration : `async` `function` `*` BindingIdentifier `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`</emu-grammar>
       <emu-alg>
         1. Return the BoundNames of |BindingIdentifier|.
       </emu-alg>
-      <emu-grammar>AsyncGeneratorDeclaration : `async` `function` `*` `(` FormalParameters `)` `{` AsyncGeneratorBody `}`</emu-grammar>
+      <emu-grammar>AsyncGeneratorDeclaration : `async` `function` `*` `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`</emu-grammar>
       <emu-alg>
         1. Return &laquo; `"*default*"` &raquo;.
       </emu-alg>
@@ -19476,7 +19535,7 @@
       <h1>Static Semantics: ComputedPropertyContains</h1>
       <p>With parameter _symbol_.</p>
       <emu-see-also-para op="ComputedPropertyContains"></emu-see-also-para>
-      <emu-grammar>AsyncGeneratorMethod : `async` `*` PropertyName `(` UniqueFormalParameters `)` `{` AsyncGeneratorBody `}`</emu-grammar>
+      <emu-grammar>AsyncGeneratorMethod : `async` `*` PropertyName `(` UniqueFormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`</emu-grammar>
       <emu-alg>
         1. Return the result of ComputedPropertyContains for |PropertyName| with argument _symbol_.
       </emu-alg>
@@ -19487,11 +19546,11 @@
       <p>With parameter _symbol_.</p>
       <emu-see-also-para op="Contains"></emu-see-also-para>
       <emu-grammar>
-        AsyncGeneratorDeclaration : `async` `function` `*` BindingIdentifier `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorDeclaration : `async` `function` `*` BindingIdentifier `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
 
-        AsyncGeneratorDeclaration : `async` `function` `*` `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorDeclaration : `async` `function` `*` `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
 
-        AsyncGeneratorExpression : `async` `function` `*` BindingIdentifier? `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorExpression : `async` `function` `*` BindingIdentifier? `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
       </emu-grammar>
       <emu-alg>
         1. Return *false*.
@@ -19504,7 +19563,7 @@
     <emu-clause id="sec-async-generator-function-definitions-static-semantics-hasdirectsuper">
       <h1>Static Semantics: HasDirectSuper</h1>
       <emu-see-also-para op="HasDirectSuper"></emu-see-also-para>
-      <emu-grammar>AsyncGeneratorMethod : `async` `*` PropertyName `(` UniqueFormalParameters `)` `{` AsyncGeneratorBody `}`</emu-grammar>
+      <emu-grammar>AsyncGeneratorMethod : `async` `*` PropertyName `(` UniqueFormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`</emu-grammar>
       <emu-alg>
         1. If |UniqueFormalParameters| Contains |SuperCall| is *true*, return *true*.
         1. Return |AsyncGeneratorBody| Contains |SuperCall|.
@@ -19514,11 +19573,11 @@
     <emu-clause id="sec-async-generator-function-definitions-static-semantics-hasname">
       <h1>Static Semantics: HasName</h1>
       <emu-see-also-para op="HasName"></emu-see-also-para>
-      <emu-grammar>AsyncGeneratorExpression : `async` `function` `*` `(` FormalParameters `)` `{` AsyncGeneratorBody `}`</emu-grammar>
+      <emu-grammar>AsyncGeneratorExpression : `async` `function` `*` `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`</emu-grammar>
       <emu-alg>
         1. Return *false*.
       </emu-alg>
-      <emu-grammar>AsyncGeneratorExpression : `async` `function` `*` BindingIdentifier `(` FormalParameters `)` `{` AsyncGeneratorBody `}`</emu-grammar>
+      <emu-grammar>AsyncGeneratorExpression : `async` `function` `*` BindingIdentifier `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`</emu-grammar>
       <emu-alg>
         1. Return *true*.
       </emu-alg>
@@ -19528,9 +19587,9 @@
       <h1>Static Semantics: IsConstantDeclaration</h1>
       <emu-see-also-para op="IsConstantDeclaration"></emu-see-also-para>
       <emu-grammar>
-        AsyncGeneratorDeclaration : `async` `function` `*` BindingIdentifier `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorDeclaration : `async` `function` `*` BindingIdentifier `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
 
-        AsyncGeneratorDeclaration : `async` `function` `*` `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorDeclaration : `async` `function` `*` `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
       </emu-grammar>
       <emu-alg>
         1. Return *false*.
@@ -19540,7 +19599,7 @@
     <emu-clause id="sec-async-generator-function-definitions-static-semantics-isfunctiondefinition">
       <h1>Static Semantics: IsFunctionDefinition</h1>
       <emu-see-also-para op="IsFunctionDefinition"></emu-see-also-para>
-      <emu-grammar>AsyncGeneratorExpression : `async` `function` `*` BindingIdentifier? `(` FormalParameters `)` `{` AsyncGeneratorBody `}`</emu-grammar>
+      <emu-grammar>AsyncGeneratorExpression : `async` `function` `*` BindingIdentifier? `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`</emu-grammar>
       <emu-alg>
         1. Return *true*.
       </emu-alg>
@@ -19549,7 +19608,7 @@
     <emu-clause id="sec-async-generator-function-definitions-static-semantics-propname">
       <h1>Static Semantics: PropName</h1>
       <emu-see-also-para op="PropName"></emu-see-also-para>
-      <emu-grammar>AsyncGeneratorMethod : `async` `*` PropertyName `(` UniqueFormalParameters `)` `{` AsyncGeneratorBody `}`</emu-grammar>
+      <emu-grammar>AsyncGeneratorMethod : `async` `*` PropertyName `(` UniqueFormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`</emu-grammar>
       <emu-alg>
         1. Return PropName of |PropertyName|.
       </emu-alg>
@@ -19573,7 +19632,7 @@
       <h1>Runtime Semantics: InstantiateFunctionObject</h1>
       <p>With parameter _scope_.</p>
       <emu-grammar>
-        AsyncGeneratorDeclaration : `async` [no LineTerminator here] `function` `*` BindingIdentifier `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorDeclaration : `async` [no LineTerminator here] `function` `*` BindingIdentifier `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
       </emu-grammar>
       <emu-alg>
         1. If the function code for |AsyncGeneratorDeclaration| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
@@ -19586,7 +19645,7 @@
       </emu-alg>
 
       <emu-grammar>
-        AsyncGeneratorDeclaration : `async` [no LineTerminator here] `function` `*` `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorDeclaration : `async` [no LineTerminator here] `function` `*` `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
       </emu-grammar>
       <emu-alg>
         1. If the function code for |AsyncGeneratorDeclaration| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
@@ -19605,7 +19664,7 @@
       <h1>Runtime Semantics: PropertyDefinitionEvaluation</h1>
       <p>With parameter _object_ and _enumerable_.</p>
       <emu-grammar>
-        AsyncGeneratorMethod : `async` [no LineTerminator here] `*` PropertyName `(` UniqueFormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorMethod : `async` [no LineTerminator here] `*` PropertyName `(` UniqueFormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
       </emu-grammar>
       <emu-alg>
         1. Let _propKey_ be the result of evaluating |PropertyName|.
@@ -19626,7 +19685,7 @@
       <h1>Runtime Semantics: Evaluation</h1>
 
       <emu-grammar>
-        AsyncGeneratorExpression : `async` [no LineTerminator here] `function` `*` `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorExpression : `async` [no LineTerminator here] `function` `*` `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
       </emu-grammar>
       <emu-alg>
         1. If the function code for this |AsyncGeneratorExpression| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
@@ -19638,7 +19697,7 @@
       </emu-alg>
 
       <emu-grammar>
-        AsyncGeneratorExpression : `async` [no LineTerminator here] `function` `*` BindingIdentifier `(` FormalParameters `)` `{` AsyncGeneratorBody `}`
+        AsyncGeneratorExpression : `async` [no LineTerminator here] `function` `*` BindingIdentifier `(` FormalParameters `)` <ins>ColonType?</ins> `{` AsyncGeneratorBody `}`
       </emu-grammar>
       <emu-alg>
         1. If the function code for this |AsyncGeneratorExpression| is strict mode code, let _strict_ be *true*. Otherwise let _strict_ be *false*.
@@ -25130,6 +25189,234 @@
         <h1>Symbol.unscopables</h1>
         <p>The initial value of `Symbol.unscopables` is the well-known symbol @@unscopables (<emu-xref href="#table-1"></emu-xref>).</p>
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.additionAssignment">
+        <h1><ins>Symbol.additionAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.additionAssignment` is the well-known symbol @@additionAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.subtractionAssignment">
+        <h1><ins>Symbol.subtractionAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.subtractionAssignment` is the well-known symbol @@subtractionAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.multiplicationAssignment">
+        <h1><ins>Symbol.multiplicationAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.multiplicationAssignment` is the well-known symbol @@multiplicationAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.divisionAssignment">
+        <h1><ins>Symbol.divisionAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.divisionAssignment` is the well-known symbol @@divisionAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.remainderAssignment">
+        <h1><ins>Symbol.remainderAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.remainderAssignment` is the well-known symbol @@remainderAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.exponentiationAssignment">
+        <h1><ins>Symbol.exponentiationAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.exponentiationAssignment` is the well-known symbol @@exponentiationAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.leftShiftAssignment">
+        <h1><ins>Symbol.leftShiftAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.leftShiftAssignment` is the well-known symbol @@leftShiftAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.rightShiftAssignment">
+        <h1><ins>Symbol.rightShiftAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.rightShiftAssignment` is the well-known symbol @@rightShiftAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.unsignedRightShiftAssignment">
+        <h1><ins>Symbol.unsignedRightShiftAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.unsignedRightShiftAssignment` is the well-known symbol @@unsignedRightShiftAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.bitwiseANDAssignment">
+        <h1><ins>Symbol.bitwiseANDAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.bitwiseANDAssignment` is the well-known symbol @@bitwiseANDAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.bitwiseXORAssignment">
+        <h1><ins>Symbol.bitwiseXORAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.bitwiseXORAssignment` is the well-known symbol @@bitwiseXORAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.bitwiseORAssignment">
+        <h1><ins>Symbol.bitwiseORAssignment</ins></h1>
+        <p><ins>The initial value of `Symbol.bitwiseORAssignment` is the well-known symbol @@bitwiseORAssignment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.addition">
+        <h1><ins>Symbol.addition</ins></h1>
+        <p><ins>The initial value of `Symbol.addition` is the well-known symbol @@addition (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.subtraction">
+        <h1><ins>Symbol.subtraction</ins></h1>
+        <p><ins>The initial value of `Symbol.subtraction` is the well-known symbol @@subtraction (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.multiplication">
+        <h1><ins>Symbol.multiplication</ins></h1>
+        <p><ins>The initial value of `Symbol.multiplication` is the well-known symbol @@multiplication (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.division">
+        <h1><ins>Symbol.division</ins></h1>
+        <p><ins>The initial value of `Symbol.division` is the well-known symbol @@division (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.remainder">
+        <h1><ins>Symbol.remainder</ins></h1>
+        <p><ins>The initial value of `Symbol.remainder` is the well-known symbol @@remainder (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.exponentiation">
+        <h1><ins>Symbol.exponentiation</ins></h1>
+        <p><ins>The initial value of `Symbol.exponentiation` is the well-known symbol @@exponentiation (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.leftShift">
+        <h1><ins>Symbol.leftShift</ins></h1>
+        <p><ins>The initial value of `Symbol.leftShift` is the well-known symbol @@leftShift (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.rightShift">
+        <h1><ins>Symbol.rightShift</ins></h1>
+        <p><ins>The initial value of `Symbol.rightShift` is the well-known symbol @@rightShift (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.unsignedRightShift">
+        <h1><ins>Symbol.unsignedRightShift</ins></h1>
+        <p><ins>The initial value of `Symbol.unsignedRightShift` is the well-known symbol @@unsignedRightShift (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.bitwiseAND">
+        <h1><ins>Symbol.bitwiseAND</ins></h1>
+        <p><ins>The initial value of `Symbol.bitwiseAND` is the well-known symbol @@bitwiseAND (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.">
+        <h1><ins>Symbol.bitwiseOR</ins></h1>
+        <p><ins>The initial value of `Symbol.bitwiseOR` is the well-known symbol @@bitwiseOR (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.bitwiseXOR">
+        <h1><ins>Symbol.bitwiseXOR</ins></h1>
+        <p><ins>The initial value of `Symbol.bitwiseXOR` is the well-known symbol @@bitwiseXOR (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.bitwiseNOT">
+        <h1><ins>Symbol.bitwiseNOT</ins></h1>
+        <p><ins>The initial value of `Symbol.bitwiseNOT` is the well-known symbol @@bitwiseNOT (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.equal">
+        <h1><ins>Symbol.equal</ins></h1>
+        <p><ins>The initial value of `Symbol.equal` is the well-known symbol @@equal (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.notEqual">
+        <h1><ins>Symbol.notEqual</ins></h1>
+        <p><ins>The initial value of `Symbol.notEqual` is the well-known symbol @@notEqual (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.lessThan">
+        <h1><ins>Symbol.lessThan</ins></h1>
+        <p><ins>The initial value of `Symbol.lessThan` is the well-known symbol @@lessThan (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.lessThanOrEqual">
+        <h1><ins>Symbol.lessThanOrEqual</ins></h1>
+        <p><ins>The initial value of `Symbol.lessThanOrEqual` is the well-known symbol @@lessThanOrEqual (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.greaterThan">
+        <h1><ins>Symbol.greaterThan</ins></h1>
+        <p><ins>The initial value of `Symbol.greaterThan` is the well-known symbol @@greaterThan (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.greaterThanOrEqual">
+        <h1><ins>Symbol.greaterThanOrEqual</ins></h1>
+        <p><ins>The initial value of `Symbol.greaterThanOrEqual` is the well-known symbol @@greaterThanOrEqual (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.logicalAND">
+        <h1><ins>Symbol.logicalAND</ins></h1>
+        <p><ins>The initial value of `Symbol.logicalAND` is the well-known symbol @@logicalAND (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.logicalOR">
+        <h1><ins>Symbol.logicalOR</ins></h1>
+        <p><ins>The initial value of `Symbol.logicalOR` is the well-known symbol @@logicalOR (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.logicalNOT">
+        <h1><ins>Symbol.logicalNOT</ins></h1>
+        <p><ins>The initial value of `Symbol.logicalNOT` is the well-known symbol @@logicalNOT (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.increment">
+        <h1><ins>Symbol.increment</ins></h1>
+        <p><ins>The initial value of `Symbol.increment` is the well-known symbol @@increment (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.decrement">
+        <h1><ins>Symbol.decrement</ins></h1>
+        <p><ins>The initial value of `Symbol.decrement` is the well-known symbol @@decrement (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.unaryNegation">
+        <h1><ins>Symbol.unaryNegation</ins></h1>
+        <p><ins>The initial value of `Symbol.unaryNegation` is the well-known symbol @@unaryNegation (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
+      </emu-clause>
+
+      <emu-clause id="sec-symbol.unaryPlus">
+        <h1><ins>Symbol.unaryPlus</ins></h1>
+        <p><ins>The initial value of `Symbol.unaryPlus` is the well-known symbol @@unaryPlus (<emu-xref href="#table-1"></emu-xref>).</ins></p>
+        <p><ins>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</ins></p>
       </emu-clause>
     </emu-clause>
 
