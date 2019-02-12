@@ -112,6 +112,8 @@ let a:uint8[]; // []
 a.push(0); // [0]
 let b:uint8[] = [0, 1, 2, 3];
 let c:uint8[]?; // null
+let d:uint8?[] = [0, null];
+let e:uint8?[]?; // null
 ```
 
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
@@ -1308,6 +1310,7 @@ enum E { A = 0, B = A + 5 };
 ```
 
 ### Rest Parameters
+- [x] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
 
 ```js
@@ -1404,7 +1407,7 @@ let a:float32 = 1.23;
 ```
 
 ### Member memory alignment and offset
-- [ ] In Proposal Specification
+- [x] In Proposal Specification
 - [ ] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
 
@@ -1429,10 +1432,10 @@ class AB
 
 Two new keys would be added to the property descriptor called ```align``` and ```offset```. For consistency between codebases two reserved decorators would be created called ```@align``` and ```@offset``` that would set the underlying keys with byte values. Align defines the memory address to be a multiple of a given number. (On some software architectures specialized move operations and cache boundaries can use these for small advantages). Offset is always defined as the number of bytes from the start of the class allocation in memory. (The offset starts at 0 for each class. Negative offset values can be used to overlap the memory of base classes). It's possible to create a union by defining overlapping offsets.
 
-Along with the member decorators, two class reserved descriptor keys would be created, ```align``` and ```size```. These would control the allocated memory alignment of the instances and the allocated size of the instances.
+Along with the member decorators, two object reserved descriptor keys would be created, ```alignAll``` and ```size```. These would control the allocated memory alignment of the instances and the allocated size of the instances.
 
 ```js
-@align(16) // Defines the class memory alignment to be 16 byte aligned
+@alignAll(16) // Defines the class memory alignment to be 16 byte aligned
 @size(32) // Defines the class as 32 bytes. Pads with zeros when allocating
 class A
 {
