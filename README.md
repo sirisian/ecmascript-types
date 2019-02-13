@@ -217,14 +217,13 @@ let a:uint8[5] = [0, 1, 2, 3, 4];
 ```
 
 ### Array Views
-- [x] In Proposal Specification
-- [x] Proposal Specification Grammar
+- [x] [Proposal Specification Grammar](https://sirisian.github.io/ecmascript-types/#prod-ArrayView)
 - [ ] Proposal Specification Algorithms
 
-Like ```TypedArray``` views this array syntax allows any array, even arrays of typed objects to be viewed as different objects. Stride would have performance implications but would allow for a single view to access elements with padding between elements.
+Like ```TypedArray``` views this array syntax allows any array, even arrays of typed objects to be viewed as different objects. 
 
 ```js
-let view = Type[](buffer [, byteOffset [, byteLength [, byteStride]]]);
+let view = Type[](buffer [, byteOffset [, byteElementLength]]);
 ```
 
 ```js
@@ -232,7 +231,22 @@ let a:uint64[] = [1];
 let b = uint32[](a, 0, 8);
 ```
 
-Take special note of the lack of ```new``` in this syntax. Adding new in the above case would pass the arguments to the constructor for each element.
+By default ```byteElementLength``` is the size of the array's type. So ```uint32[](...)``` would be 4 bytes. The ```byteElementLength``` can be less than or greater than the actual size of the type. For example:
+
+```js
+class A
+{
+    a:uint8;
+    b:uint16;
+    constructor(value)
+    {
+        this.b = value;
+    }
+}
+const a:A = [0, 1, 2];
+const b = uint16[](a, 1, 3); // Offset of 1 byte into the array and 3 byte length per element
+b[2]; // 2
+```
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 - [x] In Proposal Specification
@@ -1025,7 +1039,7 @@ function AlwaysReturnValue(value:float32) { /* ... */ }
 
 ### Classes and Operator Overloading
 - [x] In Proposal Specification
-- [x] [Proposal Specification Grammar](http://sirisian.github.io/ecmascript-types/#prod-MethodDefinition)
+- [x] [Proposal Specification Grammar](https://sirisian.github.io/ecmascript-types/#prod-MethodDefinition)
 - [ ] Proposal Specification Algorithms
 
 The following symbols can be used to define operator overloading.
@@ -1362,18 +1376,24 @@ catch (e)
 ```
 
 ### Placement New
-- [x] Proposal Specification Grammar
+- [x] [Proposal Specification Grammar](https://sirisian.github.io/ecmascript-types/#prod-ArrayView)
 - [ ] Proposal Specification Algorithms
 
 Arbitrary arrays can be allocated into using the placement new syntax. This works with both a single instance and array of instances.
 
+Single instance syntax:
 ```js
-let a = new(buffer, byteOffset) MyType(20);
+// new(buffer [, byteOffset]) Type()
+let a = new(buffer, byteOffset) Type(0);
 ```
 
+Array of instances syntax:
 ```js
-let a = new(buffer, byteOffset, byteStride) MyType[10](20);
+// new(buffer [, byteOffset [, byteElementLength]]) Type[n]()
+let a = new(buffer, byteOffset, byteElementLength) Type[10](0);
 ```
+
+By default ```byteElementLength``` is the size of the type. Using a larger value than the size of the type acts as a stride adding padding between allocations in the buffer. Using a smaller length is unusual as it causes allocations to overlap.
 
 ### Control Structures
 - [ ] In Proposal Specification
