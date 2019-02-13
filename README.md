@@ -217,8 +217,8 @@ let a:uint8[5] = [0, 1, 2, 3, 4];
 ```
 
 ### Array Views
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Grammar
+- [x] In Proposal Specification
+- [x] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
 
 Like ```TypedArray``` views this array syntax allows any array, even arrays of typed objects to be viewed as different objects. Stride would have performance implications but would allow for a single view to access elements with padding between elements.
