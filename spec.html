@@ -12368,19 +12368,21 @@
         `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`
         `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`</ins>
 
+      <ins>ArrayView[Yield, Await] :
+        `[` `]` `(` AssignmentExpression[?Yield, ?Await] )
+        `[` `]` `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`
+        `[` `]` `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`
+        `[` `]` `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`</ins>
+
       MemberExpression[Yield, Await] :
         PrimaryExpression[?Yield, ?Await]
         MemberExpression[?Yield, ?Await] `[` Expression[+In, ?Yield, ?Await] `]`
         MemberExpression[?Yield, ?Await] `.` IdentifierName
         MemberExpression[?Yield, ?Await] TemplateLiteral[?Yield, ?Await, +Tagged]
+        <ins>MemberExpression[?Yield, ?Await] ArrayView[?Yield, ?Await]</ins>
         SuperProperty[?Yield, ?Await]
         MetaProperty
-        <del>`new` MemberExpression[?Yield, ?Await] Arguments[?Yield, ?Await]</del>
-        <ins>`new` PlacementNew[?Yield, ?Await]? MemberExpression[?Yield, ?Await] Arguments[?Yield, ?Await]</ins>
-        <ins>MemberExpression[?Yield, ?Await] `[` `]` `(` AssignmentExpression[?Yield, ?Await] `)`</ins>
-        <ins>MemberExpression[?Yield, ?Await] `[` `]` `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`</ins>
-        <ins>MemberExpression[?Yield, ?Await] `[` `]` `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`</ins>
-        <ins>MemberExpression[?Yield, ?Await] `[` `]` `(` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `,` AssignmentExpression[?Yield, ?Await] `)`</ins>
+        `new` <ins>PlacementNew[?Yield, ?Await]?</ins> MemberExpression[?Yield, ?Await] Arguments[?Yield, ?Await]
 
       SuperProperty[Yield, Await] :
         `super` `[` Expression[+In, ?Yield, ?Await] `]`
