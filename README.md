@@ -220,7 +220,7 @@ let a:uint8[5] = [0, 1, 2, 3, 4];
 - [x] [Proposal Specification Grammar](https://sirisian.github.io/ecmascript-types/#prod-ArrayView)
 - [ ] Proposal Specification Algorithms
 
-Like ```TypedArray``` views this array syntax allows any array, even arrays of typed objects to be viewed as different objects. 
+Like ```TypedArray``` views, this array syntax allows any array, even arrays of typed objects to be viewed as different objects. 
 
 ```js
 let view = Type[](buffer [, byteOffset [, byteElementLength]]);
@@ -693,7 +693,7 @@ function F(c:B)
 }
 ```
 
-Extending function intefaces:
+Extending function interfaces:
 
 ```js
 interface A
