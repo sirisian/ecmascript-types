@@ -1567,12 +1567,6 @@ Generic constraints aren't defined here but would need to be. TypeScript has the
 
 Typedefs or aliases for types are a requirement. Not sure what the best syntax is for proposing these. There's a lot of ways to approach them. TypeScript has a system, but I haven't seen alternatives so it's hard for me to judge if it's the best or most ideal syntax.
 
-### Interfaces
-
-Taken from TypeScript an interface allows for structural subtyping, essentially structure matching.
-
-See: https://www.typescriptlang.org/docs/handbook/interfaces.html
-
 ### Value Type Classes
 
 I left value type classes out of this discussion since I'm still not sure how they'll be proposed. Doesn't sound like they have a strong proposal still or syntax.
