@@ -273,7 +273,6 @@ For a variable-length array it works as expected where the user drops the length
 
 ```js
 var grid = new uint8[(x, y, z) => z * 4 * 4 + y * 4 + x];
-var grid2 = new uint8[uint64, (x, y, z) => z * 4 * 4 + y * 4 + x];
 ```
 
 Views also work as expected allowing one to apply custom indexing to existing arrays:
