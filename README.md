@@ -1325,6 +1325,12 @@ Dynamic types have less precedence than typed parameters:
 function F(...args1, callback:(), ...args2, callback:()) {}
 F('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
 ```
+Rest array destructuring:
+```js
+function f(...[a:uint8, b:uint8, c:uint8]) {
+  return a + b + c;
+}
+```
 
 ### Try Catch
 - [x] Proposal Specification Grammar
