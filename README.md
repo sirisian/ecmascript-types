@@ -449,7 +449,7 @@ let [a:uint8, ...[...[b:uint8]]] = [1, 2];
 b; // 2
 ```
 
-More useful is typing whole arrays:
+Typing arrays:
 
 ```js
 let [a:uint8, ...b:uint8] = [1];
@@ -462,8 +462,16 @@ https://github.com/tc39/proposal-object-rest-spread
 
 ```js
 let { (x:uint8), ...(y:{ (a:uint8), (b:uint8) }) } = { x: 1, a: 2, b: 3 };
-x; // 1 with type uint8
-y; // { a: 2, b: 3 } with type uint8
+x; // 1
+y; // { a: 2, b: 3 }
+```
+
+Renaming:
+
+```js
+let { (x:uint8): a, ...(b:{ (a:uint8): x, (b:uint8): y }) } = { x: 1, a: 2, b: 3 };
+a; // 1
+b; // { x: 2, y: 3 }
 ```
 
 ### Typed return values for destructuring
