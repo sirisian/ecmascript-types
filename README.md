@@ -1189,10 +1189,10 @@ Example defined in say ```MyClass.js``` defining extensions to ```Vector2``` def
 
 ```js
 class Vector2 {
-  operator ==(v:MyClass) {
+  operator==(v:MyClass) {
     // equality check between this and MyClass
   }
-  operator +(v:MyClass) {
+  operator+(v:MyClass) {
     return v + this; // defined in terms of the MyClass operator
   }
 }
