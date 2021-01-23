@@ -8,6 +8,8 @@ With TypedArrays and classes finalized, ECMAScript is in a good place to finally
 
 The types described below bring ECMAScript in line or surpasses the type systems in most languages. For developers it cleans up a lot of the syntax, as described later, for TypedArrays, SIMD, and working with number types (floats vs signed and unsigned integers). It also allows for new language features like function overloading and a clean syntax for operator overloading. For implementors, added types offer a way to better optimize the JIT when specific types are used. For languages built on top of Javascript this allows more explicit type usage and closer matching to hardware.
 
+The explicit goal of this proposal is to not just to give developers static type checking. It's to offer information to engines to use native types and optimize callstacks and memory usage. Ideally engines could inline and optimize code paths that are fully typed offering closer to native performance.
+
 ### Types Proposed
 - [x] In Proposal Specification
 
@@ -57,7 +59,7 @@ One of the first complications with types is ```typeof```'s behavior. All of the
 ```js
 let a:uint8 = 0; // typeof a == "uint8"
 let b:uint8? = 0; // typeof b == "uint8?"
-let c:uint8[] = []; // typeof c == "object"
+let c:[]<uint8> = []; // typeof c == "object"
 let d:(uint8):uint8 = x => x * x; // typeof d == "function"
 ```
 
@@ -96,7 +98,7 @@ let a:uint8? = null; // typeof a == "uint8?"
 - [ ] In Proposal Specification
 - [ ] Proposal Specification Algorithms
 
-Using ```any?``` would result in a syntax error since ```any``` already includes nullable types. As would using ```any[]``` since it already includes array types. Using just ```[]``` would be the type for arrays that can contain anything. For example:
+Using ```any?``` would result in a syntax error since ```any``` already includes nullable types. As would using ```[]<any>``` since it already includes array types. Using just ```[]``` would be the type for arrays that can contain anything. For example:
 
 ```js
 let a:[];
@@ -107,19 +109,21 @@ let a:[];
 - [x] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
 
+A generic syntax ```<T>``` is used to type array elements.
+
 ```js
-let a:uint8[]; // []
+let a:[]<uint8>; // []
 a.push(0); // [0]
-let b:uint8[] = [0, 1, 2, 3];
-let c:uint8[]?; // null
-let d:uint8?[] = [0, null];
-let e:uint8?[]?; // null
+let b:[]<uint8> = [0, 1, 2, 3];
+let c:[]<uint8>?; // null
+let d:[]<uint8?> = [0, null];
+let e:[]<uint8?>?; // null
 ```
 
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
 
 ```js
-let a:uint8[] = [0, 1, 2, 3];
+let a:[]<uint8> = [0, 1, 2, 3];
 a['a'] = 0;
 'a' in a; // true
 delete a['a'];
@@ -131,13 +135,13 @@ delete a['a'];
 - [ ] Proposal Specification Algorithms
 
 ```js
-let a:uint8[4]; // [0, 0, 0, 0]
+let a:[4]<uint8>; // [0, 0, 0, 0]
 // a.push(0); TypeError: a is fixed-length
 // a.pop(); TypeError: a is fixed-length
 a[0] = 1; // valid
 // a[a.length] = 2; Out of range
-let b:uint8[4] = [0, 1, 2, 3];
-let c:uint8[4]?; // null
+let b:[4]<uint8> = [0, 1, 2, 3];
+let c:[4]<uint8>?; // null
 ```
 
 Typed arrays would be zero-ed at creation. That is the allocated memory would be set to all zeroes.
@@ -145,15 +149,15 @@ Typed arrays would be zero-ed at creation. That is the allocated memory would be
 ### Mixing Variable-length and Fixed-length Arrays
 
 ```js
-function F(c:boolean):uint8[] { // default case, return a resizable array
-  let a:uint8[4] = [0, 1, 2, 3];
-  let b:uint8[6] = [0, 1, 2, 3, 4, 5];
+function F(c:boolean):[]<uint8> { // default case, return a resizable array
+  let a:[4]<uint8> = [0, 1, 2, 3];
+  let b:[6]<uint8> = [0, 1, 2, 3, 4, 5];
   return c ? a : b;
 }
 
-function F(c:boolean):uint8[6] { // Resizes a if c is true
-  let a:uint8[4] = [0, 1, 2, 3];
-  let b:uint8[6] = [0, 1, 2, 3, 4, 5];
+function F(c:boolean):[6]<uint8> { // Resizes a if c is true
+  let a:[4]<uint8> = [0, 1, 2, 3];
+  let b:[6]<uint8> = [0, 1, 2, 3, 4, 5];
   return c ? a : b;
 }
 ```
@@ -163,14 +167,14 @@ function F(c:boolean):uint8[6] { // Resizes a if c is true
 - [x] Proposal Specification Grammar
 
 ```js
-let a:[]; // Using any[] is a syntax error as explained before
+let a:[]; // Using []<any> is a syntax error as explained before
 let b:[]? = null; // nullable array
 ```
 
 Deleting a typed array element results in a type error:
 
 ```js
-const a:uint8[] = [0, 1, 2, 3];
+const a:[]<uint8> = [0, 1, 2, 3];
 // delete a[0]; TypeError: a is fixed-length
 ```
 
@@ -183,34 +187,34 @@ Valid types for defining the length of an array are ```int8```, ```int16```, ```
 
 By default ```length``` is ```uint32```.
 
-Syntax:
+Syntax uses the second parameter for the generic:
 
 ```js
-let a:uint8[:int8] = [0, 1, 2, 3, 4];
+let a:[]<uint8, int8>  = [0, 1, 2, 3, 4];
 let bar = a.length; // length is type int8
 ```
 
 ```js
-let a:uint8[5:uint64] = [0, 1, 2, 3, 4];
+let a:[5]<uint8, uint64> = [0, 1, 2, 3, 4];
 let b = a.length; // length is type uint64 with value 5
 ```
 
 ```js
 let n = 5;
-let a:uint8[n:uint64] = [0, 1, 2, 3, 4];
+let a:[n]<uint8, uint64> = [0, 1, 2, 3, 4];
 let b = a.length; // length is type uint64 with value 5
 ```
 
 Setting the ```length``` reallocates the array truncating when applicable.
 
 ```js
-let a:uint8[] = [0, 1, 2, 3, 4];
+let a:[]<uint8> = [0, 1, 2, 3, 4];
 a.length = 4; // [0, 1, 2, 4]
 a.length = 6; // [0, 1, 2, 4, 0, 0]
 ```
 
 ```js
-let a:uint8[5] = [0, 1, 2, 3, 4];
+let a:[5]<uint8> = [0, 1, 2, 3, 4];
 // a.length = 4; TypeError: a is fixed-length
 ```
 
@@ -221,15 +225,15 @@ let a:uint8[5] = [0, 1, 2, 3, 4];
 Like ```TypedArray``` views, this array syntax allows any array, even arrays of typed objects to be viewed as different objects. 
 
 ```js
-let view = Type[](buffer [, byteOffset [, byteElementLength]]);
+let view = []<Type>(buffer [, byteOffset [, byteElementLength]]);
 ```
 
 ```js
-let a:uint64[] = [1];
-let b = uint32[](a, 0, 8);
+let a:[]<uint64> = [1];
+let b = []<uint32>(a, 0, 8);
 ```
 
-By default ```byteElementLength``` is the size of the array's type. So ```uint32[](...)``` would be 4 bytes. The ```byteElementLength``` can be less than or greater than the actual size of the type. For example:
+By default ```byteElementLength``` is the size of the array's type. So ```[]<uint32>(...)``` would be 4 bytes. The ```byteElementLength``` can be less than or greater than the actual size of the type. For example:
 
 ```js
 class A {
@@ -240,7 +244,7 @@ class A {
   }
 }
 const a:A = [0, 1, 2];
-const b = uint16[](a, 1, 3); // Offset of 1 byte into the array and 3 byte length per element
+const b = []<uint16>(a, 1, 3); // Offset of 1 byte into the array and 3 byte length per element
 b[2]; // 2
 ```
 
@@ -249,18 +253,18 @@ b[2]; // 2
 - [x] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
 
-Rather than defining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the "index constructor" creates an indexing function. More than one can be defined as long as they have unique signatures. The signature ```(x:string)``` is reserved for keys and can't be used.
+Rather than defining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. Any lambda parameter passed to the "index constructor" creates an indexing function. More than one can be defined as long as they have unique signatures. The signature ```(x:string)``` is reserved for keys and can't be used. Defining an index operator removes the default i => i operator to give developers control over possible usage errors.
 
 An example of a user-defined index to access a 16 element grid with ```(x, y)``` coordinates:
 
 ```js
-let grid = new uint8[16:uint32, (x:uint32, y:uint32) => y * 4 + x];
+let grid = new [16, (x:uint32, y:uint32) => y * 4 + x]<uint8, uint32>;
 // grid[0] = 10; Error, invalid arguments
 grid[2, 1] = 10;
 ```
 
 ```js
-let grid = new uint8[16:uint32, i => i, (x:uint32, y:uint32) => y * 4 + x];
+let grid = new [16, i => i, (x:uint32, y:uint32) => y * 4 + x]<uint8, uint32>;
 grid[0] = 10;
 grid[2, 1] = 10;
 ```
@@ -268,13 +272,13 @@ grid[2, 1] = 10;
 For a variable-length array it works as expected where the user drops the length:
 
 ```js
-var grid = new uint8[(x, y, z) => z * 4 * 4 + y * 4 + x];
+var grid = new [(x, y, z) => z * 4**2 + y * 4 + x]<uint8>;
 ```
 
 Views also work as expected allowing one to apply custom indexing to existing arrays:
 
 ```js
-var gridView = uint32[(x, y, z) => z * 4 * 4 + y * 4 + x](grid);
+var gridView = [(x, y, z) => z * 4**2 + y * 4 + x]<uint32>(grid);
 ```
 
 ### Implicit Casting
@@ -305,7 +309,7 @@ Many truncation rules have intuitive rules going from larger bits to smaller bit
 - [ ] Proposal Specification Algorithms
 
 ```js
-function F(a:int32, b:string, c:bigint[], callback:(boolean, string) = (b, s = 'none') => b ? s : ''):int32 { }
+function F(a:int32, b:string, c:[]<bigint>, callback:(boolean, string) = (b, s = 'none') => b ? s : ''):int32 { }
 ```
 
 ### Typed Arrow Functions
@@ -432,7 +436,7 @@ const { a: { (a2:uint32): b, a3: [, c:uint8] } } = { a: { a2: 1, a3: [2, 3] } };
 Destructuring objects with arrays:
 
 ```js
-const { (a:uint8[]) } = { a: [1, 2, 3] } }; // a is [1, 2, 3] with type uint8[]
+const { (a:[]<uint8>) } = { a: [1, 2, 3] } }; // a is [1, 2, 3] with type []<uint8>
 ```
 
 ### Array Rest Destructuring
@@ -575,7 +579,7 @@ function F():IExample {
 Similar to other types an object interface can be made nullable with ```?``` and also made into an array with ```[]```.
 
 ```js
-function F(a:IExample[]?) {
+function F(a:[]<IExample>?) {
 }
 ```
 
@@ -791,12 +795,12 @@ let { a, b } := { a:uint8: 1, b:uint32: 2 }; // a is type uint8 and b is type ui
 - [ ] Proposal Specification Algorithms
 
 ```js
-function F(x:int32[]) { return "int32"; }
-function F(s:string[]) { return "string"; }
-F(["test"]); // "string"
+function F(x:[]<int32>) { return 'int32'; }
+function F(s:[]<string>) { return 'string'; }
+F(['test']); // "string"
 ```
 
-Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like ```F["(int32[])"]``` wouldn't be viable. It's possible ```Reflect``` could have something added to it to allow access.
+Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like ```F['(int32[])']``` wouldn't be viable. It's possible ```Reflect``` could have something added to it to allow access.
 
 Signatures must match for a typed function:
 ```js
@@ -822,7 +826,7 @@ function F():void {}
 Duplicate signatures are not allowed:
 ```js
 function F(a:uint8) {}
-// function F(a:uint8, b:string = `b`) {} // TypeError: A function declaration with that signature already exists
+// function F(a:uint8, b:string = 'b') {} // TypeError: A function declaration with that signature already exists
 F(8);
 ```
 
@@ -874,8 +878,8 @@ This syntax is used because like destructuring the grammar cannot differentiate 
 let a = [];
 let o = { a };
 o = { a:[] };
-o = { (a:uint8[]) }; // cast a to uint8[]
-o = { (a:uint8[]):[] }; // new object with property a set to an empty array of type uint8[]
+o = { (a:[]<uint8>) }; // cast a to []<uint8>
+o = { (a:[]<uint8>):[] }; // new object with property a set to an empty array of type uint8[]
 ```
 
 This syntax works with any arrays:
@@ -946,7 +950,7 @@ let t:MyType = uint32(1); // uint32 constructor called
 
 Constructing arrays all of the same type:
 ```js
-let t = new MyType[5](1);
+let t = new [5]<MyType>(1);
 ```
 
 ### parseFloat and parseInt For Each New Type
@@ -983,7 +987,7 @@ let a:float32x4 = 1; // Equivalent to let a = float32x4(1, 1, 1, 1);
 - [ ] Proposal Specification Algorithms
 
 ```js
-let a:MyType[] = [1, 2, 3, uint32(1)];
+let a:[]<MyType> = [1, 2, 3, uint32(1)];
 ```
 
 ### Initializer List for Array of Class Instances
@@ -991,11 +995,11 @@ let a:MyType[] = [1, 2, 3, uint32(1)];
 Implicit array casting already exists for single variables as defined above. It's possible one might want to compactly create instances. The following syntax is proposed:
 
 ```js
-let a = new MyType[] = [(10, 20), (30, 40), 10];
+let a = new []<MyType> = [(10, 20), (30, 40), 10];
 ```
 This would be equivalent to:
 ```js
-let a = new MyType[] = [new MyType(10, 20), new MyType(30, 40), 10];
+let a = new []<MyType> = [new MyType(10, 20), new MyType(30, 40), 10];
 ```
 
 Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that ```[(10, 20), 30]``` is ```[20, 30]``` when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
@@ -1003,7 +1007,7 @@ Due to the very specialized syntax it can't be introduced later. In ECMAScript t
 Initializer lists work well with SIMD to create compact arrays of vectors:
 
 ```js
-let a = new float32x4[] =
+let a = new []<float32x4> =
 [
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
@@ -1040,6 +1044,8 @@ function AlwaysReturnValue(value:float32) { /* ... */ }
 - [ ] Proposal Specification Algorithms
 
 The following symbols can be used to define operator overloading.
+
+TODO: Probably remove this Symbol section as I believe that adding dynamic operator overloading to objects is untenable for performance reasons. The class based way is viable though.
 
 ```
 Symbol.additionAssignment
@@ -1083,6 +1089,8 @@ Symbol.unaryPlus
 ```
 
 In addition, a compact syntax is proposed with signatures. These can be overloaded to work with various types. Note that the unary operators have no parameters which differentiates them from the binary operators.
+
+See this for more examples: https://github.com/tc39/proposal-operator-overloading/issues/29
 
 ```js
 class A {
@@ -1157,6 +1165,7 @@ const c = a + b;
 c.x; // 3
 ```
 
+Again this might not be viable syntax as it dynamically adds an operator and would incur performance issues:
 ```js
 var a = { b: 0 };
 a[Symbol.additionAssignment] = function(value) {
@@ -1247,7 +1256,7 @@ class A {
   constructor(value) {
     this.value = value;
   }
-  operator +(value:Number) { // prefix increment
+  operator+(value:Number) { // prefix increment
     return new A(this.value + value);
   }
 }
@@ -1366,8 +1375,8 @@ let a = new(buffer, byteOffset) Type(0);
 
 Array of instances syntax:
 ```js
-// new(buffer [, byteOffset [, byteElementLength]]) Type[n]()
-let a = new(buffer, byteOffset, byteElementLength) Type[10](0);
+// new(buffer [, byteOffset [, byteElementLength]]) [n]<Type>()
+let a = new(buffer, byteOffset, byteElementLength) [10]<Type>(0);
 ```
 
 By default ```byteElementLength``` is the size of the type. Using a larger value than the size of the type acts as a stride adding padding between allocations in the buffer. Using a smaller length is unusual as it causes allocations to overlap.
@@ -1469,14 +1478,14 @@ class A {
     this.a = a;
   }
 }
-const a:A[] = [0, 1, 2];
+const a:[]<A> = [0, 1, 2];
 
 Object.defineProperty(A, 'b', {
   value: 0,
   writable: true,
   type: uint8
 });
-const b:A[] = [0, 1, 2];
+const b:[]<A> = [0, 1, 2];
 
 // a[0].b // TypeError: Undefined property b
 b[0].b; // 0
@@ -1502,7 +1511,7 @@ import {int8, int16, int32, int64} from "@valueobjects";
 
 ## Overview of Future Considerations and Concerns
 
-### Generics
+### Custom Generics
 
 This section is to show that a generic syntax can be seamlessly added with no syntax issues. A generic function example:
 
