@@ -191,7 +191,7 @@ Syntax uses the second parameter for the generic:
 
 ```js
 let a:[]<uint8, int8>  = [0, 1, 2, 3, 4];
-let bar = a.length; // length is type int8
+let b = a.length; // length is type int8
 ```
 
 ```js
@@ -593,7 +593,7 @@ interface IExample [
   uint32,
   ?string // Optional item. A default value can be assigned like:
   // ?string = 10
-];
+]
 ```
 
 ```js
