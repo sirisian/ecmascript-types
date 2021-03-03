@@ -788,7 +788,7 @@ const f:A = new B(); // This might not even be useful to allow
 This assignment also works with destructuring:
 
 ```js
-let { a, b } := { a:uint8: 1, b:uint32: 2 }; // a is type uint8 and b is type uint32
+let { a, b } := { (a:uint8): 1, (b:uint32): 2 }; // a is type uint8 and b is type uint32
 ```
 
 ### Function Overloading
