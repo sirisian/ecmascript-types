@@ -456,7 +456,7 @@ b; // 2
 Typing arrays:
 
 ```js
-let [a:uint8, ...b:uint8] = [1];
+let [a:uint8, ...b:uint8] = [1, 2];
 b; // [2]
 ```
 
