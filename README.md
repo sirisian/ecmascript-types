@@ -84,7 +84,7 @@ That would imply ```Object.getPrototypeOf(a) === ((uint8):uint8).prototype```.
 
 I'm not well versed on if this makes sense though, but it would be like each typed function has a prototype defined by the signature.
 
-### Nullable Types
+### Union and Nullable Types
 - [ ] In Proposal Specification
 - [ ] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
@@ -92,6 +92,11 @@ I'm not well versed on if this makes sense though, but it would be like each typ
 All types except ```any``` are non-nullable. The syntax below creates a nullable ```uint8``` typed variable:
 ```js
 let a:uint8|null = null; // typeof a == "uint8|null"
+```
+
+A union type can be defined like:
+```js
+let a:uint8|string = 'a';
 ```
 
 ### any Type
