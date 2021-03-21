@@ -58,7 +58,7 @@ One of the first complications with types is ```typeof```'s behavior. All of the
 
 ```js
 let a:uint8 = 0; // typeof a == "uint8"
-let b:uint8? = 0; // typeof b == "uint8?"
+let b:uint8|null = 0; // typeof b == "uint8|null"
 let c:[]<uint8> = []; // typeof c == "object"
 let d:(uint8):uint8 = x => x * x; // typeof d == "function"
 ```
@@ -85,20 +85,20 @@ That would imply ```Object.getPrototypeOf(a) === ((uint8):uint8).prototype```.
 I'm not well versed on if this makes sense though, but it would be like each typed function has a prototype defined by the signature.
 
 ### Nullable Types
-- [x] In Proposal Specification
-- [x] Proposal Specification Grammar
+- [ ] In Proposal Specification
+- [ ] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
 
 All types except ```any``` are non-nullable. The syntax below creates a nullable ```uint8``` typed variable:
 ```js
-let a:uint8? = null; // typeof a == "uint8?"
+let a:uint8|null = null; // typeof a == "uint8|null"
 ```
 
 ### any Type
 - [ ] In Proposal Specification
 - [ ] Proposal Specification Algorithms
 
-Using ```any?``` would result in a syntax error since ```any``` already includes nullable types. As would using ```[]<any>``` since it already includes array types. Using just ```[]``` would be the type for arrays that can contain anything. For example:
+Using ```any|null``` would result in a syntax error since ```any``` already includes nullable types. As would using ```[]<any>``` since it already includes array types. Using just ```[]``` would be the type for arrays that can contain anything. For example:
 
 ```js
 let a:[];
@@ -115,9 +115,9 @@ A generic syntax ```<T>``` is used to type array elements.
 let a:[]<uint8>; // []
 a.push(0); // [0]
 let b:[]<uint8> = [0, 1, 2, 3];
-let c:[]<uint8>?; // null
-let d:[]<uint8?> = [0, null];
-let e:[]<uint8?>?; // null
+let c:[]<uint8>|null; // null
+let d:[]<uint8|null> = [0, null];
+let e:[]<uint8|null>|null; // null
 ```
 
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
@@ -141,7 +141,7 @@ let a:[4]<uint8>; // [0, 0, 0, 0]
 a[0] = 1; // valid
 // a[a.length] = 2; Out of range
 let b:[4]<uint8> = [0, 1, 2, 3];
-let c:[4]<uint8>?; // null
+let c:[4]<uint8>|null; // null
 ```
 
 Typed arrays would be zero-ed at creation. That is the allocated memory would be set to all zeroes.
@@ -168,7 +168,7 @@ function F(c:boolean):[6]<uint8> { // Resizes a if c is true
 
 ```js
 let a:[]; // Using []<any> is a syntax error as explained before
-let b:[]? = null; // nullable array
+let b:[]|null = null; // nullable array
 ```
 
 Deleting a typed array element results in a type error:
@@ -325,11 +325,11 @@ let e = x:uint8 => x + y; // single parameter
 ```
 Like other types they can be made nullable. An example showing an extreme case where everything is made nullable:
 ```js
-let a:(uint32?)?:uint32? = null;
+let a:(uint32|null)|null:uint32|null = null;
 ```
 This can be written also using the interfaces syntax, which is explained later:
 ```js
-let a:{ (uint32?):uint32; }? = null;
+let a:{ (uint32|null):uint32; }|null = null;
 ```
 
 ### Integer Binary Shifts
@@ -576,10 +576,10 @@ function F():IExample {
 }
 ```
 
-Similar to other types an object interface can be made nullable with ```?``` and also made into an array with ```[]```.
+Similar to other types an object interface can be made nullable and also made into an array with ```[]```.
 
 ```js
-function F(a:[]<IExample>?) {
+function F(a:[]<IExample>|null) {
 }
 ```
 
@@ -601,8 +601,6 @@ function F():IExample {
   return ['a', 1];
 }
 ```
-
-An optional nullable item would look like ```?uint32?``` which looks odd, but is why the question mark is before the type.
 
 #### Function Interfaces
 - [ ] Proposal Specification Grammar
@@ -1007,8 +1005,7 @@ Due to the very specialized syntax it can't be introduced later. In ECMAScript t
 Initializer lists work well with SIMD to create compact arrays of vectors:
 
 ```js
-let a = new []<float32x4> =
-[
+let a = new []<float32x4> = [
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4)
@@ -1542,27 +1539,9 @@ Typedefs or aliases for types are a requirement. Not sure what the best syntax i
 
 I left value type classes out of this discussion since I'm still not sure how they'll be proposed. Doesn't sound like they have a strong proposal still or syntax.
 
-### Union Types
-
-Having nullable types along with function overloading removes most use cases for TypeScript's union types and optional parameters. Future proposals can try to justify them. The way nullable types are defined in TypeScript using unions if it was preferred would conflict with the current proposal:
-
-```js
-let a:uint8? = null; // This proposal
-let a:uint8|null = null; // TypeScript syntax
-// Multiple types
-let a:uint8?|string? = null; // This proposal
-let a:uint8|string|null = null; // TypeScript syntax
-```
-
 ### Numeric Literals
 
 Many languages have numeric literal suffixes to indicate a number is a specific data type. This isn't necessary if explicit casts are used. Since there are so many types, the use of suffixes would not be overly readable. The goal was to keep type names to a minimum number of characters also so that literals are less needed.
-
-### Private, Public, and Static types and methods
-
-Unlike other proposals adding types allows for robust type checking that allows for private, public, and static member and method checks. It can be added like this:
-
-https://github.com/sirisian/ecmascript-class-member-modifiers
 
 ### Partial Class
 
@@ -1611,7 +1590,7 @@ See https://github.com/sirisian/ecmascript-types/issues/22
 A very compact syntax can be used later for exception filters:
 
 ```js
-catch (e:Error => e.message == `a`)
+catch (e:Error => e.message == 'a')
 ```
 
 Or
@@ -1628,10 +1607,10 @@ Named arguments comes up once in a while as a compact way to skip default parame
 
 ```js
 function F(a:uint8, b:string = 0, ...args:string) {}
-F(8, args:`a`, `b`);
+F(8, args:'a', 'b');
 
 function G(option1:string, option2:string) {}
-// G(option2: `a`); Error no signature for G matches (option2:string)
+// G(option2: 'a'); Error no signature for G matches (option2:string)
 ```
 
 The above syntax is probably what would be used and it has no obvious conflicts with types.
