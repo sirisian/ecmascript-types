@@ -54,14 +54,16 @@ const c:Type = value;
 - [ ] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
 
-One of the first complications with types is ```typeof```'s behavior. All of the above types would return their string conversion.
+```typeof```'s behavior is essentially unchanged. All numerical types return ```"number"```. SIMD, rational, and complex types return ```"object"```.
 
 ```js
-let a:uint8 = 0; // typeof a == "uint8"
-let b:uint8|null = 0; // typeof b == "uint8|null"
+let a:uint8 = 0; // typeof a == "number"
+let b:uint8|null = 0; // typeof b == "number"
 let c:[]<uint8> = []; // typeof c == "object"
 let d:(uint8):uint8 = x => x * x; // typeof d == "function"
 ```
+
+TODO: Should there be a way to get the specific type? See https://github.com/sirisian/ecmascript-types/issues/60
 
 ### instanceof Operator
 - [ ] In Proposal Specification
