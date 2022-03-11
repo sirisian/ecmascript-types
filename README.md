@@ -1462,7 +1462,32 @@ The following global objects could be used as types:
 https://github.com/sirisian/ecmascript-types/issues/59  
 https://github.com/sirisian/ecmascript-types/issues/65
 
-Types won't change how decorators function, but it can allow them to be used in more powerful ways. When decorators are added to arguments the type information could be accessed allowing simple validation.
+Types won't change how decorators function, but it can allow them to be used in more powerful ways. When decorators are added to arguments the type information could be accessed allowing simple validation. Also as with all typed functions the decorators can be overloaded.
+
+```js
+function Tag(value, { name }) {
+  console.log(name);
+}
+function Tag(x:uint32) {
+  return (value, { name }) => {
+    console.log(name, x);
+  };
+}
+function Tag(x:string) {
+  return (value, { name }) => {
+    console.log(name, x);
+  };
+}
+
+class A {
+  @Tag
+  @Tag(0)
+  @Tag('a')
+  x:uint32
+}
+```
+
+Note that a second level of overloading would also be possible for the value's type. To utilize this with function overloading one would need to use the function overloading array syntax to return a set of functions. Not super elegant, but Decorators are what they are.
 
 ### Records and Tuples
 
