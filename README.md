@@ -1047,52 +1047,7 @@ function AlwaysReturnValue(value:float32) { /* ... */ }
 - [x] [Proposal Specification Grammar](https://sirisian.github.io/ecmascript-types/#prod-MethodDefinition)
 - [ ] Proposal Specification Algorithms
 
-The following symbols can be used to define operator overloading.
-
-TODO: Probably remove this Symbol section as I believe that adding dynamic operator overloading to objects is untenable for performance reasons. The class based way is viable though.
-
-```
-Symbol.additionAssignment
-Symbol.subtractionAssignment
-Symbol.multiplicationAssignment
-Symbol.divisionAssignment
-Symbol.remainderAssignment
-Symbol.exponentiationAssignment
-Symbol.leftShiftAssignment
-Symbol.rightShiftAssignment
-Symbol.unsignedRightShiftAssignment
-Symbol.bitwiseANDAssignment
-Symbol.bitwiseXORAssignment
-Symbol.bitwiseORAssignment
-Symbol.addition
-Symbol.subtraction
-Symbol.multiplication
-Symbol.division
-Symbol.remainder
-Symbol.exponentiation
-Symbol.leftShift
-Symbol.rightShift
-Symbol.unsignedRightShift
-Symbol.bitwiseAND
-Symbol.bitwiseOR
-Symbol.bitwiseXOR
-Symbol.bitwiseNOT
-Symbol.equal
-Symbol.notEqual
-Symbol.lessThan
-Symbol.lessThanOrEqual
-Symbol.greaterThan
-Symbol.greaterThanOrEqual
-Symbol.logicalAND
-Symbol.logicalOR
-Symbol.logicalNOT
-Symbol.increment
-Symbol.decrement
-Symbol.unaryNegation
-Symbol.unaryPlus
-```
-
-In addition, a compact syntax is proposed with signatures. These can be overloaded to work with various types. Note that the unary operators have no parameters which differentiates them from the binary operators.
+A compact syntax is proposed with signatures. These can be overloaded to work with various types. Note that the unary operators have no parameters which differentiates them from the binary operators.
 
 See this for more examples: https://github.com/tc39/proposal-operator-overloading/issues/29
 
@@ -1423,15 +1378,15 @@ By default the memory layout of a typed class - a class where every property is 
 
 ```js
 class A {
-    a:uint8;
+    a:uint8
 }
 class B extends A {
-    b:uint8;
+    b:uint8
 }
 // So the memory layout would be the same as:
 class AB {
-    a:uint8;
-    b:uint8;
+    a:uint8
+    b:uint8
 }
 ```
 
@@ -1444,9 +1399,9 @@ Along with the member decorators, two object reserved descriptor keys would be c
 @size(32) // Defines the class as 32 bytes. Pads with zeros when allocating
 class A {
   @offset(2)
-  x:float32; // Aligned to 16 bytes because of the class alignment and offset by 2 bytes because of the property alignment
+  x:float32 // Aligned to 16 bytes because of the class alignment and offset by 2 bytes because of the property alignment
   @align(4)
-  y:float32x4; // 2 (from the offset above) + 4 (for x) is 6 bytes and we said it has to be aligned to 4 bytes so 8 bytes offset from the start of the allocation. Instead of @align(4) we could have put @offset(8)
+  y:float32x4 // 2 (from the offset above) + 4 (for x) is 6 bytes and we said it has to be aligned to 4 bytes so 8 bytes offset from the start of the allocation. Instead of @align(4) we could have put @offset(8)
 }
 ```
 
@@ -1454,17 +1409,17 @@ The following is an example of overlapping properties using ```offset``` creatin
 
 ```js
 class A {
-  a:uint8;
+  a:uint8
 }
 class B extends A {
   @offset(-1)
-  b:uint8;
+  b:uint8
 }
 // So the memory layout would be the same as:
 class AB { // size is 1 byte
-  a:uint8;
+  a:uint8
   @offset(0)
-  b:uint8;
+  b:uint8
 }
 const ab = new AB();
 ab.a = 10;
@@ -1477,7 +1432,7 @@ WIP: The behavior of modifying plain old data classes that are already used in a
 
 ```js
 class A {
-  a:uint8;
+  a:uint8
   constructor(a:uint8) {
     this.a = a;
   }
@@ -1501,6 +1456,64 @@ b[0].b; // 0
 The following global objects could be used as types:
 
 ```DataView```, ```Date```, ```Error```, ```EvalError```, ```InternalError```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SyntaxError```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakSet```
+
+### Decorators
+
+https://github.com/sirisian/ecmascript-types/issues/59  
+https://github.com/sirisian/ecmascript-types/issues/65
+
+Types won't change how decorators function, but it can allow them to be used in more powerful ways. When decorators are added to arguments the type information could be accessed allowing simple validation.
+
+### Records and Tuples
+
+https://github.com/sirisian/ecmascript-types/issues/56
+
+Types would work as expected with Records and Tuples:
+```js
+interface IPoint { x:int32, y:int32 }
+const ship1:IPoint = #{ x: 1, y: 2 };
+// ship2 is an ordinary object:
+const ship2:IPoint = { x: -1, y: 3 };
+
+function move(start:IPoint, deltaX:int32, deltaY:int32):IPoint {
+  // we always return a record after moving
+  return #{
+    x: start.x + deltaX,
+    y: start.y + deltaY,
+  };
+}
+
+const ship1Moved = move(ship1, 1, 0);
+// passing an ordinary object to move() still works:
+const ship2Moved = move(ship2, 3, -1);
+
+console.log(ship1Moved === ship2Moved); // true
+// ship1 and ship2 have the same coordinates after moving
+```
+
+```js
+const measures = #[uint8(42), uint8(12), uint8(67), "measure error: foo happened"];
+
+// Accessing indices like you would with arrays!
+console.log(measures[0]); // 42
+console.log(measures[3]); // measure error: foo happened
+
+// Slice and spread like arrays!
+const correctedMeasures = #[
+  ...measures.slice(0, measures.length - 1),
+  int32(-1)
+];
+console.log(correctedMeasures[0]); // 42
+console.log(correctedMeasures[3]); // -1
+
+// or use the .with() shorthand for the same result:
+const correctedMeasures2 = measures.with(3, -1);
+console.log(correctedMeasures2[0]); // 42
+console.log(correctedMeasures2[3]); // -1
+
+// Tuples support methods similar to Arrays
+console.log(correctedMeasures2.map(x => x + 1)); // #[43, 13, 68, 0]
+```
 
 ## Undecided Topics
 
@@ -1529,8 +1542,8 @@ A generic class example:
 
 ```js
 class Vector2<T> {
-  x:T;
-  y:T;
+  x:T
+  y:T
   constructor(x:T = 0, y:T = 0) { // T could be inferred, but that might be asking too much. In any case T must have a constructor supporting a parameter 0 if this is a class.
     this.x = x;
     this.y = y;
@@ -1621,6 +1634,25 @@ function G(option1:string, option2:string) {}
 ```
 
 The above syntax is probably what would be used and it has no obvious conflicts with types.
+
+### Native Threading and Automatically Shared Variables
+
+By default all typed variables captured by a thread function would treated as shared. That means just like a SharedArrayBuffer they'd be able to be accessed in threads and used with Atomics.
+
+```js
+let a:uint32 = 0; 
+function A() {
+    Atomics.add(a, 5);
+}
+async function B() {
+    A();
+    Atomics.add(a, 5);
+}
+// Naive call syntax to show these execute on their own thread and callThread returns a promise.
+await Promise.all([A.callThread(), B.callThread()]); // Join
+console.log(a); // 15
+```
+See https://github.com/sirisian/ecmascript-types/issues/67 for further details.
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
