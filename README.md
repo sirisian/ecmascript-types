@@ -1027,21 +1027,6 @@ function F(a:float32x4) {
 F([(1, 2, 3, 4)]);
 ```
 
-### Decorators
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Algorithms
-
-Types would function exactly like you'd expect with decorators, but with the addition that they can be overloaded.
-```js
-function AlwaysReturnValue(value:uint32) {
-    return function (target, name, descriptor) {
-        descriptor.get = () => value;
-        return descriptor;
-    }
-}
-function AlwaysReturnValue(value:float32) { /* ... */ }
-```
-
 ### Classes and Operator Overloading
 - [x] In Proposal Specification
 - [x] [Proposal Specification Grammar](https://sirisian.github.io/ecmascript-types/#prod-MethodDefinition)
@@ -1462,32 +1447,64 @@ The following global objects could be used as types:
 https://github.com/sirisian/ecmascript-types/issues/59  
 https://github.com/sirisian/ecmascript-types/issues/65
 
-Types won't change how decorators function, but it can allow them to be used in more powerful ways. When decorators are added to arguments the type information could be accessed allowing simple validation. Also as with all typed functions the decorators can be overloaded.
+Types simplify how decorators are defined. By utilizing function overloading they get rid of the requirement to return a ```(value, context)``` function for decorators that take arguments. This means that independent of arguments a decorator looks the same. Modifying a decorator to take argument or take none just requires changing the parameters to the decorator. Consider these decorators that are all distinct:
 
 ```js
-function Tag(value, { name }) {
-  console.log(name);
+function f(value, context) {
+  // No parameters
 }
-function Tag(x:uint32) {
-  return (value, { name }) => {
-    console.log(name, x);
-  };
+function f(x:uint32, value, context) {
+  // x is 0
 }
-function Tag(x:string) {
-  return (value, { name }) => {
-    console.log(name, x);
-  };
+function f(x:string, value, context) {
+  // x is 'a'
 }
 
 class A {
-  @Tag
-  @Tag(0)
-  @Tag('a')
-  x:uint32
+  @f
+  @f(0)
+  @f('a')
+  a:uint32
 }
 ```
 
-Note that a second level of overloading would also be possible for the value's type. To utilize this with function overloading one would need to use the function overloading array syntax to return a set of functions. Not super elegant, but Decorators are what they are.
+By moving the ```value``` into the parameter list with the other ones this allows it to be specialized based on the type.
+
+```js
+function f(x:string, value:uint32, context) {
+  // decorator on uint32
+}
+function f(x:string, value, context) {
+  // decorator on another type
+}
+
+class A {
+  @f('test')
+  a:uint32
+  
+  @f('test')
+  b:string
+}
+```
+
+Note that because rest parameters are allowed to be duplicated and placed anywhere this means it's legal to write:
+
+```js
+function f(...x, value, context) {
+  // [], [0, 1, 2], ['a', 'b', 'c']
+}
+
+class A {
+  @f
+  a:bool
+
+  @f(0, 1, 2)
+  b:uint32
+  
+  @f('a', 'b', 'c')
+  c:string
+}
+```
 
 ### Records and Tuples
 
