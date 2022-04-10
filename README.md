@@ -847,6 +847,50 @@ await F();
 ```
 While ```async``` functions and synchronous functions can overload the same name, they must have unique signatures.
 
+### Typed Promises
+
+https://github.com/sirisian/ecmascript-types/issues/57
+
+Typed promises use a generic syntax where the resolve and reject type default to any.
+
+```js
+Promise<R:any, E:any>
+```
+
+```js
+const a = new Promise<uint8, Error>((resolve, reject) => {
+  return 0; // or throw new Error();
+});
+```
+
+Without extra syntax getting the same behavior is not possible with async function.
+```js
+async function F():uint8 {
+  return 0;
+}
+const f = F();
+```
+This creates a type of ```Promise<uint8, any>```.
+
+One would need syntax similar to Java which defines the reject type(s).
+```js
+async function F():uint8 throws Error {
+  return 0;
+}
+const f = F();
+```
+Now the type is ```Promise<uint8, Error>``` which matches the first example.
+
+Since it's possible for a function to not throw then the syntax would also need a way to explicitly list that nothing throws. Simply not specifying anything works for that:
+```js
+function f() throws {
+  return 0;
+}
+```
+Refer to the try catch section on how different exception types would be explicitly captured: https://github.com/sirisian/ecmascript-types#try-catch
+
+Functions that define their exceptions would cause a unique exception - UnexpectedException - that allows a developer to see exactly the culprit making debugging deep stack calls easier.
+
 ### Generator Overloading
 - [ ] Proposal Specification Algorithms
 
