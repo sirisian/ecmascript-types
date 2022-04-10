@@ -849,8 +849,6 @@ While ```async``` functions and synchronous functions can overload the same name
 
 ### Typed Promises
 
-https://github.com/sirisian/ecmascript-types/issues/57
-
 Typed promises use a generic syntax where the resolve and reject type default to any.
 
 ```js
