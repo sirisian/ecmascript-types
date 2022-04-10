@@ -319,6 +319,16 @@ Many truncation rules have intuitive rules going from larger bits to smaller bit
 function F(a:int32, b:string, c:[]<bigint>, callback:(boolean, string) = (b, s = 'none') => b ? s : ''):int32 { }
 ```
 
+#### Optional Parameters
+
+While function overloading can be used to handle many cases of optional arguments it's possible to define one function that handles both:
+
+```js
+function F(a:uint32, a?:uint32) {}
+F(1);
+F(1, 2);
+```
+
 ### Typed Arrow Functions
 - [x] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
