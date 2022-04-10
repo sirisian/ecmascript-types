@@ -649,7 +649,7 @@ interface IExample {
   ({a:uint32;}):uint32
 }
 function F(a:IExample) {
-  F({a:1}); // 1
+  a({a:1}); // 1
 }
 F(a => a.a);
 ```
