@@ -600,6 +600,32 @@ function F(a:[]<IExample>|null) {
 }
 ```
 
+An object that implements an interface cannot be modified in a way that removes that implementation.
+
+```js
+interface IExample {
+  a:string;
+}
+function F(a:IExample) {
+  // delete a.a; // TypeError: Property 'a' in interface IExample cannot be deleted
+}
+F({ a: 'a' });
+```
+In this example the object argument is cast to an IExample since it matches the shape.
+
+A more complex example:
+
+```js
+interface A { a:uint32 }
+interface B { a:string }
+function f(a:A) { }
+function f(b:B) { }
+function g(a:A|B) {
+  a.a = 10; // "10" because parameter 'a' implement B
+}
+g({ a: 'a' });
+```
+
 #### Array Interfaces
 - [ ] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
@@ -763,6 +789,8 @@ a.a = a.b(5);
 ```
 
 Note that since ```b``` isn't overloaded, defining the type of the member function ```b``` in the class ```C``` isn't necessary.
+
+Once a class implements an interface it cannot remove that contract. Attempting to delete the member ```a``` or the method ```b``` would throw a TypeError.
 
 ### Typed Assignment
 - [ ] Proposal Specification Grammar
