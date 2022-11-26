@@ -123,8 +123,8 @@ let a:[]<uint8>; // []
 a.push(0); // [0]
 let b:[]<uint8> = [0, 1, 2, 3];
 let c:[]<uint8>|null; // null
-let d:[]<uint8|null> = [0, null];
-let e:[]<uint8|null>|null; // null
+let d:[]<uint8|null> = [0, null]; // Not sequential memory
+let e:[]<uint8|null>|null; // null // Not sequential memory
 ```
 
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
@@ -682,7 +682,7 @@ F(({(a:uint32):b}) => b); // This works since the signature check ignores any re
 An example of taking a typed object:
 ```js
 interface IExample {
-  ({a:uint32;}):uint32
+  ({a:uint32;}):uint32;
 }
 function F(a:IExample) {
   a({a:1}); // 1
@@ -725,11 +725,11 @@ interface IA {
   a:uint32;
 }
 interface IB {
-  (IA):void
+  (IA):void;
 }
 /*
 interface IB {
-    ({ a:uint32; }):void
+    ({ a:uint32; }):void;
 }
 */
 ```
@@ -1010,6 +1010,56 @@ descriptors.a.type; // uint8
 Note that the ```type``` key in the descriptor is the actual type and not a string.
 
 The key ```value``` for a property with a numeric type defined in this spec defaults to 0. This modifies the behavior that currently says that ```value``` is defaulted to undefined. It will still be undefined if no ```type``` is set in the descriptor. The SIMD types also default to 0 and string defaults to an empty string.
+
+### Class: Value Type and Reference Type Behavior
+
+Any class where every public and private field is typed with a value type can be treated like a value type and is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
+
+```js
+class A { // can be treated like a value type
+  a:uint8;
+  #b:uint8;
+}
+class B extends A { // can be treated like a value type
+  a:uint16;
+}
+class C { // cannot be treated like a value type
+  a:uint8;
+  b;
+}
+```
+
+The value type behavior is used when creating sequential data in typed arrays.
+
+```js
+const a:[10]<A>; // creates an array of 10 items with sequential data
+a[0] = 10;
+const b:[10]<A>|null; // reference
+b = a;
+b[0]; // 10
+```
+This is identical to allocating an array of 20 bytes that look like ```a, #b, a, #b, ...```.
+
+An array view can be created over this sequential memory to view as something else. Conversely, and more importantly, a class array view can be applied over contiguous bytes to create more readable code.
+
+// TODO: Example
+
+To create arrays of references simply union with null.
+```js
+const a:[10]<A|null>; // [null, ...]
+a[0] = new A();
+```
+
+To change a class to be unsealed when its fields are typed use the dynamic keyword.
+
+```js
+dynamic class A {
+  a:uint8;
+  #b:uint8;
+}
+const a:[10]<A>; // [A, ...]
+const b:[10]<A|null>; // [null, ...]
+```
 
 ### Constructor Overloading
 - [ ] Proposal Specification Grammar
@@ -1443,15 +1493,15 @@ By default the memory layout of a typed class - a class where every property is 
 
 ```js
 class A {
-    a:uint8
+    a:uint8;
 }
 class B extends A {
-    b:uint8
+    b:uint8;
 }
 // So the memory layout would be the same as:
 class AB {
-    a:uint8
-    b:uint8
+    a:uint8;
+    b:uint8;
 }
 ```
 
@@ -1464,9 +1514,9 @@ Along with the member decorators, two object reserved descriptor keys would be c
 @size(32) // Defines the class as 32 bytes. Pads with zeros when allocating
 class A {
   @offset(2)
-  x:float32 // Aligned to 16 bytes because of the class alignment and offset by 2 bytes because of the property alignment
+  x:float32; // Aligned to 16 bytes because of the class alignment and offset by 2 bytes because of the property alignment
   @align(4)
-  y:float32x4 // 2 (from the offset above) + 4 (for x) is 6 bytes and we said it has to be aligned to 4 bytes so 8 bytes offset from the start of the allocation. Instead of @align(4) we could have put @offset(8)
+  y:float32x4; // 2 (from the offset above) + 4 (for x) is 6 bytes and we said it has to be aligned to 4 bytes so 8 bytes offset from the start of the allocation. Instead of @align(4) we could have put @offset(8)
 }
 ```
 
@@ -1474,30 +1524,30 @@ The following is an example of overlapping properties using ```offset``` creatin
 
 ```js
 class A {
-  a:uint8
+  a:uint8;
 }
 class B extends A {
   @offset(-1)
-  b:uint8
+  b:uint8;
 }
 // So the memory layout would be the same as:
 class AB { // size is 1 byte
-  a:uint8
+  a:uint8;
   @offset(0)
-  b:uint8
+  b:uint8;
 }
 const ab = new AB();
 ab.a = 10;
 ab.b == 10; // true
 ```
 
-These descriptor features only apply if all the properties in a class are typed along with the complete prototype chain. Adding properties later with ```Object.defineProperty``` is allowed, and the memory layout is recalculated for the object.
+These descriptor features only apply if all the properties in a class are typed along with the complete prototype chain.
 
-WIP: The behavior of modifying plain old data classes that are already used in arrays needs to be well-defined.
+WIP: Adding properties later with ```Object.defineProperty``` is only allowed on dynamic class instances.
 
 ```js
 class A {
-  a:uint8
+  a:uint8;
   constructor(a:uint8) {
     this.a = a;
   }
@@ -1676,10 +1726,6 @@ class Vector2<T> {
 Generic constraints aren't defined here but would need to be. TypeScript has their extends type syntax. Being able to constrain ```T``` to an interface seems like an obvious requirement. Also being able to constrain to a list of specific types or specifically to numeric, floating point, or integer types. Another consideration is being able to support a default type. Also generic specialization for specific types that require custom definitions. There's probably more to consider, but those are the big ideas for generics.
 
 Typedefs or aliases for types are a requirement. Not sure what the best syntax is for proposing these. There's a lot of ways to approach them. TypeScript has a system, but I haven't seen alternatives so it's hard for me to judge if it's the best or most ideal syntax.
-
-### Value Type Classes
-
-I left value type classes out of this discussion since I'm still not sure how they'll be proposed. Doesn't sound like they have a strong proposal still or syntax.
 
 ### Numeric Literals
 
