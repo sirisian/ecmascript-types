@@ -175,7 +175,7 @@ function F(c:boolean):[6]<uint8> { // Resizes a if c is true
 
 ```js
 let a:[]; // Using []<any> is a syntax error as explained before
-let b:[]|null = null; // nullable array
+let b:[]|null; // null
 ```
 
 Deleting a typed array element results in a type error:
@@ -240,7 +240,7 @@ let a:[]<uint64> = [1];
 let b = []<uint32>(a, 0, 8);
 ```
 
-By default ```byteElementLength``` is the size of the array's type. So ```[]<uint32>(...)``` would be 4 bytes. The ```byteElementLength``` can be less than or greater than the actual size of the type. For example:
+By default ```byteElementLength``` is the size of the array's type. So ```[]<uint32>(...)``` would be 4 bytes. The ```byteElementLength``` can be less than or greater than the actual size of the type. For example (refer to the Class section):
 
 ```js
 class A {
@@ -250,7 +250,7 @@ class A {
     this.b = value;
   }
 }
-const a:A = [0, 1, 2];
+const a:[]<A> = [0, 1, 2];
 const b = []<uint16>(a, 1, 3); // Offset of 1 byte into the array and 3 byte length per element
 b[2]; // 2
 ```
@@ -1013,7 +1013,9 @@ The key ```value``` for a property with a numeric type defined in this spec defa
 
 ### Class: Value Type and Reference Type Behavior
 
-Any class where every public and private field is typed with a value type can be treated like a value type and is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
+Any class where at least one public and private field is typed is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
+
+If every field is typed with a value type then instances can be treated like a value type in arrays.
 
 ```js
 class A { // can be treated like a value type
@@ -1038,11 +1040,25 @@ const b:[10]<A>|null; // reference
 b = a;
 b[0]; // 10
 ```
-This is identical to allocating an array of 20 bytes that look like ```a, #b, a, #b, ...```.
+This is identical to allocating an array of 20 bytes that looks like ```a, #b, a, #b, ...```.
 
-An array view can be created over this sequential memory to view as something else. Conversely, and more importantly, a class array view can be applied over contiguous bytes to create more readable code.
+An array view can be created over this sequential memory to view as something else. Since this applies to all typed arrays, value type class array views can also be applied over contiguous bytes to create more readable code when parsing binary formats.
 
-// TODO: Example
+```js
+class HeaderSection {
+  a:uint8;
+  b:uint32;
+}
+class Header {
+  a:uint8;
+  b:uint16;
+  c:HeaderSection;
+}
+const buffer:[100]<uint8>; // Pretend this has data
+const header = []<Header>(buffer)[0]; // Create a view over the bytes using the []<Header> and get the first element
+header.c.a = 10;
+buffer[3]; // 10
+```
 
 To create arrays of references simply union with null.
 ```js
@@ -1050,8 +1066,7 @@ const a:[10]<A|null>; // [null, ...]
 a[0] = new A();
 ```
 
-To change a class to be unsealed when its fields are typed use the dynamic keyword.
-
+To change a class to be unsealed when its fields are typed use the ```dynamic``` keyword. This stops the class from being used for sequential data as well.
 ```js
 dynamic class A {
   a:uint8;
@@ -1060,6 +1075,8 @@ dynamic class A {
 const a:[10]<A>; // [A, ...]
 const b:[10]<A|null>; // [null, ...]
 ```
+
+When using value type classes in typed arrays it's beneficial to be able to reference individual elements. Refer to the references section on the syntax for this.
 
 ### Constructor Overloading
 - [ ] Proposal Specification Grammar
