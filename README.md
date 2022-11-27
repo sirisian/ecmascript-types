@@ -1491,11 +1491,12 @@ By default ```byteElementLength``` is the size of the type. Using a larger value
 This introduces a new syntax to reference value types. A simple example is referencing a number and modifying it without first putting it into an object.
 
 ```js
-function F(&a) {
+function F(&a:int32) {
   a++;
 }
-let a = 10;
+let a = 0;
 F(&a);
+a; // 1
 ```
 
 If a property is in an object this can also be concise:
@@ -1503,21 +1504,23 @@ If a property is in an object this can also be concise:
 ```js
 const o = { a: 0 };
 F(&o.a);
+o.a; // 1
 ```
+
 Destructuring syntax would support references as well:
 ```js
-function F({ &a }) {
+function F({ (&a:int32) }) {
  a++;
 }
 const o = { a: 0 };
-F(o);
+F(&o);
 o.a; // 1
 ```
 
 References can also be used to refer to elements in value type arrays.
 
 ```js
-const a:[]<uint16>;
+const a:[]<int32>;
 const &b = a[0];
 b = 10;
 a[0]; // 10
@@ -1551,6 +1554,13 @@ a[0]; // 1
 let &b = F(a);
 b = 10;
 a[0]; // 10
+```
+
+Reassigning a reference is allowed also:
+```js
+const a:[10]<int32>;
+let &b = a[0];
+&b = a[1];
 ```
 
 ### Control Structures
