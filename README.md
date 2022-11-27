@@ -159,6 +159,8 @@ let c:[4]<uint8>|null; // null
 
 Typed arrays would be zero-ed at creation. That is the allocated memory would be set to all zeroes.
 
+Also all fixed-length typed arrays use a SharedArrayBuffer by default.
+
 ### Mixing Variable-length and Fixed-length Arrays
 
 ```js
@@ -1021,7 +1023,7 @@ The key ```value``` for a property with a numeric type defined in this spec defa
 
 Any class where at least one public and private field is typed is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
 
-If every field is typed with a value type then instances can be treated like a value type in arrays.
+If every field is typed with a value type then instances can be treated like a value type in arrays. The class also inherits from SharedArrayBuffer allowing instances or arrays to be shared among web workers.
 
 ```js
 class A { // can be treated like a value type
@@ -1061,9 +1063,17 @@ class Header {
   c:HeaderSection;
 }
 const buffer:[100]<uint8>; // Pretend this has data
-const header = []<Header>(buffer)[0]; // Create a view over the bytes using the []<Header> and get the first element
+const &header = []<Header>(buffer)[0]; // Create a view over the bytes using the []<Header> and get the first element
 header.c.a = 10;
 buffer[3]; // 10
+```
+
+When using value type classes in typed arrays it's beneficial to be able to reference individual elements. The example above uses this syntax. Refer to the references section on the syntax for this. Attempting to assign a value type to a variable would copy it creating a new instance.
+
+```js
+const header = []<Header>(buffer)[0];
+header.c.a = 10;
+buffer[3]; // 0
 ```
 
 To create arrays of references simply union with null.
@@ -1072,7 +1082,7 @@ const a:[10]<A|null>; // [null, ...]
 a[0] = new A();
 ```
 
-To change a class to be unsealed when its fields are typed use the ```dynamic``` keyword. This stops the class from being used for sequential data as well.
+To change a class to be unsealed when its fields are typed use the ```dynamic``` keyword. This stops the class from being used for sequential data as well, so it cannot become a value type in typed arrays.
 ```js
 dynamic class A {
   a:uint8;
@@ -1081,8 +1091,6 @@ dynamic class A {
 const a:[10]<A>; // [A, ...]
 const b:[10]<A|null>; // [null, ...]
 ```
-
-When using value type classes in typed arrays it's beneficial to be able to reference individual elements. Refer to the references section on the syntax for this.
 
 ### Constructor Overloading
 - [ ] Proposal Specification Grammar
@@ -1115,7 +1123,7 @@ let t = new [5]<MyType>(1);
 - [ ] In Proposal Specification
 - [ ] Proposal Specification Algorithms
 
-For integers (including bigint) the parse function would have the signature ```parse(string, radix = 10)```.
+For integers (including ```bigint```) the parse function would have the signature ```parse(string, radix = 10)```.
 
 ```js
 let a:uint8 = uint8.parse('1', 10);
@@ -1278,11 +1286,11 @@ Classes can also implement static operator overloading.
 
 ```js
 class A {
+  static x = 0;
   static operator+=(value) {
     this.x += value;
   }
 }
-A.x = 0;
 A += 5; // A.x is 5
 ```
 
@@ -1477,6 +1485,73 @@ let a = new(buffer, byteOffset, byteElementLength) [10]<Type>(0);
 ```
 
 By default ```byteElementLength``` is the size of the type. Using a larger value than the size of the type acts as a stride adding padding between allocations in the buffer. Using a smaller length is unusual as it causes allocations to overlap.
+
+### Value Type References
+
+This introduces a new syntax to reference value types. A simple example is referencing a number and modifying it without first putting it into an object.
+
+```js
+function F(&a) {
+  a++;
+}
+let a = 10;
+F(&a);
+```
+
+If a property is in an object this can also be concise:
+
+```js
+const o = { a: 0 };
+F(&o.a);
+```
+Destructuring syntax would support references as well:
+```js
+function F({ &a }) {
+ a++;
+}
+const o = { a: 0 };
+F(o);
+o.a; // 1
+```
+
+References can also be used to refer to elements in value type arrays.
+
+```js
+const a:[]<uint16>;
+const &b = a[0];
+b = 10;
+a[0]; // 10
+```
+
+This works on value type classes described in another section.
+
+```js
+class A {
+  a:uint32
+  b:uint32
+}
+const a:[10]<A>;
+const &b = a[0];
+b.a = 10;
+
+function F(&c:A) { // Takes a reference to A
+  c.a = 10;
+}
+F(&a[1]); // Explicitly passes a reference
+```
+
+Functions can return a reference to an array value as well.
+```js
+function F(a):&int32 {
+  return &a[0];
+}
+const a:[10]<int32>;
+F(a)++; // This is new syntax where the post-increment operates immediately on the returned value
+a[0]; // 1
+let &b = F(a);
+b = 10;
+a[0]; // 10
+```
 
 ### Control Structures
 - [ ] In Proposal Specification
