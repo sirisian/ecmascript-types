@@ -10,6 +10,12 @@ The types described below bring ECMAScript in line or surpasses the type systems
 
 The explicit goal of this proposal is to not just to give developers static type checking. It's to offer information to engines to use native types and optimize callstacks and memory usage. Ideally engines could inline and optimize code paths that are fully typed offering closer to native performance.
 
+### Native/Runtime Typing vs Type Annotations aka Types as Comments
+
+This proposal covers a native/runtime type system and associated language features. That is the types introduced are able to be used by the engine to implement new features and optimize code. Errors related to passing the wrong types throws ```TypeError``` exceptions meaning the types are validated at runtime.
+
+A type annotation or types as comments proposal treats type syntax as comments with no impact on the behavior of the code. It's primarily used with bundlers and IDEs to run checks during development. See the Type Annotations proposal for more details.
+
 ### Types Proposed
 - [x] In Proposal Specification
 
