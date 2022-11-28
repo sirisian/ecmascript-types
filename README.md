@@ -1744,6 +1744,81 @@ class A {
 }
 ```
 
+The context parameter is untyped in the above examples. However, in practice the decorator might only be implemented or specialized for a few language features. Refer to https://github.com/tc39/proposal-decorators and https://github.com/tc39/proposal-decorators/blob/master/EXTENSIONS.md . The following global interfaces would exist for this purpose:
+
+```
+ClassDecorator
+ClassFieldDecorator
+ClassGetterDecorator
+ClassSetterDecorator
+ClassMethodDecorator
+FunctionDecorator
+ParameterDecorator
+LetDecorator
+ConstDecorator
+ObjectDecorator
+ObjectPropertyDecorator or is it Field?
+BlockDecorator
+InitializerDecorator
+ReturnDecorator
+OperatorDecorator
+EnumDecorator
+TupleDecorator
+RecordDecorator
+```
+These can be unioned as expected if multiple kinds need to be handled
+```js
+function f(value, context:ClassDecorator) {
+}
+```
+
+An example featuring all of them:
+```js
+@f // ClassDecorator
+class A {
+  @f // ClassFieldDecorator
+  a:uint32 @f = 5 // InitializerDecorator
+  @f
+  #b:uint32 @f = 5
+
+  @f // ClassGetterDecorator
+  get c():@f uint32 { // ReturnDecorator
+  }
+
+  @f // ClassSetterDecorator
+  set c(@f value:uint32) { // ParameterDecorator
+  }
+
+  @f // ClassMethodDecorator
+  d(@f a:uint32):@f uint32 {
+  }
+
+  @f // OperatorDecorator
+  operator+(@f rhs):@f uint32 {
+  }
+}
+
+@f // FunctionDecorator
+function g() {}
+
+@f
+let @f a @f = 5; // LetDecorator, InitializerDecorator
+
+const @f b @f = @f { // ConstDecorator, InitializerDecorator, BlockDecorator
+  @f // ObjectPropertyDecorator
+  a: 1
+};
+
+@f // EnumDecorator
+enum Count { Zero, One, Two };
+
+const e = @f #[0]; // TupleDecorator
+
+const d = @f #{ a: 1 }; // RecordDecorator
+```
+
+It's possible then using this overloading to define custom implementations for any combination of parameter types, value types, and decorator kinds.
+
 ### Records and Tuples
 
 https://github.com/sirisian/ecmascript-types/issues/56
