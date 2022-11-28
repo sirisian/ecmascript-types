@@ -1530,8 +1530,8 @@ This works on value type classes described in another section.
 
 ```js
 class A {
-  a:uint32
-  b:uint32
+  a:uint32;
+  b:uint32;
 }
 const a:[10]<A>;
 const &b = a[0];
