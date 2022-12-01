@@ -33,6 +33,8 @@ WIP. Feel free to make an issue with ideas.
 
 ### Value Type Generic Parameters
 
+A value can be passed into generics like a function argument. The only caveat is they must be const and will be treated like const variables that are compiled away.
+
 ```js
 class A<V:int32> {
   f():int32 {
@@ -43,7 +45,7 @@ const a = new A<5>();
 a.f();
 ```
 
-In this examples 5 is passed into the class creating essentially a unique implementation. For all purposes the first pass of the JIT would see it like:
+In this examples 5 is passed into the class creating essentially a unique implementation. For all purposes the first pass of the JIT would see it something like this:
 
 ```js
 class A5 e {
@@ -57,7 +59,7 @@ a.f();
 
 #### Passing generic value type arguments
 
-Since the goal is optimization it is impossible to pass a non-const to a generic value type. This is fine:
+Since the goal is optimization it is impossible to pass a non-const to a generic value type. This is fine as long as the right expression is also completely const:
 
 ```js
 function f() {
