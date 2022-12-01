@@ -62,6 +62,10 @@ const a:[100]<float32>;
 prng.random(a, -1, 1);
 ```
 
+### Web Workers
+
+Sharing seeded random across Web Workers isn't allowed. Using an atomic index into an array would work. Or each thread just creates its own seeded random and uses that.
+
 ### WIP
 
 Extracting state to save is still up for debate. I'd think a standardized ```[]<uint8>``` array of binary data would be sufficient for each PRNG method. Basically just need a way that works as nobody is inspecting it probably.
