@@ -27,9 +27,13 @@ One possible issue with my current type system is there's no base/interface ```i
 class A<T extends int8|int16|int32|int64> {
 }
 ```
-Simple syntax, but often you want to apply multiple interface constraints and there's no obvious syntax for that. Every language has their ideas. TypeScript uses an extends syntax. https://www.typescriptlang.org/docs/handbook/2/generics.html#generic-constraints and support ```&``` and ```|```.
+Simple syntax, but often you want to apply multiple interface constraints. TypeScript uses ```&```.
 
-WIP. Feel free to make an issue with ideas.
+```js
+class A<T extends B & C> {
+}
+```
+I think that's sufficient and covers all use cases.
 
 ### Value Type Generic Parameters
 
