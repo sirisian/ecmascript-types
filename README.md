@@ -38,7 +38,6 @@ Since it would be potentially years before this would be implemented this propos
 ```rational```  
 ```complex```  
 ```any```  
-```undefined```  
 
 These types once imported behave like a ```const``` declaration and cannot be reassigned.
 
