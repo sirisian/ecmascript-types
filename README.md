@@ -38,7 +38,7 @@ Since it would be potentially years before this would be implemented this propos
 ```rational```  
 ```complex```  
 ```any```  
-```void```  
+```undefined```  
 
 These types once imported behave like a ```const``` declaration and cannot be reassigned.
 
@@ -343,7 +343,7 @@ F(1, 2);
 
 ```js
 let a:(int32, string):string; // hold a reference to a signature of this type
-let b:(); // void is the default return type for a signature without a return type
+let b:(); // undefined is the default return type for a signature without a return type
 let c = (s:string, x:int32) => s + x; // implicit return type of string
 let d = (x:uint8, y:uint8):uint16 => x + y; // explicit return type
 let e = x:uint8 => x + y; // single parameter
@@ -661,8 +661,8 @@ With function overloading an interface can place multiple function constraints. 
 
 ```js
 interface IExample {
-  (string, uint32):void;
-  (uint32):void;
+  (string, uint32):undefined;
+  (uint32):undefined;
   ?(string, string):string; // Optional overload. A default value can be assigned like:
   // (string, string):string = (x, y) => x + y;
 }
@@ -702,7 +702,7 @@ Argument names in function interfaces are optional. This is done in case named p
 
 ```js
 interface IExample {
-  (string = 5, uint32:named):void;
+  (string = 5, uint32:named):undefined;
 }
 function F(a:IExample) {
   a(named: 10); // 10
@@ -715,12 +715,12 @@ The interface in this example defines the mapping for "named" to the second para
 It might not be obvious at first glance, but there are two separate syntaxes for defining function type constraints. One without an interface, for single non-overloaded function signatures, and with interface, for either constraining the parameter names or to define overloaded function type constraints.
 
 ```js
-function (a:(uint32, uint32):void) {} // Using non-overloaded function signature
-function (a:{ (uint32, uint32):void; }) {} // Identical to the above using Interface syntax
+function (a:(uint32, uint32):undefined) {} // Using non-overloaded function signature
+function (a:{ (uint32, uint32):undefined; }) {} // Identical to the above using Interface syntax
 ```
 Most of the time users will use the first syntax, but the latter can be used if a function is overloaded:
 ```js
-function (a:{ (uint32):void; (string):void; }) {
+function (a:{ (uint32):undefined; (string):undefined; }) {
   a(1);
   a('a');
 }
@@ -733,11 +733,11 @@ interface IA {
   a:uint32;
 }
 interface IB {
-  (IA):void;
+  (IA):undefined;
 }
 /*
 interface IB {
-    ({ a:uint32; }):void;
+    ({ a:uint32; }):undefined;
 }
 */
 ```
@@ -765,10 +765,10 @@ Extending function interfaces:
 
 ```js
 interface A {
-  (string):void;
+  (string):undefined;
 }
 interface B extends A {
-  (string, string):void;
+  (string, string):undefined;
 }
 function F(a:B) {
   a('a');
@@ -870,7 +870,7 @@ F(1, 2); // Calls the untyped function
 If the intention is to created a typed function with no arguments then setting the return value is sufficient:
 
 ```js
-function F():void {}
+function F():undefined {}
 // F(1); // TypeError: Function F has no matching signature
 ```
 
