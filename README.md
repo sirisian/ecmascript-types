@@ -1882,32 +1882,9 @@ import {int8, int16, int32, int64} from "@valueobjects";
 
 ## Overview of Future Considerations and Concerns
 
-### Custom Generics
+### Generics
 
-This section is to show that a generic syntax can be seamlessly added with no syntax issues. A generic function example:
-
-```js
-function A<T>(a:T):T {
-    let b:T;
-}
-```
-
-A generic class example:
-
-```js
-class Vector2<T> {
-  x:T
-  y:T
-  constructor(x:T = 0, y:T = 0) { // T could be inferred, but that might be asking too much. In any case T must have a constructor supporting a parameter 0 if this is a class.
-    this.x = x;
-    this.y = y;
-  }
-}
-```
-
-Generic constraints aren't defined here but would need to be. TypeScript has their extends type syntax. Being able to constrain ```T``` to an interface seems like an obvious requirement. Also being able to constrain to a list of specific types or specifically to numeric, floating point, or integer types. Another consideration is being able to support a default type. Also generic specialization for specific types that require custom definitions. There's probably more to consider, but those are the big ideas for generics.
-
-Typedefs or aliases for types are a requirement. Not sure what the best syntax is for proposing these. There's a lot of ways to approach them. TypeScript has a system, but I haven't seen alternatives so it's hard for me to judge if it's the best or most ideal syntax.
+[Generics](generics.md)
 
 ### Numeric Literals
 
@@ -1985,24 +1962,9 @@ function G(option1:string, option2:string) {}
 
 The above syntax is probably what would be used and it has no obvious conflicts with types.
 
-### Native Threading and Automatically Shared Variables
+### Threading
 
-By default all typed variables captured by a thread function would treated as shared. That means just like a SharedArrayBuffer they'd be able to be accessed in threads and used with Atomics.
-
-```js
-let a:uint32 = 0; 
-function A() {
-    Atomics.add(a, 5);
-}
-async function B() {
-    A();
-    Atomics.add(a, 5);
-}
-// Naive call syntax to show these execute on their own thread and callThread returns a promise.
-await Promise.all([A.callThread(), B.callThread()]); // Join
-console.log(a); // 15
-```
-See https://github.com/sirisian/ecmascript-types/issues/67 for further details.
+[Threading](threading.md)
 
 # Example:  
 Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
