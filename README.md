@@ -1425,7 +1425,7 @@ enum Flags:uint32 { None = 0, Flag1 = (index, name) => 1 << (index - 1), Flag2, 
 An enumeration that uses a non-numeric type must define a starting value. If a sequential function or an overloaded assignment operator is not found the next value will be equal to the previous value.
 
 ```js
-// enum Count:string { Zero, One, Two }; // TypeError Zero is undefined
+// enum Count:string { Zero, One, Two }; // TypeError Zero is undefined, expected string
 enum Count:string { Zero = '0', One, Two }; // One and Two are also '0' because string has no prefix increment operator
 ```
 
