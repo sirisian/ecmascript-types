@@ -21,10 +21,8 @@ In that example by default the field ```a``` is type ```uint8```, but the progra
 
 Often not just any type can be passed into the generic argument. Nearly every language has a constraint system to specify what interface(s) a type must implement.
 
-One possible issue with my current type system is there's no base/interface ```int```, ```uint```, or ```float```. I don't think it's a huge issue since one can write ```int8|int16|int32|int64```. In any case if you wanted to say a ```T``` needed to be an integer.
-
 ```js
-class A<T extends int8|int16|int32|int64> {
+class A<T extends int> {
 }
 ```
 Simple syntax, but often you want to apply multiple interface constraints. TypeScript uses ```&```.
@@ -33,7 +31,7 @@ Simple syntax, but often you want to apply multiple interface constraints. TypeS
 class A<T extends B & C> {
 }
 ```
-I think that's sufficient and covers all use cases.
+I think that's sufficient and covers common use cases.
 
 ### Value Type Generic Parameters
 
