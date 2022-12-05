@@ -26,15 +26,76 @@ Since it would be potentially years before this would be implemented this propos
 ```string```  
 ```object```  
 ```symbol```  
-```int8```, ```int16```, ```int32```, ```int64```  
-```uint8```, ```uint16```, ```uint32```, ```uint64```  
+```int<N>```
+<details>
+    <summary>Expand for all the int shorthands.</summary>
+
+```js
+type int8 = int<8>;
+type int16 = int<16>;
+type int32 = int<32>;
+type int64 = int<64>;
+```
+</details>
+
+```uint<N>```
+<details>
+    <summary>Expand for all the uint shorthands.</summary>
+
+```js
+type uint8 = uint<8>;
+type uint16 = uint<16>;
+type uint32 = uint<32>;
+type uint64 = uint<64>;
+```
+</details>
+
 ```bigint```  
 ```float16```, ```float32```, ```float64```, ```float80```, ```float128```  
 ```decimal32```, ```decimal64```, ```decimal128```  
-```boolean8x16```, ```boolean16x8```, ```boolean32x4```, ```boolean64x2```, ```boolean8x32```, ```boolean16x16```, ```boolean32x8```, ```boolean64x4```  
-```int8x16```, ```int16x8```, ```int32x4```, ```int64x2```, ```int8x32```, ```int16x16```, ```int32x8```, ```int64x4```  
-```uint8x16```, ```uint16x8```, ```uint32x4```, ```uint64x2```, ```uint8x32```, ```uint16x16```, ```uint32x8```, ```uint64x4```  
-```float32x4```, ```float64x2```, ```float32x8```, ```float64x4```  
+```vector<T, N>```
+
+<details>
+    <summary>Expand for all the SIMD shorthands.</summary>
+    
+```js
+type boolean1 = uint<1>;
+type boolean8 = vector<boolean1, 8>;
+type boolean16 = vector<boolean1, 16>;
+type boolean32 = vector<boolean1, 32>;
+type boolean64 = vector<boolean1, 64>;
+
+type boolean8x16 = vector<boolean8, 16>;
+type boolean16x8 = vector<boolean16>, 8>;
+type boolean32x4 = vector<boolean32>, 4>;
+type boolean64x2 = vector<boolean64>, 2>;
+type boolean8x32 = vector<boolean8>, 32>;
+type boolean16x16 = vector<boolean16>, 16>;
+type boolean32x8 = vector<boolean32>, 8>;
+type boolean64x4 = vector<boolean64>, 4>;
+type int8x16 = vector<int8, 16>;
+type int16x8 = vector<int16, 8>;
+type int32x4 = vector<int32, 4>;
+type int64x2 = vector<int64, 2>;
+type int8x32 = vector<int8, 32>;
+type int16x16 = vector<int16, 16>;
+type int32x8 = vector<int32, 8>;
+type int64x4 = vector<int64, 4>;
+type uint8x16 = vector<uint8, 16>;
+type uint16x8 = vector<uint16, 8>;
+type uint32x4 = vector<uint32, 4>;
+type uint64x2 = vector<uint64, 2>;
+type uint8x32 = vector<uint8, 32>;
+type uint16x16 = vector<uint16, 16>;
+type uint32x8 = vector<uint32, 8>;
+type uint64x4 = vector<uint64, 4>;
+type float32x4 = vector<float32, 4>;
+type float64x2 = vector<float64, 2>;
+type float32x8 = vector<float32, 8>;
+type float64x4 = vector<float64, 4>;
+```
+</details>
+
 ```rational```  
 ```complex```  
 ```any```  
@@ -1616,6 +1677,8 @@ Two new keys would be added to the property descriptor called ```align``` and ``
 
 Along with the member decorators, two object reserved descriptor keys would be created, ```alignAll``` and ```size```. These would control the allocated memory alignment of the instances and the allocated size of the instances.
 
+WIP: Need byte and bit versions of these alignment features.
+
 ```js
 @alignAll(16) // Defines the class memory alignment to be 16 byte aligned
 @size(32) // Defines the class as 32 bytes. Pads with zeros when allocating
@@ -1915,18 +1978,10 @@ switch (a) {
 
 These are incredibly niche. That said I've had at least one person mention them to me in an issue. C itself has many rules like that property order is undefined allowing properties to be rearranged more optimally meaning the memory layout isn't defined. This would all have to be defined probably since some view this as a benefit and others view it as a design problem. Controlling options with decorators might be ideal. Packing and other rules would also need to be clearly defined.
 
-Would allow the following types to define bit lengths.
-
-```
-boolean
-int8/16/32/64
-uint8/16/32/64
-```
-
 ```js
 class Vector2 {
-  x:uint8(4); // 4 bits
-  y:uint8(4); // 4 bits
+  x:uint<4>; // 4 bits
+  y:uint<4>; // 4 bits
 }
 ```
 
