@@ -383,6 +383,19 @@ Many truncation rules have intuitive rules going from larger bits to smaller bit
 - [x] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
 
+A typed function defaults to a return type of ```undefined```. In almost every case where ```undefined``` might be needed it's implicit and defining it is not allowed.
+```js
+function F() {} // return type any
+// function F(a:int32) { return 10; } // TypeError: Function signature for F, undefined, does not match return type, number.
+function G(a:int32) {} // return type undefined
+// function G(a:int32):undefined {} // TypeError: Explicitly defining a return type of undefined is not allowed.
+```
+The only case where ```undefined``` is allowed is for functions that take no parameters where the return type signals it's a typed function.
+```js
+function F():undefined {}
+```
+
+An example of applying more parameter constraints:
 ```js
 function F(a:int32, b:string, c:[]<bigint>, callback:(boolean, string) = (b, s = 'none') => b ? s : ''):int32 { }
 ```
@@ -721,8 +734,8 @@ With function overloading an interface can place multiple function constraints. 
 
 ```js
 interface IExample {
-  (string, uint32):undefined;
-  (uint32):undefined;
+  (string, uint32); // undefined is the default return type
+  (uint32);
   ?(string, string):string; // Optional overload. A default value can be assigned like:
   // (string, string):string = (x, y) => x + y;
 }
@@ -762,7 +775,7 @@ Argument names in function interfaces are optional. This is done in case named p
 
 ```js
 interface IExample {
-  (string = 5, uint32:named):undefined;
+  (string = 5, uint32:named);
 }
 function F(a:IExample) {
   a(named: 10); // 10
@@ -775,12 +788,12 @@ The interface in this example defines the mapping for "named" to the second para
 It might not be obvious at first glance, but there are two separate syntaxes for defining function type constraints. One without an interface, for single non-overloaded function signatures, and with interface, for either constraining the parameter names or to define overloaded function type constraints.
 
 ```js
-function (a:(uint32, uint32):undefined) {} // Using non-overloaded function signature
-function (a:{ (uint32, uint32):undefined; }) {} // Identical to the above using Interface syntax
+function (a:(uint32, uint32)) {} // Using non-overloaded function signature
+function (a:{ (uint32, uint32); }) {} // Identical to the above using Interface syntax
 ```
 Most of the time users will use the first syntax, but the latter can be used if a function is overloaded:
 ```js
-function (a:{ (uint32):undefined; (string):undefined; }) {
+function (a:{ (uint32); (string); }) {
   a(1);
   a('a');
 }
@@ -793,11 +806,11 @@ interface IA {
   a:uint32;
 }
 interface IB {
-  (IA):undefined;
+  (IA);
 }
 /*
 interface IB {
-    ({ a:uint32; }):undefined;
+    ({ a:uint32; });
 }
 */
 ```
@@ -825,10 +838,10 @@ Extending function interfaces:
 
 ```js
 interface A {
-  (string):undefined;
+  (string);
 }
 interface B extends A {
-  (string, string):undefined;
+  (string, string);
 }
 function F(a:B) {
   a('a');
@@ -906,8 +919,8 @@ let { a, b } := { (a:uint8): 1, (b:uint32): 2 }; // a is type uint8 and b is typ
 - [ ] Proposal Specification Algorithms
 
 ```js
-function F(x:[]<int32>) { return 'int32'; }
-function F(s:[]<string>) { return 'string'; }
+function F(x:[]<int32>):string { return 'int32'; }
+function F(s:[]<string>):string { return 'string'; }
 F(['test']); // "string"
 ```
 
@@ -930,7 +943,7 @@ F(1, 2); // Calls the untyped function
 If the intention is to created a typed function with no arguments then setting the return value is sufficient:
 
 ```js
-function F():undefined {}
+function F() {}
 // F(1); // TypeError: Function F has no matching signature
 ```
 
@@ -947,8 +960,8 @@ F(8);
 ```async``` does not create a unique signature. Consider the following:
 
 ```js
-async function F() {}
-// function F() { return new Promise(resolve => {}); } // TypeError: "A function with that signature already exists"
+async function F() {} // untyped, so the return type is any
+// function F():Promise { return new Promise(resolve => {}); } // TypeError: "A function with that signature already exists"
 await F();
 ```
 While ```async``` functions and synchronous functions can overload the same name, they must have unique signatures.
