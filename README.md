@@ -687,8 +687,7 @@ const [a] = F(); // a is 1
 const [b, ...c] = F(); // b is 2 and c is [3]
 const { a:d, b:e } = F(); // d is 1 and e is 2
 ```
-
-TODO: Define the behavior when defining the same signature for a function.
+See the section on overloading return types for more information: https://github.com/sirisian/ecmascript-types#overloading-on-return-type
 
 Explicitly selecting an overload:
 ```js
