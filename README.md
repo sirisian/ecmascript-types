@@ -405,7 +405,7 @@ function F(a:int32, b:string, c:[]<bigint>, callback:(boolean, string) = (b, s =
 While function overloading can be used to handle many cases of optional arguments it's possible to define one function that handles both:
 
 ```js
-function F(a:uint32, a?:uint32) {}
+function F(a:uint32, b?:uint32) {}
 F(1);
 F(1, 2);
 ```
@@ -978,6 +978,8 @@ let { a, b } := { (a:uint8): 1, (b:uint32): 2 }; // a is type uint8 and b is typ
 ### Function Overloading
 - [ ] Proposal Specification Algorithms
 
+All function can be overloaded if the signature is non-ambiguous. A signature is defined by the parameter types and return type. (Return type overloading is covered in a subsection below as this is rare).
+
 ```js
 function F(x:[]<int32>):string { return 'int32'; }
 function F(s:[]<string>):string { return 'string'; }
@@ -1014,59 +1016,72 @@ function F(a:uint8) {}
 F(8);
 ```
 
-#### Async Functions and Overloading
-- [ ] Proposal Specification Algorithms
-
-```async``` does not create a unique signature. Consider the following:
+#### Overloading on Return Type
 
 ```js
-async function F() {} // untyped, so the return type is any
-// function F():Promise { return new Promise(resolve => {}); } // TypeError: "A function with that signature already exists"
-await F();
+function F():uint32 {
+  return 10;
+}
+function F():string {
+  return "10";
+}
+// F(); // TypeError: Ambiguous signature for F. Requires explicit left-hand side type.
+const a:string = F(); // "10"
+const b:uint32 = F(); // 10
+
+function G(a:uint32) {
+  return a;
+}
+G(F()); // 10
+
+function H(a:uint8) { }
+function H(a:string) { }
+// H(F()); // TypeError: Ambiguous signature for F. Requires explicit cast.
+H(uint32(F()));
 ```
-While ```async``` functions and synchronous functions can overload the same name, they must have unique signatures.
 
 ### Typed Promises
 
 Typed promises use a generic syntax where the resolve and reject type default to any.
 
 ```js
-Promise<R:any, E:any>
+Promise<R extends any, E extends any>
 ```
 
 ```js
 const a = new Promise<uint8, Error>((resolve, reject) => {
-  return 0; // or throw new Error();
+  resolve(0); // or throw new Error();
 });
 ```
-
-Without extra syntax getting the same behavior is not possible with async function.
+To keep things consistent, the async version has the same return type.
 ```js
-async function F():uint8 {
-  return 0;
-}
-const f = F();
-```
-This creates a type of ```Promise<uint8, any>```.
-
-One would need syntax similar to Java which defines the reject type(s).
-```js
-async function F():uint8 throws Error {
-  return 0;
-}
-const f = F();
-```
-Now the type is ```Promise<uint8, Error>``` which matches the first example.
-
-Since it's possible for a function to not throw then the syntax would also need a way to explicitly list that nothing throws. Simply not specifying anything works for that:
-```js
-function f() throws {
+async function F():Promise<uint8, Error> {
   return 0;
 }
 ```
+If a Promise never throws anything then the following can be used:
+
+```js
+async function F():Promise<uint8, undefined> {
+  return 0;
+}
+```
+
+Right now there's no check except the runtime check when a function actually throws to validate the exception types. It is feasible however that the immediate async function scope could be checked to match the type and generate a TypeError if one is found even for codepaths that can't resolve. This is stuff one's IDE might flag.
+
+#### Overloading Async Functions and Typed Promises
+
+While ```async``` functions and synchronous functions can overload the same name, they must have unique signatures.
+
+```js
+async function F():Promise<any, Error> {}
+/* function F():Promise<any, Error> { // TypeError: A function with that signature already exists
+    return new Promise<any, Error>((resolve, reject) => {});
+} */
+await F();
+```
+
 Refer to the try catch section on how different exception types would be explicitly captured: https://github.com/sirisian/ecmascript-types#try-catch
-
-Functions that define their exceptions would cause a unique exception - UnexpectedException - that allows a developer to see exactly the culprit making debugging deep stack calls easier.
 
 ### Generator Overloading
 - [ ] Proposal Specification Algorithms
