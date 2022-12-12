@@ -1025,18 +1025,18 @@ function F():uint32 {
 function F():string {
   return "10";
 }
-// F(); // TypeError: Ambiguous signature for F. Requires explicit left-hand side type.
+// F(); // TypeError: Ambiguous signature for F. Requires explicit left-hand side type or cast.
 const a:string = F(); // "10"
 const b:uint32 = F(); // 10
 
-function G(a:uint32) {
+function G(a:uint32):uint32 {
   return a;
 }
 G(F()); // 10
 
 function H(a:uint8) { }
 function H(a:string) { }
-// H(F()); // TypeError: Ambiguous signature for F. Requires explicit cast.
+// H(F()); // TypeError: Ambiguous signature for F. Requires explicit left-hand side type or cast.
 H(uint32(F()));
 ```
 
