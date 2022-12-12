@@ -448,7 +448,7 @@ let a:int32 = 3;
 a /= 2; // 1
 ```
 
-### Expanding Representable Numbers
+### Type Propagation to Literals
 - [ ] In Proposal Specification
 - [ ] Proposal Specification Algorithms
 
@@ -458,33 +458,93 @@ In ECMAScript currently the following values are equal:
 let a = 2**53;
 a == a + 1; // true
 ```
+The changes below expand the representable numbers by propagating type information when defined.
 
-In order to bypass this behavior a variable must be explicitly typed.
+Types propagate to the right hand side of any expression.
 
 ```js
 let a:uint64 = 2**53;
 a == a + 1; // false
+    
+let b:uint64 = 9007199254740992 + 9007199254740993; // 18014398509481985
 ```
 
-Ideally statements like the following will work as expected with the type propagating to the right hand side:
-
-```js
-let a:uint64 = 9007199254740992 + 9007199254740993; // 18014398509481985
-```
-
-In the following case the type propagates to the arguments.
+Types propagate to arguments as well.
 
 ```js
 function F(a:uint64) {}
 F(9007199254740992 + 9007199254740993); // 18014398509481985
 ```
 
-Consider where the literals are not directly typed. In this case they are typed as Number:
+Consider where the literals are not directly typed. In this case they are typed as Number as expected:
 
 ```js
 function F(a:uint64) {}
-var a = 9007199254740992 + 9007199254740993;
+const a = 9007199254740992 + 9007199254740993;
 F(a); // 18014398509481984
+```
+
+In typed code this behavior of propagating types to literals means that suffixes aren't required by programmers.
+
+This proposal introduces one breaking change related to the BigInt function. When passing an expression the signature uses ```bigint(n:bigint)```.
+
+```js
+//BigInt(999999999999999999999999999999999999999999); // Current behavior is 1000000000000000044885712678075916785549312n
+BigInt(999999999999999999999999999999999999999999); // New Behavior: 999999999999999999999999999999999999999999n
+```
+Alternatively BigInt could remain as it is and ```bigint``` would have this behavior. The change is only made to avoid confusion.
+
+This behavior is especially useful when using the float and decimal types.
+
+```js
+const a:decimal128 = 9.999999999999999999999999999999999;
+```
+
+### Typed Array Propagation to Arrays
+
+Identically to how types propagate to literals they also propagate to arrays. For example, the array type is propagated to the right side:
+```js
+const a:[]<bigint> = [999999999999999999999999999999999999999999];
+```
+
+This can be used to construct instances using implicit casting:
+```js
+class MyType {
+  constructor(a:uint32) {
+  }
+  constructor(a:uint32, b:uint32) {
+  }
+}
+let a:[]<MyType> = [1, 2, 3, 4, 5];
+```
+
+Implicit array casting already exists for single variables as defined above. It's possible one might want to compactly create instances. The following new syntax allows this:
+
+```js
+let a = new []<MyType> = [(10, 20), (30, 40), 10];
+```
+This would be equivalent to:
+```js
+let a = new []<MyType> = [new MyType(10, 20), new MyType(30, 40), 10];
+```
+
+Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that ```[(10, 20), 30]``` is ```[20, 30]``` when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
+
+Initializer lists work well with SIMD to create compact arrays of vectors:
+
+```js
+let a = new []<float32x4> = [
+  (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
+  (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
+  (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4)
+];
+```
+
+Since this works for any type the following works as well. The typed array is propagated to the argument.
+```js
+function F(a:[]<float32x4>) {
+}
+F([(1, 2, 3, 4)]);
 ```
 
 ### Destructuring Assignment Casting
@@ -1220,45 +1280,6 @@ Going from a scalar to a vector:
 
 ```js
 let a:float32x4 = 1; // Equivalent to let a = float32x4(1, 1, 1, 1);
-```
-
-### Implicit Array Cast
-- [ ] Proposal Specification Algorithms
-
-```js
-let a:[]<MyType> = [1, 2, 3, uint32(1)];
-```
-
-### Initializer List for Array of Class Instances
-
-Implicit array casting already exists for single variables as defined above. It's possible one might want to compactly create instances. The following syntax is proposed:
-
-```js
-let a = new []<MyType> = [(10, 20), (30, 40), 10];
-```
-This would be equivalent to:
-```js
-let a = new []<MyType> = [new MyType(10, 20), new MyType(30, 40), 10];
-```
-
-Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that ```[(10, 20), 30]``` is ```[20, 30]``` when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
-
-Initializer lists work well with SIMD to create compact arrays of vectors:
-
-```js
-let a = new []<float32x4> = [
-  (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
-  (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
-  (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4)
-];
-```
-
-The syntax also has to work with typed functions intuitively:
-```js
-function F(a:float32x4) {
-}
-
-F([(1, 2, 3, 4)]);
 ```
 
 ### Classes and Operator Overloading
