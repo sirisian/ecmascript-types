@@ -1039,6 +1039,30 @@ function H(a:string) { }
 H(uint32(F()));
 ```
 
+Overloading return types is especially useful on operators. Take SIMD operators, represented here by their intrinsic, that can return both a vector register or mask:
+
+```
+__m128i _mm_cmpeq_epi32 (__m128i a, __m128i b)
+__mmask8 _mm_cmpeq_epi32_mask (__m128i a, __m128i b)
+```
+Notice Intel differentiates signatures by adding ```_mask```. When translated to real types with operators they are identical however:
+
+```js
+//const something = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2); // TypeError: Ambiguous return type. Requires explicit cast to int32x4 or boolean8
+```
+With overloaded return types we can support both signatures:
+```js
+const a:int32x4 = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
+const b:boolean8 = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
+```
+For reference, the operators look like:
+```js
+class int32x4 {
+  operator<(v:int32x4):int32x4 {}
+  operator<(v:int32x4):boolean8 {}
+}
+```
+
 ### Typed Promises
 
 Typed promises use a generic syntax where the resolve and reject type default to any.
@@ -1363,10 +1387,10 @@ class Vector2 {
   length():float32 {
     return Math.hypot(this.x, this.y); // uses Math.hypot(...:float32):float32 due to input and return type
   }
-  operator+(v:Vector2) { // Same as [Symbol.addition](v:Vector2)
+  operator+(v:Vector2):Vector2 { // Same as [Symbol.addition](v:Vector2)
     return new vector2(this.x + v.x, this.y + v.y);
   }
-  operator==(v:Vector2) {
+  operator==(v:Vector2):boolean {
     const epsilon = 0.0001;
     return Math.abs(this.x - v.x) < epsilon && Math.abs(this.y - v.y) < epsilon;
   }
@@ -1996,10 +2020,6 @@ import {int8, int16, int32, int64} from "@valueobjects";
 ### Generics
 
 [Generics](generics.md)
-
-### Numeric Literals
-
-Many languages have numeric literal suffixes to indicate a number is a specific data type. This isn't necessary if explicit casts are used. Since there are so many types, the use of suffixes would not be overly readable. The goal was to keep type names to a minimum number of characters also so that literals are less needed.
 
 ### Partial Class
 
