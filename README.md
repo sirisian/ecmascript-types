@@ -1057,10 +1057,8 @@ const b:boolean8 = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
 ```
 For reference, the operators look like:
 ```js
-class int32x4 {
-  operator<(v:int32x4):int32x4 {}
-  operator<(v:int32x4):boolean8 {}
-}
+operator<(v:int32x4):int32x4 {}
+operator<(v:int32x4):boolean8 {}
 ```
 
 ### Typed Promises
