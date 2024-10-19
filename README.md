@@ -26,73 +26,73 @@ Since it would be potentially years before this would be implemented this propos
 ```string```  
 ```object```  
 ```symbol```  
-```int<N>```
+```int.<N>```
 <details>
     <summary>Expand for all the int shorthands.</summary>
 
 ```js
-type int8 = int<8>;
-type int16 = int<16>;
-type int32 = int<32>;
-type int64 = int<64>;
+type int8 = int.<8>;
+type int16 = int.<16>;
+type int32 = int.<32>;
+type int64 = int.<64>;
 ```
 </details>
 
-```uint<N>```
+```uint.<N>```
 <details>
     <summary>Expand for all the uint shorthands.</summary>
 
 ```js
-type uint8 = uint<8>;
-type uint16 = uint<16>;
-type uint32 = uint<32>;
-type uint64 = uint<64>;
+type uint8 = uint.<8>;
+type uint16 = uint.<16>;
+type uint32 = uint.<32>;
+type uint64 = uint.<64>;
 ```
 </details>
 
 ```bigint```  
 ```float16```, ```float32```, ```float64```, ```float80```, ```float128```  
 ```decimal32```, ```decimal64```, ```decimal128```  
-```vector<T, N>```
+```vector.<T, N>```
 
 <details>
     <summary>Expand for all the SIMD shorthands.</summary>
     
 ```js
-type boolean1 = uint<1>;
-type boolean8 = vector<boolean1, 8>;
-type boolean16 = vector<boolean1, 16>;
-type boolean32 = vector<boolean1, 32>;
-type boolean64 = vector<boolean1, 64>;
+type boolean1 = uint.<1>;
+type boolean8 = vector.<boolean1, 8>;
+type boolean16 = vector.<boolean1, 16>;
+type boolean32 = vector.<boolean1, 32>;
+type boolean64 = vector.<boolean1, 64>;
 
-type boolean8x16 = vector<boolean8, 16>;
-type boolean16x8 = vector<boolean16, 8>;
-type boolean32x4 = vector<boolean32, 4>;
-type boolean64x2 = vector<boolean64, 2>;
-type boolean8x32 = vector<boolean8, 32>;
-type boolean16x16 = vector<boolean16, 16>;
-type boolean32x8 = vector<boolean32, 8>;
-type boolean64x4 = vector<boolean64, 4>;
-type int8x16 = vector<int8, 16>;
-type int16x8 = vector<int16, 8>;
-type int32x4 = vector<int32, 4>;
-type int64x2 = vector<int64, 2>;
-type int8x32 = vector<int8, 32>;
-type int16x16 = vector<int16, 16>;
-type int32x8 = vector<int32, 8>;
-type int64x4 = vector<int64, 4>;
-type uint8x16 = vector<uint8, 16>;
-type uint16x8 = vector<uint16, 8>;
-type uint32x4 = vector<uint32, 4>;
-type uint64x2 = vector<uint64, 2>;
-type uint8x32 = vector<uint8, 32>;
-type uint16x16 = vector<uint16, 16>;
-type uint32x8 = vector<uint32, 8>;
-type uint64x4 = vector<uint64, 4>;
-type float32x4 = vector<float32, 4>;
-type float64x2 = vector<float64, 2>;
-type float32x8 = vector<float32, 8>;
-type float64x4 = vector<float64, 4>;
+type boolean8x16 = vector.<boolean8, 16>;
+type boolean16x8 = vector.<boolean16, 8>;
+type boolean32x4 = vector.<boolean32, 4>;
+type boolean64x2 = vector.<boolean64, 2>;
+type boolean8x32 = vector.<boolean8, 32>;
+type boolean16x16 = vector.<boolean16, 16>;
+type boolean32x8 = vector.<boolean32, 8>;
+type boolean64x4 = vector.<boolean64, 4>;
+type int8x16 = vector.<int8, 16>;
+type int16x8 = vector.<int16, 8>;
+type int32x4 = vector.<int32, 4>;
+type int64x2 = vector.<int64, 2>;
+type int8x32 = vector.<int8, 32>;
+type int16x16 = vector.<int16, 16>;
+type int32x8 = vector.<int32, 8>;
+type int64x4 = vector.<int64, 4>;
+type uint8x16 = vector.<uint8, 16>;
+type uint16x8 = vector.<uint16, 8>;
+type uint32x4 = vector.<uint32, 4>;
+type uint64x2 = vector.<uint64, 2>;
+type uint8x32 = vector.<uint8, 32>;
+type uint16x16 = vector.<uint16, 16>;
+type uint32x8 = vector.<uint32, 8>;
+type uint64x4 = vector.<uint64, 4>;
+type float32x4 = vector.<float32, 4>;
+type float64x2 = vector.<float64, 2>;
+type float32x8 = vector.<float32, 8>;
+type float64x4 = vector.<float64, 4>;
 ```
 </details>
 
@@ -125,7 +125,7 @@ const c:Type = value;
 ```js
 let a:uint8 = 0; // typeof a == "number"
 let b:uint8|null = 0; // typeof b == "number"
-let c:[]<uint8> = []; // typeof c == "object"
+let c:[].<uint8> = []; // typeof c == "object"
 let d:(uint8):uint8 = x => x * x; // typeof d == "function"
 ```
 
@@ -171,7 +171,7 @@ let a:uint8|string = 'a';
 - [ ] In Proposal Specification
 - [ ] Proposal Specification Algorithms
 
-Using ```any|null``` would result in a syntax error since ```any``` already includes nullable types. As would using ```[]<any>``` since it already includes array types. Using just ```[]``` would be the type for arrays that can contain anything. For example:
+Using ```any|null``` would result in a syntax error since ```any``` already includes nullable types. As would using ```[].<any>``` since it already includes array types. Using just ```[]``` would be the type for arrays that can contain anything. For example:
 
 ```js
 let a:[];
@@ -182,21 +182,21 @@ let a:[];
 - [x] Proposal Specification Grammar
 - [ ] Proposal Specification Algorithms
 
-A generic syntax ```<T>``` is used to type array elements.
+A generic syntax ```.<T>``` is used to type array elements.
 
 ```js
-let a:[]<uint8>; // []
+let a:[].<uint8>; // []
 a.push(0); // [0]
-let b:[]<uint8> = [0, 1, 2, 3];
-let c:[]<uint8>|null; // null
-let d:[]<uint8|null> = [0, null]; // Not sequential memory
-let e:[]<uint8|null>|null; // null // Not sequential memory
+let b:[].<uint8> = [0, 1, 2, 3];
+let c:[].<uint8>|null; // null
+let d:[].<uint8|null> = [0, null]; // Not sequential memory
+let e:[].<uint8|null>|null; // null // Not sequential memory
 ```
 
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
 
 ```js
-let a:[]<uint8> = [0, 1, 2, 3];
+let a:[].<uint8> = [0, 1, 2, 3];
 a['a'] = 0;
 'a' in a; // true
 delete a['a'];
@@ -208,13 +208,13 @@ delete a['a'];
 - [ ] Proposal Specification Algorithms
 
 ```js
-let a:[4]<uint8>; // [0, 0, 0, 0]
+let a:[4].<uint8>; // [0, 0, 0, 0]
 // a.push(0); TypeError: a is fixed-length
 // a.pop(); TypeError: a is fixed-length
 a[0] = 1; // valid
 // a[a.length] = 2; Out of range
-let b:[4]<uint8> = [0, 1, 2, 3];
-let c:[4]<uint8>|null; // null
+let b:[4].<uint8> = [0, 1, 2, 3];
+let c:[4].<uint8>|null; // null
 ```
 
 Typed arrays would be zero-ed at creation. That is the allocated memory would be set to all zeroes.
@@ -224,15 +224,15 @@ Also all fixed-length typed arrays use a SharedArrayBuffer by default.
 ### Mixing Variable-length and Fixed-length Arrays
 
 ```js
-function F(c:boolean):[]<uint8> { // default case, return a resizable array
-  let a:[4]<uint8> = [0, 1, 2, 3];
-  let b:[6]<uint8> = [0, 1, 2, 3, 4, 5];
+function F(c:boolean):[].<uint8> { // default case, return a resizable array
+  let a:[4].<uint8> = [0, 1, 2, 3];
+  let b:[6].<uint8> = [0, 1, 2, 3, 4, 5];
   return c ? a : b;
 }
 
-function F(c:boolean):[6]<uint8> { // Resizes a if c is true
-  let a:[4]<uint8> = [0, 1, 2, 3];
-  let b:[6]<uint8> = [0, 1, 2, 3, 4, 5];
+function F(c:boolean):[6].<uint8> { // Resizes a if c is true
+  let a:[4].<uint8> = [0, 1, 2, 3];
+  let b:[6].<uint8> = [0, 1, 2, 3, 4, 5];
   return c ? a : b;
 }
 ```
@@ -242,14 +242,14 @@ function F(c:boolean):[6]<uint8> { // Resizes a if c is true
 - [x] Proposal Specification Grammar
 
 ```js
-let a:[]; // Using []<any> is a syntax error as explained before
+let a:[]; // Using [].<any> is a syntax error as explained before
 let b:[]|null; // null
 ```
 
 Deleting a typed array element results in a type error:
 
 ```js
-const a:[]<uint8> = [0, 1, 2, 3];
+const a:[].<uint8> = [0, 1, 2, 3];
 // delete a[0]; TypeError: a is fixed-length
 ```
 
@@ -265,31 +265,31 @@ By default ```length``` is ```uint32```.
 Syntax uses the second parameter for the generic:
 
 ```js
-let a:[]<uint8, int8>  = [0, 1, 2, 3, 4];
+let a:[].<uint8, int8>  = [0, 1, 2, 3, 4];
 let b = a.length; // length is type int8
 ```
 
 ```js
-let a:[5]<uint8, uint64> = [0, 1, 2, 3, 4];
+let a:[5].<uint8, uint64> = [0, 1, 2, 3, 4];
 let b = a.length; // length is type uint64 with value 5
 ```
 
 ```js
 let n = 5;
-let a:[n]<uint8, uint64> = [0, 1, 2, 3, 4];
+let a:[n].<uint8, uint64> = [0, 1, 2, 3, 4];
 let b = a.length; // length is type uint64 with value 5
 ```
 
 Setting the ```length``` reallocates the array truncating when applicable.
 
 ```js
-let a:[]<uint8> = [0, 1, 2, 3, 4];
+let a:[].<uint8> = [0, 1, 2, 3, 4];
 a.length = 4; // [0, 1, 2, 4]
 a.length = 6; // [0, 1, 2, 4, 0, 0]
 ```
 
 ```js
-let a:[5]<uint8> = [0, 1, 2, 3, 4];
+let a:[5].<uint8> = [0, 1, 2, 3, 4];
 // a.length = 4; TypeError: a is fixed-length
 ```
 
@@ -300,15 +300,15 @@ let a:[5]<uint8> = [0, 1, 2, 3, 4];
 Like ```TypedArray``` views, this array syntax allows any array, even arrays of typed objects to be viewed as different objects. 
 
 ```js
-let view = []<Type>(buffer [, byteOffset [, byteElementLength]]);
+let view = [].<Type>(buffer [, byteOffset [, byteElementLength]]);
 ```
 
 ```js
-let a:[]<uint64> = [1];
-let b = []<uint32>(a, 0, 8);
+let a:[].<uint64> = [1];
+let b = [].<uint32>(a, 0, 8);
 ```
 
-By default ```byteElementLength``` is the size of the array's type. So ```[]<uint32>(...)``` would be 4 bytes. The ```byteElementLength``` can be less than or greater than the actual size of the type. For example (refer to the Class section):
+By default ```byteElementLength``` is the size of the array's type. So ```[].<uint32>(...)``` would be 4 bytes. The ```byteElementLength``` can be less than or greater than the actual size of the type. For example (refer to the Class section):
 
 ```js
 class A {
@@ -318,8 +318,8 @@ class A {
     this.b = value;
   }
 }
-const a:[]<A> = [0, 1, 2];
-const b = []<uint16>(a, 1, 3); // Offset of 1 byte into the array and 3 byte length per element
+const a:[].<A> = [0, 1, 2];
+const b = [].<uint16>(a, 1, 3); // Offset of 1 byte into the array and 3 byte length per element
 b[2]; // 2
 ```
 
@@ -333,13 +333,13 @@ Rather than defining index functions for various multidimensional and jagged arr
 An example of a user-defined index to access a 16 element grid with ```(x, y)``` coordinates:
 
 ```js
-let grid = new [16, (x:uint32, y:uint32) => y * 4 + x]<uint8, uint32>;
+let grid = new [16, (x:uint32, y:uint32) => y * 4 + x].<uint8, uint32>;
 // grid[0] = 10; Error, invalid arguments
 grid[2, 1] = 10;
 ```
 
 ```js
-let grid = new [16, i => i, (x:uint32, y:uint32) => y * 4 + x]<uint8, uint32>;
+let grid = new [16, i => i, (x:uint32, y:uint32) => y * 4 + x].<uint8, uint32>;
 grid[0] = 10;
 grid[2, 1] = 10;
 ```
@@ -347,13 +347,13 @@ grid[2, 1] = 10;
 For a variable-length array it works as expected where the user drops the length:
 
 ```js
-var grid = new [(x, y, z) => z * 4**2 + y * 4 + x]<uint8>;
+var grid = new [(x, y, z) => z * 4**2 + y * 4 + x].<uint8>;
 ```
 
 Views also work as expected allowing one to apply custom indexing to existing arrays:
 
 ```js
-var gridView = [(x, y, z) => z * 4**2 + y * 4 + x]<uint32>(grid);
+var gridView = [(x, y, z) => z * 4**2 + y * 4 + x].<uint32>(grid);
 ```
 
 ### Implicit Casting
@@ -397,7 +397,7 @@ function F():undefined {}
 
 An example of applying more parameter constraints:
 ```js
-function F(a:int32, b:string, c:[]<bigint>, callback:(boolean, string) = (b, s = 'none') => b ? s : ''):int32 { }
+function F(a:int32, b:string, c:[].<bigint>, callback:(boolean, string) = (b, s = 'none') => b ? s : ''):int32 { }
 ```
 
 #### Optional Parameters
@@ -504,7 +504,7 @@ const a:decimal128 = 9.999999999999999999999999999999999;
 
 Identically to how types propagate to literals they also propagate to arrays. For example, the array type is propagated to the right side:
 ```js
-const a:[]<bigint> = [999999999999999999999999999999999999999999];
+const a:[].<bigint> = [999999999999999999999999999999999999999999];
 ```
 
 This can be used to construct instances using implicit casting:
@@ -515,17 +515,17 @@ class MyType {
   constructor(a:uint32, b:uint32) {
   }
 }
-let a:[]<MyType> = [1, 2, 3, 4, 5];
+let a:[].<MyType> = [1, 2, 3, 4, 5];
 ```
 
 Implicit array casting already exists for single variables as defined above. It's possible one might want to compactly create instances. The following new syntax allows this:
 
 ```js
-let a = new []<MyType> = [(10, 20), (30, 40), 10];
+let a = new [].<MyType> = [(10, 20), (30, 40), 10];
 ```
 This would be equivalent to:
 ```js
-let a = new []<MyType> = [new MyType(10, 20), new MyType(30, 40), 10];
+let a = new [].<MyType> = [new MyType(10, 20), new MyType(30, 40), 10];
 ```
 
 Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that ```[(10, 20), 30]``` is ```[20, 30]``` when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
@@ -533,7 +533,7 @@ Due to the very specialized syntax it can't be introduced later. In ECMAScript t
 Initializer lists work well with SIMD to create compact arrays of vectors:
 
 ```js
-let a = new []<float32x4> = [
+let a = new [].<float32x4> = [
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4)
@@ -542,7 +542,7 @@ let a = new []<float32x4> = [
 
 Since this works for any type the following works as well. The typed array is propagated to the argument.
 ```js
-function F(a:[]<float32x4>) {
+function F(a:[].<float32x4>) {
 }
 F([(1, 2, 3, 4)]);
 ```
@@ -594,7 +594,7 @@ const { a: { (a2:uint32): b, a3: [, c:uint8] } } = { a: { a2: 1, a3: [2, 3] } };
 Destructuring objects with arrays:
 
 ```js
-const { (a:[]<uint8>) } = { a: [1, 2, 3] } }; // a is [1, 2, 3] with type []<uint8>
+const { (a:[].<uint8>) } = { a: [1, 2, 3] } }; // a is [1, 2, 3] with type [].<uint8>
 ```
 
 ### Array Rest Destructuring
@@ -736,7 +736,7 @@ function F():IExample {
 Similar to other types an object interface can be made nullable and also made into an array with ```[]```.
 
 ```js
-function F(a:[]<IExample>|null) {
+function F(a:[].<IExample>|null) {
 }
 ```
 
@@ -980,8 +980,8 @@ let { a, b } := { (a:uint8): 1, (b:uint32): 2 }; // a is type uint8 and b is typ
 All function can be overloaded if the signature is non-ambiguous. A signature is defined by the parameter types and return type. (Return type overloading is covered in a subsection below as this is rare).
 
 ```js
-function F(x:[]<int32>):string { return 'int32'; }
-function F(s:[]<string>):string { return 'string'; }
+function F(x:[].<int32>):string { return 'int32'; }
+function F(s:[].<string>):string { return 'string'; }
 F(['test']); // "string"
 ```
 
@@ -1066,24 +1066,24 @@ operator<(v:int32x4):boolean8 {}
 Typed promises use a generic syntax where the resolve and reject type default to any.
 
 ```js
-Promise<R extends any, E extends any>
+Promise.<R extends any, E extends any>
 ```
 
 ```js
-const a = new Promise<uint8, Error>((resolve, reject) => {
+const a = new Promise.<uint8, Error>((resolve, reject) => {
   resolve(0); // or throw new Error();
 });
 ```
 To keep things consistent, the async version has the same return type.
 ```js
-async function F():Promise<uint8, Error> {
+async function F():Promise.<uint8, Error> {
   return 0;
 }
 ```
 If a Promise never throws anything then the following can be used:
 
 ```js
-async function F():Promise<uint8, undefined> {
+async function F():Promise.<uint8, undefined> {
   return 0;
 }
 ```
@@ -1095,9 +1095,9 @@ Right now there's no check except the runtime check when a function actually thr
 While ```async``` functions and synchronous functions can overload the same name, they must have unique signatures.
 
 ```js
-async function F():Promise<any, Error> {}
-/* function F():Promise<any, Error> { // TypeError: A function with that signature already exists
-    return new Promise<any, Error>((resolve, reject) => {});
+async function F():Promise.<any, Error> {}
+/* function F():Promise.<any, Error> { // TypeError: A function with that signature already exists
+    return new Promise.<any, Error>((resolve, reject) => {});
 } */
 await F();
 ```
@@ -1140,8 +1140,8 @@ This syntax is used because like destructuring the grammar cannot differentiate 
 let a = [];
 let o = { a };
 o = { a:[] };
-o = { (a:[]<uint8>) }; // cast a to []<uint8>
-o = { (a:[]<uint8>):[] }; // new object with property a set to an empty array of type uint8[]
+o = { (a:[].<uint8>) }; // cast a to [].<uint8>
+o = { (a:[].<uint8>):[] }; // new object with property a set to an empty array of type uint8[]
 ```
 
 This syntax works with any arrays:
@@ -1211,9 +1211,9 @@ class C { // cannot be treated like a value type
 The value type behavior is used when creating sequential data in typed arrays.
 
 ```js
-const a:[10]<A>; // creates an array of 10 items with sequential data
+const a:[10].<A>; // creates an array of 10 items with sequential data
 a[0] = 10;
-const b:[10]<A>|null; // reference
+const b:[10].<A>|null; // reference
 b = a;
 b[0]; // 10
 ```
@@ -1231,8 +1231,8 @@ class Header {
   b:uint16;
   c:HeaderSection;
 }
-const buffer:[100]<uint8>; // Pretend this has data
-const &header = []<Header>(buffer)[0]; // Create a view over the bytes using the []<Header> and get the first element
+const buffer:[100].<uint8>; // Pretend this has data
+const &header = [].<Header>(buffer)[0]; // Create a view over the bytes using the [].<Header> and get the first element
 header.c.a = 10;
 buffer[3]; // 10
 ```
@@ -1240,14 +1240,14 @@ buffer[3]; // 10
 When using value type classes in typed arrays it's beneficial to be able to reference individual elements. The example above uses this syntax. Refer to the references section on the syntax for this. Attempting to assign a value type to a variable would copy it creating a new instance.
 
 ```js
-const header = []<Header>(buffer)[0];
+const header = [].<Header>(buffer)[0];
 header.c.a = 10;
 buffer[3]; // 0
 ```
 
 To create arrays of references simply union with null.
 ```js
-const a:[10]<A|null>; // [null, ...]
+const a:[10].<A|null>; // [null, ...]
 a[0] = new A();
 ```
 
@@ -1257,8 +1257,8 @@ dynamic class A {
   a:uint8;
   #b:uint8;
 }
-const a:[10]<A>; // [A, ...]
-const b:[10]<A|null>; // [null, ...]
+const a:[10].<A>; // [A, ...]
+const b:[10].<A|null>; // [null, ...]
 ```
 
 ### Constructor Overloading
@@ -1285,7 +1285,7 @@ let t:MyType = uint32(1); // uint32 constructor called
 
 Constructing arrays all of the same type:
 ```js
-let t = new [5]<MyType>(1);
+let t = new [5].<MyType>(1);
 ```
 
 ### parseFloat and parseInt For Each New Type
@@ -1610,8 +1610,8 @@ let a = new(buffer, byteOffset) Type(0);
 
 Array of instances syntax:
 ```js
-// new(buffer [, byteOffset [, byteElementLength]]) [n]<Type>()
-let a = new(buffer, byteOffset, byteElementLength) [10]<Type>(0);
+// new(buffer [, byteOffset [, byteElementLength]]) [n].<Type>()
+let a = new(buffer, byteOffset, byteElementLength) [10].<Type>(0);
 ```
 
 By default ```byteElementLength``` is the size of the type. Using a larger value than the size of the type acts as a stride adding padding between allocations in the buffer. Using a smaller length is unusual as it causes allocations to overlap.
@@ -1650,7 +1650,7 @@ o.a; // 1
 References can also be used to refer to elements in value type arrays.
 
 ```js
-const a:[]<int32>;
+const a:[].<int32>;
 const &b = a[0];
 b = 10;
 a[0]; // 10
@@ -1663,7 +1663,7 @@ class A {
   a:uint32;
   b:uint32;
 }
-const a:[10]<A>;
+const a:[10].<A>;
 const &b = a[0];
 b.a = 10;
 
@@ -1678,7 +1678,7 @@ Functions can return a reference to an array value as well.
 function F(a):&int32 {
   return &a[0];
 }
-const a:[10]<int32>;
+const a:[10].<int32>;
 F(a)++; // This is new syntax where the post-increment operates immediately on the returned value
 a[0]; // 1
 let &b = F(a);
@@ -1688,7 +1688,7 @@ a[0]; // 10
 
 Reassigning a reference is allowed also:
 ```js
-const a:[10]<int32>;
+const a:[10].<int32>;
 let &b = a[0];
 &b = a[1];
 ```
@@ -1792,14 +1792,14 @@ class A {
     this.a = a;
   }
 }
-const a:[]<A> = [0, 1, 2];
+const a:[].<A> = [0, 1, 2];
 
 Object.defineProperty(A, 'b', {
   value: 0,
   writable: true,
   type: uint8
 });
-const b:[]<A> = [0, 1, 2];
+const b:[].<A> = [0, 1, 2];
 
 // a[0].b // TypeError: Undefined property b
 b[0].b; // 0
@@ -1812,144 +1812,13 @@ The following global objects could be used as types:
 
 ```DataView```, ```Date```, ```Error```, ```EvalError```, ```InternalError```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SyntaxError```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakSet```
 
+### Generics
+
+[Generics](generics.md)
+
 ### Decorators
 
-https://github.com/sirisian/ecmascript-types/issues/59  
-https://github.com/sirisian/ecmascript-types/issues/65
-
-Types simplify how decorators are defined. By utilizing function overloading they get rid of the requirement to return a ```(value, context)``` function for decorators that take arguments. This means that independent of arguments a decorator looks the same. Modifying a decorator to take argument or take none just requires changing the parameters to the decorator. Consider these decorators that are all distinct:
-
-```js
-function f(value, context) {
-  // No parameters
-}
-function f(x:uint32, value, context) {
-  // x is 0
-}
-function f(x:string, value, context) {
-  // x is 'a'
-}
-
-class A {
-  @f
-  @f(0)
-  @f('a')
-  a:uint32
-}
-```
-
-By moving the ```value``` into the parameter list with the other ones this allows it to be specialized based on the type.
-
-```js
-function f(x:string, value:uint32, context) {
-  // decorator on uint32
-}
-function f(x:string, value, context) {
-  // decorator on another type
-}
-
-class A {
-  @f('test')
-  a:uint32
-  
-  @f('test')
-  b:string
-}
-```
-
-Note that because rest parameters are allowed to be duplicated and placed anywhere this means it's legal to write:
-
-```js
-function f(...x, value, context) {
-  // [], [0, 1, 2], ['a', 'b', 'c']
-}
-
-class A {
-  @f
-  a:bool
-
-  @f(0, 1, 2)
-  b:uint32
-  
-  @f('a', 'b', 'c')
-  c:string
-}
-```
-
-The context parameter is untyped in the above examples. However, in practice the decorator might only be implemented or specialized for a few language features. Refer to https://github.com/tc39/proposal-decorators and https://github.com/tc39/proposal-decorators/blob/master/EXTENSIONS.md . The following global interfaces would exist for this purpose:
-
-```
-ClassDecorator
-ClassFieldDecorator
-ClassGetterDecorator
-ClassSetterDecorator
-ClassMethodDecorator
-FunctionDecorator
-ParameterDecorator
-LetDecorator
-ConstDecorator
-ObjectDecorator
-ObjectPropertyDecorator or is it Field?
-BlockDecorator
-InitializerDecorator
-ReturnDecorator
-OperatorDecorator
-EnumDecorator
-TupleDecorator
-RecordDecorator
-```
-These can be unioned as expected if multiple kinds need to be handled
-```js
-function f(value, context:ClassDecorator) {
-}
-```
-
-An example featuring all of them:
-```js
-@f // ClassDecorator
-class A {
-  @f // ClassFieldDecorator
-  a:uint32 @f = 5 // InitializerDecorator
-  @f
-  #b:uint32 @f = 5
-
-  @f // ClassGetterDecorator
-  get c():@f uint32 { // ReturnDecorator
-  }
-
-  @f // ClassSetterDecorator
-  set c(@f value:uint32) { // ParameterDecorator
-  }
-
-  @f // ClassMethodDecorator
-  d(@f a:uint32):@f uint32 {
-  }
-
-  @f // OperatorDecorator
-  operator+(@f rhs):@f uint32 {
-  }
-}
-
-@f // FunctionDecorator
-function g() {}
-
-@f
-let @f a @f = 5; // LetDecorator, InitializerDecorator
-
-const @f b @f = @f { // ConstDecorator, InitializerDecorator, BlockDecorator
-  @f // ObjectPropertyDecorator
-  a: 1
-};
-
-@f // EnumDecorator
-enum Count { Zero, One, Two };
-
-const e = @f #[0]; // TupleDecorator
-
-const d = @f #{ a: 1 }; // RecordDecorator
-```
-
-It's possible then using this overloading to define custom implementations for any combination of parameter types, value types, and decorator kinds.
+[Decorators](decorators.md)
 
 ### Records and Tuples
 
@@ -2015,10 +1884,6 @@ import {int8, int16, int32, int64} from "@valueobjects";
 
 ## Overview of Future Considerations and Concerns
 
-### Generics
-
-[Generics](generics.md)
-
 ### Partial Class
 
 ```js
@@ -2046,8 +1911,8 @@ These are incredibly niche. That said I've had at least one person mention them 
 
 ```js
 class Vector2 {
-  x:uint<4>; // 4 bits
-  y:uint<4>; // 4 bits
+  x:uint.<4>; // 4 bits
+  y:uint.<4>; // 4 bits
 }
 ```
 
