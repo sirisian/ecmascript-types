@@ -618,11 +618,11 @@ function IsEmail<TClass>(context: ClassFieldDecorator<T, TClass>) {
 }
 // ...
 
-function validate<T>(o: T) {
+function validate<T>(o: T): boolean {
   return (Reflect.getMetadata<T>(validatorsSymbol) as NameAndValidator[]).every(({ name, validator }) => validator(o[name]));
 }
 
-export class Post {
+class Post {
   @Length(10, 20)
   title: string;
 
@@ -643,6 +643,11 @@ export class Post {
   @IsZonedDateTime()
   createDate: Temporal.ZonedDateTime;
 }
+
+const post = new Post();
+post.title = 'My post with a title...';
+// ...
+validate(post); // true or false
 ```
 
 ### Serialization
