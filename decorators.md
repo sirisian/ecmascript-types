@@ -595,26 +595,29 @@ A naive example below that assumes we only want to run a validation for the whol
 ```js
 const validatorsSymbol = Symbol('validators');
 
-type NameAndValidator = { name: keyof T, validator: (value:T) => boolean };
+interface NameAndValidator<T> {
+  name: keyof T,
+  validator: (value: T) => boolean
+};
 
-function addValidators({ name, classContext: { metadata } }, validator) {
-  (metadata[validatorsSymbol] ??= [].<NameAndValidator>).push({ name, validator });
+function addValidators<T>(({ name, classContext: { metadata } }: ClassFieldDecorator<string, T>), validator: (value: T) => boolean) {
+  (metadata[validatorsSymbol] ??= [].<NameAndValidator<T>>).push({ name, validator });
 }
 
 function Length<TClass>(min: uint32, max: uint32, context: ClassFieldDecorator<string, TClass>) { // Can only be placed on string
-  addValidators(context, value: string => value.length is >= min and <= max);
+  addValidators(context, (value: string) => value.length is >= min and <= max);
 }
 function Includes<TClass>(searchString: string, context: ClassFieldDecorator<string, TClass>) {
-  addValidators(context, value: string => value.includes(searchString) });
+  addValidators(context, (value: string) => value.includes(searchString) });
 }
 function Min<T extends int, TClass>(min: T, context: ClassFieldDecorator<T, TClass>) {
-  addValidators(context, value: T => value >= min });
+  addValidators(context, (value: T) => value >= min });
 }
 function Max<T extends int, TClass>(max: T, context: ClassFieldDecorator<T, TClass>) {
-  addValidators(context, value: T => value <= max });
+  addValidators(context, (value: T) => value <= max });
 }
 function IsEmail<TClass>(context: ClassFieldDecorator<T, TClass>) {
-  addValidators(context, value: string => value.includes('@') }); // :)
+  addValidators(context, (value: string) => value.includes('@') }); // :)
 }
 // ...
 
