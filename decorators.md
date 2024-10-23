@@ -215,8 +215,8 @@ interface ClassDecorator<T extends { new (...args: [].<any>): any }> {
 ```js
 interface ClassFieldDecorator<T, TClass> {
   type: T;
-  target: TClass;
-  targetContext: ClassDecorator<TClass>;
+  classType: TClass;
+  classContext: ClassDecorator<TClass>;
   name: string | symbol;
   static: boolean;
   private: boolean;
@@ -243,8 +243,8 @@ function logField<T, TClass>({ target, name, type, static, private, metadata }: 
 ```js
 interface ClassGetterDecorator<T, TClass> {
   type: () => T;
-  target: TClass;
-  targetContext: ClassDecorator<TClass>;
+  classType: TClass;
+  classContext: ClassDecorator<TClass>;
   name: string | symbol;
   metadata: Metadata;
   addInitializer(initializer: () => void): void;
@@ -255,8 +255,8 @@ interface ClassGetterDecorator<T, TClass> {
 ```js
 interface ClassSetterDecorator<T, TClass> {
   type: (value: T) => void;
-  target: TClass;
-  targetContext: ClassDecorator<TClass>;
+  classType: TClass;
+  classContext: ClassDecorator<TClass>;
   name: string | symbol;
   metadata: Metadata;
   addInitializer(initializer: () => void): void;
@@ -267,8 +267,8 @@ interface ClassSetterDecorator<T, TClass> {
 ```js
 interface ClassMethodDecorator<T extends (...args:[].<any>) => any, TClass> {
   type: T;
-  target: TClass;
-  targetContext: ClassDecorator<TClass>;
+  classType: TClass;
+  classContext: ClassDecorator<TClass>;
   name: string | symbol;
   metadata: Metadata;
 }
@@ -278,8 +278,8 @@ interface ClassMethodDecorator<T extends (...args:[].<any>) => any, TClass> {
 ```js
 interface ParameterDecorator<T, TMethod, TClass> {
   type: T;
-  target: TMethod;
-  targetContext: ClassMethodDecorator<TMethod, TClass>
+  methodType: TMethod;
+  methodContext: ClassMethodDecorator<TMethod, TClass>
   key: string | symbol;
   index: number;
 }
@@ -350,8 +350,8 @@ interface FunctionDecorator<T extends (...args:[].<any>) => any> {
 ```js
 interface ParameterDecorator<T, TMethod> {
   type: T;
-  target: TMethod;
-  targetContext: FunctionDecorator<TMethod>;
+  methodType: TMethod;
+  methodContext: FunctionDecorator<TMethod>;
   key: string | symbol;
   index: number;
   metadata: Metadata;
@@ -396,8 +396,8 @@ const a = @f {
 ```js
 interface ObjectFieldDecorator<T, TObject> {
   type: T;
-  target: TObject;
-  targetContext: ObjectDecorator<TObject>;
+  objectType: TObject;
+  objectContext: ObjectDecorator<TObject>;
   key: string | symbol;
   metadata: Metadata; // on the instance
 }
@@ -418,8 +418,8 @@ const a = {
 ```js
 interface ObjectGetterDecorator<T, TObject> {
   type: () => T;
-  target: TObject;
-  targetContext: ObjectDecorator<TObject>;
+  objectType: TObject;
+  objectContext: ObjectDecorator<TObject>;
   name: string | symbol;
   metadata: Metadata;
   addInitializer(initializer: () => void): void;
@@ -430,8 +430,8 @@ interface ObjectGetterDecorator<T, TObject> {
 ```js
 interface ObjectSetterDecorator<T, TObject> {
   type: (value: T) => void;
-  target: TObject;
-  targetContext: ObjectDecorator<TObject>;
+  objectType: TObject;
+  objectContext: ObjectDecorator<TObject>;
   name: string | symbol;
   metadata: Metadata;
   addInitializer(initializer: () => void): void;
@@ -442,8 +442,8 @@ interface ObjectSetterDecorator<T, TObject> {
 ```js
 interface ObjectMethodDecorator<T extends (...args:[].<any>) => any, TObject> {
   type: T;
-  target: TObject;
-  targetContext: ObjectDecorator<TObject>;
+  objectType: TObject;
+  objectContext: ObjectDecorator<TObject>;
   key: string | symbol;
   metadata: Metadata; // on the instance
 }
@@ -453,8 +453,8 @@ interface ObjectMethodDecorator<T extends (...args:[].<any>) => any, TObject> {
 ```js
 interface ParameterDecorator<T, TMethod, TObject> {
   type: T;
-  target: TMethod;
-  targetContext: ObjectMethodDecorator<TMethod, TObject>
+  objectType: TMethod;
+  objectContext: ObjectMethodDecorator<TMethod, TObject>
   key: string | symbol;
   index: number;
 }
@@ -525,7 +525,6 @@ interface ReturnDecorator<T> {
 ### EnumDecorator
 ```js
 interface EnumDecorator<T> {
-  target: Object;
   type: T;
   metadata: Metadata;
 }
@@ -535,8 +534,8 @@ interface EnumDecorator<T> {
 ```js
 interface EnumEnumeratorDecorator<T, TEnum> {
   type: T;
-  target: TEnum;
-  targetContext: EnumDecorator<TEnum>;
+  enumType: TEnum;
+  enumContext: EnumDecorator<TEnum>;
   name: string;
   index: number;
   metadata: Metadata;
@@ -544,7 +543,7 @@ interface EnumEnumeratorDecorator<T, TEnum> {
 ```
 
 ```js
-function label<T, TEnum>({ target, type, name, index }: EnumEnumeratorDecorator<T, TEnum>) {
+function label<T, TEnum>({ enumType, type, name, index }: EnumEnumeratorDecorator<T, TEnum>) {
   // Should I have the ability to reflect on T? reflectMetadata<T>
 }
 
@@ -589,8 +588,61 @@ WIP, this should be an exhaustive list of common decorator uses including metada
 
 ### Validation
 
-```js
+An existing TypeScript library for reference: https://github.com/typestack/class-validator
 
+A naive example below that assumes we only want to run a validation for the whole object.
+
+```js
+const validatorsSymbol = Symbol('validators');
+
+type NameAndValidator = { name: keyof T, validator: (value:T) => boolean };
+
+function addValidators({ name, classContext: { metadata } }, validator) {
+  (metadata[validatorsSymbol] ??= [].<NameAndValidator>).push({ name, validator });
+}
+
+function Length<TClass>(min: uint32, max: uint32, context: ClassFieldDecorator<string, TClass>) { // Can only be placed on string
+  addValidators(context, value: string => value.length is >= min and <= max);
+}
+function Includes<TClass>(searchString: string, context: ClassFieldDecorator<string, TClass>) {
+  addValidators(context, value: string => value.includes(searchString) });
+}
+function Min<T extends int, TClass>(min: T, context: ClassFieldDecorator<T, TClass>) {
+  addValidators(context, value: T => value >= min });
+}
+function Max<T extends int, TClass>(max: T, context: ClassFieldDecorator<T, TClass>) {
+  addValidators(context, value: T => value <= max });
+}
+function IsEmail<TClass>(context: ClassFieldDecorator<T, TClass>) {
+  addValidators(context, value: string => value.includes('@') }); // :)
+}
+// ...
+
+function validate<T>(o: T) {
+  return (Reflect.getMetadata<T>(validatorsSymbol) as NameAndValidator[]).every(({ name, validator }) => validator(o[name]));
+}
+
+export class Post {
+  @Length(10, 20)
+  title: string;
+
+  @Contains('hello')
+  text: string;
+
+  //@IsInt() // Unnecessary
+  @Min(0)
+  @Max(10)
+  rating: int32;
+
+  @IsEmail()
+  email: string;
+
+  @IsFQDN()
+  site: string;
+
+  @IsZonedDateTime()
+  createDate: Temporal.ZonedDateTime;
+}
 ```
 
 ### Serialization
