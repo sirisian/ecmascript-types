@@ -346,7 +346,7 @@ Rather than defining index functions for various multidimensional and jagged arr
 An example of a user-defined index to access a 16 element grid with ```(x, y)``` coordinates:
 
 ```js
-class GridArray<N: uint32> extends [N].<uint8, uint32> {
+class GridArray<N: uint32> extends [N].<uint8> {
   get operator[](x: uint32, y: uint32) {
     return ref this[y * 4 + x];
   }
@@ -356,7 +356,7 @@ grid[2, 1] = 10;
 ```
 
 ```js
-class GridArray<N: uint32> extends [N].<uint8, uint32> {
+class GridArray<N: uint32> extends [N].<uint8> {
   get operator[](i: uint32) {
     return ref this[i];
   }
@@ -385,6 +385,7 @@ grid[1, 2] = 10;
 Views also work as expected allowing one to apply custom indexing to existing arrays:
 
 ```js
+const grid = new [100].<uint8>();
 const gridView = new GridArray(grid);
 ```
 
@@ -570,11 +571,11 @@ let a:[].<MyType> = [1, 2, 3, 4, 5];
 Implicit array casting already exists for single variables as defined above. It's possible one might want to compactly create instances. The following new syntax allows this:
 
 ```js
-let a = new [].<MyType> = [(10, 20), (30, 40), 10];
+let a: [].<MyType> = [(10, 20), (30, 40), 10];
 ```
 This would be equivalent to:
 ```js
-let a = new [].<MyType> = [new MyType(10, 20), new MyType(30, 40), 10];
+let a: [].<MyType> = [new MyType(10, 20), new MyType(30, 40), 10];
 ```
 
 Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that ```[(10, 20), 30]``` is ```[20, 30]``` when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
@@ -582,7 +583,7 @@ Due to the very specialized syntax it can't be introduced later. In ECMAScript t
 Initializer lists work well with SIMD to create compact arrays of vectors:
 
 ```js
-let a = new [].<float32x4> = [
+let a: [].<float32x4> = [
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
   (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4)
