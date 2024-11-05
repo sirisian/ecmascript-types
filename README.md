@@ -1821,7 +1821,7 @@ A table should be included here with every type and which values evaluate to exe
 
 ## switch
 
-The variable when typed in a switch statement must be integral or a string type. Specifically ```int8/16/32/64```, ```uint8/16/32/64```, ```number```, and ```string```. Most languages do not allow floating point case statements unless they also support ranges. (This could be considered later without causing backwards compatability issues).
+The variable when typed in a switch statement must be integral, string, or symbol type. Specifically ```int8/16/32/64```, ```uint8/16/32/64```, ```number```, and ```string```. Most languages do not allow floating point case statements unless they also support ranges. (This could be considered later without causing backwards compatability issues).
 
 Enumerations can be used dependent on if their type is integral or string.
 ```js
@@ -1829,14 +1829,14 @@ let a: uint32 = 10;
 switch (a) {
   case 10:
     break;
-  case `baz`: // TypeError unexpected string literal, expected uint32 literal
+  case 'baz': // TypeError unexpected string literal, expected uint32 literal
     break;
 }
 ```
 
 ```js
 let a: float32 = 1.23;
-//switch (a) { // TypeError float32 cannot be used in the switch variable
+//switch (a) { // TypeError float32 is not a valid type for switch expression
 //}
 ```
 
