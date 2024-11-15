@@ -21,6 +21,23 @@ const a: [100].<float32>;
 Math.random.<float32>(a);
 ```
 
+When used with an integer type it will generate a random integer in their range.
+
+```int8```, ```int16```, ```int32```, ```int64```  
+```uint8```, ```uint16```, ```uint32```, ```uint64```
+
+```js
+const a = Math.random.<uint8>();
+a; // 0 to 255
+```
+
+Generating a random RGB color:
+```js
+const a: [3].<uint8>;
+Math.random.<uint8>(a);
+a; // [100, 20, 25] as an example
+```
+
 ### Math.random.<T, Method=???>(min: T, max: T)
   
 For generating between a min and max inclusive the following data types are allowed:
