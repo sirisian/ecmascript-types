@@ -1065,6 +1065,8 @@ function F(a:uint8) {}
 F(8);
 ```
 
+See the [Type Records](typerecords.md) page for more information on signatures.
+
 #### Overloading on Return Type
 
 ```js
@@ -1613,38 +1615,9 @@ Enum values can reference previous values:
 enum E { A = 0, B = A + 5 };
 ```
 
-### Rest Parameters
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
+### Named Parameters
 
-```js
-function F(a: string, ...args: uint32) {}
-F('a', 0, 1, 2, 3);
-```
-Rest parameters are valid for signatures:
-```js
-let a:(...: uint8);
-```
-Multiple rest parameters can be used:
-```js
-function F(a: string, ...args: uint32, ...args2: string, callback: ()) {}
-F('a', 0, 1, 2, 'a', 'b', () => {});
-```
-Dynamic types have less precedence than typed parameters:
-```js
-function F(...args1, callback: (), ...args2, callback: ()) {}
-F('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
-```
-Rest array destructuring:
-```js
-function f(...[a:uint8, b:uint8, c:uint8]) {
-  return a + b + c;
-}
-```
-
-### Named Arguments
-
-Named arguments are a compact way to skip default parameters.
+Named parameters are a compact way to skip default parameters.
 
 ```js
 function F(a: uint8, b: string = 0, ...args: string) {}
@@ -1669,7 +1642,7 @@ interface Config {
   max: uint32
 }
 
-function f(...Config) {
+function f(...{ ...Config }) {
   console.log(name, min, max);
 }
 ```
@@ -1690,6 +1663,42 @@ function f(...Mixed: mixed) {
     IntType: // int handling
   }
 }
+```
+
+### Rest Parameters
+- [x] Proposal Specification Grammar
+- [ ] Proposal Specification Algorithms
+
+```js
+function F(a: string, ...args: [].<uint32>) {}
+F('a', 0, 1, 2, 3);
+```
+Rest parameters are valid for signatures:
+```js
+let a:(...: [].<uint8>);
+```
+Multiple rest parameters can be used:
+```js
+function F(a: string, ...args: [].<uint32>, ...args2: [].<string>, callback: ()) {}
+F('a', 0, 1, 2, 'a', 'b', () => {});
+```
+Dynamic types have less precedence than typed parameters:
+```js
+function F(...args1, callback: (), ...args2, callback: ()) {}
+F('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
+```
+Rest array destructuring:
+```js
+function f(...[a: uint8, b: uint8, c: uint8]) {
+  return a + b + c;
+}
+```
+
+The behavior of rest parameters can create confusing signatures. While these are allowed, they aren't recommedned. Arguments are taken by parameters greedily and given back to satisfy signatures.
+```js
+function f(...a: [].<uint32>, ...b: [].<uint32>, c: uint32): void {}
+f(0, 1, 2); // a: [0, 1], b: [], c: 2
+f(a: 0, 1, 2, b: 3, 4, 5, 6); // a: [0, 1, 2], b: [3, 4, 5], c: 6
 ```
 
 ### Try Catch
