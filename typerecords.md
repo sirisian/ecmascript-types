@@ -1,10 +1,10 @@
-# Type Records
+# Type Format
 
-An exposed type record is available to programmers. This can also be used internally in engines.
+An exposed type format is available to programmers. This can also be used internally in engines.
 
 ### Deterministic format
 
-TODO: Identical types should encode to the same record. (Define this algorithm). Basically expanding all the references to types should create identical records between the same types independent of their order in unions and intersections. Sorting should be somewhat sufficient?
+TODO: Identical types encode to the same record. (Define this algorithm). Basically expanding all the references to types should create identical records between the same types independent of their order in unions and intersections. Sorting should be somewhat sufficient?
 
 ### Union
 
@@ -95,21 +95,48 @@ const T = type
 
 ### function type
 
-Functions have a signature defined by a parameter tuple and a return type.
+Functions have a signature defined by a parameters record and a return type.
 
 ```js
 const T = type function(x: number): string { return x.toString(); }
 
 #{
-  parameters: #[
-    #{
-      name: 'x',
-      type: number
-    }
-  ],
+  parameters: #{
+    x: number
+  },
   return: string
 }
 ```
+
+This use of a record means that these two functions have the same signature and the second would produce a TypeError:
+
+```js
+function f(x: number, y: string): void {}
+function f(y: string, x: number): void {}
+```
+
+When using named parameters ```f(x: 0, y: 'abc')``` such calls would have been ambiguous also.
+
+#### Optional parameter
+
+```js
+function f(x?: boolean): void {}
+//function f(x: boolean = true): void {} // Identical signature
+
+const T = type f;
+
+#{
+  parameters: #{
+    x: #{
+      type: boolean,
+      optional: true
+    }
+  },
+  return: void
+}
+```
+
+(Note: ```optional``` is used because expanding these to unique signatures would mean a function with 8 optional parameters would have 256 signatures).
 
 #### Overloaded functions
 
@@ -125,23 +152,26 @@ const T = type f;
 #{
   union: #[
     #{
-      parameters: #[#{ name: 'x', type: string }],
+      parameters: #{
+        x: string,
+        y: #{
+          type: boolean,
+          optional: true
+        }
+      },
       return: number
     },
     #{
-      parameters: #[#{ name: 'x', type: number }],
+      parameters: #{
+        x: number
+      },
       return: string
-    },
-    #{
-      parameters: #[
-        #{ name: 'x', type: string },
-        #{ name: 'y', type: boolean }
-      ],
-      return: number
     }
   ]
 }
 ```
+
+Note, I don't like this setup using a tuple. I would much rather use a set if they were added as the order of signatures doesn't matter.
 
 #### Generic function
 
@@ -155,42 +185,53 @@ function complex<T extends number, U extends Array<T>, V>(
 ): U { ... }
 
 #{
-  parameters: #[
-    #{ name: 'T', type: type, constraint: number },
-    #{ name: 'U', type: type, constraint: Array<T> },
-    #{ name: 'V', type: type },
-    #{ name: 'x', type: U },
-    #{ name: 'y', type: type (T) => V },
-    #{ name: 'z', type: type Map<V, T> }
+  parameters: #{
+    T: #{
+      type: type,
+      constraint: number
+    },
+    U: #{
+      type: type,
+      constraint: #{
+        type: Array,
+        parameters: #[
+          #{ parameter: 'T' }
+        ]
+      }
+    },
+    V: #{
+      type: type
+    },
+    x: #{
+      type: #{ parameter: 'U' }
+    },
+    y: #{
+      type: #{
+        parameters: #[
+          #{
+            name: 't',
+            type: #{ parameter: 'T' }
+          }
+        ],
+        return: #{ parameter: 'V' }
+      }
+    },
+    z: #{
+      type: #{
+        type: Map,
+        parameters: #{
+          K: #{ parameter: 'V' },
+          V: #{ parameter: 'T' }
+        }
+      }
+    }
   ],
-  return: U
-}
-
-// Expanding the types further yields:
-
-#{
-  parameters: #[
-    #{ name: 'T', type: type, constraint: number},
-    #{ name: 'U', type: type, constraint: #{
-      type: Array,
-      parameters: #[T]
-    } },
-    #{ name: 'V', type: type},
-    #{ name: 'x', type: U},
-    #{ name: 'y', type: #{
-      parameters: #[#{type: T}],
-      return: V
-    } },
-    #{ name: 'z', type: #{
-      type: Map,
-      parameters: #[V, T]
-    } }
-  ],
-  return: U
+  return: #{ parameter: 'U' }
 }
 ```
 
-I'm unsure how the generic parameter syntax should look. You'll notice I'm using T and U as variables here. They could be ```#{ parameter: 'T' }```?
+function f(x: number, y: string) {}
+function f(y: string, x: number) {}
 
 Is there any edge case where a parameter needs to be marked explicit/implicit?
 
@@ -216,13 +257,9 @@ const T = type interface {
     },
     #{
       name: 'f',
-      parameters: #[
-        #{
-          name: 'value',
-          type: number
-        },
-        #{
-          name: 'value',
+      parameters: #{
+        value: number,
+        foo: #{
           type: [].<number>,
           rest: true
         }
@@ -277,20 +314,29 @@ class Pair<T, U> {
 const T = type Pair;
 
 #{
-  parameters: #[
-    #{name: 'T', type: type},
-    #{name: 'U', type: type}
+  parameters: #{
+    T: type,
+    U: type
   ],
   properties: #[
-    #{name: 'first', type: T},
-    #{name: 'second', type: U},
+    #{
+      name: 'first',
+      type: #{ parameter: 'T' }
+    },
+    #{
+      name: 'second',
+      type: #{ parameter: 'U' }
+    },
     #{
       name: 'swap',
       type: #{
-        parameters: #[],
+        parameters: #{},
         return: #{
           type: Pair,
-          parameters: #[U, T]
+          parameters: #{
+            T: #{ parameter: 'U' }
+            U: #{ parameter: 'T' }
+          }
         }
       }
     }
@@ -422,3 +468,11 @@ Note: This works for generic parameters also
 I don't have a 'kind' applied to records. Should functions, classes, etc have a kind? Often their properties infer their kind. Is this sufficient?
 
 Operators to check extends true or false between two type records?
+
+If you add a new overload to a function dynamically, then previous type records would no longer match the new one. In practice what problems would this cause?
+
+## Other Notes
+
+### Getting parameter order or other metadata about functions?
+
+I'm thinking that there would be a ```type.info``` operator that returns a more verbose reflection of the current type definition. This would include all the overloads including their default values or references to their initializers. This would not be a record. It could also include serialization information.
