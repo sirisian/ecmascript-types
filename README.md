@@ -1065,6 +1065,12 @@ function F(a:uint8) {}
 F(8);
 ```
 
+Be aware that rest parameters can create identical signatures also.
+```js
+function f(a: float32): void {}
+// function f(...a: [].<float32>): void {} // TypeError: A function declaration with that signature already exists
+```
+
 See the [Type Records](typerecords.md) page for more information on signatures.
 
 #### Overloading on Return Type
