@@ -235,13 +235,13 @@ Also all fixed-length typed arrays use a SharedArrayBuffer by default.
 ### Mixing Variable-length and Fixed-length Arrays
 
 ```js
-function F(c:boolean):[].<uint8> { // default case, return a resizable array
+function f(c:boolean):[].<uint8> { // default case, return a resizable array
   let a: [4].<uint8> = [0, 1, 2, 3];
   let b: [6].<uint8> = [0, 1, 2, 3, 4, 5];
   return c ? a : b;
 }
 
-function F(c:boolean):[6].<uint8> { // Resizes a if c is true
+function f(c:boolean):[6].<uint8> { // Resizes a if c is true
   let a: [4].<uint8> = [0, 1, 2, 3];
   let b: [6].<uint8> = [0, 1, 2, 3, 4, 5];
   return c ? a : b;
@@ -396,10 +396,10 @@ const gridView = new GridArray(grid);
 The default numeric type Number would convert implicitly with precedence given to ```decimal128/64/32```, ```float128/80/64/32/16```, ```uint64/32/16/8```, ```int64/32/16/8```. (This is up for debate). Examples are shown later with class constructor overloading.
 
 ```js
-function F(a: float32) {}
-function F(a: uint32) {}
-F(1); // float32 called
-F(1 as uint32); // uint32 called
+function f(a: float32) {}
+function f(a: uint32) {}
+f(1); // float32 called
+f(1 as uint32); // uint32 called
 ```
 
 It's also possible to use operator overloading to define implicit casts. The following casts to a heterogeneous tuple:
@@ -435,19 +435,19 @@ Many truncation rules have intuitive rules going from larger bits to smaller bit
 
 A typed function defaults to a return type of ```undefined```. In almost every case where ```undefined``` might be needed it's implicit and defining it is not allowed.
 ```js
-function F() {} // return type any
-// function F(a: int32) { return 10; } // TypeError: Function signature for F, undefined, does not match return type, number.
-function G(a: int32) {} // return type undefined
-// function G(a: int32):undefined {} // TypeError: Explicitly defining a return type of undefined is not allowed.
+function f() {} // return type any
+// function f(a: int32) { return 10; } // TypeError: Function signature for F, undefined, does not match return type, number.
+function g(a: int32) {} // return type undefined
+// function g(a: int32):undefined {} // TypeError: Explicitly defining a return type of undefined is not allowed.
 ```
 The only case where ```undefined``` is allowed is for functions that take no parameters where the return type signals it's a typed function.
 ```js
-function F(): undefined {}
+function f(): undefined {}
 ```
 
 An example of applying more parameter constraints:
 ```js
-function F(a: int32, b: string, c: [].<bigint>, callback: (boolean, string) => string = (b, s = 'none') => b ? s : ''): int32 {}
+function f(a: int32, b: string, c: [].<bigint>, callback: (boolean, string) => string = (b, s = 'none') => b ? s : ''): int32 {}
 ```
 
 #### Optional Parameters
@@ -455,9 +455,9 @@ function F(a: int32, b: string, c: [].<bigint>, callback: (boolean, string) => s
 While function overloading can be used to handle many cases of optional arguments it's possible to define one function that handles both:
 
 ```js
-function F(a: uint32, b?: uint32) {}
-F(1);
-F(1, 2);
+function f(a: uint32, b?: uint32) {}
+f(1);
+f(1, 2);
 ```
 
 ### Typed Arrow Functions
@@ -522,16 +522,16 @@ let b:uint64 = 9007199254740992 + 9007199254740993; // 18014398509481985
 Types propagate to arguments as well.
 
 ```js
-function F(a: uint64) {}
-F(9007199254740992 + 9007199254740993); // 18014398509481985
+function f(a: uint64) {}
+f(9007199254740992 + 9007199254740993); // 18014398509481985
 ```
 
 Consider where the literals are not directly typed. In this case they are typed as Number as expected:
 
 ```js
-function F(a: uint64) {}
+function f(a: uint64) {}
 const a = 9007199254740992 + 9007199254740993;
-F(a); // 18014398509481984
+f(a); // 18014398509481984
 ```
 
 In typed code this behavior of propagating types to literals means that suffixes aren't required by programmers.
@@ -592,9 +592,9 @@ let a: [].<float32x4> = [
 
 Since this works for any type the following works as well. The typed array is propagated to the argument.
 ```js
-function F(a: [].<float32x4>) {
+function f(a: [].<float32x4>) {
 }
-F([(1, 2, 3, 4)]);
+f([(1, 2, 3, 4)]);
 ```
 
 ### Destructuring Assignment Casting
@@ -604,7 +604,7 @@ F([(1, 2, 3, 4)]);
 Array destructuring with default values:
 
 ```js
-[a: uint32 = 1, b: float32 = 2] = F();
+[a: uint32 = 1, b: float32 = 2] = f();
 ```
 
 Object destructuring with default values:
@@ -692,71 +692,70 @@ b; // { x: 2, y: 3 }
 
 Basic array destructuring:
 ```js
-function F(): [uint8, uint32] {
+function f(): [uint8, uint32] {
   return [1, 2];
 }
-const [a, b] = F();
+const [a, b] = f();
 ```
 
 Array defaults
 ```js
-function F(): [uint8, uint32 = 10] {
+function f(): [uint8, uint32 = 10] {
   return [1];
 }
-const [a, b] = F(); // a is 1 and b is 10
+const [a, b] = f(); // a is 1 and b is 10
 ```
 
 Basic object destructuring:
 ```js
-function F(): { a: uint8; b: float32; } {
+function f(): { a: uint8; b: float32; } {
   return { a: 1, b: 2 };
 }
-const { a, b } = F();
+const { a, b } = f();
 ```
 
 Object defaults:
 ```js
-function F():{ a: uint8; b: float32 = 10; } {
+function f():{ a: uint8; b: float32 = 10; } {
   return { a: 1 };
 }
-const { a, b } = F(); // { a: 1, b: 10 }
+const { a, b } = f(); // { a: 1, b: 10 }
 ```
 
 Overloaded example for the return type:
 ```js
-function F(): [int32] {
+function f(): [int32] {
   return [1];
 }
-function F(): [int32, int32] {
+function f(): [int32, int32] {
   return [2, 3];
 }
-function F(): { a: uint8; b: float32; } {
+function f(): { a: uint8; b: float32; } {
   return { a: 1, b: 2 };
 }
-const [a] = F(); // a is 1
-const [b, ...c] = F(); // b is 2 and c is [3]
-const { a: d, b: e } = F(); // d is 1 and e is 2
+const [a] = f(); // a is 1
+const [b, ...c] = f(); // b is 2 and c is [3]
+const { a: d, b: e } = f(); // d is 1 and e is 2
 ```
 See the section on overloading return types for more information: https://github.com/sirisian/ecmascript-types#overloading-on-return-type
 
 Explicitly selecting an overload:
 ```js
-function F(): [int32] {
+function f(): [int32] {
   return [1];
 }
-function F(): [float32] {
+function f(): [float32] {
   return [2.0];
 }
-const [a: int32] = F();
-const [a: float32] = F();
+const [a: int32] = f();
+const [a: float32] = f();
 ```
 
 TypeError example:
 
 ```js
-function F(): [int32, float32] {
-  return [1, 2];
-  // return [1]; // TypeError, expected float32 in returned array for second element
+function f(): [int32, float32] {
+  // return [1]; // TypeError, expected [int32, float32]
 }
 ```
 
@@ -778,7 +777,7 @@ interface IExample {
   // c: any = [];
 }
 
-function F(): IExample {
+function f(): IExample {
   return { a: 'a', b: x => x };
 }
 ```
@@ -786,7 +785,7 @@ function F(): IExample {
 Similar to other types an object interface can be made nullable and also made into an array with ```[]```.
 
 ```js
-function F(a: [].<IExample> | null) {
+function f(a: [].<IExample> | null) {
 }
 ```
 
@@ -796,10 +795,10 @@ An object that implements an interface cannot be modified in a way that removes 
 interface IExample {
   a: string;
 }
-function F(a: IExample) {
+function f(a: IExample) {
   // delete a.a; // TypeError: Property 'a' in interface IExample cannot be deleted
 }
-F({ a: 'a' });
+f({ a: 'a' });
 ```
 In this example the object argument is cast to an IExample since it matches the shape.
 
@@ -830,7 +829,7 @@ interface IExample [
 ```
 
 ```js
-function F(): IExample {
+function f(): IExample {
   return ['a', 1];
 }
 ```
@@ -851,7 +850,7 @@ interface IExample {
 ```
 
 ```js
-function F(a:IExample) {
+function f(a:IExample) {
   a('a', 1);
   // a('a'); // TypeError: No matching signature for (string).
 }
@@ -863,10 +862,10 @@ Signature equality checks ignore renaming:
 interface IExample {
   ({ (a: uint32) }): uint32
 }
-function F(a: IExample) {
+function f(a: IExample) {
   a({ a: 1 }); // 1
 }
-F(({(a:uint32):b}) => b); // This works since the signature check ignores any renaming
+f(({(a:uint32):b}) => b); // This works since the signature check ignores any renaming
 ```
 
 An example of taking a typed object:
@@ -874,10 +873,10 @@ An example of taking a typed object:
 interface IExample {
   ({ a: uint32; }): uint32;
 }
-function F(a:IExample) {
+function f(a:IExample) {
   a({ a: 1 }); // 1
 }
-F(a => a.a);
+f(a => a.a);
 ```
 
 Argument names in function interfaces are optional. This to support named arguments. Note that if an interface is used then the name can be changed in the passed in function. For example:
@@ -886,10 +885,10 @@ Argument names in function interfaces are optional. This to support named argume
 interface IExample {
   (string = 5, uint32: named);
 }
-function F(a: IExample) {
+function f(a: IExample) {
   a(named: 10); // 10
 }
-F((a, b) => b);
+f((a, b) => b);
 ```
 
 The interface in this example defines the mapping for "named" to the second parameter.
@@ -937,7 +936,7 @@ interface A {
 interface B extends A {
   b: (uint32) => uint32;
 }
-function F(c: B) {
+function f(c: B) {
   c.a = 'a';
   c.b = b => b;
 }
@@ -952,7 +951,7 @@ interface A {
 interface B extends A {
   (string, string);
 }
-function F(a: B) {
+function f(a: B) {
   a('a');
   a('a', 'b');
 }
@@ -1030,39 +1029,39 @@ let { a, b } := { (a: uint8): 1, (b: uint32): 2 }; // a is type uint8 and b is t
 All function can be overloaded if the signature is non-ambiguous. A signature is defined by the parameter types and return type. (Return type overloading is covered in a subsection below as this is rare).
 
 ```js
-function F(x: [].<int32>): string { return 'int32'; }
-function F(s: [].<string>): string { return 'string'; }
-F(['test']); // "string"
+function f(x: [].<int32>): string { return 'int32'; }
+function f(s: [].<string>): string { return 'string'; }
+f(['test']); // "string"
 ```
 
 Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like ```F['(int32[])']``` wouldn't be viable. It's possible ```Reflect``` could have something added to it to allow access.
 
 Signatures must match for a typed function:
 ```js
-function F(a: uint8, b: string) {}
-// F(1); // TypeError: Function F has no matching signature
+function f(a: uint8, b: string) {}
+// f(1); // TypeError: Function F has no matching signature
 ```
 
 Adding a normal untyped function acts like a catch all for any arguments:
 
 ```js
-function F() {} // untyped function
-function F(a: uint8) {}
-F(1, 2); // Calls the untyped function
+function f() {} // untyped function
+function f(a: uint8) {}
+f(1, 2); // Calls the untyped function
 ```
 
 If the intention is to created a typed function with no arguments then setting the return value is sufficient:
 
 ```js
-function F() {}
-// F(1); // TypeError: Function F has no matching signature
+function f() {}
+// f(1); // TypeError: Function F has no matching signature
 ```
 
 Duplicate signatures are not allowed:
 ```js
-function F(a:uint8) {}
-// function F(a: uint8, b: string = 'b') {} // TypeError: A function declaration with that signature already exists
-F(8);
+function f(a:uint8) {}
+// function f(a: uint8, b: string = 'b') {} // TypeError: A function declaration with that signature already exists
+f(8);
 ```
 
 Be aware that rest parameters can create identical signatures also.
@@ -1076,25 +1075,25 @@ See the [Type Records](typerecords.md) page for more information on signatures.
 #### Overloading on Return Type
 
 ```js
-function F(): uint32 {
+function f(): uint32 {
   return 10;
 }
-function F(): string {
+function f(): string {
   return "10";
 }
-// F(); // TypeError: Ambiguous signature for F. Requires explicit left-hand side type or cast.
-const a: string = F(); // "10"
-const b: uint32 = F(); // 10
+// f(); // TypeError: Ambiguous signature for F. Requires explicit left-hand side type or cast.
+const a: string = f(); // "10"
+const b: uint32 = f(); // 10
 
-function G(a:uint32):uint32 {
+function g(a:uint32):uint32 {
   return a;
 }
-G(F()); // 10
+g(f()); // 10
 
-function H(a:uint8) {}
-function H(a:string) {}
-// H(F()); // TypeError: Ambiguous signature for F. Requires explicit left-hand side type or cast.
-H(uint32(F()));
+function h(a:uint8) {}
+function h(a:string) {}
+// h(f()); // TypeError: Ambiguous signature for F. Requires explicit left-hand side type or cast.
+h(uint32(f()));
 ```
 
 Overloading return types is especially useful on operators. Take SIMD operators, represented here by their intrinsic, that can return both a vector register or mask:
@@ -1124,7 +1123,7 @@ operator<(v: int32x4): boolean8 {}
 Typed promises use a generic syntax where the resolve and reject type default to any.
 
 ```js
-Promise.<R extends any, E extends any>
+Promise<R extends any, E extends any>
 ```
 
 ```js
@@ -1134,14 +1133,14 @@ const a = new Promise.<uint8, Error>((resolve, reject) => {
 ```
 To keep things consistent, the async version has the same return type.
 ```js
-async function F(): Promise.<uint8, Error> {
+async function f(): Promise.<uint8, Error> {
   return 0;
 }
 ```
 If a Promise never throws anything then the following can be used:
 
 ```js
-async function F(): Promise.<uint8, undefined> {
+async function f(): Promise.<uint8, undefined> {
   return 0;
 }
 ```
@@ -1153,11 +1152,11 @@ Right now there's no check except the runtime check when a function actually thr
 While ```async``` functions and synchronous functions can overload the same name, they must have unique signatures.
 
 ```js
-async function F(): Promise.<any, Error> {}
-/* function F(): Promise.<any, Error> { // TypeError: A function with that signature already exists
+async function f(): Promise.<any, Error> {}
+/* function f(): Promise.<any, Error> { // TypeError: A function with that signature already exists
     return new Promise.<any, Error>((resolve, reject) => {});
 } */
-await F();
+await f();
 ```
 
 Refer to the try catch section on how different exception types would be explicitly captured: https://github.com/sirisian/ecmascript-types#try-catch
@@ -1626,11 +1625,11 @@ enum E { A = 0, B = A + 5 };
 Named parameters are a compact way to skip default parameters.
 
 ```js
-function F(a: uint8, b: string = 0, ...args: string) {}
-F(8, args: 'a', 'b');
+function f(a: uint8, b: string = 0, ...args: string) {}
+f(8, args: 'a', 'b');
 
-function G(option1: string, option2: string) {}
-G(option2: 'a'); // TypeError no signature for G matches (option2: string)
+function g(option1: string, option2: string) {}
+g(option2: 'a'); // TypeError no signature for G matches (option2: string)
 ```
 
 Spread operator on an object will implement an iterable:
@@ -1676,8 +1675,8 @@ function f(...Mixed: mixed) {
 - [ ] Proposal Specification Algorithms
 
 ```js
-function F(a: string, ...args: [].<uint32>) {}
-F('a', 0, 1, 2, 3);
+function f(a: string, ...args: [].<uint32>) {}
+f('a', 0, 1, 2, 3);
 ```
 Rest parameters are valid for signatures:
 ```js
@@ -1685,13 +1684,13 @@ let a:(...: [].<uint8>);
 ```
 Multiple rest parameters can be used:
 ```js
-function F(a: string, ...args: [].<uint32>, ...args2: [].<string>, callback: ()) {}
-F('a', 0, 1, 2, 'a', 'b', () => {});
+function f(a: string, ...args: [].<uint32>, ...args2: [].<string>, callback: ()) {}
+f('a', 0, 1, 2, 'a', 'b', () => {});
 ```
 Dynamic types have less precedence than typed parameters:
 ```js
-function F(...args1, callback: (), ...args2, callback: ()) {}
-F('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
+function f(...args1, callback: (), ...args2, callback: ()) {}
+f('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
 ```
 Rest array destructuring:
 ```js
@@ -1754,11 +1753,11 @@ https://github.com/rbuckton/proposal-refs
 The only difference with the above is that reference objects have operator overloading so there's no exposed ```value```.
 
 ```js
-function F(ref a: int32) {
+function f(ref a: int32) {
   a++;
 }
 let a = 0;
-F(ref a);
+f(ref a);
 a; // 1
 ```
 
@@ -1766,17 +1765,17 @@ If a property is in an object this can also be concise:
 
 ```js
 const o = { a: 0 };
-F(ref o.a);
+f(ref o.a);
 o.a; // 1
 ```
 
 Destructuring syntax supports references as well:
 ```js
-function F({ (ref a: int32) }) {
+function f({ (ref a: int32) }) {
  a++;
 }
 const o = { a: 0 };
-F(ref o);
+f(ref o);
 o.a; // 1
 ```
 
@@ -1800,21 +1799,21 @@ const a: [10].<A>;
 const b = ref a[0];
 b.a = 10;
 
-function F(ref c: A) {
+function f(ref c: A) {
   c.a = 10;
 }
-F(ref a[1]);
+f(ref a[1]);
 ```
 
 Functions can return a reference to an array value as well.
 ```js
-function F(a): int32 {
+function f(a): int32 {
   return ref a[0];
 }
 const a: [10].<int32>;
-F(a)++; // This is new syntax where the post-increment operates immediately on the returned value
+f(a)++; // This is new syntax where the post-increment operates immediately on the returned value
 a[0]; // 1
-let ref b = F(a);
+let ref b = f(a);
 b = 10;
 a[0]; // 10
 ```
