@@ -112,7 +112,7 @@ This use of a record means that these two functions have the same signature and 
 
 ```js
 function f(x: number, y: string): void {}
-function f(y: string, x: number): void {}
+// function f(y: string, x: number): void {} // TypeError: A function 'f' with that signature already exists.
 ```
 
 When using named parameters ```f(x: 0, y: 'abc')``` such calls would have been ambiguous also.
@@ -229,9 +229,6 @@ function complex<T extends number, U extends Array<T>, V>(
   return: #{ parameter: 'U' }
 }
 ```
-
-function f(x: number, y: string) {}
-function f(y: string, x: number) {}
 
 Is there any edge case where a parameter needs to be marked explicit/implicit?
 
@@ -448,6 +445,8 @@ keyof T;
   ]
 }
 ```
+
+Would need to make this iterable though ideally without just returning the tuple.
 
 #### Get property type by property name
 
