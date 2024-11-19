@@ -2,16 +2,16 @@
 
 ECMAScript needs real threading where any function can be spawned as a thread to run asynchronously. Most value type data should be accessible across threads with some operations being atomic automatically. The syntax for creating and managing threads should be very minimal and effortless to use.
 
-For example, you should be able to define a global ```a:uint32``` and in a thread ```Atomics.add(a, 5)``` it without shuffling it into a typed array.
+For example, you should be able to define a global ```a: uint32``` and in a thread ```Atomics.add(a, 5)``` it without shuffling it into a typed array.
 
 ```js
-let a:uint32 = 0; 
+let a: uint32 = 0; 
 function A() {
-    Atomics.add(a, 5);
+  Atomics.add(a, 5);
 }
 async function B() {
-    A();
-    Atomics.add(a, 5);
+  A();
+  Atomics.add(a, 5);
 }
 // Naive call syntax to show these execute on their own thread and callThread returns a promise.
 await Promise.all([A.callThread(), B.callThread()]); // Join
@@ -24,11 +24,11 @@ It was my hope that a Cancelable Promise proposal would have been finalized by n
 
 Some value type operations would be atomic automatically. Addition on integers for instance.
 ```js
-let a:uint32 = 0;
+let a: uint32 = 0;
 function A() {
-    while (true) {
-        a += 5;
-    }
+  while (true) {
+    a += 5;
+  }
 }
 A.callThread();
 await new Promise(resolve => setTimeout(resolve, 100));
