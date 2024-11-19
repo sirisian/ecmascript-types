@@ -14,6 +14,13 @@ TODO: Identical types encode to the same record. (Define this algorithm). Basica
 }
 ```
 
+### Intersection 
+```js
+#{
+  intersection: #[]
+]
+```
+
 #### Literals
 
 Any literals, including Symbols, can be used in a type.
@@ -84,13 +91,6 @@ const T = type
     }
   ]
 }
-```
-
-### Intersection 
-```js
-#{
-  intersection: #[]
-]
 ```
 
 ### function type
