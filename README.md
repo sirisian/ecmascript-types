@@ -1053,7 +1053,7 @@ f(1, 2); // Calls the untyped function
 If the intention is to created a typed function with no arguments then setting the return value is sufficient:
 
 ```js
-function f() {}
+function f(): void {}
 // f(1); // TypeError: Function F has no matching signature
 ```
 
