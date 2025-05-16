@@ -18,7 +18,7 @@ TODO: Identical types encode to the same record. (Define this algorithm). Basica
 ```js
 #{
   intersection: #[]
-]
+}
 ```
 
 #### Literals
