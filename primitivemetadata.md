@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Primitive/value types lack information about what their value means and where it's relevant. Units of measure are a common example where the value ```1``` can be used anywhere as it's dimensionless; however, the value and unit ```1m```, 1 meter, is more specific and might only work in certain situations. The ```m``` can be thought of as metadata attached to the type that the language can use to further restrict where it's accepted. Operations performed on such a value and unit can modify the unit portion. This is just applying custom operators on the metadata, like when multiplying two lengths the metadata changes to represent m**2.
+Primitive/value types lack information about what their value means and where it's relevant. Units of measure are a common example where the value ```1``` can be used anywhere as it's dimensionless; however, the value and unit ```1m```, 1 meter, is more specific and might only work in certain situations. The ```m``` can be thought of as metadata attached to the type that the language can use to further restrict where it's accepted. Operations performed on such a value and unit can modify the unit portion. This is just applying custom operators on the metadata, like when multiplying two lengths the metadata changes to represent ```m**2```.
 
 Rather than hardcoding specific metadata features into the language, like units of measure, a system should be defined that allows any metadata to coexist with a primitive value. This document specifies a system for attaching structured metadata to primitive types, enabling compile-time and runtime dimensional analysis (units of measure), value constraints (JSON Schema constraints), and user-defined operator semantics.
 
@@ -886,7 +886,7 @@ const speed: Velocity = distance / time;
 // Bounds: no bounds on either -> default {} -> not present in result
 // Result: float32<{ m: 1, kg: 0, s: -1, ratio: 1.0 }> matches Velocity
 
-const mass: Kilogram = Kilogram(80);
+const mass: Kilogram = 80;
 const accel: Acceleration = speed / time;
 const force: Newton = mass * accel;
 const energy: Joule = force * distance;
