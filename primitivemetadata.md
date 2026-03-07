@@ -1088,7 +1088,7 @@ type NumberBounds = {
 };
 
 type StringBounds = {
-	pattern?: string,
+	pattern?: RegExp,
 	minLength?: uint32,
 	maxLength?: uint32
 };
@@ -1135,8 +1135,8 @@ validateInstance(user); // false, pattern violated
 ### JSON Serialization with field name overrides
 
 ```js
-type StringConstraints = {
-	pattern?:   string,
+type StringBounds = {
+	pattern?: RegExp,
 	minLength?: uint32,
 	maxLength?: uint32
 };
@@ -1186,7 +1186,7 @@ class UserResponse {
 // Incoming JSON:
 // { "id": 42, "user_name": "alice", "email_address": "a@b.com", "age": 30 }
 const user = deserialize(UserResponse, json);
-// Assignment to `email` triggers: string<StringConstraints>.validate("a@b.com", { pattern: ... })
+// Assignment to `email` triggers: string<StringBounds>.validate("a@b.com", { pattern: ... })
 // Assignment to `age` triggers: number<NumberBounds>.validate(30, { minimum: 0, maximum: 150 })
 
 serialize(user);
