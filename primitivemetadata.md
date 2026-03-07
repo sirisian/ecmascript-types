@@ -1069,7 +1069,7 @@ class User {
 // Metadata approach
 class User {
 	age: number<{ minimum: 0, maximum: 150 }>;
-	email: string<{ pattern: "^[^@]+@[^@]+$" }>;
+	email: string<{ pattern: /^[^@]+@[^@]+$/ }>;
 }
 ```
 
@@ -1116,7 +1116,7 @@ class User {
 	@validate
 	age: number<{ minimum: 0, maximum: 150 }>;
 	@validate
-	email: string<{ pattern: "^[^@]+@[^@]+$" }>;
+	email: string<{ pattern: /^[^@]+@[^@]+$/ }>;
 }
 
 const user = new User();
@@ -1178,7 +1178,7 @@ class UserResponse {
 	@field('user_name')
 	userName: string<{ minLength: 1, maxLength: 100 }>;
 	@field('email_address')
-	email: string<{ pattern: "^[^@]+@[^@]+$" }>;
+	email: string<{ pattern: /^[^@]+@[^@]+$/ }>;
 	@field
 	age: number<{ minimum: 0, maximum: 150 }>;
 }
@@ -1244,7 +1244,7 @@ class EventController {
 
 class EventCreate {
 	title: string<{ minLength: 1, maxLength: 200 }>;
-	date: string<{ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }>;
+	date: string<{ pattern: /^\\d{4}-\\d{2}-\\d{2}$/ }>;
 	capacity: uint32<{ minimum: 1, maximum: 10000 }>;
 }
 ```
@@ -1285,7 +1285,7 @@ class SensorReading {
 	@column
 	humidity: float32<{ minimum: 0, maximum: 100 }>; // percentage
 	@column('recorded_at')
-	recordedAt: string<{ pattern: "^\\d{4}-\\d{2}-\\d{2}T" }>;
+	recordedAt: string<{ pattern: /^\\d{4}-\\d{2}-\\d{2}T/ }>;
 }
 
 // ORM builds:
