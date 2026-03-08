@@ -1664,11 +1664,8 @@ const d: Meter = distance(a, b); // magnitude(vec3(-3, -4, 0)) = 5 meters
 
 const dSq: SquareMeter = magnitudeSq(a - b);
 // dot(vec3(-3,-4,0), vec3(-3,-4,0)) = 9 + 16 + 0 = 25 m**2
-```
 
-Squared distance avoids sqrt, useful for comparisons:
-
-```js
+// Squared distance avoids sqrt, useful for comparisons:
 const threshold: SquareMeter = 100;  // 10**2 m**2
 if (dSq < threshold) {
 	// within 10 meters
