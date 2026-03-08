@@ -1299,6 +1299,509 @@ class SensorReading {
 // A corrupted row with temperature = -300 fails validation at the ORM boundary, not deep in business logic.
 ```
 
+## vec3 Example
+
+This is more in-depth and covers function metadata propagation. This is the ```Dimensions``` setup for 3D which is a more practical example.
+
+```js
+// Generic 3-vector parameterized by Dimensions
+// All three components share the same dimensional metadata.
+type vec3<D: Dimensions> = vector<float32<D>, 3>;
+
+// Concrete physics vector types
+type Position = vec3<{ m: 1, kg: 0, s: 0, ratio: 1.0 }>; // meters
+type Velocity3 = vec3<{ m: 1, kg: 0, s: -1, ratio: 1.0 }>; // m/s
+type Acceleration3 = vec3<{ m: 1, kg: 0, s: -2, ratio: 1.0 }>; // m/s**2
+type Force3 = vec3<{ m: 1, kg: 1, s: -2, ratio: 1.0 }>; // N
+type Momentum3 = vec3<{ m: 1, kg: 1, s: -1, ratio: 1.0 }>; // kg*m/s
+type Torque3 = vec3<{ m: 2, kg: 1, s: -2, ratio: 1.0 }>; // N*m
+type AngularVel3 = vec3<{ m: 0, kg: 0, s: -1, ratio: 1.0 }>; // rad/s
+type Unitless3 = vec3<{ m: 0, kg: 0, s: 0, ratio: 1.0 }>; // direction, etc.
+
+// Scalar types (from scalar spec, repeated for context)
+type Meter = float32<{ m: 1, kg: 0, s: 0, ratio: 1.0 }>;
+type Kilogram = float32<{ m: 0, kg: 1, s: 0, ratio: 1.0 }>;
+type Second = float32<{ m: 0, kg: 0, s: 1, ratio: 1.0 }>;
+type Velocity = float32<{ m: 1, kg: 0, s: -1, ratio: 1.0 }>;
+type Newton = float32<{ m: 1, kg: 1, s: -2, ratio: 1.0 }>;
+type Joule = float32<{ m: 2, kg: 1, s: -2, ratio: 1.0 }>;
+type SquareMeter = float32<{ m: 2, kg: 0, s: 0, ratio: 1.0 }>;
+
+// Note: vector.<T, N> has built-in element-wise operators on raw values.
+// So these operators skip redeclaring operator bodies.
+
+primitive vector<float32<D: Dimensions>, 3> {
+
+	// Same-dimension add/subtract
+
+	operator+<D2: Dimensions>(rhs: vec3<D2>): vec3<D>
+		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
+	{
+		if (feq(D.ratio, D2.ratio)) {
+			return this + rhs;
+		}
+		return this + rhs * (D2.ratio / D.ratio);
+	}
+
+	operator-<D2: Dimensions>(rhs: vec3<D2>): vec3<D>
+		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
+	{
+		if (feq(D.ratio, D2.ratio)) {
+			return this - rhs;
+		}
+		return this - rhs * (D2.ratio / D.ratio);
+	}
+
+	// Scalar multiply/divide
+	// vec3<D> * float32 = vec3<D> (scale a vector)
+
+	operator*(rhs: float32): vec3<D>;
+
+	operator/(rhs: float32): vec3<D>;
+
+	// Dimensioned scalar multiply/divide
+	// vec3<D> * float32<D2> = vec3<D*D2>
+	// e.g. Velocity3 * Second = Position
+
+	operator*<D2: Dimensions>(rhs: float32<D2>): vec3<{
+		m: D.m + D2.m,
+		kg: D.kg + D2.kg,
+		s: D.s + D2.s,
+		ratio: D.ratio * D2.ratio
+	}>;
+
+	operator/<D2: Dimensions>(rhs: float32<D2>): vec3<{
+		m: D.m - D2.m,
+		kg: D.kg - D2.kg,
+		s: D.s - D2.s,
+		ratio: D.ratio / D2.ratio
+	}>;
+
+	// Unary
+
+	operator-(): vec3<D>;
+
+	// Compound assignment
+
+	operator+=<D2: Dimensions>(rhs: vec3<D2>): vec3<D>
+		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
+	{
+		if (!feq(D.ratio, D2.ratio)) {
+			this += rhs * (D2.ratio / D.ratio);
+		} else {
+			this += rhs;
+		}
+		return this;
+	}
+
+	operator-=<D2: Dimensions>(rhs: vec3<D2>): vec3<D>
+		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
+	{
+		if (!feq(D.ratio, D2.ratio)) {
+			this -= rhs * (D2.ratio / D.ratio);
+		} else {
+			this -= rhs;
+		}
+		return this;
+	}
+
+	operator*=(rhs: float32): vec3<D>;
+	//{
+	//	this *= rhs;
+	//	return this;
+	//}
+
+	operator/=(rhs: float32): vec3<D>;
+	//{
+	//	this /= rhs;
+	//	return this;
+	//}
+
+	// Comparison
+	// Per-component equality after normalization.
+	// Just an example as float equality requires special handling usually
+
+	operator==<D2: Dimensions>(rhs: vec3<D2>): boolean
+		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
+	{
+		if (feq(D.ratio, D2.ratio)) {
+			return this == rhs;
+		}
+		return this * D.ratio == rhs * D2.ratio;
+	}
+
+	operator!=<D2: Dimensions>(rhs: vec3<D2>): boolean
+		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
+	{
+		return !(this == rhs);
+	}
+}
+
+
+
+// Dot product
+// e.g. dot(Force3, Position) -> Joule (N*m = J)
+//      dot(Velocity3, Velocity3) -> m**2/s**2 (speed**2)
+function dot<D: Dimensions, D2: Dimensions>(
+	a: vec3<D>,
+	b: vec3<D2>
+): float32<{
+	m: D.m + D2.m,
+	kg: D.kg + D2.kg,
+	s: D.s + D2.s,
+	ratio: D.ratio * D2.ratio
+}> {
+	return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+	// Each a[i]*b[i] has Dimensions { D.m+D2.m, D.kg+D2.kg, D.s+D2.s }.
+	// All three products share the same dimension, so + is valid.
+}
+
+// Cross product
+// e.g. cross(Position, Force3) -> Torque3 (m*N = N*m)
+//      cross(Velocity3, Velocity3) -> vec3<m**2/s**2>
+function cross<D: Dimensions, D2: Dimensions>(
+	a: vec3<D>,
+	b: vec3<D2>,
+): vec3<{
+	m: D.m + D2.m,
+	kg: D.kg + D2.kg,
+	s: D.s + D2.s,
+	ratio: D.ratio * D2.ratio
+}> {
+	return vec3(
+		a[1] * b[2] - a[2] * b[1],
+		a[2] * b[0] - a[0] * b[2],
+		a[0] * b[1] - a[1] * b[0]
+	);
+}
+
+// Metadata aware math functions
+
+// Math.sqrt need metadata overloads so that dimensional information propagates through magnitude computations.
+// sqrt(m**2) = m, Valid (2/2 = 1)
+// sqrt(m**2/s**2) = m/s, Valid (2/2 = 1, -2/2 = -1)
+// sqrt(m) = ???, Invalid (1/2 not int32)
+function Math.sqrt<D: Dimensions>(x: float32<D>): float32<{
+	m: D.m / 2,
+	kg: D.kg / 2,
+	s: D.s / 2,
+	ratio: Math.sqrt(D.ratio)
+}>
+where D.m % 2 == 0 && D.kg % 2 == 0 && D.s % 2 == 0;
+
+// Propagate Dimensions metadata
+function Math.hypot<D: Dimensions>(...args: float32<D>[]): float32<D>;
+
+// Magnitude (vector length)
+// Uses Math.hypot, which preserves Dimensions.
+// magnitude(Position) -> Meter
+// magnitude(Force3) -> Newton
+function magnitude<D: Dimensions>(v: vec3<D>): float32<D> {
+	return Math.hypot(v[0], v[1], v[2]);
+}
+
+// Alternative via dot + sqrt (equivalent):
+//function magnitude<D: Dimensions>(v: vec3<D>): float32<D> {
+//	return Math.sqrt(dot(v, v));
+//	// dot(v, v): float32<{ m: 2*D.m, kg: 2*D.kg, s: 2*D.s, ... }>
+//	// Math.sqrt:  halves exponents -> float32<D>
+//}
+
+// Squared magnitude
+// Returns D*D exponents.
+function magnitudeSq<D: Dimensions>(v: vec3<D>): float32<{
+	m: D.m + D.m,
+	kg: D.kg + D.kg,
+	s: D.s + D.s,
+	ratio: D.ratio * D.ratio
+}> {
+	return dot(v, v);
+}
+
+// Normalize (unit vector)
+// Divides out the dimension, returning a Unitless3.
+// magnitude is float32<D>, dividing vec3<D> / float32<D>
+// yields vec3<D-D> = vec3<dimensionless>.
+
+function normalize<D: Dimensions>(v: vec3<D>): Unitless3 {
+	return v / magnitude(v);
+	// vec3<D> / float32<D>
+	// Dimensions: { D.m - D.m, D.kg - D.kg, D.s - D.s } = { 0, 0, 0 }
+	//   Unitless3
+}
+
+// Distance between two positions
+
+function distance<D: Dimensions>(a: vec3<D>, b: vec3<D>): float32<D> {
+	return magnitude(a - b);
+	// a - b: vec3<D> (same dimension)
+	// magnitude: float32<D>
+}
+```
+Usage
+
+```js
+// Basic vector arithmetic
+const origin: Position = vec3(0, 0, 0);
+const pos: Position = vec3(3, 4, 0);
+const offset: Position = vec3(1, 0, 5);
+
+const moved = pos + offset; // Position(4, 4, 5)
+
+const displaced = pos - origin; // Position(3, 4, 0)
+
+const scaled = pos * 2; // Position(6, 8, 0)
+```
+
+Newton's second law: F = m*a
+
+```js
+const mass: Kilogram = 10;
+const acceleration: Acceleration3 = vec3(0, -9.80665, 0);
+const gravity = acceleration * mass; // Force3(0, -98.0665, 0)
+// Dimensions: { m: 1, s: -2 } + { kg: 1 } = { m: 1, kg: 1, s: -2 }
+// Note: Could overload so mass * acceleration works
+```
+
+Euler integration
+
+```js
+let position: Position = vec3(0, 100, 0);
+let velocity: Velocity3 = vec3(10, 0, 0);
+const dt: Second = 1 / 60;
+
+// One integration step:
+velocity += acceleration * dt;
+// accel * dt -> vec3<{ m: 1, s: -2 }> * float32<{ s: 1 }> -> vec3<{ m: 1, s: -1 }> = Velocity3
+// velocity += Velocity3 -> same dimension
+
+position += velocity * dt;
+// velocity * dt: Velocity3 * Second
+//   = vec3<{ m: 1, s: -1 }> * float32<{ s: 1 }>
+//   = vec3<{ m: 1, s: 0 }> = Position
+// position += Position -> same dimension
+
+// Full simulation loop:
+function simulate(
+	pos: Position,
+	vel: Velocity3,
+	acc: Acceleration3,
+	dt: Second,
+	steps: int32,
+): Position {
+	for (let i: int32 = 0; i < steps; ++i) {
+		vel += acc * dt;
+		pos += vel * dt;
+	}
+	return pos;
+}
+```
+
+Kinetic energy via dot product
+
+```js
+function kineticEnergy(m: Kilogram, v: Velocity3): Joule {
+	return dot(v, v) * m * 0.5;
+	// dot(v, v): float32<{ m: 2, s: -2 }>, speed squared
+	// * Kilogram: float32<{ m: 2, kg: 1, s: -2 }>, Joule
+	// * 0.5: scalar multiply, still Joule
+}
+
+const ke: Joule = kineticEnergy(10, vec3(3, 4, 0));
+// dot = 9 + 16 + 0 = 25  (m**2/s**2)
+// * 10 kg * 0.5 = 125 J
+```
+
+Work: W = F * d
+
+```js
+function work(f: Force3, d: Position): Joule {
+	return dot(f, d);
+	// dot(Force3, Position):
+	//   Dimensions: { m: 1, kg: 1, s: -2 } + { m: 1 } = { m: 2, kg: 1, s: -2 }
+	//   = Joule
+}
+
+const w: Joule = work(vec3(10, 0, 0), vec3(5, 0, 0));
+// dot = 50 + 0 + 0 = 50 J
+```
+
+Torque: τ = r * F
+
+```js
+const leverArm: Position = vec3(0, 0, 2);
+const appliedForce: Force3 = vec3(0, 10, 0);
+const torque: Torque3 = cross(leverArm, appliedForce);
+// cross(Position, Force3):
+//   Dimensions: { m: 1 } + { m: 1, kg: 1, s: -2 } = { m: 2, kg: 1, s: -2 }
+//   = Torque3 (N*m)
+// torque == vec3(0*0 - 2*10, 2*0 - 0*0, 0*10 - 0*0)
+//        == vec3(-20, 0, 0) as Torque3
+```
+
+Magnitude and normalization
+
+```js
+const dist: Meter = magnitude(pos);
+// magnitude(Position) -> float32<Meter>
+// hypot(3, 4, 0) = 5
+
+const dir: Unitless3 = normalize(pos);
+// Position / Meter -> Unitless3
+// vec3(3/5, 4/5, 0) = vec3(0.6, 0.8, 0)
+
+const speed: Velocity = magnitude(vel);
+// magnitude(Velocity3) -> float32<Velocity>
+```
+
+Distance and squared distance
+
+```js
+const a: Position = vec3(1, 2, 3);
+const b: Position = vec3(4, 6, 3);
+
+const d: Meter = distance(a, b); // magnitude(vec3(-3, -4, 0)) = 5 meters
+
+const dSq: SquareMeter = magnitudeSq(a - b);
+// dot(vec3(-3,-4,0), vec3(-3,-4,0)) = 9 + 16 + 0 = 25 m**2
+```
+
+Squared distance avoids sqrt, useful for comparisons:
+
+```js
+const threshold: SquareMeter = 100;  // 10**2 m**2
+if (dSq < threshold) {
+	// within 10 meters
+}
+```
+
+Projectile motion
+
+```js
+function projectilePosition(
+	v0: Velocity3,
+	t: Second,
+): Position {
+	const g: Acceleration3 = vec3(0, -9.80665, 0);
+	return v0 * t + g * t * t * 0.5; // TODO: Overload **
+	// v0 * t: Velocity3 * Second = Position
+	// g * t: Acceleration3 * Second = Velocity3
+	// Velocity3 * t: Velocity3 * Second = Position
+	// Position * 0.5: scalar -> Position
+	// Position + Position -> Position
+}
+
+const landingPos: Position = projectilePosition(
+	vec3(20, 30, 0), // launch velocity
+	3, // time
+);
+// v0*t = vec3(60, 90, 0)
+// g*t*t*0.5 = vec3(0, -9.80665*9*0.5, 0) = vec3(0, -44.13, 0)
+// sum = vec3(60, 45.87, 0) as Position
+```
+
+Reflect a velocity off a surface
+
+```js
+function reflect(v: Velocity3, normal: Unitless3): Velocity3 {
+	return v - normal * dot(v, normal) * 2;
+	// dot(Velocity3, Unitless3):
+	//   Dimensions: { m: 1, s: -1 } + { 0,0,0 } = { m: 1, s: -1 }
+	//   = float32<Velocity> (scalar speed along normal)
+	//
+	// normal * Velocity: Unitless3 * float32<Velocity>
+	//   = vec3<{ 0+m: 1, s: -1 }> = Velocity3
+	//
+	// Velocity3 * 2: scalar -> Velocity3
+	// v - Velocity3: same dimension
+}
+
+const incoming: Velocity3 = vec3(1, -1, 0);
+const wallNormal: Unitless3 = vec3(0, 1, 0);
+const reflected: Velocity3 = reflect(incoming, wallNormal);
+// dot(v, n) = 0 + (-1) + 0 = -1
+// n * (-1) * 2 = vec3(0, -2, 0)
+// v - vec3(0, -2, 0) = vec3(1, 1, 0) (reflected upward)
+```
+
+Angular velocity: v = ω * r
+
+```js
+const omega: AngularVel3 = vec3(0, 0, 5); // 5 rad/s around z-axis
+const radius: Position = vec3(2, 0, 0); // 2m from axis
+
+const tangentialVel: Velocity3 = cross(omega, radius);
+// cross(AngularVel3, Position):
+//   Dimensions: { s: -1 } + { m: 1 } = { m: 1, s: -1 }
+//   = Velocity3
+// cross = vec3(0*0-5*0, 5*2-0*0, 0*0-0*0) = vec3(0, 10, 0) m/s
+```
+
+Gravitational force between two masses
+
+```js
+// Gravitational constant G ≈ 6.674e-11 m³/(kg*s**2)
+// G has Dimensions { m: 3, kg: -1, s: -2 }
+type GravConst = float32<{ m: 3, kg: -1, s: -2, ratio: 1.0 }>;
+const G: GravConst = 6.674e-11;
+
+function gravitationalForce(
+	m1: Kilogram,
+	m2: Kilogram,
+	p1: Position,
+	p2: Position,
+): Force3 {
+	const r = p2 - p1; // Position
+	const dSq = magnitudeSq(r); // SquareMeter
+	const dir = normalize(r); // Unitless3
+	const fMag = G * m1 * m2 / dSq;
+	// G * kg * kg / m**2
+	// Dimensions: { m: 3, kg: -1, s: -2 } + { kg: 1 } + { kg: 1 } - { m: 2 }
+	//    = { m: 1, kg: 1, s: -2 } = Newton
+
+	return dir * fMag;
+	// Unitless3 * Newton = Force3
+}
+```
+
+Dimensional errors with vectors
+
+```js
+// position + velocity;
+//   where clause: { m: 1, s: 0 } != { m: 1, s: -1 }, Invalid
+// Error: cannot add Position (m) to Velocity3 (m/s)
+
+// const bad: Force3 = accel;
+//   vec3<Acceleration> -> vec3<Force>
+// Dimensions.subtype: kg: 0 != kg: 1, Invalid
+
+// cross(position, vel);
+// This is allowed, cross multiplies dimensions:
+// Dimensions: { m: 1, s: 0 } + { m: 1, s: -1 } = { m: 2, s: -1 }
+// Result: vec3<{ m: 2, s: -1 }>, Valid, not a named type
+
+// dot(position, vel);
+// Also allowed, dot multiplies dimensions:
+// float32<{ m: 2, s: -1 }>, Valid, unnamed
+```
+
+
+Math.sqrt compile errors
+
+```js
+const speedSq: SquareMeter = 25; // m**2
+const spd: Meter = Math.sqrt(speedSq);
+// D = { m: 2, s: 0 }. m%2==0, kg%2==0, s%2==0
+// Result: float32<{ m: 1, s: 0 }> = Meter, Valid
+
+// const bad = Math.sqrt(Meter(9));
+// D = { m: 1, s: 0 }. m%2 == 1 != 0, Invalid
+// where clause fails: cannot sqrt an odd-exponent dimension.
+// Compile error: sqrt requires even dimensional exponents.
+```
+
+Note: That function blocks that define metadata operations follow the same merge rules as operators.
+
 ## TODO Items
 
 ### Metadata on reference types
