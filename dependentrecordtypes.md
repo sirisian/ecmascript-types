@@ -303,14 +303,90 @@ This would be used as decorators are only allowed in the class body:
 
 ```js
 class AddressResponse {
-    @field('street_address') streetAddress: string;
-    @field country: 'US' | 'CA';
+	@field('street_address') streetAddress: string;
+	@field country: 'US' | 'CA';
 
-    @field('zip_code') usZip?: USPostalCode;
-    @field('postal_code') caZip?: CAPostalCode;
+	@field('zip_code') usZip?: USPostalCode;
+	@field('postal_code') caZip?: CAPostalCode;
 } where if (this.country == 'US') {
-    this.usZip !== undefined && this.caZip === undefined;
+	this.usZip !== undefined && this.caZip === undefined;
 } else {
-    this.caZip !== undefined && this.usZip === undefined;
+	this.caZip !== undefined && this.usZip === undefined;
 };
+```
+
+### Network Messages
+
+Showing ```where match``` syntax.
+
+```js
+type NetworkState = {
+	status: 'idle' | 'loading' | 'success' | 'error',
+	data?: any,
+	errorMessage?: string
+} where match (this.status) {
+	when 'idle' | 'loading': 
+		this.data === undefined && this.errorMessage === undefined;
+	when 'success': 
+		this.data !== undefined && this.errorMessage === undefined;
+	when 'error': 
+		this.errorMessage !== undefined && this.data === undefined;
+};
+
+function renderUI(state: NetworkState) {
+	match (state) {
+		when { status: 'success' }:
+			renderData(state.data); // state.date cannot be undefined
+		when { status: 'error' }: 
+			renderError(state.errorMessage); // state.errorMessage cannot be undefined
+		when { status: 'idle' | 'loading' }:
+			renderSpinner();
+	}
+}
+```
+
+### Business Logic
+
+```js
+type DatabaseCommand = {
+	userRole: 'admin' | 'editor' | 'viewer',
+	action: 'insert' | 'update' | 'delete' | 'read',
+	targetTable: string
+} where match (this.userRole) {
+	when 'viewer': 
+		this.action === 'read';
+	when 'editor': 
+		this.action !== 'delete';
+	when 'admin': 
+		true; // Admins can do anything
+};
+```
+
+On construction, this would throw if userRole doesn't match the allowed action.
+
+### Misc Example
+
+```js
+type Email = {
+	to: string<{ pattern: /@/ }>,
+	subject?: string,
+	body?: string
+} where this.subject?.length > 0 || this.body?.length > 0;
+
+function draftEmail(): Partial<Email> {
+	return {};
+}
+
+function sendEmail(ref draft: Partial<Email>) {
+	if (!(draft is Email)) {
+		throw new Error("Invalid email draft");
+	}
+	// Sending...
+}
+
+const msg = draftEmail();
+msg.to = "alice@example.com";
+// No subject or body
+
+sendEmail(ref msg); // throws
 ```
