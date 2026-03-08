@@ -336,7 +336,7 @@ type NetworkState = {
 function renderUI(state: NetworkState) {
 	match (state) {
 		when { status: 'success' }:
-			renderData(state.data); // state.date cannot be undefined
+			renderData(state.data); // state.data cannot be undefined
 		when { status: 'error' }: 
 			renderError(state.errorMessage); // state.errorMessage cannot be undefined
 		when { status: 'idle' | 'loading' }:
