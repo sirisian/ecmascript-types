@@ -1117,11 +1117,15 @@ partial class Metadata {
 	[validatorsKey]: [].<ValidateField<NumberBounds> | ValidateField<StringBounds>> = [];
 }
 
-function validate<B: NumberBounds, TClass>({ name, metadata }: ClassFieldDecorator<number<B>, TClass>) {
+function validate<B: NumberBounds, TClass>(
+	{ name, metadata }: ClassFieldDecorator<number<B>, TClass>
+) where typeof name == string {
 	metadata[validatorsKey].push({ name, constraint: B, meta: NumberBounds });
 }
 
-function validate<S: StringBounds, TClass>({ name, metadata }: ClassFieldDecorator<string<S>, TClass>) {
+function validate<S: StringBounds, TClass>(
+	{ name, metadata }: ClassFieldDecorator<string<S>, TClass>
+) where typeof name == string {
 	metadata[validatorsKey].push({ name, constraint: S, meta: StringBounds });
 }
 
@@ -1178,14 +1182,14 @@ partial class Metadata {
 
 // @field() - registers a field for serialization with an optional wire name
 function field<T, TClass>(
-	{ name, metadata }: ClassFieldDecorator<T, TClass>,
-) {
+	{ name, metadata }: ClassFieldDecorator<T, TClass>
+) where typeof name == string {
 	metadata[schemaKey].push({ name, wireName: name });
 }
 function field<T, TClass>(
 	wireName: string,
-	{ name, metadata }: ClassFieldDecorator<T, TClass>,
-) {
+	{ name, metadata }: ClassFieldDecorator<T, TClass>
+) where typeof name == string {
 	metadata[schemaKey].push({ name, wireName });
 }
 
@@ -1250,14 +1254,14 @@ partial class Metadata {
 function get<T extends (...args: any) => any, TClass>(
 	path: string,
 	{ name, metadata }: ClassMethodDecorator<T, TClass>
-) {
+) where typeof name == string {
 	metadata[routeKey].push({ method: 'GET', path, handler: name });
 }
 
 function post<T extends (...args: any) => any, TClass>(
 	path: string,
 	{ name, metadata }: ClassMethodDecorator<T, TClass>
-) {
+) where typeof name == string {
 	metadata[routeKey].push({ method: 'POST', path, handler: name });
 }
 
@@ -1317,13 +1321,13 @@ function table<T>(
 
 function column<T, TClass>(
 	{ name, metadata }: ClassFieldDecorator<T, TClass>
-) {
+) where typeof name == string {
 	metadata[columnKey].push({ field: name, column: name });
 }
 function column<T, TClass>(
 	column: string,
 	{ name, metadata }: ClassFieldDecorator<T, TClass>
-) {
+) where typeof name == string {
 	metadata[columnKey].push({ field: name, column });
 }
 
