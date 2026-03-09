@@ -62,6 +62,18 @@ meta T {
 }
 ```
 
+It's possible to hold a reference to a meta protocol:
+
+```js
+interface MetaProtocol<T> {
+    default: T;
+    subtype(sub: T, sup: T): boolean;
+    validate?(value: any, constraint: T): boolean;
+    narrow?(current: T, op: string, value: any): T;
+    describe?(constraint: T): string;
+}
+```
+
 Two examples will be used, a dimensions (units of measure) and bounds (minimum and maximum constraints from JSON Schema).
 
 **Metadata Type**: Dimensions  
@@ -1095,16 +1107,26 @@ type StringBounds = {
 
 const validatorsKey = Symbol('validators');
 
+type SerializeData<T> = {
+	name: string,
+	constraint: T,
+	meta: MetaProtocol<T>
+};
+
+partial class Metadata {
+	[validatorsKey]: [].<SerializeData<NumberBounds> | SerializeData<StringBounds>> = [];
+}
+
 function validate<B: NumberBounds, TClass>({ name, metadata }: ClassFieldDecorator<number<B>, TClass>) {
-	(metadata[validatorsKey] ??= []).push({ name, constraint: B, meta: Bounds });
+	metadata[validatorsKey].push({ name, constraint: B, meta: Bounds });
 }
 
 function validate<S: StringBounds, TClass>({ name, metadata }: ClassFieldDecorator<string<S>, TClass>) {
-	(metadata[validatorsKey] ??= []).push({ name, constraint: S, meta: StringBounds });
+	metadata[validatorsKey].push({ name, constraint: S, meta: StringBounds });
 }
 
 function validateInstance<T>(instance: T): boolean {
-	const entries = Reflect.getMetadata<T>(validatorsKey);
+	const entries = Reflect.getMetadata<T>()[validatorsKey];
 	if (!entries) return true;
 	for (const { name, constraint, meta } of entries) {
 		if (!meta.validate(instance[name], constraint)) return false;
@@ -1143,22 +1165,31 @@ type StringBounds = {
 
 const schemaKey = Symbol('schema');
 
+type SerializeData = {
+	name: string,
+	wireName: string
+};
+
+partial class Metadata {
+	[schemaKey]: [].<SerializeData> = [];
+}
+
 // @field() — registers a field for serialization with an optional wire name
 function field<T, TClass>(
 	{ name, metadata }: ClassFieldDecorator<T, TClass>,
 ) {
-	(metadata[schemaKey] ??= []).push({ name, wireName: name });
+	metadata[schemaKey].push({ name, wireName: name });
 }
 function field<T, TClass>(
 	wireName: string,
 	{ name, metadata }: ClassFieldDecorator<T, TClass>,
 ) {
-	(metadata[schemaKey] ??= []).push({ name, wireName });
+	metadata[schemaKey].push({ name, wireName });
 }
 
 function serialize<T>(instance: T): Record<string, any> {
 	const result: Record<string, any> = {};
-	for (const { name, wireName } of Reflect.getMetadata<T>(schemaKey)) {
+	for (const { name, wireName } of Reflect.getMetadata<T>()[schemaKey]) {
 		result[wireName] = instance[name];
 	}
 	return result;
@@ -1166,7 +1197,7 @@ function serialize<T>(instance: T): Record<string, any> {
 
 function deserialize<T>(cls: { new(): T }, data: Record<string, any>): T {
 	const instance = new cls();
-	for (const { name, wireName } of Reflect.getMetadata<T>(schemaKey)) {
+	for (const { name, wireName } of Reflect.getMetadata<T>()[schemaKey]) {
 		instance[name] = data[wireName]; // implicit cast → triggers meta validate
 	}
 	return instance;
@@ -1204,18 +1235,28 @@ type QueryParam = {
 
 const routeKey = Symbol('route');
 
+type Route = {
+	method: 'POST' | 'GET',
+	path: string,
+	handler: string
+};
+
+partial class Metadata {
+	[routeKey]: [].<Route> = [];
+}
+
 function get<T extends (...args: any) => any, TClass>(
 	path: string,
 	{ name, metadata }: ClassMethodDecorator<T, TClass>
 ) {
-	(metadata[routeKey] ??= []).push({ method: 'GET', path, handler: name });
+	metadata[routeKey].push({ method: 'GET', path, handler: name });
 }
 
 function post<T extends (...args: any) => any, TClass>(
 	path: string,
 	{ name, metadata }: ClassMethodDecorator<T, TClass>
 ) {
-	(metadata[routeKey] ??= []).push({ method: 'POST', path, handler: name });
+	metadata[routeKey].push({ method: 'POST', path, handler: name });
 }
 
 class EventController {
@@ -1252,8 +1293,18 @@ class EventCreate {
 ### Database model with column mapping and generated fields
 
 ```js
-const columnKey = Symbol('columns');
 const tableKey = Symbol('table');
+const columnKey = Symbol('columns');
+
+type Column = {
+	field: string,
+	column: string
+};
+
+partial class Metadata {
+	[tableKey]: string = '';
+	[columnKey]: [].<Column> = [];
+}
 
 function table<T>(
 	name: string,
@@ -1265,13 +1316,13 @@ function table<T>(
 function column<T, TClass>(
 	{ name, metadata }: ClassFieldDecorator<T, TClass>
 ) {
-	(metadata[columnKey] ??= []).push({ field: name, column: name });
+	metadata[columnKey].push({ field: name, column: name });
 }
 function column<T, TClass>(
-	columnName: string,
+	column: string,
 	{ name, metadata }: ClassFieldDecorator<T, TClass>
 ) {
-	(metadata[columnKey] ??= []).push({ field: name, column: columnName });
+	metadata[columnKey].push({ field: name, column });
 }
 
 @table('sensors')
