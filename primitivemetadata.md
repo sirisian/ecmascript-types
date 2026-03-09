@@ -1107,14 +1107,14 @@ type StringBounds = {
 
 const validatorsKey = Symbol('validators');
 
-type SerializeData<T> = {
+type ValidateField<T> = {
 	name: string,
 	constraint: T,
 	meta: MetaProtocol<T>
 };
 
 partial class Metadata {
-	[validatorsKey]: [].<SerializeData<NumberBounds> | SerializeData<StringBounds>> = [];
+	[validatorsKey]: [].<ValidateField<NumberBounds> | ValidateField<StringBounds>> = [];
 }
 
 function validate<B: NumberBounds, TClass>({ name, metadata }: ClassFieldDecorator<number<B>, TClass>) {
@@ -1129,7 +1129,9 @@ function validateInstance<T>(instance: T): boolean {
 	const entries = Reflect.getMetadata<T>()[validatorsKey];
 	if (!entries) return true;
 	for (const { name, constraint, meta } of entries) {
-		if (!meta.validate(instance[name], constraint)) return false;
+		if (!meta.validate(instance[name], constraint)) {
+			return false;
+		}
 	}
 	return true;
 }
@@ -1174,7 +1176,7 @@ partial class Metadata {
 	[schemaKey]: [].<SerializeData> = [];
 }
 
-// @field() — registers a field for serialization with an optional wire name
+// @field() - registers a field for serialization with an optional wire name
 function field<T, TClass>(
 	{ name, metadata }: ClassFieldDecorator<T, TClass>,
 ) {
@@ -1198,7 +1200,7 @@ function serialize<T>(instance: T): Record<string, any> {
 function deserialize<T>(cls: { new(): T }, data: Record<string, any>): T {
 	const instance = new cls();
 	for (const { name, wireName } of Reflect.getMetadata<T>()[schemaKey]) {
-		instance[name] = data[wireName]; // implicit cast → triggers meta validate
+		instance[name] = data[wireName]; // implicit cast -> triggers meta validate
 	}
 	return instance;
 }
