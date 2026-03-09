@@ -115,7 +115,7 @@ meta Dimensions {
 }
 ```
 
-**Metadata Type**: Bounds  
+**Metadata Type**: NumberBounds  
 JSON Schema numeric constraints. Absent fields mean unconstrained in that direction. Both inclusive (minimum, maximum) and exclusive (exclusiveMinimum, exclusiveMaximum) bounds are supported. When both exist on the same side, the tighter (more restrictive) one takes effect.
 
 <details>
@@ -152,17 +152,17 @@ function fgt(a: float32, b: float32): boolean {
 </details>
 
 ```js
-type Bounds = {
+type NumberBounds = {
 	minimum?: float32,
 	maximum?: float32,
 	exclusiveMinimum?: float32,
 	exclusiveMaximum?: float32,
 };
 
-meta Bounds {
+meta NumberBounds {
 	default = {};
 
-	subtype(sub: Bounds, sup: Bounds): boolean {
+	subtype(sub: NumberBounds, sup: NumberBounds): boolean {
 		const subLo = effectiveMin(sub);
 		const supLo = effectiveMin(sup);
 		const subHi = effectiveMax(sub);
@@ -190,7 +190,7 @@ meta Bounds {
 		return true;
 	}
 
-	validate(value: float32, constraint: Bounds): boolean {
+	validate(value: float32, constraint: NumberBounds): boolean {
 		if (constraint.minimum != null && flt(value, constraint.minimum))
 			return false;
 		if (constraint.exclusiveMinimum != null && fle(value, constraint.exclusiveMinimum))
@@ -202,8 +202,8 @@ meta Bounds {
 		return true;
 	}
 
-	narrow(current: Bounds, op: string, value: float32): Bounds {
-		const result: Bounds = { ...current };
+	narrow(current: NumberBounds, op: string, value: float32): NumberBounds {
+		const result: NumberBounds = { ...current };
 
 		switch (op) {
 			case ">=": {
@@ -252,7 +252,7 @@ meta Bounds {
 		return clean(result);
 	}
 
-	describe(constraint: Bounds): string {
+	describe(constraint: NumberBounds): string {
 		const parts: string[] = [];
 		if (constraint.minimum != null)
 			parts.push(`>= ${constraint.minimum}`);
@@ -426,8 +426,8 @@ primitive float32<D: Dimensions> {
 }
 ```
 
-**Bounds Operators**  
-Bounds operators only modify the return metadata with no value, so they have no function body.
+**NumberBounds Operators**  
+NumberBounds operators only modify the return metadata with no value, so they have no function body.
 
 <details>
 	<summary>Expand for boundary helper functions.</summary>
@@ -435,7 +435,7 @@ Bounds operators only modify the return metadata with no value, so they have no 
 ```js
 // Effective lower bound: if both inclusive and exclusive exist,
 // the tighter (larger) one wins.
-function effectiveMin(b: Bounds): float32 | null {
+function effectiveMin(b: NumberBounds): float32 | null {
 	if (b.minimum != null && b.exclusiveMinimum != null) {
 		return Math.max(b.minimum, b.exclusiveMinimum);
 	}
@@ -444,7 +444,7 @@ function effectiveMin(b: Bounds): float32 | null {
 
 // Effective upper bound: if both inclusive and exclusive exist,
 // the tighter (smaller) one wins.
-function effectiveMax(b: Bounds): float32 | null {
+function effectiveMax(b: NumberBounds): float32 | null {
 	if (b.maximum != null && b.exclusiveMaximum != null) {
 		return Math.min(b.maximum, b.exclusiveMaximum);
 	}
@@ -452,7 +452,7 @@ function effectiveMax(b: Bounds): float32 | null {
 }
 
 // Determine whether the effective minimum is exclusive
-function isExclusiveMin(b: Bounds): boolean {
+function isExclusiveMin(b: NumberBounds): boolean {
 	if (b.minimum != null && b.exclusiveMinimum != null) {
 		return b.exclusiveMinimum >= b.minimum;
 	}
@@ -460,7 +460,7 @@ function isExclusiveMin(b: Bounds): boolean {
 }
 
 // Determine whether the effective maximum is exclusive
-function isExclusiveMax(b: Bounds): boolean {
+function isExclusiveMax(b: NumberBounds): boolean {
 	if (b.maximum != null && b.exclusiveMaximum != null) {
 		return b.exclusiveMaximum <= b.maximum;
 	}
@@ -469,8 +469,8 @@ function isExclusiveMax(b: Bounds): boolean {
 
 // Remove undefined fields, absence means unconstrained.
 // Never store infinities in metadata.
-function clean(b: Bounds): Bounds {
-	const result: Bounds = {};
+function clean(b: NumberBounds): NumberBounds {
+	const result: NumberBounds = {};
 	if (b.minimum != null) result.minimum = b.minimum;
 	if (b.maximum != null) result.maximum = b.maximum;
 	if (b.exclusiveMinimum != null) result.exclusiveMinimum = b.exclusiveMinimum;
@@ -478,12 +478,12 @@ function clean(b: Bounds): Bounds {
 	return result;
 }
 
-// Construct a Bounds from effective values + exclusivity flags
-function makeBounds(
+// Construct a NumberBounds from effective values + exclusivity flags
+function makeNumberBounds(
 	lo: float32 | undefined, loExclusive: boolean,
 	hi: float32 | undefined, hiExclusive: boolean,
-): Bounds {
-	const result: Bounds = {};
+): NumberBounds {
+	const result: NumberBounds = {};
 	if (lo != null) {
 		if (loExclusive) {
 			result.exclusiveMinimum = lo;
@@ -503,7 +503,7 @@ function makeBounds(
 
 // Interval arithmetic for multiplication.
 // Computes the bounds of the product of two bounded values.
-function boundsFromProducts(a: Bounds, b: Bounds): Bounds {
+function boundsFromProducts(a: NumberBounds, b: NumberBounds): NumberBounds {
 	const aLo = effectiveMin(a);
 	const aHi = effectiveMax(a);
 	const bLo = effectiveMin(b);
@@ -515,7 +515,7 @@ function boundsFromProducts(a: Bounds, b: Bounds): Bounds {
 		// If both are non-negative with a lower bound, result has a lower bound
 		if (aLo != null && bLo != null && fge(aLo, 0) && fge(bLo, 0)) {
 			const loExclusive = isExclusiveMin(a) || isExclusiveMin(b);
-			return clean(makeBounds(aLo * bLo, loExclusive, undefined, false));
+			return clean(makeNumberBounds(aLo * bLo, loExclusive, undefined, false));
 		}
 		return {};
 	}
@@ -543,13 +543,13 @@ function boundsFromProducts(a: Bounds, b: Bounds): Bounds {
 			|| (usedBLo && isExclusiveMin(b)) || (!usedBLo && isExclusiveMax(b));
 	});
 
-	return clean(makeBounds(lo, loExclusive, hi, hiExclusive));
+	return clean(makeNumberBounds(lo, loExclusive, hi, hiExclusive));
 }
 
 // Sum: [a_lo, a_hi] + [b_lo, b_hi] = [a_lo + b_lo, a_hi + b_hi]
 // Exclusivity: if EITHER contributing bound is exclusive, the result is exclusive.
 // Example: (>= 3) + (> 5) = (> 8) because b can approach 5 but never reach it.
-function boundsFromSum(a: Bounds, b: Bounds): Bounds {
+function boundsFromSum(a: NumberBounds, b: NumberBounds): NumberBounds {
 	const aLo = effectiveMin(a);
 	const aHi = effectiveMax(a);
 	const bLo = effectiveMin(b);
@@ -561,7 +561,7 @@ function boundsFromSum(a: Bounds, b: Bounds): Bounds {
 	const loExclusive = lo != null && (isExclusiveMin(a) || isExclusiveMin(b));
 	const hiExclusive = hi != null && (isExclusiveMax(a) || isExclusiveMax(b));
 
-	return clean(makeBounds(lo, loExclusive, hi, hiExclusive));
+	return clean(makeNumberBounds(lo, loExclusive, hi, hiExclusive));
 }
 
 // Difference: [a_lo, a_hi] - [b_lo, b_hi] = [a_lo - b_hi, a_hi - b_lo]
@@ -569,7 +569,7 @@ function boundsFromSum(a: Bounds, b: Bounds): Bounds {
 // Exclusivity: if either contributing bound is exclusive, result is exclusive.
 // Example: (>= 5) - (< 3) = (> 2) because b can approach 3 from below,
 // making the difference approach 2 from above but never reaching it.
-function boundsFromDifference(a: Bounds, b: Bounds): Bounds {
+function boundsFromDifference(a: NumberBounds, b: NumberBounds): NumberBounds {
 	const aLo = effectiveMin(a);
 	const aHi = effectiveMax(a);
 	const bLo = effectiveMin(b);
@@ -581,18 +581,18 @@ function boundsFromDifference(a: Bounds, b: Bounds): Bounds {
 	const loExclusive = lo != null && (isExclusiveMin(a) || isExclusiveMax(b));
 	const hiExclusive = hi != null && (isExclusiveMax(a) || isExclusiveMin(b));
 
-	return clean(makeBounds(lo, loExclusive, hi, hiExclusive));
+	return clean(makeNumberBounds(lo, loExclusive, hi, hiExclusive));
 }
 
 // Negation: -[lo, hi] = [-hi, -lo]
 // Exclusivity follows the original bound that was negated.
-function negateBounds(b: Bounds): Bounds {
+function negateNumberBounds(b: NumberBounds): NumberBounds {
 	const lo = effectiveMin(b);
 	const hi = effectiveMax(b);
 	const loExclusive = isExclusiveMin(b);
 	const hiExclusive = isExclusiveMax(b);
 
-	return clean(makeBounds(
+	return clean(makeNumberBounds(
 		hi != null ? -hi : undefined, hiExclusive,
 		lo != null ? -lo : undefined, loExclusive,
 	));
@@ -601,7 +601,7 @@ function negateBounds(b: Bounds): Bounds {
 // Scalar multiplication of bounds.
 // Correctly handles negative scalars by swapping and re-pairing
 // the inclusive/exclusive attributes.
-function scalarMulBounds(b: Bounds, scalar: float32): Bounds {
+function scalarMulNumberBounds(b: NumberBounds, scalar: float32): NumberBounds {
 	if (feq(scalar, 0)) {
 		return { minimum: 0, maximum: 0 };
 	}
@@ -613,7 +613,7 @@ function scalarMulBounds(b: Bounds, scalar: float32): Bounds {
 
 	if (scalar > 0) {
 		// Positive scalar: bounds scale directly, exclusivity preserved
-		return clean(makeBounds(
+		return clean(makeNumberBounds(
 			lo != null ? lo * scalar : undefined, loExclusive,
 			hi != null ? hi * scalar : undefined, hiExclusive,
 		));
@@ -623,7 +623,7 @@ function scalarMulBounds(b: Bounds, scalar: float32): Bounds {
 	//   old lower bound * negative -> new upper bound
 	//   old upper bound * negative -> new lower bound
 	//   exclusivity follows the original bound, not the position
-	return clean(makeBounds(
+	return clean(makeNumberBounds(
 		hi != null ? hi * scalar : undefined, hiExclusive, // old hi -> new lo
 		lo != null ? lo * scalar : undefined, loExclusive, // old lo -> new hi
 	));
@@ -632,15 +632,15 @@ function scalarMulBounds(b: Bounds, scalar: float32): Bounds {
 </details>
 
 ```js
-primitive float32<B: Bounds> {
-	operator+<B2: Bounds>(rhs: float32<B2>): float32<boundsFromSum(B, B2)>;
-	operator-<B2: Bounds>(rhs: float32<B2>): float32<boundsFromDifference(B, B2)>;
-	operator*<B2: Bounds>(rhs: float32<B2>): float32<boundsFromProducts(B, B2)>;
+primitive float32<B: NumberBounds> {
+	operator+<B2: NumberBounds>(rhs: float32<B2>): float32<boundsFromSum(B, B2)>;
+	operator-<B2: NumberBounds>(rhs: float32<B2>): float32<boundsFromDifference(B, B2)>;
+	operator*<B2: NumberBounds>(rhs: float32<B2>): float32<boundsFromProducts(B, B2)>;
 
-	operator-(): float32<negateBounds(B)>;
+	operator-(): float32<negateNumberBounds(B)>;
 
-	operator*(rhs: float32): float32<scalarMulBounds(B, rhs)>;
-	operator/(rhs: float32): float32<scalarMulBounds(B, 1.0 / rhs)>;
+	operator*(rhs: float32): float32<scalarMulNumberBounds(B, rhs)>;
+	operator/(rhs: float32): float32<scalarMulNumberBounds(B, 1.0 / rhs)>;
 }
 ```
 
@@ -653,24 +653,24 @@ For a given operator invocation:
 3. If no value block matches, the default primitive operation runs.
 4. All return type annotations (from both value and metadata-only blocks) are evaluated independently, and their metadata fields are merged into the flat result object.
 
-#### Example: `Kilometer(5) + Meter(300)` where both have `Bounds { minimum: 0 }`
+#### Example: `Kilometer(5) + Meter(300)` where both have `NumberBounds { minimum: 0 }`
 
 **Dimensions block** (value block):
 - `where` clause: `m: 1 == m: 1 && kg: 0 == kg: 0 && s: 0 == s: 0`
 - Body runs: `5 + 300 * (1 / 1000) = 5.3`
 - Return metadata (Dimensions portion): `{ m: 1, kg: 0, s: 0, ratio: 1000 }`
 
-**Bounds block** (metadata-only):
-- Return metadata (Bounds portion): `boundsFromSum({ minimum: 0 }, { minimum: 0 })` = `{ minimum: 0 }`
+**NumberBounds block** (metadata-only):
+- Return metadata (NumberBounds portion): `boundsFromSum({ minimum: 0 }, { minimum: 0 })` = `{ minimum: 0 }`
 - No body, so no conflicting value calculation.
 
 **Final result:** float32 value `5.3` with merged metadata `{ m: 1, kg: 0, s: 0, ratio: 1000, minimum: 0 }`
 
-This resolves the potential conflict where Dimensions would compute `5.3` (ratio-scaled) but a Bounds body would compute `305` (unscaled). The metadata-only block never touches the value.
+This resolves the potential conflict where Dimensions would compute `5.3` (ratio-scaled) but a NumberBounds body would compute `305` (unscaled). The metadata-only block never touches the value.
 
 ## Unit Type Aliases
 
-All metadata is specified as flat objects. The compiler decomposes automatically based on field ownership: `{m, kg, s, ratio}` fields are claimed by `Dimensions`, `{minimum, maximum, exclusiveMinimum, exclusiveMaximum}` fields are claimed by `Bounds`.
+All metadata is specified as flat objects. The compiler decomposes automatically based on field ownership: `{m, kg, s, ratio}` fields are claimed by `Dimensions`, `{minimum, maximum, exclusiveMinimum, exclusiveMaximum}` fields are claimed by `NumberBounds`.
 
 ### Base SI Units
 
@@ -717,7 +717,7 @@ type KilometersPerHour = float32<{ m: 1, kg: 0, s: -1, ratio: 1000.0 / 3600.0 }>
 type GramsPerCubicCm = float32<{ m: -3, kg: 1, s: 0, ratio: 0.001 / 0.000001 }>;
 ```
 
-### Bounds-Only Types (No Dimension)
+### NumberBounds-Only Types (No Dimension)
 
 ```js
 type Positive = float32<{ exclusiveMinimum: 0 }>;
@@ -727,9 +727,9 @@ type Probability = Normalized;
 type Percentage = float32<{ minimum: 0, maximum: 100 }>;
 ```
 
-### Combined: Dimension + Bounds
+### Combined: Dimension + NumberBounds
 
-Fields from both `Dimensions` and `Bounds` appear in a single flat object. The compiler decomposes them automatically.
+Fields from both `Dimensions` and `NumberBounds` appear in a single flat object. The compiler decomposes them automatically.
 
 ```js
 type PositiveMeter = float32<{
@@ -764,7 +764,7 @@ When the compiler encounters `float32<{ ... }>`:
 
 ```
 Dimensions -> { m, kg, s, ratio }
-Bounds -> { minimum, maximum, exclusiveMinimum, exclusiveMaximum }
+NumberBounds -> { minimum, maximum, exclusiveMinimum, exclusiveMaximum }
 ```
 
 **Step 2.** For each field in the metadata object, find which `meta` type claims it. Each field must belong to exactly one `meta` type. Unclaimed fields produce a compile error.
@@ -774,7 +774,7 @@ Bounds -> { minimum, maximum, exclusiveMinimum, exclusiveMaximum }
 ```
 Input: { m: 1, kg: 0, s: -1, ratio: 1.0, minimum: 0, maximum: 343 }
   -> Dimensions: { m: 1, kg: 0, s: -1, ratio: 1.0 }
-  -> Bounds: { minimum: 0, maximum: 343 }
+  -> NumberBounds: { minimum: 0, maximum: 343 }
 ```
 
 **Step 4.** When executing an operator, run each `meta` type's operator block on its portion independently.
@@ -783,7 +783,7 @@ Input: { m: 1, kg: 0, s: -1, ratio: 1.0, minimum: 0, maximum: 343 }
 
 **Conflict detection:** If two `meta` types claim the same field name, the compiler reports an error at the `meta` declaration site, not at usage. This is enforced when a `meta` block is registered. Symbol-keyed fields can be used to avoid conflicts between third-party libraries.
 
-**Missing fields:** When a value's metadata doesn't include fields for a given `meta` type, that type's `default` value is used. For example, a plain `float32` has no metadata fields, all meta types use their defaults (`Dimensions.default = { m:0, kg:0, s:0, ratio:1.0 }`, `Bounds.default = {}`).
+**Missing fields:** When a value's metadata doesn't include fields for a given `meta` type, that type's `default` value is used. For example, a plain `float32` has no metadata fields, all meta types use their defaults (`Dimensions.default = { m:0, kg:0, s:0, ratio:1.0 }`, `NumberBounds.default = {}`).
 
 **Operator block absence:** If a `meta` type has no operator block defining a particular operator, the metadata for that type falls back to `default` on the result. This means metadata types only need to define operators where they have meaningful propagation logic.
 
@@ -807,12 +807,12 @@ primitive float32<T extends NotDimensions<T>> {
 	}
 }
 
-// Cast from number -> float32 -> float32 with Bounds metadata.
-// The value passes through, but Bounds.validate() is called at the cast boundary.
+// Cast from number -> float32 -> float32 with NumberBounds metadata.
+// The value passes through, but NumberBounds.validate() is called at the cast boundary.
 
-type NotBounds<T> = keyof T & keyof Bounds extends never ? T : never;
-primitive float32<T extends NotBounds<T>> {
-	operator float32<Bounds>() {
+type NotNumberBounds<T> = keyof T & keyof NumberBounds extends never ? T : never;
+primitive float32<T extends NotNumberBounds<T>> {
+	operator float32<NumberBounds>() {
 		return this;
 	}
 }
@@ -822,20 +822,20 @@ Alternative syntax that could be used using ```where```:
 
 ```js
 type NotDimensions<T> = keyof T & keyof Dimensions extends never ? T : never;
-type NotBounds<T> = keyof T & keyof Bounds extends never ? T : never;
+type NotNumberBounds<T> = keyof T & keyof NumberBounds extends never ? T : never;
 
 primitive float32<T> {
 	operator float32<Dimensions>() where NotDimensions<T> {
 		return this;
 	}
 
-	operator float32<Bounds>() where NotBounds<T> {
+	operator float32<NumberBounds>() where NotNumberBounds<T> {
 		return this;
 	}
 }
 ```
 
-Both operators compose for combined types. When the target is `float32<{ m:1, ..., exclusiveMinimum: 0 }>`, the compiler decomposes into Dimensions and Bounds slots and invokes both cast operators. `Bounds.validate()` runs at the cast boundary (elided for compile-time-provable constant literals).
+Both operators compose for combined types. When the target is `float32<{ m:1, ..., exclusiveMinimum: 0 }>`, the compiler decomposes into Dimensions and NumberBounds slots and invokes both cast operators. `NumberBounds.validate()` runs at the cast boundary (elided for compile-time-provable constant literals).
 
 ### Cast Operator Invocation Points
 
@@ -855,16 +855,16 @@ const v: Velocity = 10; // operator float32<Dimensions>() invoked
 
 // number -> Probability via cast operator + validation:
 const p: Probability = 0.7;
-// operator float32<Bounds>() invoked
-// Bounds.validate(0.7, { minimum: 0, maximum: 1 }) -> true
+// operator float32<NumberBounds>() invoked
+// NumberBounds.validate(0.7, { minimum: 0, maximum: 1 }) -> true
 
-const p2: Probability = 1.5; // Bounds.validate(1.5, { minimum: 0, maximum: 1 }) -> false, throws TypeError("Expected >= 0 and <= 1, got 1.5")
+const p2: Probability = 1.5; // NumberBounds.validate(1.5, { minimum: 0, maximum: 1 }) -> false, throws TypeError("Expected >= 0 and <= 1, got 1.5")
 
 // number -> PositiveMeter via both cast operators:
-const h: PositiveMeter = 1.75; // Dimensions cast, Bounds.validate(1.75, { exclusiveMinimum: 0 }) -> true
+const h: PositiveMeter = 1.75; // Dimensions cast, NumberBounds.validate(1.75, { exclusiveMinimum: 0 }) -> true
 
 const h2: PositiveMeter = -3;
-// Bounds.validate(-3, { exclusiveMinimum: 0 }) -> false, throws TypeError
+// NumberBounds.validate(-3, { exclusiveMinimum: 0 }) -> false, throws TypeError
 
 // Already-typed value, cast operator doesn't apply:
 const m: Meter = 100;
@@ -878,9 +878,9 @@ const v3: Velocity = v2; // direct, same metadata
 const v4: Velocity = 100;
 const safe: SafeSpeed = v4;
 // Dimensions.subtype: exponents match
-// Bounds.subtype: v4 has no bounds (default {}), SafeSpeed has { minimum: 0, maximum: 343 }
+// NumberBounds.subtype: v4 has no bounds (default {}), SafeSpeed has { minimum: 0, maximum: 343 }
 //   sup.minimum = 0, sub.minimum = null -> false
-// Insert runtime check: Bounds.validate(v4_value, { minimum: 0, maximum: 343 })
+// Insert runtime check: NumberBounds.validate(v4_value, { minimum: 0, maximum: 343 })
 
 // Narrowed by control flow: zero cost
 if (v4 >= 0 && v4 <= 343) {
@@ -895,7 +895,7 @@ const distance: Meter = 100;
 const time: Second = 9.58;
 const speed: Velocity = distance / time;
 // Dimensions: { m: 1 - 0, kg: 0 - 0, s: 0 - 1, ratio: 1 / 1 } = { m: 1, kg: 0, s: -1, ratio: 1 }
-// Bounds: no bounds on either -> default {} -> not present in result
+// NumberBounds: no bounds on either -> default {} -> not present in result
 // Result: float32<{ m: 1, kg: 0, s: -1, ratio: 1.0 }> matches Velocity
 
 const mass: Kilogram = 80;
@@ -933,14 +933,14 @@ const b: Meter = 1000;
 console.log(a == b); // true (1 * 1000 == 1000 * 1)
 ```
 
-### Combined Dimension + Bounds
+### Combined Dimension + NumberBounds
 
 ```js
 const width: PositiveMeter = 0.5;
 const height: PositiveMeter = 1.75;
 const area = width * height;
 // Dimensions: { m: 1 } * { m: 1 } = { m: 2, kg: 0, s: 0, ratio: 1 }
-// Bounds: boundsFromProducts({ exclusiveMinimum: 0 }, { exclusiveMinimum: 0 })
+// NumberBounds: boundsFromProducts({ exclusiveMinimum: 0 }, { exclusiveMinimum: 0 })
 //   both non-negative, partial propagation -> { exclusiveMinimum: 0 }
 // area: float32<{ m: 2, kg: 0, s: 0, ratio: 1.0, exclusiveMinimum: 0 }>
 // That's a positive square-meter.
@@ -951,16 +951,16 @@ const area = width * height;
 ```js
 function clampToSafe(v: Velocity): SafeSpeed {
 	if (v >= 0) {
-		// Bounds.narrow({}, ">=", 0) -> { minimum: 0 }
+		// NumberBounds.narrow({}, ">=", 0) -> { minimum: 0 }
 		// v: float32<{ m: 1, kg: 0, s: -1, ratio: 1, minimum: 0 }>
 
 		if (v <= 343) {
-			// Bounds.narrow({ minimum: 0 }, "<=", 343) -> { minimum: 0, maximum: 343 }
+			// NumberBounds.narrow({ minimum: 0 }, "<=", 343) -> { minimum: 0, maximum: 343 }
 			// v: float32<{ m: 1, kg: 0, s: -1, ratio: 1, minimum: 0, maximum: 343 }>
 			//
 			// SafeSpeed.subtype check:
 			//   Dimensions: exponents match
-			//   Bounds: Bounds.subtype({ minimum:0, maximum:343 }, { minimum:0, maximum:343 }) -> true
+			//   NumberBounds: NumberBounds.subtype({ minimum:0, maximum:343 }, { minimum:0, maximum:343 }) -> true
 			return v; // no cast, no runtime check
 		}
 
@@ -996,9 +996,9 @@ function potentialEnergy(m: Kilogram, h: PositiveMeter): Joule {
 	const g: Acceleration = 9.80665;
 	return m * g * h;
 	// Dimensions: { kg: 1 } * { m: 1, s: -2 } * { m: 1 } = { m: 2, kg: 1, s: -2 } Joule
-	// Bounds: {} * {} * { exclusiveMinimum: 0 } -> { exclusiveMinimum: 0 } propagated
-	// Result has Bounds{ exclusiveMinimum: 0 }, energy is positive.
-	// Joule has no Bounds requirement -> extra bounds are fine (subtype).
+	// NumberBounds: {} * {} * { exclusiveMinimum: 0 } -> { exclusiveMinimum: 0 } propagated
+	// Result has NumberBounds{ exclusiveMinimum: 0 }, energy is positive.
+	// Joule has no NumberBounds requirement -> extra bounds are fine (subtype).
 }
 ```
 
@@ -1013,20 +1013,20 @@ function pressure(force: Newton, area: SquareMeter): Pascal {
 }
 ```
 
-### Bounds Arithmetic
+### NumberBounds Arithmetic
 
 ```js
 const prob: Probability = 0.7;
 const prob2: Probability = 0.2;
 const sum = prob + prob2;
-// Bounds: { minimum: 0, maximum: 1 } + { minimum: 0, maximum: 1 } = { minimum: 0, maximum: 2 }
+// NumberBounds: { minimum: 0, maximum: 1 } + { minimum: 0, maximum: 1 } = { minimum: 0, maximum: 2 }
 // sum: float32<{ minimum: 0, maximum: 2 }>
 
 // const bad: Probability = sum;
-// Bounds.subtype({ minimum: 0, maximum: 2 }, { minimum: 0, maximum: 1 }) -> false (max 2 > max 1)
+// NumberBounds.subtype({ minimum: 0, maximum: 2 }, { minimum: 0, maximum: 1 }) -> false (max 2 > max 1)
 
 if (sum <= 1) {
-	// Bounds.narrow({ minimum: 0, maximum: 2 }, "<=", 1) -> { minimum: 0, maximum: 1 }
+	// NumberBounds.narrow({ minimum: 0, maximum: 2 }, "<=", 1) -> { minimum: 0, maximum: 1 }
 	const safe: Probability = sum; // proven by narrowing
 }
 ```
@@ -1118,7 +1118,7 @@ partial class Metadata {
 }
 
 function validate<B: NumberBounds, TClass>({ name, metadata }: ClassFieldDecorator<number<B>, TClass>) {
-	metadata[validatorsKey].push({ name, constraint: B, meta: Bounds });
+	metadata[validatorsKey].push({ name, constraint: B, meta: NumberBounds });
 }
 
 function validate<S: StringBounds, TClass>({ name, metadata }: ClassFieldDecorator<string<S>, TClass>) {
