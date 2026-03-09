@@ -159,43 +159,40 @@ const d = @f #{ a: 1 }; // RecordDecorator
 
 Some contexts have metadata which is on the type essentially for classes. (This can be thought of as on the constructor). The same is true for enum types. For objects the metadata is on the instance. So each instance created has its own unique metadata that is not shared.
 
+All Metadata uses a partial class which can be appended with typed symbol fields.
 ```js
-type Metadata = Record<string | number | symbol | ???, unknown>;
+const myMetadata = Symbol('myMetadata');
+partial class Metadata {
+  [myMetadata]: string;
+};
 ```
 
-TODO: I want Metadata applied to types to be typed. Essentially I need a way for code to broadcast that they've registered a variable. IDEs would be able to see this.
+
 ```js
-@Metadata<T, { f: string }>
-function f<T>(context: ClassDecorator<T>) {
-  context.metadata.f = 'f';
+function f<T>({ metadata }: ClassDecorator<T>) {
+  metadata[myMetadata] = 'f';
 }
 @f
 class A {}
 
-const metadata: Metadata<A> = getMetadata<A>();
-metadata.f;
+const metadata: Metadata = Reflect.getMetadata<A>();
+metadata[myMetadata];
 ```
-Obviously this would breakdown if a user dynamically generated a class.
 
-This would need to also work on properties.
+This would need to also work on fields.
 
 ```js
-@Metadata<TClass, { [context.name]: T }, { f: string }>
 function f<T, TClass>(context: ClassFieldDecorator<T, TClass>) {
-  context.metadata.f = 'f';
+  context[myMetadata] = 'f';
 }
 class A {
   @f
   a: uint8;
 }
 
-const metadata: Metadata<A, { a }> = getMetadata<A, { a }>();
-metadata.f;
+const metadata: Metadata = getMetadata<A>();
+metadata[myMetadata];
 ```
-
-The big picture of having these be typed is they could be treated as constant immutable records. If they were truly constant the values could be used with generics. An engine would also be free to optimize using the data.
-
-This might be possible independently if the programmer is diligent about utilizing records and tuples to store things. In common serialization scenarios the tuples would be iterated over and a very ambitious engine could customize the code path expanding the loop and inlining everything.
 
 ## Decorator Contexts
 
