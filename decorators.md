@@ -160,6 +160,7 @@ const d = @f #{ a: 1 }; // RecordDecorator
 Some contexts have metadata which is on the type (class constructor) and/or target. The same is true for enum types. For objects the metadata is on the instance. So each instance created has its own unique metadata that is not shared.
 
 All Metadata uses a partial class which can be appended with typed symbol fields.
+
 ```js
 const myMetadata = Symbol('myMetadata');
 partial class ClassMetadata {
@@ -167,40 +168,39 @@ partial class ClassMetadata {
 };
 ```
 
+Each decorator context has a reference to the target metadata:
 
 ```js
 function f<T>({ metadata }: ClassDecorator<T>) {
 	metadata[myMetadata] = 'f';
 }
+
 @f
 class A {}
 
-const metadata: Metadata = Reflect.getMetadata<A>();
-metadata[myMetadata];
+const metadata: ClassMetadata = Reflect.getMetadata<ClassDecorator, A>();
+metadata[myMetadata]; // 'f'
 ```
 
 This would need to also work on fields.
 
 ```js
-function f<T, TClass>(context: ClassFieldDecorator<T, TClass>) {
-	context[myMetadata] = 'f';
+function f<T, TClass>({ metadata }: ClassFieldDecorator<T, TClass>) {
+	metadata[myMetadata] = 'f';
 }
 class A {
 	@f
 	a: uint8;
 }
 
-const metadata: Metadata = getMetadata<A>();
-metadata[myMetadata];
+const metadata: ClassFieldMetadata = Reflect.getMetadata<ClassFieldDecorator, A, 'a'>();
+metadata[myMetadata]; // 'f'
 ```
 
-Reflect stores the metadata access:
+```Reflect.getMetadata<DecoratorContext, ...>()``` accesses the metadata:
 
 ```js
-// Class-level
-Reflect.getMetadata<T>(): ClassMetadata
-
-// All targets of a kind
+Reflect.getMetadata<ClassDecorator, T>(): ClassMetadata
 Reflect.getMetadata<ClassFieldDecorator, T>(): { [name]: ClassFieldMetadata }
 Reflect.getMetadata<ClassMethodDecorator, T>(): { [name]: ClassMethodMetadata }
 Reflect.getMetadata<ClassGetterDecorator, T>(): { [name]: ClassGetterMetadata }
@@ -213,7 +213,7 @@ Reflect.getMetadata<ClassFieldDecorator, T, decoratorName>(): { [name]: ClassFie
 Reflect.getMetadata<ClassMethodDecorator, T, decoratorName>(): { [name]: ClassMethodMetadata }
 
 // Single target
-Reflect.getMetadata<ClassFieldDecorator, T, 'age'>(): ClassFieldMetadata
+Reflect.getMetadata<ClassFieldDecorator, T, 'propertyName' or Symbol instance>(): ClassFieldMetadata
 
 // Parameter metadata (keyed by index or name)
 Reflect.getMetadata<ClassMethodParameterDecorator, T, 'constructor'>(): { [index]: ClassMethodParameterMetadata }
@@ -232,10 +232,15 @@ Overloading parameter types and contexts allow defining specialized decorators f
 interface ClassDecorator<T extends { new (...args: [].<any>): any }> {
 	name: string | undefined;
 	type: Function;
-	metadata: Metadata;
+	metadata: ClassMetadata;
 	addInitializer(initializer: () => void): void;
 }
 ```
+
+<details>
+	<summary>Expand for example</summary>
+
+</details>
 
 ### ClassFieldDecorator
 ```js
@@ -245,25 +250,28 @@ interface ClassFieldDecorator<T, TClass> {
 	name: string | symbol;
 	static: boolean;
 	private: boolean;
-	metadata: ClassMetadata;
-	fieldMetadata: FieldMetadata;
 	initial: T | undefined; // If a constant exists, then it'll be stored here
+	metadata: FieldMetadata;
 	addInitializer(initializer: () => void): void;
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+	
 ```js
 const metadataKey = Symbol('log');
-function logField<T, TClass>({ target, name, type, static, private, metadata, fieldMetadata }: ClassFieldDecorator<T, TClass>) {
+function logField<T, TClass>({ classContext: { name: className, metadata: classMetadata } name, type, static, private, metadata }: ClassFieldDecorator<T, TClass>) {
 	console.log('name:', name);
-	console.log('class:', targetContext.name);
+	console.log('class:', className);
 	console.log('type:', type);
 	console.log('static:', static);
 	console.log('private:', private);
+	classMetadata[metadataKey] = name; // Just an example
 	metadata[metadataKey] = name;
-	fieldMetadata[metadataKey] = name;
 }
 ```
+</details>
 
 ### ClassGetterDecorator
 ```js
@@ -276,6 +284,11 @@ interface ClassGetterDecorator<T, TClass> {
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
 ### ClassSetterDecorator
 ```js
 interface ClassSetterDecorator<T, TClass> {
@@ -287,6 +300,11 @@ interface ClassSetterDecorator<T, TClass> {
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
 ### ClassMethodDecorator
 ```js
 interface ClassMethodDecorator<T extends (...args:[].<any>) => any, TClass> {
@@ -297,16 +315,26 @@ interface ClassMethodDecorator<T extends (...args:[].<any>) => any, TClass> {
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
 ### ClassMethodParameterDecorator
 ```js
 interface ClassMethodParameterDecorator<T, TMethod, TClass> {
 	methodContext: ClassMethodDecorator<TMethod, TClass>;
 	type: T;
-	key: string | symbol;
+	key: string;
 	index: number;
 	metadata: ClassMethodParameterMetadata;
 }
 ```
+
+<details>
+	<summary>Expand for example</summary>
+
+</details>
 
 ### ClassOperatorDecorator
 ```js
@@ -351,15 +379,36 @@ enum Operator: Symbol {
 	UnaryPlus
 };
 
-interface ClassOperatorDecorator {
+interface ClassOperatorDecorator<T, TClass> {
 	classContext: ClassDecorator<TClass>;
+	type: T;
 	operator: Operator;
 	type: (...args:[].<any>) => any;
 	metadata: ClassOperatorMetadata;
 }
 ```
 
-```ClassOperatorParameterDecorator``` ?
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
+### ClassOperatorParameterDecorator
+
+```js
+interface ClassOperatorParameterDecorator<T, TMethod, TClass> {
+	operatorContext: ClassOperatorDecorator<TMethod, TClass>;
+	type: T;
+	key: string;
+	index: number;
+	metadata: ClassOperatorParameterMetadata;
+}
+```
+
+<details>
+	<summary>Expand for example</summary>
+
+</details>
 
 ### FunctionDecorator
 ```js
@@ -370,17 +419,26 @@ interface FunctionDecorator<T extends (...args:[].<any>) => any> {
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
 ### FunctionParameterDecorator
 ```js
 interface ParameterDecorator<T, TMethod> {
 	functionContext: FunctionDecorator<TMethod>;
 	type: T;
-	methodType: TMethod;
-	key: string | symbol;
+	key: string;
 	index: number;
 	metadata: Metadata;
 }
 ```
+
+<details>
+	<summary>Expand for example</summary>
+
+</details>
 
 ### LetDecorator
 ```js
@@ -390,6 +448,11 @@ interface LetDecorator<T> {
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
 ### ConstDecorator
 ```js
 interface ConstDecorator<T> {
@@ -397,6 +460,11 @@ interface ConstDecorator<T> {
 	name: string;
 }
 ```
+
+<details>
+	<summary>Expand for example</summary>
+
+</details>
 
 ### ObjectDecorator
 ```js
@@ -406,6 +474,9 @@ interface ObjectDecorator<T> {
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+	
 ```js
 function f<T>(context: ObjectDecorator<T>) {
 	// ???
@@ -415,6 +486,7 @@ const a = @f {
 	(b: number): 10
 };
 ```
+</details>
 
 ### ObjectFieldDecorator
 ```js
@@ -426,6 +498,9 @@ interface ObjectFieldDecorator<T, TObject> {
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
 ```js
 function f<T>(context: ObjectFieldDecorator<T, any>) {
 	// ???
@@ -436,30 +511,39 @@ const a = {
 	(b: number): 10
 };
 ```
+</details>
 
 ### ObjectGetterDecorator
 ```js
 interface ObjectGetterDecorator<T, TObject> {
-	type: () => T;
-	objectType: TObject;
 	objectContext: ObjectDecorator<TObject>;
+	type: () => T;
 	name: string | symbol;
 	metadata: Metadata;
 	addInitializer(initializer: () => void): void;
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
 ### ObjectSetterDecorator
 ```js
 interface ObjectSetterDecorator<T, TObject> {
-	type: (value: T) => void;
-	objectType: TObject;
 	objectContext: ObjectDecorator<TObject>;
+	type: (value: T) => void;
 	name: string | symbol;
 	metadata: Metadata;
 	addInitializer(initializer: () => void): void;
 }
 ```
+
+<details>
+	<summary>Expand for example</summary>
+
+</details>
 
 ### ObjectMethodDecorator
 ```js
@@ -470,6 +554,11 @@ interface ObjectMethodDecorator<T extends (...args:[].<any>) => any, TObject> {
 	metadata: ObjectMethodMetadata; // on the instance
 }
 ```
+
+<details>
+	<summary>Expand for example</summary>
+
+</details>
 
 ### ObjectMethodParameterDecorator
 ```js
@@ -482,7 +571,16 @@ interface ParameterDecorator<T, TMethod, TObject> {
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
 ### Block Decorators
+
+Note: That ```Expression``` is not defined here. Macro AST is out of scope.
+
+WIP: Probably remove the ```insertBefore```, ```insertAfter```, etc. Almost need a mock AST object with non-controversial operations like ```wrap```. I know macro stuff is largely out of scope, but I don't want to make a design that makes that awkward later.
 
 ```js
 interface BlockDecorator {
@@ -494,7 +592,10 @@ interface BlockDecorator {
 
 interface IfBlockDecorator extends BlockDecorator {
 	condition: Expression; // the test expression, for static analysis
-	branch: 'if' | 'elseif';
+}
+
+interface IfElseBlockDecorator extends BlockDecorator {
+	condition: Expression; // the test expression, for static analysis
 }
 
 interface ElseBlockDecorator extends BlockDecorator {
@@ -524,7 +625,8 @@ interface ForOfBlockDecorator extends BlockDecorator {
 }
 ```
 
-Note: That ```Expression``` is not defined here. Macro AST is out of scope.
+<details>
+	<summary>Expand for example</summary>
 
 ```js
 function f(context: BlockDecorator) {
@@ -560,6 +662,8 @@ Could include in the context all sorts of information like the scope information
 
 Loop blocks could also include their own context like the kind of loop, the initialization, condition, and increment expressions?
 
+</details>
+
 ### InitializerDecorator
 ```js
 interface InitializerDecorator<T> {
@@ -567,6 +671,11 @@ interface InitializerDecorator<T> {
 	type: () => void; // Function that initializes something
 }
 ```
+
+<details>
+	<summary>Expand for example</summary>
+
+</details>
 
 ### ReturnDecorator
 ```js
@@ -577,6 +686,11 @@ interface ReturnDecorator<T> {
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
 ### EnumDecorator
 ```js
 interface EnumDecorator<T> {
@@ -585,21 +699,28 @@ interface EnumDecorator<T> {
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
 ### EnumEnumeratorDecorator
 ```js
 interface EnumEnumeratorDecorator<T, TEnum> {
-	type: T;
-	enumType: TEnum;
 	enumContext: EnumDecorator<TEnum>;
+	type: T;
 	name: string;
 	index: number;
 	metadata: Metadata;
 }
 ```
 
+<details>
+	<summary>Expand for example</summary>
+
 ```js
-function label<T, TEnum>({ enumType, type, name, index }: EnumEnumeratorDecorator<T, TEnum>) {
-	// Should I have the ability to reflect on T? reflectMetadata<T>
+function label<T, TEnum>({ enumContext: { type: enumType }, type, name, index }: EnumEnumeratorDecorator<T, TEnum>) {
+	// TODO
 }
 
 enum Count {
@@ -620,8 +741,12 @@ enum Count: string {
 	Two
 }
 ```
+</details>
 
 ### TupleDecorator
+
+WIP: Bring inline with composites proposal
+
 ```js
 interface TupleDecorator<T extends any[]> {
 	target: Object;
@@ -630,6 +755,9 @@ interface TupleDecorator<T extends any[]> {
 ```
 
 ### RecordDecorator
+
+WIP: Bring inline with composites proposal
+
 ```js
 interface RecordDecorator<K extends string | number | symbol, V> {
 	target: Object;
