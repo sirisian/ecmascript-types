@@ -38,7 +38,7 @@ ClassSetterDecorator<T, TClass>
 ClassMethodDecorator<T, TClass>
 ClassMethodParameterDecorator<T, TMethod, TClass>
 ClassOperatorDecorator<T, TClass>
-// ClassOperatorParameterDecorator ?
+ClassOperatorParameterDecorator<T, TMethod, TClass>
 FunctionDecorator<T>
 FunctionParameterDecorator<T, TFunction>
 ParameterDecorator<T>
@@ -51,6 +51,14 @@ ObjectSetterDecorator<T, TObject>
 ObjectMethodDecorator<T, TObject>
 ObjectMethodParameterDecorator<T, TMethod, TObject>
 BlockDecorator
+IfBlockDecorator
+IfElseBlockDecorator
+ElseBlockDecorator
+WhileBlockDecorator
+DoWhileBlockDecorator
+ForBlockDecorator
+ForInBlockDecorator
+ForOfBlockDecorator
 InitializerDecorator<T>
 ReturnDecorator<T>
 EnumDecorator<T>
@@ -771,6 +779,9 @@ WIP, this should be an exhaustive list of common decorator uses including metada
 
 ### Validation
 
+Note that [primitive metadata](https://github.com/sirisian/ecmascript-types/blob/master/primitivemetadata.md) drastically simplifies validator code. Some examples on this page can be simplified using that type system feature.  
+WIP: Look into just using primitive metadata in the whole spec so as not to show more verbose syntax.
+
 An existing TypeScript library for reference: https://github.com/typestack/class-validator
 
 A naive example below that assumes we only want to run a validation for the whole object.
@@ -783,8 +794,12 @@ interface NameAndValidator<T> {
 	validator: (value: T) => boolean
 };
 
+partial class ClassFieldMetadata {
+	[validatorsSymbol]: [].<NameAndValidator<T>> = [];
+}
+
 function addValidators<T>(({ name, classContext: { metadata } }: ClassFieldDecorator<string, T>), validator: (value: T) => boolean) {
-	(metadata[validatorsSymbol] ??= [].<NameAndValidator<T>>).push({ name, validator });
+	metadata[validatorsSymbol]).push({ name, validator });
 }
 
 function Length<TClass>(min: uint32, max: uint32, context: ClassFieldDecorator<string, TClass>) { // Can only be placed on string
@@ -892,6 +907,53 @@ export class UITree extends HTMLElement {
 ```
 
 ### Dependency injection
+
+WIP: Is this the best implementation of this pattern?
+
+```js
+const injectKey = Symbol('inject');
+
+type InjectionSite = {
+    method: string | symbol,
+    index: uint32,
+    token: string | symbol
+};
+
+partial class ClassMetadata {
+    [injectKey]: [].<InjectionSite> = [];
+}
+
+function inject<T, TMethod, TClass>(
+    token: string | symbol,
+    { key, index, methodContext: { classContext: { metadata } } }: ClassMethodParameterDecorator<T, TMethod, TClass>
+) {
+    metadata[injectKey].push({ method: key, index, token });
+}
+
+function resolve<T>(cls: { new(...args: any): T }, container: Container): T {
+    const sites = Reflect.getMetadata<T>()[injectKey];
+    const ctorArgs = sites
+        .filter(s => s.method == 'constructor')
+        .sort((a, b) => a.index - b.index)
+        .map(s => container.get(s.token));
+    return new cls(...ctorArgs);
+}
+
+class OrderService {
+    #db: Database;
+    #mailer: Mailer;
+
+    constructor(
+        @inject('database') db: Database,
+        @inject('mailer') mailer: Mailer
+    ) {
+        this.#db = db;
+        this.#mailer = mailer;
+    }
+}
+
+const service = resolve(OrderService, container);
+```
 
 ### Declarative routing
 
