@@ -157,12 +157,12 @@ const d = @f #{ a: 1 }; // RecordDecorator
 
 ## Metadata
 
-Some contexts have metadata which is on the type essentially for classes. (This can be thought of as on the constructor). The same is true for enum types. For objects the metadata is on the instance. So each instance created has its own unique metadata that is not shared.
+Some contexts have metadata which is on the type (class constructor) and/or target. The same is true for enum types. For objects the metadata is on the instance. So each instance created has its own unique metadata that is not shared.
 
 All Metadata uses a partial class which can be appended with typed symbol fields.
 ```js
 const myMetadata = Symbol('myMetadata');
-partial class Metadata {
+partial class ClassMetadata {
 	[myMetadata]: string;
 };
 ```
@@ -194,6 +194,35 @@ const metadata: Metadata = getMetadata<A>();
 metadata[myMetadata];
 ```
 
+Reflect stores the metadata access:
+
+```js
+// Class-level
+Reflect.getMetadata<T>(): ClassMetadata
+
+// All targets of a kind
+Reflect.getMetadata<ClassFieldDecorator, T>(): { [name]: ClassFieldMetadata }
+Reflect.getMetadata<ClassMethodDecorator, T>(): { [name]: ClassMethodMetadata }
+Reflect.getMetadata<ClassGetterDecorator, T>(): { [name]: ClassGetterMetadata }
+Reflect.getMetadata<ClassSetterDecorator, T>(): { [name]: ClassSetterMetadata }
+Reflect.getMetadata<ClassOperatorDecorator, T>(): { [op]: ClassOperatorMetadata }
+Reflect.getMetadata<EnumEnumeratorDecorator, T>(): { [name]: EnumEnumeratorMetadata }
+
+// Filtered by decorator
+Reflect.getMetadata<ClassFieldDecorator, T, decoratorName>(): { [name]: ClassFieldMetadata }
+Reflect.getMetadata<ClassMethodDecorator, T, decoratorName>(): { [name]: ClassMethodMetadata }
+
+// Single target
+Reflect.getMetadata<ClassFieldDecorator, T, 'age'>(): ClassFieldMetadata
+
+// Parameter metadata (keyed by index or name)
+Reflect.getMetadata<ClassMethodParameterDecorator, T, 'constructor'>(): { [index]: ClassMethodParameterMetadata }
+Reflect.getMetadata<FunctionParameterDecorator, typeof getUser>(): { [index]: FunctionParameterMetadata }
+
+// Object instances (per-instance metadata)
+Reflect.getMetadata<ObjectFieldDecorator>(instance): { [key]: ObjectFieldMetadata }
+```
+
 ## Decorator Contexts
 
 Overloading parameter types and contexts allow defining specialized decorators for every situation.
@@ -211,13 +240,13 @@ interface ClassDecorator<T extends { new (...args: [].<any>): any }> {
 ### ClassFieldDecorator
 ```js
 interface ClassFieldDecorator<T, TClass> {
-	type: T;
-	classType: TClass;
 	classContext: ClassDecorator<TClass>;
+	type: T;
 	name: string | symbol;
 	static: boolean;
 	private: boolean;
-	metadata: Metadata;
+	metadata: ClassMetadata;
+	fieldMetadata: FieldMetadata;
 	initial: T | undefined; // If a constant exists, then it'll be stored here
 	addInitializer(initializer: () => void): void;
 }
@@ -225,25 +254,24 @@ interface ClassFieldDecorator<T, TClass> {
 
 ```js
 const metadataKey = Symbol('log');
-function logField<T, TClass>({ target, name, type, static, private, metadata }: ClassFieldDecorator<T, TClass>) {
+function logField<T, TClass>({ target, name, type, static, private, metadata, fieldMetadata }: ClassFieldDecorator<T, TClass>) {
 	console.log('name:', name);
 	console.log('class:', targetContext.name);
 	console.log('type:', type);
 	console.log('static:', static);
 	console.log('private:', private);
-	// Similar TypeScript syntax: Reflect.defineMetadata(metadataKey, name, target.constructor, name);
 	metadata[metadataKey] = name;
+	fieldMetadata[metadataKey] = name;
 }
 ```
 
 ### ClassGetterDecorator
 ```js
 interface ClassGetterDecorator<T, TClass> {
-	type: () => T;
-	classType: TClass;
 	classContext: ClassDecorator<TClass>;
+	type: () => T;
 	name: string | symbol;
-	metadata: Metadata;
+	metadata: ClassGetterMetadata;
 	addInitializer(initializer: () => void): void;
 }
 ```
@@ -251,11 +279,10 @@ interface ClassGetterDecorator<T, TClass> {
 ### ClassSetterDecorator
 ```js
 interface ClassSetterDecorator<T, TClass> {
-	type: (value: T) => void;
-	classType: TClass;
 	classContext: ClassDecorator<TClass>;
+	type: (value: T) => void;
 	name: string | symbol;
-	metadata: Metadata;
+	metadata: ClassSetterMetadata;
 	addInitializer(initializer: () => void): void;
 }
 ```
@@ -263,22 +290,21 @@ interface ClassSetterDecorator<T, TClass> {
 ### ClassMethodDecorator
 ```js
 interface ClassMethodDecorator<T extends (...args:[].<any>) => any, TClass> {
-	type: T;
-	classType: TClass;
 	classContext: ClassDecorator<TClass>;
+	type: T;
 	name: string | symbol;
-	metadata: Metadata;
+	metadata: MethodMetadata;
 }
 ```
 
 ### ClassMethodParameterDecorator
 ```js
-interface ParameterDecorator<T, TMethod, TClass> {
+interface ClassMethodParameterDecorator<T, TMethod, TClass> {
+	methodContext: ClassMethodDecorator<TMethod, TClass>;
 	type: T;
-	methodType: TMethod;
-	methodContext: ClassMethodDecorator<TMethod, TClass>
 	key: string | symbol;
 	index: number;
+	metadata: ClassMethodParameterMetadata;
 }
 ```
 
@@ -326,9 +352,10 @@ enum Operator: Symbol {
 };
 
 interface ClassOperatorDecorator {
+	classContext: ClassDecorator<TClass>;
 	operator: Operator;
 	type: (...args:[].<any>) => any;
-	metadata: Metadata;
+	metadata: ClassOperatorMetadata;
 }
 ```
 
@@ -339,16 +366,16 @@ interface ClassOperatorDecorator {
 interface FunctionDecorator<T extends (...args:[].<any>) => any> {
 	type: T;
 	name: string | symbol | undefined;
-	metadata: Metadata;
+	metadata: FunctionMetadata;
 }
 ```
 
 ### FunctionParameterDecorator
 ```js
 interface ParameterDecorator<T, TMethod> {
+	functionContext: FunctionDecorator<TMethod>;
 	type: T;
 	methodType: TMethod;
-	methodContext: FunctionDecorator<TMethod>;
 	key: string | symbol;
 	index: number;
 	metadata: Metadata;
@@ -375,7 +402,7 @@ interface ConstDecorator<T> {
 ```js
 interface ObjectDecorator<T> {
 	type: T;
-	metadata: Metadata; // on the instance
+	metadata: ObjectMetadata; // on the instance
 }
 ```
 
@@ -392,11 +419,10 @@ const a = @f {
 ### ObjectFieldDecorator
 ```js
 interface ObjectFieldDecorator<T, TObject> {
-	type: T;
-	objectType: TObject;
 	objectContext: ObjectDecorator<TObject>;
+	type: T;
 	key: string | symbol;
-	metadata: Metadata; // on the instance
+	metadata: ObjectFieldMetadata; // on the instance
 }
 ```
 
@@ -438,22 +464,21 @@ interface ObjectSetterDecorator<T, TObject> {
 ### ObjectMethodDecorator
 ```js
 interface ObjectMethodDecorator<T extends (...args:[].<any>) => any, TObject> {
-	type: T;
-	objectType: TObject;
 	objectContext: ObjectDecorator<TObject>;
+	type: T;
 	key: string | symbol;
-	metadata: Metadata; // on the instance
+	metadata: ObjectMethodMetadata; // on the instance
 }
 ```
 
 ### ObjectMethodParameterDecorator
 ```js
 interface ParameterDecorator<T, TMethod, TObject> {
+	objectContext: ObjectMethodDecorator<TMethod, TObject>;
 	type: T;
-	objectType: TMethod;
-	objectContext: ObjectMethodDecorator<TMethod, TObject>
 	key: string | symbol;
 	index: number;
+	metadata: ObjectMethodParameterMetadata;
 }
 ```
 
