@@ -685,9 +685,9 @@ validate(post); // true or false
 
 ### Serialization
 
+```js
 const binary = Symbol('binary');
 
-```js
 function data(context: ClassFieldDecorator<boolean, any>) {
 	context.metadata[binary] = (packet, value) => packet.write<boolean>(value);
 }
