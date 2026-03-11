@@ -216,12 +216,12 @@ Reflect.getMetadata<ClassSetterDecorator, T>(): { [name]: ClassSetterMetadata }
 Reflect.getMetadata<ClassOperatorDecorator, T>(): { [op]: ClassOperatorMetadata }
 Reflect.getMetadata<EnumEnumeratorDecorator, T>(): { [name]: EnumEnumeratorMetadata }
 
-// Filtered by decorator
-Reflect.getMetadata<ClassFieldDecorator, T, decoratorName>(): { [name]: ClassFieldMetadata }
-Reflect.getMetadata<ClassMethodDecorator, T, decoratorName>(): { [name]: ClassMethodMetadata }
-
 // Single target
-Reflect.getMetadata<ClassFieldDecorator, T, 'propertyName' or Symbol instance>(): ClassFieldMetadata
+Reflect.getMetadata<ClassFieldDecorator, T, string | Symbol>(): ClassFieldMetadata
+Reflect.getMetadata<ClassMethodDecorator, T, string | Symbol>(): ClassMethodMetadata
+Reflect.getMetadata<ClassGetterDecorator, T, string | Symbol>(): ClassGetterMetadata
+Reflect.getMetadata<ClassSetterDecorator, T, string | Symbol>(): ClassSetterMetadata
+Reflect.getMetadata<EnumEnumeratorDecorator, T, enumeratorValue>(): EnumEnumeratorMetadata
 
 // Parameter metadata (keyed by index or name)
 Reflect.getMetadata<ClassMethodParameterDecorator, T, 'constructor'>(): { [index]: ClassMethodParameterMetadata }
@@ -259,7 +259,7 @@ interface ClassFieldDecorator<T, TClass> {
 	static: boolean;
 	private: boolean;
 	initial: T | undefined; // If a constant exists, then it'll be stored here
-	metadata: FieldMetadata;
+	metadata: ClassFieldMetadata;
 	addInitializer(initializer: () => void): void;
 }
 ```
@@ -319,7 +319,7 @@ interface ClassMethodDecorator<T extends (...args:[].<any>) => any, TClass> {
 	classContext: ClassDecorator<TClass>;
 	type: T;
 	name: string | symbol;
-	metadata: MethodMetadata;
+	metadata: ClassMethodMetadata;
 }
 ```
 
@@ -334,7 +334,7 @@ interface ClassMethodParameterDecorator<T, TMethod, TClass> {
 	methodContext: ClassMethodDecorator<TMethod, TClass>;
 	type: T;
 	key: string;
-	index: number;
+	index: uint32;
 	metadata: ClassMethodParameterMetadata;
 }
 ```
@@ -408,7 +408,7 @@ interface ClassOperatorParameterDecorator<T, TMethod, TClass> {
 	operatorContext: ClassOperatorDecorator<TMethod, TClass>;
 	type: T;
 	key: string;
-	index: number;
+	index: uint32;
 	metadata: ClassOperatorParameterMetadata;
 }
 ```
@@ -438,8 +438,8 @@ interface ParameterDecorator<T, TMethod> {
 	functionContext: FunctionDecorator<TMethod>;
 	type: T;
 	key: string;
-	index: number;
-	metadata: Metadata;
+	index: uint32;
+	metadata: FunctionParameterMetadata;
 }
 ```
 
@@ -527,7 +527,7 @@ interface ObjectGetterDecorator<T, TObject> {
 	objectContext: ObjectDecorator<TObject>;
 	type: () => T;
 	name: string | symbol;
-	metadata: Metadata;
+	metadata: ObjectGetterMetadata;
 	addInitializer(initializer: () => void): void;
 }
 ```
@@ -543,7 +543,7 @@ interface ObjectSetterDecorator<T, TObject> {
 	objectContext: ObjectDecorator<TObject>;
 	type: (value: T) => void;
 	name: string | symbol;
-	metadata: Metadata;
+	metadata: ObjectSetterMetadata;
 	addInitializer(initializer: () => void): void;
 }
 ```
@@ -574,7 +574,7 @@ interface ParameterDecorator<T, TMethod, TObject> {
 	objectContext: ObjectMethodDecorator<TMethod, TObject>;
 	type: T;
 	key: string | symbol;
-	index: number;
+	index: uint32;
 	metadata: ObjectMethodParameterMetadata;
 }
 ```
@@ -701,25 +701,63 @@ interface ReturnDecorator<T> {
 
 ### EnumDecorator
 ```js
-interface EnumDecorator<T> {
+interface EnumDecorator<T extends enum<TValue>, TValue = int32> {
 	type: T;
-	metadata: Metadata;
+	valueType: TValue;
+	metadata: EnumMetadata;
+}
+```
+
+How does this decorator work with typed decorators? It's like a union of types?
+
+```js
+enum example1 {
+	example
+}
+
+enum example2: string {
+	example
 }
 ```
 
 <details>
 	<summary>Expand for example</summary>
 
+```js
+const enumInfoKey = Symbol('enumInfo');
+
+type EnumInfo = {
+	description: string
+};
+
+partial class ClassMetadata {
+	[enumInfoKey]?: EnumInfo;
+}
+
+function describe<T>(
+	description: string,
+	{ metadata }: EnumDecorator<T>,
+) {
+	metadata[enumInfoKey] = { description };
+}
+
+@describe('HTTP status codes')
+enum Status {
+	Ok,
+	NotFound,
+	InternalError
+}
+```
 </details>
 
 ### EnumEnumeratorDecorator
 ```js
-interface EnumEnumeratorDecorator<T, TEnum> {
-	enumContext: EnumDecorator<TEnum>;
-	type: T;
+interface EnumEnumeratorDecorator<T extends enum<TValue>, TValue = int32> {
+	enumContext: EnumDecorator<T, TValue>;
 	name: string;
-	index: number;
-	metadata: Metadata;
+	value: TValue;
+	index: uint32;
+	metadata: EnumEnumeratorMetadata;
 }
 ```
 
@@ -727,29 +765,42 @@ interface EnumEnumeratorDecorator<T, TEnum> {
 	<summary>Expand for example</summary>
 
 ```js
-function label<T, TEnum>({ enumContext: { type: enumType }, type, name, index }: EnumEnumeratorDecorator<T, TEnum>) {
-	// TODO
+const enumLabelKey = Symbol('enumLabels');
+
+partial class EnumEnumeratorMetadata {
+	[enumLabelKey]: Record<string, string> = {};
 }
 
-enum Count {
-	@label('Setting 1')
-	Setting1,
-	@label('Setting 2')
-	Setting2
-};
-```
-
-```js
-enum Count: string {
-	@label('None')
-	Zero = (index, name) => name.toLowerCase(),
-	@label('1 item')
-	One,
-	@label('2 items')
-	Two
+function label<T, TEnum>(
+	label: string,
+	locale: string = 'en',
+	{ metadata }: EnumEnumeratorDecorator<T, TEnum>,
+) {
+	metadata[enumLabelKey][locale] = label;
 }
+
+function getLabel<T extends enum<TValue>, TValue>(value: T, locale: string = 'en'): string {
+	return Reflect.getMetadata<EnumEnumeratorDecorator, T, value>()[enumLabelKey][locale];
+}
+
+enum Status {
+	@label('Success')
+	@label('Erfolg', 'de')
+	Ok,
+	@label('Not Found')
+	@label('Nicht gefunden', 'de')
+	NotFound,
+	@label('Server Error')
+	@label('Serverfehler', 'de')
+	InternalError
+}
+
+getLabel(Status.NotFound, 'de'); // 'Nicht gefunden'
+getLabel(Status.Ok); // 'Success'
 ```
 </details>
+
+Note: ```getLabel``` can be evaluated at compile time. Essentially both ```getLabel``` lines can be turned into their string literals, but if the function is redefined it would need to update those lines.
 
 ### TupleDecorator
 
@@ -914,42 +965,42 @@ WIP: Is this the best implementation of this pattern?
 const injectKey = Symbol('inject');
 
 type InjectionSite = {
-    method: string | symbol,
-    index: uint32,
-    token: string | symbol
+	method: string | symbol,
+	index: uint32,
+	token: string | symbol
 };
 
 partial class ClassMetadata {
-    [injectKey]: [].<InjectionSite> = [];
+	[injectKey]: [].<InjectionSite> = [];
 }
 
 function inject<T, TMethod, TClass>(
-    token: string | symbol,
-    { key, index, methodContext: { classContext: { metadata } } }: ClassMethodParameterDecorator<T, TMethod, TClass>
+	token: string | symbol,
+	{ key, index, methodContext: { classContext: { metadata } } }: ClassMethodParameterDecorator<T, TMethod, TClass>
 ) {
-    metadata[injectKey].push({ method: key, index, token });
+	metadata[injectKey].push({ method: key, index, token });
 }
 
 function resolve<T>(cls: { new(...args: any): T }, container: Container): T {
-    const sites = Reflect.getMetadata<T>()[injectKey];
-    const ctorArgs = sites
-        .filter(s => s.method == 'constructor')
-        .sort((a, b) => a.index - b.index)
-        .map(s => container.get(s.token));
-    return new cls(...ctorArgs);
+	const sites = Reflect.getMetadata<T>()[injectKey];
+	const ctorArgs = sites
+		.filter(s => s.method == 'constructor')
+		.sort((a, b) => a.index - b.index)
+		.map(s => container.get(s.token));
+	return new cls(...ctorArgs);
 }
 
 class OrderService {
-    #db: Database;
-    #mailer: Mailer;
+	#db: Database;
+	#mailer: Mailer;
 
-    constructor(
-        @inject('database') db: Database,
-        @inject('mailer') mailer: Mailer
-    ) {
-        this.#db = db;
-        this.#mailer = mailer;
-    }
+	constructor(
+		@inject('database') db: Database,
+		@inject('mailer') mailer: Mailer
+	) {
+		this.#db = db;
+		this.#mailer = mailer;
+	}
 }
 
 const service = resolve(OrderService, container);
