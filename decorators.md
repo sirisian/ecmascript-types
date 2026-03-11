@@ -207,29 +207,55 @@ metadata[myMetadata]; // 'f'
 ```Reflect.getMetadata<DecoratorContext, ...>()``` accesses the metadata:
 
 ```js
+// Single target
 Reflect.getMetadata<ClassDecorator, T>(): ClassMetadata
+Reflect.getMetadata<ClassFieldDecorator, T, string | Symbol>(): ClassFieldMetadata
+Reflect.getMetadata<ClassMethodDecorator, T, string | Symbol>(): ClassMethodMetadata
+Reflect.getMetadata<ClassMethodParameterDecorator, T, string | Symbol, string | uint32>(): ClassMethodParameterMetadata
+Reflect.getMetadata<ClassGetterDecorator, T, string | Symbol>(): ClassGetterMetadata
+Reflect.getMetadata<ClassSetterDecorator, T, string | Symbol>(): ClassSetterMetadata
+Reflect.getMetadata<ObjectDecorator>(instance): ObjectDecorator
+Reflect.getMetadata<ObjectFieldDecorator, string | Symbol>(instance): ObjectFieldMetadata
+Reflect.getMetadata<ObjectGetterDecorator, string | Symbol>(instance): ObjectGetterMetadata
+Reflect.getMetadata<ObjectSetterDecorator, string | Symbol>(instance): ObjectSetterMetadata
+Reflect.getMetadata<ObjectMethodDecorator, string | Symbol>(instance): ObjectMethodMetadata
+Reflect.getMetadata<ObjectMethodParameterDecorator, string | Symbol, string | uint32>(instance): ObjectMethodParameterMetadata
+Reflect.getMetadata<EnumEnumeratorDecorator, T, enumeratorValue>(): EnumEnumeratorMetadata
+
+// Keyed target
 Reflect.getMetadata<ClassFieldDecorator, T>(): { [name]: ClassFieldMetadata }
 Reflect.getMetadata<ClassMethodDecorator, T>(): { [name]: ClassMethodMetadata }
 Reflect.getMetadata<ClassGetterDecorator, T>(): { [name]: ClassGetterMetadata }
 Reflect.getMetadata<ClassSetterDecorator, T>(): { [name]: ClassSetterMetadata }
 Reflect.getMetadata<ClassOperatorDecorator, T>(): { [op]: ClassOperatorMetadata }
 Reflect.getMetadata<EnumEnumeratorDecorator, T>(): { [name]: EnumEnumeratorMetadata }
-
-// Single target
-Reflect.getMetadata<ClassFieldDecorator, T, string | Symbol>(): ClassFieldMetadata
-Reflect.getMetadata<ClassMethodDecorator, T, string | Symbol>(): ClassMethodMetadata
-Reflect.getMetadata<ClassMethodParameterDecorator, T, string | Symbol, string | uint32>(): ClassMethodParameterMetadata
-Reflect.getMetadata<ClassGetterDecorator, T, string | Symbol>(): ClassGetterMetadata
-Reflect.getMetadata<ClassSetterDecorator, T, string | Symbol>(): ClassSetterMetadata
-
-Reflect.getMetadata<EnumEnumeratorDecorator, T, enumeratorValue>(): EnumEnumeratorMetadata
+Reflect.getMetadata<ObjectFieldDecorator>(instance): { [string | Symbol]: ObjectFieldMetadata }
+Reflect.getMetadata<ObjectGetterDecorator>(instance): { [string | Symbol]: ObjectGetterMetadata }
+Reflect.getMetadata<ObjectSetterDecorator>(instance): { [string | Symbol]: ObjectSetterMetadata }
+Reflect.getMetadata<ObjectMethodDecorator>(instance): { [string | Symbol]: ObjectMethodMetadata }
 
 // Parameter metadata (keyed by name or index)
 Reflect.getMetadata<ClassMethodParameterDecorator, T, string | Symbol, U: string | uint32>(): { [U]: ClassMethodParameterMetadata }
 Reflect.getMetadata<FunctionParameterDecorator, Function, U: string | uint32>(): { [U]: FunctionParameterMetadata }
+Reflect.getMetadata<ObjectMethodParameterDecorator, string | Symbol, U: string | uint32>(instance): { [U]: ObjectMethodMetadata }
+```
 
-// Object instances (per-instance metadata)
-Reflect.getMetadata<ObjectFieldDecorator>(instance): { [string | Symbol]: ObjectFieldMetadata }
+WIP: How to access metadata for the following. Does metadata even make sense?:
+
+```js
+LetDecorator<T>
+ConstDecorator<T>
+BlockDecorator
+IfBlockDecorator
+IfElseBlockDecorator
+ElseBlockDecorator
+WhileBlockDecorator
+DoWhileBlockDecorator
+ForBlockDecorator
+ForInBlockDecorator
+ForOfBlockDecorator
+InitializerDecorator<T>
+ReturnDecorator<T>
 ```
 
 ## Decorator Contexts
@@ -851,7 +877,7 @@ partial class ClassFieldMetadata {
 }
 
 function addValidators<T>(({ name, classContext: { metadata } }: ClassFieldDecorator<string, T>), validator: (value: T) => boolean) {
-	metadata[validatorsSymbol]).push({ name, validator });
+	metadata[validatorsSymbol].push({ name, validator });
 }
 
 function Length<TClass>(min: uint32, max: uint32, context: ClassFieldDecorator<string, TClass>) { // Can only be placed on string
@@ -872,7 +898,7 @@ function IsEmail<TClass>(context: ClassFieldDecorator<T, TClass>) {
 // ...
 
 function validate<T>(o: T): boolean {
-	return (Reflect.getMetadata<T>(validatorsSymbol) as NameAndValidator[]).every(({ name, validator }) => validator(o[name]));
+	return Reflect.getMetadata<ClassDecorator, T>()[validatorsSymbol].every(({ name, validator }) => validator(o[name]));
 }
 
 class Post {
