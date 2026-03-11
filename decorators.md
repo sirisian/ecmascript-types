@@ -931,42 +931,62 @@ validate(post); // true or false
 
 ### Serialization
 
+WIP: Trying to keep this example simple. This is a bit expensive in practice.
+
 ```js
-const binary = Symbol('binary');
+const binaryWriter = Symbol('binary');
 
-function data(context: ClassFieldDecorator<boolean, any>) {
-	context.metadata[binary] = (packet, value) => packet.write<boolean>(value);
+// boolean
+function data<TClass>({ metadata }: ClassFieldDecorator<boolean, TClass>) {
+	metadata[binaryWriter] = (packet, value) => packet.write<boolean>(value);
 }
 
-function data<N: uint32>(context: ClassFieldDecorator<uint<N>, any>) {
-	context.metadata[binary] = (packet, value) => packet.write<uint<N>>(value);
-}
-function data<LengthType extends uint = uint16>(context: ClassFieldDecorator<string, any>) {
-	context.metadata[binary] = (packet, value: string) => packet.write<string, LengthType>(value);
+// uint<N>
+function data<N: uint32, TClass>({ metadata }: ClassFieldDecorator<uint<N>, TClass>) {
+	metadata[binaryWriter] = (packet, value) => packet.write<uint<N>>(value);
 }
 
-@data
-class Room {
-	id: uint64;
-	@data(255)
-	name: string;
-	@data // Implicit generic uint<n>
-	test: uint<7>;
-	@data
-	currentlyBooked: boolean;
+// string
+function data<LengthType extends uint = uint16, TClass>({ metadata }: ClassFieldDecorator<string, TClass>) {
+	metadata[binaryWriter] = (packet, value: string) => packet.write<string, LengthType>(value);
 }
 
-@data
-class Building {
-	rooms: [].<Room>;
+// [].<T>
+function data<T, TClass>({ metadata }: ClassFieldDecorator<[].<T>, TClass>) {
+	metadata[binaryWriter] = (packet, value: [].<T>) => {
+		for (const item of value) {
+			binarySerialize(packet, item);
+		}
+	}
 }
 
 function binarySerialize<T>(buffer: Packet, item: T) {
-	const fields = Reflect.context<T,
-	for (const key of fields) {
-	
+	// Naively iterate all fields
+	const fields = Reflect.getMetadata<ClassFieldDecorator, T>();
+	for (const [key, metadata] of Object.entries(fields)) {
+		serializer[binaryWriter](packet, item[key]);
 	}
 }
+
+class Room {
+	id: uint64 = -1;
+	@data(255)
+	name: string = '';
+	@data // Implicit generic uint<n>
+	test: uint<7> = 0;
+	@data
+	currentlyBooked: boolean = false;
+}
+
+class Building {
+	@data
+	rooms: [].<Room> = [];
+}
+
+const packet = new Packet();
+const building = new Building();
+building.rooms.push(new Room());
+binarySerialize(packet, building);
 ```
 
 ### Web component definition
