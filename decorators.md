@@ -41,7 +41,6 @@ ClassOperatorDecorator<T, TClass>
 ClassOperatorParameterDecorator<T, TMethod, TClass>
 FunctionDecorator<T>
 FunctionParameterDecorator<T, TFunction>
-ParameterDecorator<T>
 LetDecorator<T>
 ConstDecorator<T>
 ObjectDecorator<T>
@@ -61,8 +60,8 @@ ForInBlockDecorator
 ForOfBlockDecorator
 InitializerDecorator<T>
 ReturnDecorator<T>
-EnumDecorator<T>
-EnumEnumeratorDecorator<T>
+EnumDecorator<T extends enum<TValue>, TValue = int32>
+EnumEnumeratorDecorator<T extends enum<TValue>, TValue = int32>
 TupleDecorator<T>
 RecordDecorator<T>
 ```
@@ -219,16 +218,18 @@ Reflect.getMetadata<EnumEnumeratorDecorator, T>(): { [name]: EnumEnumeratorMetad
 // Single target
 Reflect.getMetadata<ClassFieldDecorator, T, string | Symbol>(): ClassFieldMetadata
 Reflect.getMetadata<ClassMethodDecorator, T, string | Symbol>(): ClassMethodMetadata
+Reflect.getMetadata<ClassMethodParameterDecorator, T, string | Symbol, string | uint32>(): ClassMethodParameterMetadata
 Reflect.getMetadata<ClassGetterDecorator, T, string | Symbol>(): ClassGetterMetadata
 Reflect.getMetadata<ClassSetterDecorator, T, string | Symbol>(): ClassSetterMetadata
+
 Reflect.getMetadata<EnumEnumeratorDecorator, T, enumeratorValue>(): EnumEnumeratorMetadata
 
-// Parameter metadata (keyed by index or name)
-Reflect.getMetadata<ClassMethodParameterDecorator, T, 'constructor'>(): { [index]: ClassMethodParameterMetadata }
-Reflect.getMetadata<FunctionParameterDecorator, typeof getUser>(): { [index]: FunctionParameterMetadata }
+// Parameter metadata (keyed by name or index)
+Reflect.getMetadata<ClassMethodParameterDecorator, T, string | Symbol, U: string | uint32>(): { [U]: ClassMethodParameterMetadata }
+Reflect.getMetadata<FunctionParameterDecorator, Function, U: string | uint32>(): { [U]: FunctionParameterMetadata }
 
 // Object instances (per-instance metadata)
-Reflect.getMetadata<ObjectFieldDecorator>(instance): { [key]: ObjectFieldMetadata }
+Reflect.getMetadata<ObjectFieldDecorator>(instance): { [string | Symbol]: ObjectFieldMetadata }
 ```
 
 ## Decorator Contexts
@@ -434,7 +435,7 @@ interface FunctionDecorator<T extends (...args:[].<any>) => any> {
 
 ### FunctionParameterDecorator
 ```js
-interface ParameterDecorator<T, TMethod> {
+interface FunctionParameterDecorator<T, TMethod> {
 	functionContext: FunctionDecorator<TMethod>;
 	type: T;
 	key: string;
