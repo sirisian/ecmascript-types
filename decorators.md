@@ -36,15 +36,15 @@ ClassFieldDecorator<T, TClass>
 ClassGetterDecorator<T, TClass>
 ClassGetterReturnDecorator<T, TClass>
 ClassSetterDecorator<T, TClass>
-ClassSetterParameterDecorator<T, TMethod, TClass>
+ClassSetterParameterDecorator<T, TClass>
 ClassMethodDecorator<T, TClass>
 ClassMethodParameterDecorator<T, TMethod, TClass>
-ClassMethodReturnDecorator<T, TClass>
+ClassMethodReturnDecorator<T, TMethod, TClass>
 ClassOperatorDecorator<T, TClass>
 ClassOperatorParameterDecorator<T, TMethod, TClass>
 FunctionDecorator<T>
 FunctionParameterDecorator<T, TFunction>
-FunctionReturnDecorator<T>
+FunctionReturnDecorator<T, TFunction>
 LetDecorator<T>
 ConstDecorator<T>
 ObjectDecorator<T>
@@ -248,13 +248,15 @@ Reflect.getMetadataByIndex<ClassOperatorParameterDecorator, T>(op: Operator): []
 // Enum
 Reflect.getMetadata<EnumDecorator, T>(): EnumMetadata
 Reflect.getMetadata<EnumEnumeratorDecorator, T>(): { [name: string]: EnumEnumeratorMetadata }
-Reflect.getMetadata<EnumEnumeratorDecorator, T extends enum<TValue>, TValue>(value: T): EnumEnumeratorMetadata
+Reflect.getMetadata<EnumEnumeratorDecorator, T>(value: T): EnumEnumeratorMetadata
+// Goes directly from an enum string name to the metadata
 Reflect.getMetadataByName<EnumEnumeratorDecorator, T>(name: string): EnumEnumeratorMetadata
 
 // Function
 Reflect.getMetadata<FunctionDecorator, T>(): FunctionMetadata
 Reflect.getMetadata<FunctionParameterDecorator, T>(): { [key: string | uint32]: FunctionParameterMetadata }
 Reflect.getMetadata<FunctionParameterDecorator, T>(param: string | uint32): FunctionParameterMetadata
+Reflect.getMetadataByIndex<FunctionParameterDecorator, T>(): [].<FunctionParameterMetadata>
 Reflect.getMetadata<FunctionReturnDecorator, T>(): FunctionReturnMetadata
 
 // Object instance
@@ -317,7 +319,7 @@ interface ClassFieldDecorator<T, TClass> {
 	
 ```js
 const metadataKey = Symbol('log');
-function logField<T, TClass>({ classContext: { name: className, metadata: classMetadata } name, type, static, private, metadata }: ClassFieldDecorator<T, TClass>) {
+function logField<T, TClass>({ classContext: { name: className, metadata: classMetadata }, name, type, static, private, metadata }: ClassFieldDecorator<T, TClass>) {
 	console.log('name:', name);
 	console.log('class:', className);
 	console.log('type:', type);
@@ -348,7 +350,7 @@ interface ClassGetterDecorator<T, TClass> {
 ### ClassGetterReturnDecorator
 
 ```js
-interface ClassGetterReturnDecorator<T, TClass> {
+interface ClassGetterReturnDecorator<T, TClass> { // Note: T and TMethod would be the same, so just T is used.
 	getterContext: ClassGetterDecorator<T, TClass>;
 	type: T;
 	metadata: ClassGetterReturnMetadata;
@@ -447,8 +449,8 @@ interface ClassMethodParameterDecorator<T, TMethod, TClass> {
 ### ClassMethodReturnDecorator
 
 ```js
-interface ClassMethodReturnDecorator<T, TClass> {
-	methodContext: ClassMethodDecorator<T, TClass>;
+interface ClassMethodReturnDecorator<T, TMethod, TClass> {
+	methodContext: ClassMethodDecorator<TMethod, TClass>;
 	type: T;
 	metadata: ClassMethodReturnMetadata;
 }
@@ -560,8 +562,8 @@ interface FunctionParameterDecorator<T, TFunction> {
 ### FunctionReturnDecorator
 
 ```js
-interface FunctionReturnDecorator<T> {
-	functionContext: FunctionDecorator<T>;
+interface FunctionReturnDecorator<T, TFunction> {
+	functionContext: FunctionDecorator<TFunction>;
 	type: T;
 	metadata: FunctionReturnMetadata;
 }
@@ -661,7 +663,7 @@ interface ObjectGetterDecorator<T, TObject> {
 ### ObjectGetterReturnDecorator
 
 ```js
-interface ObjectGetterReturnDecorator<T, TObject> {
+interface ObjectGetterReturnDecorator<T, TObject> { // Note: T and TMethod would be the same, so just T is used.
 	getterContext: ObjectGetterDecorator<T, TObject>;
 	type: T;
 	metadata: ObjectGetterReturnMetadata;
@@ -698,6 +700,7 @@ interface ObjectSetterDecorator<T, TObject> {
 interface ObjectSetterParameterDecorator<T, TObject> {
 	setterContext: ObjectSetterDecorator<T, TObject>;
 	type: T;
+	key: string;
 	metadata: ObjectSetterParameterMetadata;
 }
 ```
@@ -743,8 +746,8 @@ interface ObjectMethodParameterDecorator<T, TMethod, TObject> {
 
 ### ObjectMethodReturnDecorator
 ```js
-interface ObjectMethodReturnDecorator<T, TMethod, TObject> {
-	methodContext: ObjectMethodDecorator<TMethod, TObject>;
+interface ObjectMethodReturnDecorator<T, TObject> {
+	methodContext: ObjectMethodDecorator<T, TObject>;
 	type: T;
 	metadata: ObjectMethodReturnMetadata;
 }
@@ -1084,6 +1087,7 @@ function binarySerialize<T>(packet: Packet, item: T) {
 }
 
 class Room {
+	@data
 	id: uint64 = -1;
 	@data(255)
 	name: string = '';
@@ -1125,12 +1129,6 @@ WIP: Is this the best implementation of this pattern?
 
 ```js
 const injectKey = Symbol('inject');
-
-type InjectionSite = {
-	method: string | symbol,
-	index: uint32,
-	token: string | symbol
-};
 
 partial class ClassMethodParameterMetadata {
 	[injectKey]?: { token: string | symbol };
