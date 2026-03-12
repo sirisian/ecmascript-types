@@ -246,7 +246,7 @@ metadata[myMetadata]; // 'f'
 // Class-level
 Reflect.getMetadata<ClassDecorator, T>(): ClassMetadata
 
-// Class members — no key argument returns all, key argument returns one
+// Class members, no name argument returns all, name argument returns one
 Reflect.getMetadata<ClassFieldDecorator, T>(): { [name: string | symbol]: ClassFieldMetadata }
 Reflect.getMetadata<ClassFieldDecorator, T>(name: string | symbol): ClassFieldMetadata
 Reflect.getMetadata<ClassMethodDecorator, T>(): { [name: string | symbol]: ClassMethodMetadata }
@@ -260,13 +260,13 @@ Reflect.getMetadata<ClassOperatorDecorator, T>(op: Operator): ClassOperatorMetad
 
 // Class member sub-targets (parameters, returns)
 Reflect.getMetadata<ClassMethodParameterDecorator, T>(method: string | symbol): { [key: string | uint32]: ClassMethodParameterMetadata }
-Reflect.getMetadata<ClassMethodParameterDecorator, T>(method: string | symbol, param: string | uint32): ClassMethodParameterMetadata
+Reflect.getMetadata<ClassMethodParameterDecorator, T>(method: string | symbol, key: string | uint32): ClassMethodParameterMetadata
 Reflect.getMetadataByIndex<ClassMethodParameterDecorator, T>(method: string | symbol): [].<ClassMethodParameterMetadata>
 Reflect.getMetadata<ClassSetterParameterDecorator, T>(setter: string | symbol): ClassSetterParameterMetadata
 Reflect.getMetadata<ClassGetterReturnDecorator, T>(getter: string | symbol): ClassGetterReturnMetadata
 Reflect.getMetadata<ClassMethodReturnDecorator, T>(method: string | symbol): ClassMethodReturnMetadata
 Reflect.getMetadata<ClassOperatorParameterDecorator, T>(op: Operator): { [index: uint32]: ClassOperatorParameterMetadata }
-Reflect.getMetadata<ClassOperatorParameterDecorator, T>(op: Operator, param: string | uint32): ClassOperatorParameterMetadata
+Reflect.getMetadata<ClassOperatorParameterDecorator, T>(op: Operator, key: string | uint32): ClassOperatorParameterMetadata
 Reflect.getMetadataByIndex<ClassOperatorParameterDecorator, T>(op: Operator): [].<ClassOperatorParameterMetadata>
 
 // Enum
@@ -279,22 +279,22 @@ Reflect.getMetadataByName<EnumEnumeratorDecorator, T>(name: string): EnumEnumera
 // Function
 Reflect.getMetadata<FunctionDecorator, T>(): FunctionMetadata
 Reflect.getMetadata<FunctionParameterDecorator, T>(): { [key: string | uint32]: FunctionParameterMetadata }
-Reflect.getMetadata<FunctionParameterDecorator, T>(param: string | uint32): FunctionParameterMetadata
+Reflect.getMetadata<FunctionParameterDecorator, T>(key: string | uint32): FunctionParameterMetadata
 Reflect.getMetadataByIndex<FunctionParameterDecorator, T>(): [].<FunctionParameterMetadata>
 Reflect.getMetadata<FunctionReturnDecorator, T>(): FunctionReturnMetadata
 
 // Object instance
 Reflect.getMetadata<ObjectDecorator>(instance): ObjectMetadata
-Reflect.getMetadata<ObjectFieldDecorator>(instance): { [key: string | symbol]: ObjectFieldMetadata }
-Reflect.getMetadata<ObjectFieldDecorator>(instance, key: string | symbol): ObjectFieldMetadata
-Reflect.getMetadata<ObjectMethodDecorator>(instance): { [key: string | symbol]: ObjectMethodMetadata }
-Reflect.getMetadata<ObjectMethodDecorator>(instance, key: string | symbol): ObjectMethodMetadata
-Reflect.getMetadata<ObjectGetterDecorator>(instance): { [key: string | symbol]: ObjectGetterMetadata }
-Reflect.getMetadata<ObjectGetterDecorator>(instance, key: string | symbol): ObjectGetterMetadata
-Reflect.getMetadata<ObjectSetterDecorator>(instance): { [key: string | symbol]: ObjectSetterMetadata }
-Reflect.getMetadata<ObjectSetterDecorator>(instance, key: string | symbol): ObjectSetterMetadata
+Reflect.getMetadata<ObjectFieldDecorator>(instance): { [name: string | symbol]: ObjectFieldMetadata }
+Reflect.getMetadata<ObjectFieldDecorator>(instance, name: string | symbol): ObjectFieldMetadata
+Reflect.getMetadata<ObjectMethodDecorator>(instance): { [name: string | symbol]: ObjectMethodMetadata }
+Reflect.getMetadata<ObjectMethodDecorator>(instance, name: string | symbol): ObjectMethodMetadata
+Reflect.getMetadata<ObjectGetterDecorator>(instance): { [name: string | symbol]: ObjectGetterMetadata }
+Reflect.getMetadata<ObjectGetterDecorator>(instance, name: string | symbol): ObjectGetterMetadata
+Reflect.getMetadata<ObjectSetterDecorator>(instance): { [name: string | symbol]: ObjectSetterMetadata }
+Reflect.getMetadata<ObjectSetterDecorator>(instance, name: string | symbol): ObjectSetterMetadata
 Reflect.getMetadata<ObjectMethodParameterDecorator>(instance, method: string | symbol): { [key: string | uint32]: ObjectMethodParameterMetadata }
-Reflect.getMetadata<ObjectMethodParameterDecorator>(instance, method: string | symbol, param: string | uint32): ObjectMethodParameterMetadata
+Reflect.getMetadata<ObjectMethodParameterDecorator>(instance, method: string | symbol, key: string | uint32): ObjectMethodParameterMetadata
 Reflect.getMetadataByIndex<ObjectMethodParameterDecorator>(instance, method: string | symbol): [].<ObjectMethodParameterMetadata>
 Reflect.getMetadata<ObjectMethodReturnDecorator>(instance, method: string | symbol): ObjectMethodReturnMetadata
 Reflect.getMetadata<ObjectSetterParameterDecorator>(instance, setter: string | symbol): ObjectSetterParameterMetadata
@@ -488,7 +488,7 @@ setterMeta[setterLogKey]; // { logged: true }
 interface ClassSetterParameterDecorator<T, TClass> {
 	setterContext: ClassSetterDecorator<T, TClass>;
 	type: T;
-	key: string;
+	name: string;
 	initial: T | undefined;
 	metadata: ClassSetterParameterMetadata;
 }
@@ -573,7 +573,7 @@ methodMeta[deprecatedKey]; // { message: 'Use fetchV2 instead', since: '2.0.0' }
 interface ClassMethodParameterDecorator<T, TMethod, TClass> {
 	methodContext: ClassMethodDecorator<TMethod, TClass>;
 	type: T;
-	key: string;
+	name: string;
 	index: uint32;
 	initial: T | undefined;
 	metadata: ClassMethodParameterMetadata;
@@ -690,7 +690,7 @@ opMeta[profiledOpsKey]; // { calls: 1, totalTime: ... }
 interface ClassOperatorParameterDecorator<T, TMethod, TClass> {
 	operatorContext: ClassOperatorDecorator<TMethod, TClass>;
 	type: T;
-	key: string;
+	name: string;
 	index: uint32;
 	initial: T | undefined;
 	metadata: ClassOperatorParameterMetadata;
@@ -754,7 +754,7 @@ fibonacci(50);
 interface FunctionParameterDecorator<T, TFunction> {
 	functionContext: FunctionDecorator<TFunction>;
 	type: T;
-	key: string;
+	name: string;
 	index: uint32;
 	initial: T | undefined;
 	metadata: FunctionParameterMetadata;
@@ -831,7 +831,7 @@ const a = @f {
 interface ObjectFieldDecorator<T, TObject> {
 	objectContext: ObjectDecorator<TObject>;
 	type: T;
-	key: string | symbol;
+	name: string | symbol;
 	metadata: ObjectFieldMetadata; // on the instance
 }
 ```
@@ -907,7 +907,7 @@ interface ObjectSetterDecorator<T, TObject> {
 interface ObjectSetterParameterDecorator<T, TObject> {
 	setterContext: ObjectSetterDecorator<T, TObject>;
 	type: T;
-	key: string;
+	name: string;
 	initial: T | undefined;
 	metadata: ObjectSetterParameterMetadata;
 }
@@ -926,7 +926,7 @@ interface ObjectSetterParameterDecorator<T, TObject> {
 interface ObjectMethodDecorator<T extends (...args:[].<any>) => any, TObject> {
 	objectContext: ObjectDecorator<TObject>;
 	type: T;
-	key: string | symbol;
+	name: string | symbol;
 	metadata: ObjectMethodMetadata; // on the instance
 }
 ```
@@ -941,7 +941,7 @@ interface ObjectMethodDecorator<T extends (...args:[].<any>) => any, TObject> {
 interface ObjectMethodParameterDecorator<T, TMethod, TObject> {
 	methodContext: ObjectMethodDecorator<TMethod, TObject>;
 	type: T;
-	key: string | symbol;
+	name: string | symbol;
 	index: uint32;
 	initial: T | undefined;
 	metadata: ObjectMethodParameterMetadata;
@@ -1294,8 +1294,8 @@ function data<T, TClass>({ metadata }: ClassFieldDecorator<[].<T>, TClass>) {
 function binarySerialize<T>(packet: Packet, item: T) {
 	// Naively iterate all fields
 	const fields = Reflect.getMetadata<ClassFieldDecorator, T>();
-	for (const [key, metadata] of Object.entries(fields)) {
-		metadata[binaryWriter](packet, item[key]);
+	for (const [name, metadata] of Object.entries(fields)) {
+		metadata[binaryWriter](packet, item[name]);
 	}
 }
 
@@ -1761,7 +1761,7 @@ function generateDocs<T>(): ClassDoc {
 			const paramCtx = p as ClassMethodParameterDecorator<any, any, T>;
 			const entry = p[paramDocKey];
 			return {
-				name: paramCtx.key,
+				name: paramCtx.name,
 				type: String(paramCtx.type),
 				description: entry?.description ?? '',
 				initial: paramCtx.initial,
