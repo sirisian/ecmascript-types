@@ -1487,7 +1487,7 @@ const paramDocKey = Symbol('paramDoc');
 const getterDocKey = Symbol('getterDoc');
 const setterDocKey = Symbol('setterDoc');
 
-// --- Documentation types ---
+// Documentation types
 
 type ConstraintDoc = {
 	minimum?: float64,
@@ -1545,7 +1545,7 @@ type ClassDoc = {
 	setters: [].<AccessorDoc>,
 };
 
-// --- Metadata declarations ---
+// Metadata declarations
 
 partial class ClassMetadata {
 	[docKey]?: DocEntry;
@@ -1575,7 +1575,7 @@ partial class ClassSetterParameterMetadata {
 	[setterDocKey]?: DocEntry;
 }
 
-// --- Constraint helpers ---
+// Constraint helpers
 
 function applyConstraints<B: NumberBounds>(entry: DocEntry, bounds: B) {
 	const c: ConstraintDoc = {};
@@ -1594,7 +1594,7 @@ function applyConstraints<S: StringBounds>(entry: DocEntry, bounds: S) {
 	entry.constraints = c;
 }
 
-// --- Decorator overloads ---
+// Decorators
 
 // Class
 
@@ -1723,7 +1723,7 @@ function doc<T, TClass>(
 	metadata[setterDocKey] = { description };
 }
 
-// --- Documentation generator ---
+// Documentation generator
 
 function generateDocs<T>(): ClassDoc {
 	const classMeta = Reflect.getMetadata<ClassDecorator, T>();
@@ -1802,7 +1802,7 @@ function generateDocs<T>(): ClassDoc {
 	return result;
 }
 
-// --- Usage ---
+// Usage
 
 @doc('Represents a sensor device with readings and calibration.')
 class Sensor {
@@ -1866,52 +1866,54 @@ class Sensor {
 const docs = generateDocs<Sensor>();
 
 // docs evaluates at compile time to:
-// {
-//   "name": "Sensor",
-//   "description": "Represents a sensor device with readings and calibration.",
-//   "fields": [
-//     { "name": "id", "type": "uint64", "description": "Unique identifier for the sensor.", "static": false, "private": false },
-//     { "name": "label", "type": "string", "description": "Human-readable sensor label.", "static": false, "private": false, "initial": "Unnamed Sensor", "constraints": { "minLength": 1, "maxLength": 120 } },
-//     { "name": "temperature", "type": "float32", "description": "Current temperature reading in Celsius.", "static": false, "private": false, "initial": 20.0, "constraints": { "minimum": -273.15, "maximum": 1000 } },
-//     { "name": "humidity", "type": "float32", "description": "Humidity percentage.", "static": false, "private": false, "initial": 50.0, "constraints": { "minimum": 0, "maximum": 100 } },
-//     { "name": "active", "type": "boolean", "description": "Whether the sensor is currently active.", "static": false, "private": false, "initial": true },
-//     { "name": "readingCount", "type": "uint32", "description": "Number of readings taken since last reset.", "static": false, "private": true, "initial": 0 }
-//   ],
-//   "methods": [
-//     {
-//       "name": "record",
-//       "description": "Records a new temperature and humidity reading.",
-//       "returnType": "void",
-//       "parameters": [
-//         { "name": "temp", "type": "float32", "description": "Temperature value in Celsius.", "constraints": { "minimum": -273.15, "maximum": 1000 } },
-//         { "name": "humid", "type": "float32", "description": "Humidity value as a percentage.", "constraints": { "minimum": 0, "maximum": 100 } },
-//         { "name": "timestamp", "type": "Temporal.Instant", "description": "Optional timestamp override." }
-//       ]
-//     },
-//     {
-//       "name": "reset",
-//       "description": "Resets the reading counter and optionally sets a new label.",
-//       "returnType": "void",
-//       "parameters": [
-//         { "name": "newLabel", "type": "string", "description": "New label for the sensor.", "constraints": { "minLength": 1, "maxLength": 120 } }
-//       ]
-//     }
-//   ],
-//   "getters": [
-//     { "name": "currentTemp", "type": "float32", "description": "Returns the current temperature.", "constraints": { "minimum": -273.15, "maximum": 1000 } }
-//   ],
-//   "setters": [
-//     { "name": "calibrationOffset", "type": "float32", "description": "Sets the calibration offset applied to readings.", "constraints": { "minimum": -50, "maximum": 50 } }
-//   ]
-// }
+{
+	"name": "Sensor",
+	"description": "Represents a sensor device with readings and calibration.",
+	"fields": [
+		{ "name": "id", "type": "uint64", "description": "Unique identifier for the sensor.", "static": false, "private": false },
+		{ "name": "label", "type": "string", "description": "Human-readable sensor label.", "static": false, "private": false, "initial": "Unnamed Sensor", "constraints": { "minLength": 1, "maxLength": 120 } },
+		{ "name": "temperature", "type": "float32", "description": "Current temperature reading in Celsius.", "static": false, "private": false, "initial": 20.0, "constraints": { "minimum": -273.15, "maximum": 1000 } },
+		{ "name": "humidity", "type": "float32", "description": "Humidity percentage.", "static": false, "private": false, "initial": 50.0, "constraints": { "minimum": 0, "maximum": 100 } },
+		{ "name": "active", "type": "boolean", "description": "Whether the sensor is currently active.", "static": false, "private": false, "initial": true },
+		{ "name": "readingCount", "type": "uint32", "description": "Number of readings taken since last reset.", "static": false, "private": true, "initial": 0 }
+	],
+	"methods": [
+		{
+			"name": "record",
+			"description": "Records a new temperature and humidity reading.",
+			"returnType": "void",
+			"parameters": [
+				{ "name": "temp", "type": "float32", "description": "Temperature value in Celsius.", "constraints": { "minimum": -273.15, "maximum": 1000 } },
+				{ "name": "humid", "type": "float32", "description": "Humidity value as a percentage.", "constraints": { "minimum": 0, "maximum": 100 } },
+				{ "name": "timestamp", "type": "Temporal.Instant", "description": "Optional timestamp override." }
+			]
+		},
+		{
+			"name": "reset",
+			"description": "Resets the reading counter and optionally sets a new label.",
+			"returnType": "void",
+			"parameters": [
+				{ "name": "newLabel", "type": "string", "description": "New label for the sensor.", "constraints": { "minLength": 1, "maxLength": 120 } }
+			]
+		}
+	],
+	"getters": [
+		{ "name": "currentTemp", "type": "float32", "description": "Returns the current temperature.", "constraints": { "minimum": -273.15, "maximum": 1000 } }
+	],
+	"setters": [
+		{ "name": "calibrationOffset", "type": "float32", "description": "Sets the calibration offset applied to readings.", "constraints": { "minimum": -50, "maximum": 50 } }
+	]
+}
 ```
 
 ## FAQ
 
-### Initial only works for constants
+### Initial only works for constants?
+
+Yes.
 
 ```js
 function f(a: uint32, b: uint32 = a * 2) {}
 ```
 
-Similar to ```ClassFieldDecorator``` the parameter decorators only capture constant values. This is a limitation. Ideally one could capture the expression, but I'm trying not to directly implement AST into this yet. Just leaving it as an extension.
+Similar to ```ClassFieldDecorator``` the parameter decorators only capture constant values. This is a limitation. Ideally one could capture the `Expression`, but I'm trying not to directly implement AST into this yet. Just leaving it as an extension.
