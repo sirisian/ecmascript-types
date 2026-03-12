@@ -34,19 +34,23 @@ In the above the ```context``` is type ```any```. In actual usage one would use 
 ClassDecorator<T>
 ClassFieldDecorator<T, TClass>
 ClassGetterDecorator<T, TClass>
+ClassGetterReturnDecorator<T, TClass>
 ClassSetterDecorator<T, TClass>
 ClassSetterParameterDecorator<T, TMethod, TClass>
 ClassMethodDecorator<T, TClass>
 ClassMethodParameterDecorator<T, TMethod, TClass>
+ClassMethodReturnDecorator<T, TClass>
 ClassOperatorDecorator<T, TClass>
 ClassOperatorParameterDecorator<T, TMethod, TClass>
 FunctionDecorator<T>
 FunctionParameterDecorator<T, TFunction>
+FunctionReturnDecorator<T>
 LetDecorator<T>
 ConstDecorator<T>
 ObjectDecorator<T>
 ObjectFieldDecorator<T, TObject>
 ObjectGetterDecorator<T, TObject>
+ObjectGetterReturnDecorator<T, TObject>
 ObjectSetterDecorator<T, TObject>
 ObjectSetterParameterDecorator<T, TMethod, TObject>
 ObjectMethodDecorator<T, TObject>
@@ -362,9 +366,9 @@ interface ClassGetterDecorator<T, TClass> {
 
 ```js
 interface ClassGetterReturnDecorator<T, TClass> {
-    getterContext: ClassGetterDecorator<T, TClass>;
-    type: T;
-    metadata: ClassGetterReturnMetadata;
+	getterContext: ClassGetterDecorator<T, TClass>;
+	type: T;
+	metadata: ClassGetterReturnMetadata;
 }
 ```
 
@@ -396,10 +400,10 @@ interface ClassSetterDecorator<T, TClass> {
 
 ```js
 interface ClassSetterParameterDecorator<T, TClass> {
-    setterContext: ClassSetterDecorator<T, TClass>;
-    type: T;
-    key: string;
-    metadata: ClassSetterParameterMetadata;
+	setterContext: ClassSetterDecorator<T, TClass>;
+	type: T;
+	key: string;
+	metadata: ClassSetterParameterMetadata;
 }
 ```
 
@@ -408,20 +412,20 @@ interface ClassSetterParameterDecorator<T, TClass> {
 
 ```js
 function clamp<T extends number, TClass>(
-    min: T,
-    max: T,
-    { setterContext }: ClassSetterParameterDecorator<T, TClass>
+	min: T,
+	max: T,
+	{ setterContext }: ClassSetterParameterDecorator<T, TClass>
 ) {
-    // Access setter name via setterContext.name
-    // Access class metadata via setterContext.classContext.metadata
+	// Access setter name via setterContext.name
+	// Access class metadata via setterContext.classContext.metadata
 }
 
 class Sensor {
-    #temperature: float32 = 0;
+	#temperature: float32 = 0;
 
-    set temperature(@clamp(-273.15, 1000) value: float32) {
-        this.#temperature = value;
-    }
+	set temperature(@clamp(-273.15, 1000) value: float32) {
+		this.#temperature = value;
+	}
 }
 ```
 </details>
@@ -461,9 +465,9 @@ interface ClassMethodParameterDecorator<T, TMethod, TClass> {
 
 ```js
 interface ClassMethodReturnDecorator<T, TClass> {
-    methodContext: ClassMethodDecorator<T, TClass>;
-    type: T;
-    metadata: ClassMethodReturnMetadata;
+	methodContext: ClassMethodDecorator<T, TClass>;
+	type: T;
+	metadata: ClassMethodReturnMetadata;
 }
 ```
 
@@ -574,9 +578,9 @@ interface FunctionParameterDecorator<T, TFunction> {
 
 ```js
 interface FunctionReturnDecorator<T> {
-    functionContext: FunctionDecorator<T>;
-    type: T;
-    metadata: FunctionReturnMetadata;
+	functionContext: FunctionDecorator<T>;
+	type: T;
+	metadata: FunctionReturnMetadata;
 }
 ```
 
@@ -707,9 +711,9 @@ interface ObjectSetterDecorator<T, TObject> {
 
 ```js
 interface ObjectSetterParameterDecorator<T, TObject> {
-    setterContext: ObjectSetterDecorator<T, TObject>;
-    type: T;
-    metadata: ObjectSetterParameterMetadata;
+	setterContext: ObjectSetterDecorator<T, TObject>;
+	type: T;
+	metadata: ObjectSetterParameterMetadata;
 }
 ```
 
@@ -1168,9 +1172,9 @@ function inject<T, TMethod, TClass>(
 }
 
 function resolve<T>(cls: { new(...args: any): T }, container: Container): T {
-    const params = Reflect.getMetadataByIndex<ClassMethodParameterDecorator, T>('constructor');
-    const ctorArgs = params.map(p => container.get(p[injectKey].token));
-    return new cls(...ctorArgs);
+	const params = Reflect.getMetadataByIndex<ClassMethodParameterDecorator, T>('constructor');
+	const ctorArgs = params.map(p => container.get(p[injectKey].token));
+	return new cls(...ctorArgs);
 }
 
 class OrderService {
