@@ -388,6 +388,7 @@ interface ClassSetterParameterDecorator<T, TClass> {
 	setterContext: ClassSetterDecorator<T, TClass>;
 	type: T;
 	key: string;
+	initial: T | undefined;
 	metadata: ClassSetterParameterMetadata;
 }
 ```
@@ -437,6 +438,7 @@ interface ClassMethodParameterDecorator<T, TMethod, TClass> {
 	type: T;
 	key: string;
 	index: uint32;
+	initial: T | undefined;
 	metadata: ClassMethodParameterMetadata;
 }
 ```
@@ -520,6 +522,7 @@ interface ClassOperatorParameterDecorator<T, TMethod, TClass> {
 	type: T;
 	key: string;
 	index: uint32;
+	initial: T | undefined;
 	metadata: ClassOperatorParameterMetadata;
 }
 ```
@@ -550,6 +553,7 @@ interface FunctionParameterDecorator<T, TFunction> {
 	type: T;
 	key: string;
 	index: uint32;
+	initial: T | undefined;
 	metadata: FunctionParameterMetadata;
 }
 ```
@@ -701,6 +705,7 @@ interface ObjectSetterParameterDecorator<T, TObject> {
 	setterContext: ObjectSetterDecorator<T, TObject>;
 	type: T;
 	key: string;
+	initial: T | undefined;
 	metadata: ObjectSetterParameterMetadata;
 }
 ```
@@ -735,6 +740,7 @@ interface ObjectMethodParameterDecorator<T, TMethod, TObject> {
 	type: T;
 	key: string | symbol;
 	index: uint32;
+	initial: T | undefined;
 	metadata: ObjectMethodParameterMetadata;
 }
 ```
