@@ -35,6 +35,7 @@ ClassDecorator<T>
 ClassFieldDecorator<T, TClass>
 ClassGetterDecorator<T, TClass>
 ClassSetterDecorator<T, TClass>
+ClassSetterParameterDecorator<T, TMethod, TClass>
 ClassMethodDecorator<T, TClass>
 ClassMethodParameterDecorator<T, TMethod, TClass>
 ClassOperatorDecorator<T, TClass>
@@ -47,8 +48,10 @@ ObjectDecorator<T>
 ObjectFieldDecorator<T, TObject>
 ObjectGetterDecorator<T, TObject>
 ObjectSetterDecorator<T, TObject>
+ObjectSetterParameterDecorator<T, TMethod, TObject>
 ObjectMethodDecorator<T, TObject>
 ObjectMethodParameterDecorator<T, TMethod, TObject>
+ObjectMethodReturnDecorator<T, TMethod, TObject>
 BlockDecorator
 IfBlockDecorator
 ElseIfBlockDecorator
@@ -205,7 +208,7 @@ class A {
 	a: uint8;
 }
 
-const metadata = Reflect.getMetadata<ClassFieldDecorator, A, 'a'>();
+const metadata = Reflect.getMetadata<ClassFieldDecorator, A>('a');
 metadata[myMetadata]; // 'f'
 ```
 
@@ -241,7 +244,8 @@ Reflect.getMetadataByIndex<ClassOperatorParameterDecorator, T>(op: Operator): []
 // Enum
 Reflect.getMetadata<EnumDecorator, T>(): EnumMetadata
 Reflect.getMetadata<EnumEnumeratorDecorator, T>(): { [name: string]: EnumEnumeratorMetadata }
-Reflect.getMetadata<EnumEnumeratorDecorator, T>(name: string): EnumEnumeratorMetadata
+Reflect.getMetadata<EnumEnumeratorDecorator, T extends enum<TValue>, TValue>(value: T): EnumEnumeratorMetadata
+Reflect.getMetadataByName<EnumEnumeratorDecorator, T>(name: string): EnumEnumeratorMetadata
 
 // Function
 Reflect.getMetadata<FunctionDecorator, T>(): FunctionMetadata
@@ -262,6 +266,7 @@ Reflect.getMetadata<ObjectSetterDecorator>(instance, key: string | symbol): Obje
 Reflect.getMetadata<ObjectMethodParameterDecorator>(instance, method: string | symbol): { [key: string | uint32]: ObjectMethodParameterMetadata }
 Reflect.getMetadata<ObjectMethodParameterDecorator>(instance, method: string | symbol, param: string | uint32): ObjectMethodParameterMetadata
 Reflect.getMetadataByIndex<ObjectMethodParameterDecorator>(instance, method: string | symbol): [].<ObjectMethodParameterMetadata>
+Reflect.getMetadata<ObjectMethodReturnDecorator>(instance, method: string | symbol): ObjectMethodReturnMetadata
 Reflect.getMetadata<ObjectSetterParameterDecorator>(instance, setter: string | symbol): ObjectSetterParameterMetadata
 Reflect.getMetadata<ObjectGetterReturnDecorator>(instance, getter: string | symbol): ObjectGetterReturnMetadata
 ```
@@ -281,7 +286,6 @@ ForBlockDecorator
 ForInBlockDecorator
 ForOfBlockDecorator
 InitializerDecorator<T>
-ReturnDecorator<T>
 ```
 
 ### Metadata Inheritance
@@ -368,6 +372,8 @@ interface ClassGetterReturnDecorator<T, TClass> {
 	<summary>Expand for example</summary>
 
 ```js
+
+```
 </details>
 
 ### ClassSetterDecorator
@@ -384,24 +390,6 @@ interface ClassSetterDecorator<T, TClass> {
 <details>
 	<summary>Expand for example</summary>
 
-```js
-function clamp<T extends number, TClass>(
-    min: T,
-    max: T,
-    { setterContext }: ClassSetterParameterDecorator<T, TClass>,
-) {
-    // Access setter name via setterContext.name
-    // Access class metadata via setterContext.classContext.metadata
-}
-
-class Sensor {
-    #temperature: float32 = 0;
-
-    set temperature(@clamp(-273.15, 1000) value: float32) {
-        this.#temperature = value;
-    }
-}
-```
 </details>
 
 ### ClassSetterParameterDecorator
@@ -418,6 +406,24 @@ interface ClassSetterParameterDecorator<T, TClass> {
 <details>
 	<summary>Expand for example</summary>
 
+```js
+function clamp<T extends number, TClass>(
+    min: T,
+    max: T,
+    { setterContext }: ClassSetterParameterDecorator<T, TClass>
+) {
+    // Access setter name via setterContext.name
+    // Access class metadata via setterContext.classContext.metadata
+}
+
+class Sensor {
+    #temperature: float32 = 0;
+
+    set temperature(@clamp(-273.15, 1000) value: float32) {
+        this.#temperature = value;
+    }
+}
+```
 </details>
 
 ### ClassMethodDecorator
@@ -663,14 +669,13 @@ interface ObjectGetterDecorator<T, TObject> {
 
 </details>
 
-### ObjectGetterParameterDecorator
+### ObjectGetterReturnDecorator
 
 ```js
-interface ObjectSetterParameterDecorator<T, TObject> {
-    setterContext: ObjectSetterDecorator<T, TObject>;
-    type: T;
-    key: string;
-    metadata: ObjectSetterParameterMetadata;
+interface ObjectGetterReturnDecorator<T, TObject> {
+	getterContext: ObjectGetterDecorator<T, TObject>;
+	type: T;
+	metadata: ObjectGetterReturnMetadata;
 }
 ```
 
@@ -701,10 +706,10 @@ interface ObjectSetterDecorator<T, TObject> {
 ### ObjectSetterParameterDecorator
 
 ```js
-interface ObjectGetterReturnDecorator<T, TObject> {
-    getterContext: ObjectGetterDecorator<T, TObject>;
+interface ObjectSetterParameterDecorator<T, TObject> {
+    setterContext: ObjectSetterDecorator<T, TObject>;
     type: T;
-    metadata: ObjectGetterReturnMetadata;
+    metadata: ObjectSetterParameterMetadata;
 }
 ```
 
@@ -844,20 +849,6 @@ interface InitializerDecorator<T> {
 
 </details>
 
-### ReturnDecorator
-```js
-interface ReturnDecorator<T> {
-	target: Object;
-	propertyKey: string | symbol;
-	type: T;
-}
-```
-
-<details>
-	<summary>Expand for example</summary>
-
-</details>
-
 ### EnumDecorator
 ```js
 interface EnumDecorator<T extends enum<TValue>, TValue = int32> {
@@ -933,13 +924,13 @@ partial class EnumEnumeratorMetadata {
 function label<T extends enum<TValue>, TValue>(
 	label: string,
 	locale: string = 'en',
-	{ metadata }: EnumEnumeratorDecorator<T, TEnum>
+	{ metadata }: EnumEnumeratorDecorator<T, TValue>
 ) {
 	metadata[enumLabelKey][locale] = label;
 }
 
 function getLabel<T extends enum<TValue>, TValue>(value: T, locale: string = 'en'): string {
-	return Reflect.getMetadata<EnumEnumeratorDecorator, T, value>()[enumLabelKey][locale];
+	return Reflect.getMetadata<EnumEnumeratorDecorator, T>(value)[enumLabelKey][locale];
 }
 
 enum Status {
@@ -967,7 +958,6 @@ WIP: Bring inline with composites proposal
 
 ```js
 interface TupleDecorator<T extends any[]> {
-	target: Object;
 	type: T;
 }
 ```
@@ -978,7 +968,6 @@ WIP: Bring inline with composites proposal
 
 ```js
 interface RecordDecorator<K extends string | number | symbol, V> {
-	target: Object;
 	type: Record<K, V>;
 }
 ```
@@ -1000,11 +989,11 @@ A naive example below that assumes we only want to run a validation for the whol
 const validatorsSymbol = Symbol('validators');
 
 partial class ClassFieldMetadata {
-	[validatorsSymbol]: (value: any) => boolean;
+	[validatorsSymbol]: [].<(value: any) => boolean> = [];
 }
 
-function addValidators<T>({ name, metadata }: ClassFieldDecorator<string, T>, validator: (value: T) => boolean) {
-	metadata[validatorsSymbol] = validator;
+function addValidators<T, TClass>({ name, metadata }: ClassFieldDecorator<T, TClass>, validator: (value: T) => boolean) {
+	metadata[validatorsSymbol].push(validator);
 }
 
 function Length<TClass>(min: uint32, max: uint32, context: ClassFieldDecorator<string, TClass>) { // Can only be placed on string
@@ -1025,7 +1014,15 @@ function IsEmail<TClass>(context: ClassFieldDecorator<string, TClass>) {
 // ... IsFQDN and IsZonedDateTime 
 
 function validate<T>(o: T): boolean {
-	return Reflect.getMetadata<ClassDecorator, T>()[validatorsSymbol].every(({ name, validator }) => validator(o[name]));
+	const fields = Reflect.getMetadata<ClassFieldDecorator, T>();
+	for (const [name, metadata] of Object.entries(fields)) {
+		for (const validator of metadata[validatorsSymbol]) {
+			if (!validator(o[name])) {
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 class Post {
@@ -1088,7 +1085,7 @@ function data<T, TClass>({ metadata }: ClassFieldDecorator<[].<T>, TClass>) {
 	}
 }
 
-function binarySerialize<T>(buffer: Packet, item: T) {
+function binarySerialize<T>(packet: Packet, item: T) {
 	// Naively iterate all fields
 	const fields = Reflect.getMetadata<ClassFieldDecorator, T>();
 	for (const [key, metadata] of Object.entries(fields)) {
@@ -1145,15 +1142,15 @@ type InjectionSite = {
 	token: string | symbol
 };
 
-partial class ClassMetadata {
-	[injectKey]: [].<InjectionSite> = [];
+partial class ClassMethodParameterMetadata {
+	[injectKey]?: { token: string | symbol };
 }
 
 function inject<T, TMethod, TClass>(
 	token: string | symbol,
-	{ key, index, methodContext: { classContext: { metadata } } }: ClassMethodParameterDecorator<T, TMethod, TClass>
+	{ metadata }: ClassMethodParameterDecorator<T, TMethod, TClass>,
 ) {
-	metadata[injectKey].push({ method: key, index, token });
+	metadata[injectKey] = { token };
 }
 
 function resolve<T>(cls: { new(...args: any): T }, container: Container): T {
