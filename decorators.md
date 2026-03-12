@@ -1274,6 +1274,435 @@ const router = new Router();
 mountRoutes(new Rooms(), router);
 ```
 
+### Documentation Generation
+
+```js
+const docKey = Symbol('doc');
+const fieldDocKey = Symbol('fieldDoc');
+const methodDocKey = Symbol('methodDoc');
+const paramDocKey = Symbol('paramDoc');
+const getterDocKey = Symbol('getterDoc');
+const setterDocKey = Symbol('setterDoc');
+
+// --- Documentation types ---
+
+type ConstraintDoc = {
+	minimum?: float64,
+	maximum?: float64,
+	exclusiveMinimum?: float64,
+	exclusiveMaximum?: float64,
+	minLength?: uint32,
+	maxLength?: uint32,
+	pattern?: string,
+};
+
+type DocEntry = {
+	description: string,
+	constraints?: ConstraintDoc,
+};
+
+type ParamDoc = {
+	name: string,
+	type: string,
+	description: string,
+	initial?: any,
+	constraints?: ConstraintDoc,
+};
+
+type FieldDoc = {
+	name: string,
+	type: string,
+	description: string,
+	static: boolean,
+	private: boolean,
+	initial?: any,
+	constraints?: ConstraintDoc,
+};
+
+type MethodDoc = {
+	name: string,
+	description: string,
+	returnType: string,
+	parameters: [].<ParamDoc>,
+};
+
+type AccessorDoc = {
+	name: string,
+	type: string,
+	description: string,
+	constraints?: ConstraintDoc,
+};
+
+type ClassDoc = {
+	name: string,
+	description: string,
+	fields: [].<FieldDoc>,
+	methods: [].<MethodDoc>,
+	getters: [].<AccessorDoc>,
+	setters: [].<AccessorDoc>,
+};
+
+// --- Metadata declarations ---
+
+partial class ClassMetadata {
+	[docKey]?: DocEntry;
+}
+
+partial class ClassFieldMetadata {
+	[fieldDocKey]?: DocEntry;
+}
+
+partial class ClassMethodMetadata {
+	[methodDocKey]?: DocEntry;
+}
+
+partial class ClassMethodParameterMetadata {
+	[paramDocKey]?: DocEntry;
+}
+
+partial class ClassGetterMetadata {
+	[getterDocKey]?: DocEntry;
+}
+
+partial class ClassSetterMetadata {
+	[setterDocKey]?: DocEntry;
+}
+
+partial class ClassSetterParameterMetadata {
+	[setterDocKey]?: DocEntry;
+}
+
+// --- Constraint helpers ---
+
+function applyConstraints<B: NumberBounds>(entry: DocEntry, bounds: B) {
+	const c: ConstraintDoc = {};
+	if (B.minimum != null) c.minimum = B.minimum;
+	if (B.maximum != null) c.maximum = B.maximum;
+	if (B.exclusiveMinimum != null) c.exclusiveMinimum = B.exclusiveMinimum;
+	if (B.exclusiveMaximum != null) c.exclusiveMaximum = B.exclusiveMaximum;
+	entry.constraints = c;
+}
+
+function applyConstraints<S: StringBounds>(entry: DocEntry, bounds: S) {
+	const c: ConstraintDoc = {};
+	if (S.minLength != null) c.minLength = S.minLength;
+	if (S.maxLength != null) c.maxLength = S.maxLength;
+	if (S.pattern != null) c.pattern = S.pattern.source;
+	entry.constraints = c;
+}
+
+// --- Decorator overloads ---
+
+// Class
+
+function doc<T>(
+	description: string,
+	{ metadata }: ClassDecorator<T>,
+) {
+	metadata[docKey] = { description };
+}
+
+// Field
+
+function doc<B: NumberBounds, TClass>(
+	description: string,
+	{ metadata }: ClassFieldDecorator<number<B>, TClass>,
+) {
+	metadata[fieldDocKey] = { description };
+	applyConstraints(metadata[fieldDocKey], B);
+}
+
+function doc<S: StringBounds, TClass>(
+	description: string,
+	{ metadata }: ClassFieldDecorator<string<S>, TClass>,
+) {
+	metadata[fieldDocKey] = { description };
+	applyConstraints(metadata[fieldDocKey], S);
+}
+
+function doc<T, TClass>(
+	description: string,
+	{ metadata }: ClassFieldDecorator<T, TClass>,
+) {
+	metadata[fieldDocKey] = { description };
+}
+
+// Method
+
+function doc<T extends (...args: any) => any, TClass>(
+	description: string,
+	{ metadata }: ClassMethodDecorator<T, TClass>,
+) {
+	metadata[methodDocKey] = { description };
+}
+
+// Method parameter
+
+function doc<B: NumberBounds, TMethod, TClass>(
+	description: string,
+	{ metadata }: ClassMethodParameterDecorator<number<B>, TMethod, TClass>,
+) {
+	metadata[paramDocKey] = { description };
+	applyConstraints(metadata[paramDocKey], B);
+}
+
+function doc<S: StringBounds, TMethod, TClass>(
+	description: string,
+	{ metadata }: ClassMethodParameterDecorator<string<S>, TMethod, TClass>,
+) {
+	metadata[paramDocKey] = { description };
+	applyConstraints(metadata[paramDocKey], S);
+}
+
+function doc<T, TMethod, TClass>(
+	description: string,
+	{ metadata }: ClassMethodParameterDecorator<T, TMethod, TClass>,
+) {
+	metadata[paramDocKey] = { description };
+}
+
+// Getter
+
+function doc<B: NumberBounds, TClass>(
+	description: string,
+	{ metadata }: ClassGetterDecorator<number<B>, TClass>,
+) {
+	metadata[getterDocKey] = { description };
+	applyConstraints(metadata[getterDocKey], B);
+}
+
+function doc<S: StringBounds, TClass>(
+	description: string,
+	{ metadata }: ClassGetterDecorator<string<S>, TClass>,
+) {
+	metadata[getterDocKey] = { description };
+	applyConstraints(metadata[getterDocKey], S);
+}
+
+function doc<T, TClass>(
+	description: string,
+	{ metadata }: ClassGetterDecorator<T, TClass>,
+) {
+	metadata[getterDocKey] = { description };
+}
+
+// Setter
+
+function doc<T, TClass>(
+	description: string,
+	{ metadata }: ClassSetterDecorator<T, TClass>,
+) {
+	metadata[setterDocKey] = { description };
+}
+
+// Setter parameter
+
+function doc<B: NumberBounds, TClass>(
+	description: string,
+	{ metadata }: ClassSetterParameterDecorator<number<B>, TClass>,
+) {
+	metadata[setterDocKey] = { description };
+	applyConstraints(metadata[setterDocKey], B);
+}
+
+function doc<S: StringBounds, TClass>(
+	description: string,
+	{ metadata }: ClassSetterParameterDecorator<string<S>, TClass>,
+) {
+	metadata[setterDocKey] = { description };
+	applyConstraints(metadata[setterDocKey], S);
+}
+
+function doc<T, TClass>(
+	description: string,
+	{ metadata }: ClassSetterParameterDecorator<T, TClass>,
+) {
+	metadata[setterDocKey] = { description };
+}
+
+// --- Documentation generator ---
+
+function generateDocs<T>(): ClassDoc {
+	const classMeta = Reflect.getMetadata<ClassDecorator, T>();
+	const fields = Reflect.getMetadata<ClassFieldDecorator, T>();
+	const methods = Reflect.getMetadata<ClassMethodDecorator, T>();
+	const getters = Reflect.getMetadata<ClassGetterDecorator, T>();
+	const setters = Reflect.getMetadata<ClassSetterDecorator, T>();
+
+	const result: ClassDoc = {
+		name: T.name,
+		description: classMeta[docKey]?.description ?? '',
+		fields: [],
+		methods: [],
+		getters: [],
+		setters: [],
+	};
+
+	for (const [name, meta] of Object.entries(fields)) {
+		const fieldCtx = meta as ClassFieldDecorator<any, T>;
+		const entry = meta[fieldDocKey];
+		result.fields.push({
+			name,
+			type: String(fieldCtx.type),
+			description: entry?.description ?? '',
+			static: fieldCtx.static,
+			private: fieldCtx.private,
+			initial: fieldCtx.initial,
+			constraints: entry?.constraints,
+		});
+	}
+
+	for (const [name, meta] of Object.entries(methods)) {
+		const params = Reflect.getMetadataByIndex<ClassMethodParameterDecorator, T>(name);
+		const paramDocs: [].<ParamDoc> = params.map(p => {
+			const paramCtx = p as ClassMethodParameterDecorator<any, any, T>;
+			const entry = p[paramDocKey];
+			return {
+				name: paramCtx.key,
+				type: String(paramCtx.type),
+				description: entry?.description ?? '',
+				initial: paramCtx.initial,
+				constraints: entry?.constraints,
+			};
+		});
+
+		result.methods.push({
+			name,
+			description: meta[methodDocKey]?.description ?? '',
+			returnType: String(meta.type),
+			parameters: paramDocs,
+		});
+	}
+
+	for (const [name, meta] of Object.entries(getters)) {
+		const getterCtx = meta as ClassGetterDecorator<any, T>;
+		const entry = meta[getterDocKey];
+		result.getters.push({
+			name,
+			type: String(getterCtx.type),
+			description: entry?.description ?? '',
+			constraints: entry?.constraints,
+		});
+	}
+
+	for (const [name, meta] of Object.entries(setters)) {
+		const setterParamMeta = Reflect.getMetadata<ClassSetterParameterDecorator, T>(name);
+		const paramEntry = setterParamMeta[setterDocKey];
+		result.setters.push({
+			name,
+			type: String(setterParamMeta.type),
+			description: meta[setterDocKey]?.description ?? '',
+			constraints: paramEntry?.constraints,
+		});
+	}
+
+	return result;
+}
+
+// --- Usage ---
+
+@doc('Represents a sensor device with readings and calibration.')
+class Sensor {
+	@doc('Unique identifier for the sensor.')
+	id: uint64;
+
+	@doc('Human-readable sensor label.')
+	label: string<{ minLength: 1, maxLength: 120 }> = 'Unnamed Sensor';
+
+	@doc('Current temperature reading in Celsius.')
+	temperature: float32<{ minimum: -273.15, maximum: 1000 }> = 20.0;
+
+	@doc('Humidity percentage.')
+	humidity: float32<{ minimum: 0, maximum: 100 }> = 50.0;
+
+	@doc('Whether the sensor is currently active.')
+	active: boolean = true;
+
+	@doc('Number of readings taken since last reset.')
+	private readingCount: uint32 = 0;
+
+	@doc('Records a new temperature and humidity reading.')
+	record(
+		@doc('Temperature value in Celsius.')
+		temp: float32<{ minimum: -273.15, maximum: 1000 }>,
+		@doc('Humidity value as a percentage.')
+		humid: float32<{ minimum: 0, maximum: 100 }>,
+		@doc('Optional timestamp override.')
+		timestamp: Temporal.Instant = Temporal.Now.instant(),
+	): void {
+		this.temperature = temp;
+		this.humidity = humid;
+		this.readingCount += 1;
+	}
+
+	@doc('Resets the reading counter and optionally sets a new label.')
+	reset(
+		@doc('New label for the sensor.')
+		newLabel: string<{ minLength: 1, maxLength: 120 }> = this.label,
+	): void {
+		this.readingCount = 0;
+		this.label = newLabel;
+	}
+
+	@doc('Returns the current temperature.')
+	get currentTemp(): float32<{ minimum: -273.15, maximum: 1000 }> {
+		return this.temperature;
+	}
+
+	@doc('Sets the calibration offset applied to readings.')
+	set calibrationOffset(
+		@doc('Offset in Celsius.')
+		value: float32<{ minimum: -50, maximum: 50 }>
+	) {
+		this.#offset = value;
+	}
+
+	#offset: float32 = 0;
+}
+
+const docs = generateDocs<Sensor>();
+
+// docs evaluates at compile time to:
+// {
+//   "name": "Sensor",
+//   "description": "Represents a sensor device with readings and calibration.",
+//   "fields": [
+//     { "name": "id", "type": "uint64", "description": "Unique identifier for the sensor.", "static": false, "private": false },
+//     { "name": "label", "type": "string", "description": "Human-readable sensor label.", "static": false, "private": false, "initial": "Unnamed Sensor", "constraints": { "minLength": 1, "maxLength": 120 } },
+//     { "name": "temperature", "type": "float32", "description": "Current temperature reading in Celsius.", "static": false, "private": false, "initial": 20.0, "constraints": { "minimum": -273.15, "maximum": 1000 } },
+//     { "name": "humidity", "type": "float32", "description": "Humidity percentage.", "static": false, "private": false, "initial": 50.0, "constraints": { "minimum": 0, "maximum": 100 } },
+//     { "name": "active", "type": "boolean", "description": "Whether the sensor is currently active.", "static": false, "private": false, "initial": true },
+//     { "name": "readingCount", "type": "uint32", "description": "Number of readings taken since last reset.", "static": false, "private": true, "initial": 0 }
+//   ],
+//   "methods": [
+//     {
+//       "name": "record",
+//       "description": "Records a new temperature and humidity reading.",
+//       "returnType": "void",
+//       "parameters": [
+//         { "name": "temp", "type": "float32", "description": "Temperature value in Celsius.", "constraints": { "minimum": -273.15, "maximum": 1000 } },
+//         { "name": "humid", "type": "float32", "description": "Humidity value as a percentage.", "constraints": { "minimum": 0, "maximum": 100 } },
+//         { "name": "timestamp", "type": "Temporal.Instant", "description": "Optional timestamp override." }
+//       ]
+//     },
+//     {
+//       "name": "reset",
+//       "description": "Resets the reading counter and optionally sets a new label.",
+//       "returnType": "void",
+//       "parameters": [
+//         { "name": "newLabel", "type": "string", "description": "New label for the sensor.", "constraints": { "minLength": 1, "maxLength": 120 } }
+//       ]
+//     }
+//   ],
+//   "getters": [
+//     { "name": "currentTemp", "type": "float32", "description": "Returns the current temperature.", "constraints": { "minimum": -273.15, "maximum": 1000 } }
+//   ],
+//   "setters": [
+//     { "name": "calibrationOffset", "type": "float32", "description": "Sets the calibration offset applied to readings.", "constraints": { "minimum": -50, "maximum": 50 } }
+//   ]
+// }
+```
+
 ## FAQ
 
 ### Initial only works for constants
