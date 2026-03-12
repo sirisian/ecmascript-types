@@ -7,16 +7,16 @@ Very WIP: Feel free to open issues with fixes and requirements for sections.
 https://github.com/sirisian/ecmascript-types/issues/59  
 https://github.com/sirisian/ecmascript-types/issues/65
 
-Types simplify how decorators are defined. By utilizing function overloading they get rid of the requirement to return a ```(value, context)``` function for decorators that take arguments. This means that independent of arguments a decorator looks the same. Modifying a decorator to take argument or take none just requires changing the parameters to the decorator. Consider these decorators that are all distinct:
+Types simplify how decorators are defined. By utilizing function overloading they get rid of the requirement to return a `(value, context)` function for decorators that take arguments. This means that independent of arguments a decorator looks the same. Modifying a decorator to take argument or take none just requires changing the parameters to the decorator. Consider these decorators that are all distinct:
 
 ```js
-function f(context) {
+function f(context: ClassFieldDecorator) {
 	// No parameters
 }
-function f(x:uint32, context) {
+function f(x:uint32, context: ClassFieldDecorator) {
 	// x is 0
 }
-function f(x:string, context) {
+function f(x:string, context: ClassFieldDecorator) {
 	// x is 'a'
 }
 
@@ -24,11 +24,11 @@ class A {
 	@f
 	@f(0)
 	@f('a')
-	a:uint32;
+	a: uint32;
 }
 ```
 
-In the above the ```context``` is type ```any```. In actual usage one would use one of these types:
+Decorators can target almost anything defined by the following contexts:
 
 ```
 ClassDecorator<T>
@@ -86,34 +86,34 @@ function f<TClass>(context: ClassFieldDecorator<any, TClass>) {
 
 class A {
 	@f // decorator on uint32
-	a:uint32
+	a: uint32
 
 	@f // decorator on another type, extends A
-	b:string
+	b: string
 }
 
 class B {
 	@f // decorator on another type
-	a:string
+	a: string
 }
 ```
 
 Note that because rest parameters are allowed to be duplicated and placed anywhere this means it's legal to write:
 
 ```js
-function f(...x, context) {
+function f(...x, context: ClassFieldDecorator) {
 	// [], [0, 1, 2], ['a', 'b', 'c']
 }
 
 class A {
 	@f
-	a:bool
+	a: bool
 
 	@f(0, 1, 2)
-	b:uint32
+	b: uint32
 
 	@f('a', 'b', 'c')
-	c:string
+	c: string
 }
 ```
 
@@ -130,11 +130,11 @@ class A {
 	#b:uint32 = 5;
 
 	@f // ClassGetterDecorator
-	get c():@f uint32 { // ReturnDecorator
+	get c(): @f uint32 { // ClassGetterReturnDecorator
 	}
 
 	@f // ClassSetterDecorator
-	set c(@f value:uint32) { // ParameterDecorator
+	set c(@f value:uint32) { // ClassSetterParameterDecorator
 	}
 
 	@f // ClassMethodDecorator
@@ -149,11 +149,11 @@ class A {
 @f // FunctionDecorator
 function g() {}
 
-@f
-let a = 5; // LetDecorator, initial
+@f // LetDecorator, initial: 5
+let a = 5;
 
 @f // ConstDecorator
-const b = @f { // BlockDecorator
+const b = @f { // ObjectDecorator
 	@f // ObjectFieldDecorator
 	a: 1
 	@f // ObjectMethodDecorator
@@ -161,12 +161,36 @@ const b = @f { // BlockDecorator
 };
 
 @f // EnumDecorator
-enum Count { @f Zero, One, Two }; // EnumEnumeratorDecorator
+enum Count {
+	@f // EnumEnumeratorDecorator
+	Zero,
+	One,
+	Two
+};
 
 const e = @f #[0]; // TupleDecorator
 
 const d = @f #{ a: 1 }; // RecordDecorator
 ```
+
+## Replacement
+
+Decorators can optionally return a replacement for the decorated target. If a decorator returns `void` (or `undefined`), no replacement occurs. If it returns a value, that value replaces the original target. The return type must be compatible with the original.
+
+| Decorator | Return replaces | Return type |
+|---|---|---|
+| `ClassDecorator<T>` | The class itself | `T` (constructor with same interface) |
+| `ClassFieldDecorator<T, TClass>` | The field's initial value | `T` |
+| `ClassGetterDecorator<T, TClass>` | The getter function | `() => T` |
+| `ClassSetterDecorator<T, TClass>` | The setter function | `(value: T) => void` |
+| `ClassMethodDecorator<T, TClass>` | The method | `T` (same signature) |
+| `ClassOperatorDecorator<T, TClass>` | The operator function | `T` (same signature) |
+| `FunctionDecorator<T>` | The function | `T` (same signature) |
+| `ObjectGetterDecorator<T, TObject>` | The getter function | `() => T` |
+| `ObjectSetterDecorator<T, TObject>` | The setter function | `(value: T) => void` |
+| `ObjectMethodDecorator<T, TObject>` | The method | `T` (same signature) |
+
+Decorators that describe sub-targets (parameters, returns) or structural positions (blocks, enums, tuples, records, let, const) do not support return replacement.
 
 ## Metadata
 
@@ -216,7 +240,7 @@ const metadata = Reflect.getMetadata<ClassFieldDecorator, A>('a');
 metadata[myMetadata]; // 'f'
 ```
 
-```Reflect.getMetadata<DecoratorContext, ...>()``` accesses the metadata:
+`Reflect.getMetadata<DecoratorContext, ...>()` accesses the metadata:
 
 ```js
 // Class-level
@@ -279,7 +303,7 @@ Reflect.getMetadata<ObjectGetterReturnDecorator>(instance, getter: string | symb
 
 ### Metadata Inheritance
 
-WIP: If ```class B extends A {}``` then does ```Reflect.getMetadata<ClassFieldDecorator, B>()``` include A's field metadata?
+WIP: If `class B extends A {}` then does `Reflect.getMetadata<ClassFieldDecorator, B>()` include A's field metadata?
 
 ## Decorator Contexts
 
@@ -298,6 +322,51 @@ interface ClassDecorator<T extends { new (...args: [].<any>): any }> {
 <details>
 	<summary>Expand for example</summary>
 
+#### Singleton
+
+```js
+const singletonKey = Symbol('singleton');
+
+partial class ClassMetadata {
+	[singletonKey]?: { instance: any };
+}
+
+function singleton<T>({ metadata }: ClassDecorator<T>): T {
+	metadata[singletonKey] = { instance: undefined };
+	let instance: T | undefined;
+	return class extends T {
+		constructor(...args: any) {
+			if (instance) return instance;
+			super(...args);
+			instance = this;
+			metadata[singletonKey].instance = this;
+		}
+	};
+}
+
+@singleton
+class AppConfig {
+	debug: boolean = false;
+	version: string = '1.0.0';
+}
+
+const a = new AppConfig();
+const b = new AppConfig();
+```
+
+#### Sealed
+
+```js
+function sealed<T>({ type }: ClassDecorator<T>) {
+	Object.seal(type);
+	Object.seal(type.prototype);
+}
+
+@sealed
+class Api {
+	version: string = '1.0';
+}
+```
 </details>
 
 ### ClassFieldDecorator
@@ -379,6 +448,38 @@ interface ClassSetterDecorator<T, TClass> {
 <details>
 	<summary>Expand for example</summary>
 
+```js
+const setterLogKey = Symbol('setterLog');
+
+partial class ClassSetterMetadata {
+	[setterLogKey]?: { logged: boolean };
+}
+
+function logged<T, TClass>(
+	{ name, type: originalSetter, metadata }: ClassSetterDecorator<T, TClass>,
+): (value: T) => void {
+	metadata[setterLogKey] = { logged: true };
+	return function(value: T): void {
+		console.log(`${name} = ${value}`);
+		originalSetter.call(this, value);
+	};
+}
+
+class Theme {
+	#primary: string = '#000';
+
+	@logged
+	set primaryColor(value: string) {
+		this.#primary = value;
+	}
+}
+
+const t = new Theme();
+t.primaryColor = '#fff'; // Logs: "primaryColor = #fff"
+
+const setterMeta = Reflect.getMetadata<ClassSetterDecorator, Theme>('primaryColor');
+setterMeta[setterLogKey]; // { logged: true }
+```
 </details>
 
 ### ClassSetterParameterDecorator
@@ -429,6 +530,42 @@ interface ClassMethodDecorator<T extends (...args:[].<any>) => any, TClass> {
 <details>
 	<summary>Expand for example</summary>
 
+```js
+const deprecatedKey = Symbol('deprecated');
+
+partial class ClassMethodMetadata {
+	[deprecatedKey]?: { message: string, since: string };
+}
+
+function deprecated<T extends (...args: any) => any, TClass>(
+	message: string,
+	since: string,
+	{ name, type: original, metadata }: ClassMethodDecorator<T, TClass>,
+): T {
+	metadata[deprecatedKey] = { message, since };
+	let warned = false;
+	return function(...args: any) {
+		if (!warned) {
+			console.warn(`${name} is deprecated since ${since}: ${message}`);
+			warned = true;
+		}
+		return original.call(this, ...args);
+	} as T;
+}
+
+class Api {
+	@deprecated('Use fetchV2 instead', '2.0.0')
+	fetch(url: string): Response {
+		return httpGet(url);
+	}
+}
+
+const api = new Api();
+api.fetch('/data'); // Warns: "fetch is deprecated since 2.0.0: Use fetchV2 instead"
+
+const methodMeta = Reflect.getMetadata<ClassMethodDecorator, Api>('fetch');
+methodMeta[deprecatedKey]; // { message: 'Use fetchV2 instead', since: '2.0.0' }
+```
 </details>
 
 ### ClassMethodParameterDecorator
@@ -512,6 +649,39 @@ interface ClassOperatorDecorator<T, TClass> {
 <details>
 	<summary>Expand for example</summary>
 
+```js
+const profiledOpsKey = Symbol('profiledOps');
+
+partial class ClassOperatorMetadata {
+	[profiledOpsKey]?: { calls: uint64, totalTime: float64 } = { calls: 0, totalTime: 0 };
+}
+
+function profiled<T, TClass>(
+	{ operator, type: original, metadata }: ClassOperatorDecorator<T, TClass>,
+): T {
+	return function(...args: any) {
+		const start = performance.now();
+		const result = original.call(this, ...args);
+		metadata[profiledOpsKey].totalTime += performance.now() - start;
+		metadata[profiledOpsKey].calls += 1;
+		return result;
+	} as T;
+}
+
+class Matrix4 {
+	@profiled
+	operator*(rhs: Matrix4): Matrix4 {
+		// expensive multiplication
+	}
+}
+
+const a = new Matrix4();
+const b = new Matrix4();
+const c = a * b;
+
+const opMeta = Reflect.getMetadata<ClassOperatorDecorator, Matrix4>(Operator.Multiplication);
+opMeta[profiledOpsKey]; // { calls: 1, totalTime: ... }
+```
 </details>
 
 ### ClassOperatorParameterDecorator
@@ -544,6 +714,39 @@ interface FunctionDecorator<T extends (...args:[].<any>) => any> {
 <details>
 	<summary>Expand for example</summary>
 
+```js
+const memoKey = Symbol('memo');
+
+partial class FunctionMetadata {
+	[memoKey]: { maxSize: uint32 } = { maxSize: 1000 };
+}
+
+function memo<T extends (...args: any) => any>(
+	{ type: original, metadata }: FunctionDecorator<T>,
+): T {
+	const cache = new Map<string, any>();
+	return function(...args: any) {
+		const key = JSON.stringify(args);
+		if (cache.has(key)) {
+			return cache.get(key);
+		}
+		const result = original(...args);
+		if (cache.size >= 1000) {
+			cache.clear();
+		}
+		cache.set(key, result);
+		return result;
+	} as T;
+}
+
+@memo
+function fibonacci(n: uint32): uint64 {
+	if (n <= 1) return n;
+	return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+fibonacci(50);
+```
 </details>
 
 ### FunctionParameterDecorator
@@ -766,7 +969,7 @@ interface ObjectMethodReturnDecorator<T, TObject> {
 
 ### Block Decorators
 
-Note: That ```Expression``` is not defined here. Macro AST is out of scope. The Expression is a placeholder.
+Note: That `Expression` is not defined here. Macro AST is out of scope. The Expression is a placeholder.
 
 ```js
 interface BlockDecorator {
@@ -949,7 +1152,7 @@ getLabel(Status.Ok); // 'Success'
 ```
 </details>
 
-Note: ```getLabel``` can be evaluated at compile time. Essentially both ```getLabel``` lines can be turned into their string literals, but if the function is redefined it would need to update those lines.
+Note: `getLabel` can be evaluated at compile time. Essentially both `getLabel` lines can be turned into their string literals, but if the function is redefined it would need to update those lines.
 
 ### TupleDecorator
 
