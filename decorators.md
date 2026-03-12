@@ -749,24 +749,20 @@ interface ObjectMethodParameterDecorator<T, TMethod, TObject> {
 
 ### Block Decorators
 
-Note: That ```Expression``` is not defined here. Macro AST is out of scope.
-
-WIP: Probably remove the ```insertBefore```, ```insertAfter```, etc. Almost need a mock AST object with non-controversial operations like ```wrap```. I know macro stuff is largely out of scope, but I don't want to make a design that makes that awkward later.
+Note: That ```Expression``` is not defined here. Macro AST is out of scope. The Expression is a placeholder.
 
 ```js
 interface BlockDecorator {
 	label?: string;
-	insertBefore(callback: () => void): void;
-	insertAfter(callback: () => void): void;
-	wrap(wrapper: (body: () => BlockCompletion) => BlockCompletion): void;
+	block: Expression;
 }
 
 interface IfBlockDecorator extends BlockDecorator {
-	condition: Expression; // the test expression, for static analysis
+	condition: Expression;
 }
 
 interface ElseIfBlockDecorator extends BlockDecorator {
-	condition: Expression; // the test expression, for static analysis
+	condition: Expression;
 }
 
 interface ElseBlockDecorator extends BlockDecorator {
