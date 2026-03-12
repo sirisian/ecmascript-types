@@ -52,7 +52,7 @@ ObjectFieldDecorator<T, TObject>
 ObjectGetterDecorator<T, TObject>
 ObjectGetterReturnDecorator<T, TObject>
 ObjectSetterDecorator<T, TObject>
-ObjectSetterParameterDecorator<T, TMethod, TObject>
+ObjectSetterParameterDecorator<T, TObject>
 ObjectMethodDecorator<T, TObject>
 ObjectMethodParameterDecorator<T, TMethod, TObject>
 ObjectMethodReturnDecorator<T, TMethod, TObject>
@@ -955,8 +955,8 @@ interface ObjectMethodParameterDecorator<T, TMethod, TObject> {
 
 ### ObjectMethodReturnDecorator
 ```js
-interface ObjectMethodReturnDecorator<T, TObject> {
-	methodContext: ObjectMethodDecorator<T, TObject>;
+interface ObjectMethodReturnDecorator<T, TMethod, TObject> {
+	methodContext: ObjectMethodDecorator<TMethod, TObject>;
 	type: T;
 	metadata: ObjectMethodReturnMetadata;
 }
@@ -1056,6 +1056,7 @@ Loop blocks could also include their own context like the kind of loop, the init
 interface EnumDecorator<T extends enum<TValue>, TValue = int32> {
 	type: T;
 	valueType: TValue;
+	size: uint32;
 	metadata: EnumMetadata;
 }
 ```
@@ -1169,8 +1170,8 @@ interface TupleDecorator<T extends any[]> {
 WIP: Bring inline with composites proposal
 
 ```js
-interface RecordDecorator<K extends string | number | symbol, V> {
-	type: Record<K, V>;
+interface RecordDecorator<T extends Record<string | symbol, any>> {
+	type: T;
 }
 ```
 
@@ -1199,7 +1200,7 @@ function addValidators<T, TClass>({ name, metadata }: ClassFieldDecorator<T, TCl
 }
 
 function Length<TClass>(min: uint32, max: uint32, context: ClassFieldDecorator<string, TClass>) { // Can only be placed on string
-	addValidators(context, (value: string) => value.length is >= min and <= max);
+	addValidators(context, (value: string) => value.length >= min && value.length <= max);
 }
 function Includes<TClass>(searchString: string, context: ClassFieldDecorator<string, TClass>) {
 	addValidators(context, (value: string) => value.includes(searchString));
@@ -1577,7 +1578,7 @@ partial class ClassSetterParameterMetadata {
 
 // Constraint helpers
 
-function applyConstraints<B: NumberBounds>(entry: DocEntry, bounds: B) {
+function applyConstraints<B: NumberBounds>(entry: DocEntry) {
 	const c: ConstraintDoc = {};
 	if (B.minimum != null) c.minimum = B.minimum;
 	if (B.maximum != null) c.maximum = B.maximum;
@@ -1586,7 +1587,7 @@ function applyConstraints<B: NumberBounds>(entry: DocEntry, bounds: B) {
 	entry.constraints = c;
 }
 
-function applyConstraints<S: StringBounds>(entry: DocEntry, bounds: S) {
+function applyConstraints<S: StringBounds>(entry: DocEntry) {
 	const c: ConstraintDoc = {};
 	if (S.minLength != null) c.minLength = S.minLength;
 	if (S.maxLength != null) c.maxLength = S.maxLength;
@@ -1612,7 +1613,7 @@ function doc<B: NumberBounds, TClass>(
 	{ metadata }: ClassFieldDecorator<number<B>, TClass>,
 ) {
 	metadata[fieldDocKey] = { description };
-	applyConstraints(metadata[fieldDocKey], B);
+	applyConstraints<B>(metadata[fieldDocKey]);
 }
 
 function doc<S: StringBounds, TClass>(
@@ -1620,7 +1621,7 @@ function doc<S: StringBounds, TClass>(
 	{ metadata }: ClassFieldDecorator<string<S>, TClass>,
 ) {
 	metadata[fieldDocKey] = { description };
-	applyConstraints(metadata[fieldDocKey], S);
+	applyConstraints<S>(metadata[fieldDocKey]);
 }
 
 function doc<T, TClass>(
@@ -1646,7 +1647,7 @@ function doc<B: NumberBounds, TMethod, TClass>(
 	{ metadata }: ClassMethodParameterDecorator<number<B>, TMethod, TClass>,
 ) {
 	metadata[paramDocKey] = { description };
-	applyConstraints(metadata[paramDocKey], B);
+	applyConstraints<B>(metadata[paramDocKey]);
 }
 
 function doc<S: StringBounds, TMethod, TClass>(
@@ -1654,7 +1655,7 @@ function doc<S: StringBounds, TMethod, TClass>(
 	{ metadata }: ClassMethodParameterDecorator<string<S>, TMethod, TClass>,
 ) {
 	metadata[paramDocKey] = { description };
-	applyConstraints(metadata[paramDocKey], S);
+	applyConstraints<S>(metadata[paramDocKey]);
 }
 
 function doc<T, TMethod, TClass>(
@@ -1671,7 +1672,7 @@ function doc<B: NumberBounds, TClass>(
 	{ metadata }: ClassGetterDecorator<number<B>, TClass>,
 ) {
 	metadata[getterDocKey] = { description };
-	applyConstraints(metadata[getterDocKey], B);
+	applyConstraints<B>(metadata[getterDocKey]);
 }
 
 function doc<S: StringBounds, TClass>(
@@ -1679,7 +1680,7 @@ function doc<S: StringBounds, TClass>(
 	{ metadata }: ClassGetterDecorator<string<S>, TClass>,
 ) {
 	metadata[getterDocKey] = { description };
-	applyConstraints(metadata[getterDocKey], S);
+	applyConstraints<S>(metadata[getterDocKey]);
 }
 
 function doc<T, TClass>(
@@ -1705,7 +1706,7 @@ function doc<B: NumberBounds, TClass>(
 	{ metadata }: ClassSetterParameterDecorator<number<B>, TClass>,
 ) {
 	metadata[setterDocKey] = { description };
-	applyConstraints(metadata[setterDocKey], B);
+	applyConstraints<B>(metadata[setterDocKey]);
 }
 
 function doc<S: StringBounds, TClass>(
@@ -1713,7 +1714,7 @@ function doc<S: StringBounds, TClass>(
 	{ metadata }: ClassSetterParameterDecorator<string<S>, TClass>,
 ) {
 	metadata[setterDocKey] = { description };
-	applyConstraints(metadata[setterDocKey], S);
+	applyConstraints<S>(metadata[setterDocKey]);
 }
 
 function doc<T, TClass>(
