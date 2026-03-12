@@ -752,6 +752,20 @@ interface ObjectMethodParameterDecorator<T, TMethod, TObject> {
 
 </details>
 
+### ObjectMethodReturnDecorator
+```js
+interface ObjectMethodReturnDecorator<T, TMethod, TObject> {
+	methodContext: ObjectMethodDecorator<TMethod, TObject>;
+	type: T;
+	metadata: ObjectMethodReturnMetadata;
+}
+```
+
+<details>
+	<summary>Expand for example</summary>
+
+</details>
+
 ### Block Decorators
 
 Note: That ```Expression``` is not defined here. Macro AST is out of scope. The Expression is a placeholder.
