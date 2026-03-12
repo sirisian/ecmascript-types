@@ -65,7 +65,6 @@ DoWhileBlockDecorator
 ForBlockDecorator
 ForInBlockDecorator
 ForOfBlockDecorator
-InitializerDecorator<T>
 EnumDecorator<T extends enum<TValue>, TValue = int32>
 EnumEnumeratorDecorator<T extends enum<TValue>, TValue = int32>
 TupleDecorator<T>
@@ -125,10 +124,10 @@ function f(context: any) {
 
 @f // ClassDecorator
 class A {
-	@f // ClassFieldDecorator
-	a:uint32 @f = 5 // InitializerDecorator
+	@f // ClassFieldDecorator, initial: 5
+	a:uint32 = 5;
 	@f
-	#b:uint32 @f = 5
+	#b:uint32 = 5;
 
 	@f // ClassGetterDecorator
 	get c():@f uint32 { // ReturnDecorator
@@ -151,9 +150,10 @@ class A {
 function g() {}
 
 @f
-let @f a @f = 5; // LetDecorator, InitializerDecorator
+let a = 5; // LetDecorator, initial
 
-const @f b @f = @f { // ConstDecorator, InitializerDecorator, BlockDecorator
+@f // ConstDecorator
+const b = @f { // BlockDecorator
 	@f // ObjectFieldDecorator
 	a: 1
 	@f // ObjectMethodDecorator
@@ -273,23 +273,6 @@ Reflect.getMetadataByIndex<ObjectMethodParameterDecorator>(instance, method: str
 Reflect.getMetadata<ObjectMethodReturnDecorator>(instance, method: string | symbol): ObjectMethodReturnMetadata
 Reflect.getMetadata<ObjectSetterParameterDecorator>(instance, setter: string | symbol): ObjectSetterParameterMetadata
 Reflect.getMetadata<ObjectGetterReturnDecorator>(instance, getter: string | symbol): ObjectGetterReturnMetadata
-```
-
-WIP: How to access metadata for the following. Does metadata even make sense?:
-
-```js
-LetDecorator<T>
-ConstDecorator<T>
-BlockDecorator
-IfBlockDecorator
-ElseIfBlockDecorator
-ElseBlockDecorator
-WhileBlockDecorator
-DoWhileBlockDecorator
-ForBlockDecorator
-ForInBlockDecorator
-ForOfBlockDecorator
-InitializerDecorator<T>
 ```
 
 ### Metadata Inheritance
@@ -589,6 +572,7 @@ interface FunctionReturnDecorator<T> {
 interface LetDecorator<T> {
 	type: T;
 	name: string;
+	initial: T | undefined;
 }
 ```
 
@@ -602,6 +586,7 @@ interface LetDecorator<T> {
 interface ConstDecorator<T> {
 	type: T;
 	name: string;
+	initial: T;
 }
 ```
 
@@ -851,19 +836,6 @@ for (let i = 0; i < 10; ++i) @f {
 Could include in the context all sorts of information like the scope information for current variables declarations/references.
 
 Loop blocks could also include their own context like the kind of loop, the initialization, condition, and increment expressions?
-
-</details>
-
-### InitializerDecorator
-```js
-interface InitializerDecorator<T> {
-	target: Object;
-	type: () => void; // Function that initializes something
-}
-```
-
-<details>
-	<summary>Expand for example</summary>
 
 </details>
 
