@@ -1053,6 +1053,10 @@ WIP: Trying to keep this example simple. This is a bit expensive in practice.
 ```js
 const binaryWriter = Symbol('binary');
 
+partial class ClassFieldMetadata {
+    [binaryWriter]: (packet: Packet, value: any) => void = (packet, value) => {};
+}
+
 // boolean
 function data<TClass>({ metadata }: ClassFieldDecorator<boolean, TClass>) {
 	metadata[binaryWriter] = (packet, value) => packet.write<boolean>(value);
@@ -1089,7 +1093,7 @@ function binarySerialize<T>(packet: Packet, item: T) {
 class Room {
 	@data
 	id: uint64 = -1;
-	@data(255)
+	@data
 	name: string = '';
 	@data // Implicit generic uint<n>
 	test: uint<7> = 0;
@@ -1166,10 +1170,58 @@ const service = resolve(OrderService, container);
 ### Declarative routing
 
 ```js
+const routeKey = Symbol('route');
+const routesKey = Symbol('routes');
+
+partial class ClassMetadata {
+	[routeKey]?: string;
+}
+
+type RouteEntry = {
+	method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+	path: string,
+	handler: string | symbol
+};
+
+partial class ClassMethodMetadata {
+	[routesKey]?: RouteEntry;
+}
+
+function route<T>(
+	basePath: string,
+	{ metadata }: ClassDecorator<T>,
+) {
+	metadata[routeKey] = basePath;
+}
+
+function get<T extends (...args: any) => any, TClass>(
+	path: string,
+	{ name, metadata }: ClassMethodDecorator<T, TClass>,
+) {
+	metadata[routesKey] = { method: 'GET', path, handler: name };
+}
+
+function post<T extends (...args: any) => any, TClass>(
+	path: string,
+	{ name, metadata }: ClassMethodDecorator<T, TClass>,
+) {
+	metadata[routesKey] = { method: 'POST', path, handler: name };
+}
+
+function mountRoutes<T>(controller: T, router: Router) {
+	const basePath = Reflect.getMetadata<ClassDecorator, T>()[routeKey] ?? '';
+	const methods = Reflect.getMetadata<ClassMethodDecorator, T>();
+	for (const [name, metadata] of Object.entries(methods)) {
+		const entry = metadata[routesKey];
+		if (!entry) continue;
+		const fullPath = `/${basePath}/${entry.path}`.replace(/\/+/g, '/');
+		router.add(entry.method, fullPath, (...args) => controller[name](...args));
+	}
+}
+
 class Room {
 	id: uint64;
-	@validate(/[A-Za-z ]{1, 80}/)
-	name: string;
+	name: string<{ minLength: 1, maxLength: 80 }>; // See primitive metadata
 }
 
 typed RoomWithoutId = Omit<Room, { id }>;
@@ -1211,4 +1263,7 @@ class Rooms {
 		room.name = name;
 	}
 }
+
+const router = new Router();
+mountRoutes(new Rooms(), router);
 ```
