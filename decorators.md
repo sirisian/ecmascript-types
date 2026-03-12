@@ -1273,3 +1273,13 @@ class Rooms {
 const router = new Router();
 mountRoutes(new Rooms(), router);
 ```
+
+## FAQ
+
+### Initial only works for constants
+
+```js
+function f(a: uint32, b: uint32 = a * 2) {}
+```
+
+Similar to ```ClassFieldDecorator``` the parameter decorators only capture constant values. This is a limitation. Ideally one could capture the expression, but I'm trying not to directly implement AST into this yet. Just leaving it as an extension.
