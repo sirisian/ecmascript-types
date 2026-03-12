@@ -1950,7 +1950,21 @@ The following global objects could be used as types:
 
 ### Decorators
 
+This extension introduces a compact syntax for defining and specializing decorators with types. It focuses on allowing compile time decorator calculations which provide typed feedback in editors and no overhead at runtime.
+
 [Decorators](decorators.md)
+
+### Primitive Metadata
+
+This extension adds the ability to apply constraints at compile time and runtime. This allows the implementations of units of measure and JSON Schema bounds checking. It can simplify common decorator patterns and allows editors to perform custom type refinement.
+
+[Primitive Metadata](primitivemetadata.md)
+
+### Dependent Record Types
+
+This extension covers syntax for supporting JSON Schema's dependentRequired, dependentSchemas, and if/then/else structures for compile time evaluation.
+
+[Dependent Record Types](dependentrecordtypes.md)
 
 ### Records and Tuples
 
