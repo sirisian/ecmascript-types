@@ -125,8 +125,10 @@ An example featuring all of them:
 class A {
 	@f // Reflect.ClassField, initial: 5
 	a: uint32 = 5;
+	@f // Reflect.ClassAccessor, initial: 5
+	accessor b: uint32 = 5;
 	@f
-	#b: uint32 = 5;
+	#c: uint32 = 5;
 
 	@f // Reflect.ClassGetter
 	get c(): @f uint32 { // Reflect.ClassGetterReturn
