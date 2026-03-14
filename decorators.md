@@ -121,35 +121,33 @@ class A {
 
 An example featuring all of them:
 ```js
-function f(context: any) {
-}
-
 @f // Reflect.Class
 class A {
 	@f // Reflect.ClassField, initial: 5
-	a:uint32 = 5;
+	a: uint32 = 5;
 	@f
-	#b:uint32 = 5;
+	#b: uint32 = 5;
 
 	@f // Reflect.ClassGetter
 	get c(): @f uint32 { // Reflect.ClassGetterReturn
 	}
 
 	@f // Reflect.ClassSetter
-	set c(@f value:uint32) { // Reflect.ClassSetterParameter
+	set c(@f value: uint32) { // Reflect.ClassSetterParameter
 	}
 
 	@f // Reflect.ClassMethod
-	d(@f a:uint32):@f uint32 {
+	d(@f a: uint32): @f uint32 { // Reflect.ClassMethodParameter, Reflect.ClassMethodReturn
 	}
 
 	@f // Reflect.ClassOperator
-	operator+(@f rhs):@f uint32 {
+	operator+(@f rhs): @f uint32 { // Reflect.ClassOperatorParameter
 	}
 }
 
 @f // Reflect.Function
-function g() {}
+function g(@f a: uint32, @f b: string): @f uint32 { // Reflect.FunctionParameter, Reflect.FunctionReturn
+}
 
 @f // Reflect.Let, initial: 5
 let a = 5;
@@ -157,9 +155,21 @@ let a = 5;
 @f // Reflect.Const
 const b = @f { // Reflect.Object
 	@f // Reflect.ObjectField
-	a: 1
+	a: 1,
+
 	@f // Reflect.ObjectMethod
-	b: () => number;
+	b(@f x: uint32): @f uint32 { // Reflect.ObjectMethodParameter, Reflect.ObjectMethodReturn
+		return x;
+	},
+
+	@f // Reflect.ObjectGetter
+	get c(): @f uint32 { // Reflect.ObjectGetterReturn
+		return 1;
+	},
+
+	@f // Reflect.ObjectSetter
+	set c(@f value: uint32) { // Reflect.ObjectSetterParameter
+	}
 };
 
 @f // Reflect.Enum
@@ -173,6 +183,36 @@ enum Count {
 const e = @f #[0]; // Reflect.Tuple
 
 const d = @f #{ a: 1 }; // Reflect.Record
+
+@f // Reflect.Block
+{
+	const x = 10;
+}
+
+if (true) @f { // Reflect.IfBlock
+
+} else if (false) @f { // Reflect.ElseIfBlock
+
+} else @f { // Reflect.ElseBlock
+
+}
+
+while (true) @f { // Reflect.WhileBlock
+	break;
+}
+
+do @f { // Reflect.DoWhileBlock
+	break;
+} while (true);
+
+for (let i = 0; i < 10; ++i) @f { // Reflect.ForBlock
+}
+
+for (const key in obj) @f { // Reflect.ForInBlock
+}
+
+for (const item of items) @f { // Reflect.ForOfBlock
+}
 ```
 
 ## Replacement
@@ -183,6 +223,7 @@ Decorators can optionally return a replacement for the decorated target. If a de
 |---|---|---|
 | `Reflect.Class<T>` | The class itself | `T` (constructor with same interface) |
 | `Reflect.ClassField<T, TClass>` | The field's initial value | `T` |
+| `Reflect.ClassAccessor<T, TClass>` | The accessor's get/set pair | `{ get(): T, set(value: T): void }` |
 | `Reflect.ClassGetter<T, TClass>` | The getter function | `() => T` |
 | `Reflect.ClassSetter<T, TClass>` | The setter function | `(value: T) => void` |
 | `Reflect.ClassMethod<T, TClass>` | The method | `T` (same signature) |
@@ -215,6 +256,15 @@ namespace Reflect {
 		private: boolean;
 		initial: T | undefined;
 		metadata: ClassFieldMetadata;
+	};
+
+	type ClassAccessorReflection<T = any> = {
+		type: T;
+		name: string | symbol;
+		static: boolean;
+		private: boolean;
+		initial: T | undefined;
+		metadata: ClassAccessorMetadata;
 	};
 
 	type ClassGetterReflection<T = any> = {
@@ -490,6 +540,10 @@ namespace Reflect {
 	getReflection<Reflect.ClassField, T>(): { [name: string | symbol]: Reflect.ClassFieldReflection };
 	getReflection<Reflect.ClassField, T>(name: string | symbol): Reflect.ClassFieldReflection;
 
+	// Accessors
+	getReflection<Reflect.ClassAccessor, T>(): { [name: string | symbol]: Reflect.ClassAccessorReflection };
+	getReflection<Reflect.ClassAccessor, T>(name: string | symbol): Reflect.ClassAccessorReflection;
+
 	// Methods
 	getReflection<Reflect.ClassMethod, T>(): { [name: string | symbol]: Reflect.ClassMethodReflection };
 	getReflection<Reflect.ClassMethod, T>(name: string | symbol): Reflect.ClassMethodReflection;
@@ -640,6 +694,9 @@ namespace Reflect {
 	getMetadata<Reflect.ClassField, T>(): { [name: string | symbol]: ClassFieldMetadata };
 	getMetadata<Reflect.ClassField, T>(name: string | symbol): ClassFieldMetadata;
 
+	getMetadata<Reflect.ClassAccessor, T>(): { [name: string | symbol]: ClassAccessorMetadata };
+	getMetadata<Reflect.ClassAccessor, T>(name: string | symbol): ClassAccessorMetadata;
+
 	getMetadata<Reflect.ClassMethod, T>(): { [name: string | symbol]: ClassMethodMetadata };
 	getMetadata<Reflect.ClassMethod, T>(name: string | symbol): ClassMethodMetadata;
 
@@ -776,7 +833,34 @@ metadata[myMetadata]; // 'f'
 
 ### Metadata Inheritance
 
-WIP: If `class B extends A {}` then does `Reflect.getMetadata<Reflect.ClassField, B>()` include A's field metadata?
+Consider `class B extends A {}`.
+
+Reflection includes inherited members by default. `Reflect.getReflection<Reflect.ClassField, B>()` returns all fields on B, including those inherited from its superclasses. The same applies to methods, getters, setters, and operators.
+
+Each member's metadata is inherited through the prototype chain. If A declares a field with metadata, and B extends A without redeclaring that field, B inherits A's metadata as-is. Symbol key lookups fall through the prototype. If B redeclares the field and applies its own decorators, B gets a new metadata object (prototypically inheriting from A's) where B's decorators write their values, shadowing A's without mutating them.
+
+```js
+class A {
+	@tag('base')
+	id: uint64 = 0;
+}
+
+class B extends A {
+	@tag('override')
+	id: uint64 = 0; // Redeclares and redecorates
+}
+
+class C extends A {
+	// Does not redeclare id
+}
+```
+
+To query only the members a class declares itself, pass `{ own: true }`:
+ 
+```js
+Reflect.getReflection<Reflect.ClassField, B>() // All fields including inherited
+Reflect.getReflection<Reflect.ClassField, B>({ own: true }) // Only fields B declares
+```
 
 ## addInitializer
 
@@ -786,13 +870,14 @@ Present on contexts that represent declaration sites where initialization logic 
 |---|---|
 | `Reflect.Class` | `Reflect.ClassMethodParameter` |
 | `Reflect.ClassField` | `Reflect.ClassMethodReturn` |
-| `Reflect.ClassMethod` | `Reflect.ClassGetterReturn` |
+| `Reflect.ClassAccessor` | `Reflect.ClassGetterReturn` |
 | `Reflect.ClassGetter` | `Reflect.ClassSetterParameter` |
 | `Reflect.ClassSetter` | `Reflect.ClassOperatorParameter` |
-| `Reflect.ClassOperator` | `Reflect.Function` |
-| `Reflect.ObjectMethod` | `Reflect.FunctionParameter` |
-| `Reflect.ObjectGetter` | `Reflect.FunctionReturn` |
-| `Reflect.ObjectSetter` | `Reflect.Let` / `Reflect.Const` |
+| `Reflect.ClassMethod` | `Reflect.Function` |
+| `Reflect.ClassOperator` | `Reflect.FunctionParameter` |
+| `Reflect.ObjectMethod` | `Reflect.FunctionReturn` |
+| `Reflect.ObjectGetter` | `Reflect.Let` |
+| `Reflect.ObjectSetter` | `Reflect.Const` |
 | | `Reflect.ObjectField` |
 | | `Reflect.ObjectMethodParameter` |
 | | `Reflect.ObjectMethodReturn` |
@@ -890,6 +975,88 @@ function logField<T, TClass>({ classContext: { name: className, metadata: classM
 	metadata[metadataKey] = name;
 }
 ```
+</details>
+
+###
+
+```js
+namespace Reflect {
+	interface ClassAccessor<T, TClass> extends Reflect.ClassAccessorReflection<T> {
+		classContext: Reflect.Class<TClass>;
+		addInitializer(initializer: () => void): void;
+	}
+}
+```
+
+<details>
+	<summary>Expand for example</summary>
+	
+```js
+import { Signal, Memo } from 'signals';
+
+function signal<T, TClass>(
+	{ name, initial }: Reflect.ClassAccessor<T, TClass>,
+): { get(): T, set(value: T): void } {
+	const signals = new WeakMap<object, Signal<T>>();
+	function getSignal(instance: object): Signal<T> {
+		let sig = signals.get(instance);
+		if (!sig) {
+			sig = new Signal<T>(initial);
+			signals.set(instance, sig);
+		}
+		return sig;
+	}
+	return {
+		get(): T { return getSignal(this).get(); },
+		set(value: T) { getSignal(this).set(value); },
+	};
+}
+
+function memo<T, TClass>(
+	{ type: originalGetter }: Reflect.ClassGetter<T, TClass>,
+): () => T {
+	const memos = new WeakMap<object, Memo<T>>();
+	return function(): T {
+		let m = memos.get(this);
+		if (!m) {
+			m = new Memo(() => originalGetter.call(this));
+			memos.set(this, m);
+		}
+		return m.get();
+	};
+}
+
+class Sum {
+	@signal accessor a: int32 = 1;
+	@signal accessor b: int32 = 2;
+	@signal static accessor instanceCount: uint32 = 0;
+	@signal accessor #internal: int32 = 0;
+
+	@memo
+	get sum(): int32 {
+		return this.a + this.b;
+	}
+}
+
+const s = new Sum();
+s.sum;  // 3
+s.a = 10;
+s.sum;  // 12
+s.b = 5;
+s.sum;  // 15
+```
+
+Note: Accessor is required so that all decorators see the same context. Consider:
+
+```js
+class A {
+	@validate
+	@signal
+	accessor a: int32 = 1;
+}
+```
+
+`signal` runs before `validate` and both see an accessor.
 </details>
 
 ### ClassGetter
