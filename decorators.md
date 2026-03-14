@@ -2076,7 +2076,7 @@ function generateDocs<T>(): ClassDoc {
 		});
 	}
 
-	// Getters — return type extracted via ClassGetterReturn
+	// Getters, return type extracted via ClassGetterReturn
 	const getters = Reflect.getReflection<Reflect.ClassGetter, T>();
 	for (const [name, getter] of Object.entries(getters)) {
 		const returnRefl = Reflect.getReflection<Reflect.ClassGetterReturn, T>(name);
@@ -2088,7 +2088,7 @@ function generateDocs<T>(): ClassDoc {
 		});
 	}
 
-	// Setters — type and constraints come from the parameter
+	// Setters, type and constraints come from the parameter
 	const setters = Reflect.getReflection<Reflect.ClassSetter, T>();
 	for (const [name, setter] of Object.entries(setters)) {
 		const paramRefl = Reflect.getReflection<Reflect.ClassSetterParameter, T>(name);
