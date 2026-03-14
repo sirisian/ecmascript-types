@@ -34,6 +34,7 @@ Decorators can target almost anything and are defined by the following target co
 namespace Reflect {
 	Class<T>
 	ClassField<T, TClass>
+	ClassAccessor<T, TClass>
 	ClassGetter<T, TClass>
 	ClassGetterReturn<T, TClass>
 	ClassSetter<T, TClass>
