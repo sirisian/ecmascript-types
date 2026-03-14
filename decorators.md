@@ -977,7 +977,7 @@ function logField<T, TClass>({ classContext: { name: className, metadata: classM
 ```
 </details>
 
-###
+### ClassAccessor
 
 ```js
 namespace Reflect {
