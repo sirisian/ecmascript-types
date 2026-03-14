@@ -196,7 +196,7 @@ Decorators that describe sub-targets (parameters, returns) or structural positio
 
 ## Reflection
 
-The following `<Context>Reflection` types define the data that is returned when reflecting a specific target. When when reflecting a `class` one can access the `name`, `type`, and `metadata`.
+The following `<Context>Reflection` types define the data that is returned when reflecting a specific target. When reflecting a `class` one can access the `name`, `type`, and `metadata`.
 
 ### Class
 
@@ -588,6 +588,45 @@ namespace Reflect {
 }
 ```
 
+### Block
+
+Block reflection is not accessed via `getReflection` in normal user code. Block decorator contexts receive the reflection structure directly. These signatures are reserved for macro / compiler-plugin APIs.
+
+```js
+namespace Reflect {
+	getReflection<Reflect.Block>(label: string): Reflect.BlockReflection;
+	getReflection<Reflect.IfBlock>(label: string): Reflect.IfBlockReflection;
+	getReflection<Reflect.ElseIfBlock>(label: string): Reflect.ElseIfBlockReflection;
+	getReflection<Reflect.ElseBlock>(label: string): Reflect.ElseBlockReflection;
+	getReflection<Reflect.WhileBlock>(label: string): Reflect.WhileBlockReflection;
+	getReflection<Reflect.DoWhileBlock>(label: string): Reflect.DoWhileBlockReflection;
+	getReflection<Reflect.ForBlock>(label: string): Reflect.ForBlockReflection;
+	getReflection<Reflect.ForInBlock>(label: string): Reflect.ForInBlockReflection;
+	getReflection<Reflect.ForOfBlock>(label: string): Reflect.ForOfBlockReflection;
+}
+```
+
+### Enum
+
+```js
+namespace Reflect {
+	getReflection<Reflect.Enum, T>(): Reflect.EnumReflection<T>;
+
+	getReflection<Reflect.EnumEnumerator, T>(): { [name: string]: Reflect.EnumEnumeratorReflection };
+	getReflection<Reflect.EnumEnumerator, T>(value: T): Reflect.EnumEnumeratorReflection;
+	getReflectionByName<Reflect.EnumEnumerator, T>(name: string): Reflect.EnumEnumeratorReflection;
+}
+```
+
+### Tuple / Record
+
+```js
+namespace Reflect {
+	getReflection<Reflect.Tuple>(instance): Reflect.TupleReflection;
+	getReflection<Reflect.Record>(instance): Reflect.RecordReflection;
+}
+```
+
 ## `Reflect.getMetadata` Signatures
 
 `Reflect.getMetadata` is sugar over `Reflect.getReflection`, returning only the `.metadata` field. Only targets whose reflection structures carry metadata have a corresponding `Reflect.getMetadata` overload.
@@ -765,7 +804,7 @@ Present on contexts that represent declaration sites where initialization logic 
 
 ## Decorator Contexts
 
-Overloading a decorator's parameter types and contexts allow defining specialized decorators for every situation.
+Defining specialized target decorators is done by overloading a decorator's parameter types and context.
 
 ### Class
 ```js
@@ -989,7 +1028,7 @@ partial class ClassMethodMetadata {
 function deprecated<T extends (...args: any) => any, TClass>(
 	message: string,
 	since: string,
-	{ name, type: original, metadata }: ClassMethodDecorator<T, TClass>,
+	{ name, type: original, metadata }: Reflect.ClassMethod<T, TClass>,
 ): T {
 	metadata[deprecatedKey] = { message, since };
 	let warned = false;
@@ -1125,7 +1164,7 @@ const a = new Matrix4();
 const b = new Matrix4();
 const c = a * b;
 
-const opMeta = Reflect.getMetadata<ClassOperator, Matrix4>(Operator.Multiplication);
+const opMeta = Reflect.getMetadata<Reflect.ClassOperator, Matrix4>(Operator.Multiplication);
 opMeta[profiledOpsKey]; // { calls: 1, totalTime: ... }
 ```
 </details>
@@ -1335,7 +1374,7 @@ namespace Reflect {
 ```
 </details>
 
-### ObjectSetterParameterDecorator
+### ObjectSetterParameter
 
 ```js
 namespace Reflect {
@@ -1581,7 +1620,7 @@ namespace Reflect {
 }
 ```
 
-### RecordDecorator
+### Record
 
 WIP: Bring inline with composites proposal
 
@@ -1756,8 +1795,6 @@ export class UITree extends HTMLElement {
 
 ### Dependency injection
 
-WIP: Is this the best implementation of this pattern?
-
 ```js
 const injectKey = Symbol('inject');
 
@@ -1773,23 +1810,39 @@ function inject<T, TMethod, TClass>(
 }
 
 function resolve<T>(cls: { new(...args: any): T }, container: Container): T {
-	const params = Reflect.getMetadataByIndex<Reflect.ClassMethodParameter, T>('constructor');
-	const ctorArgs = params.map(p => container.get(p[injectKey].token));
+	const params = Reflect.getReflectionByIndex<Reflect.ClassMethodParameter, typeof cls>('constructor');
+	const ctorArgs = params.map(p => {
+		// Explicit token takes priority
+		const token = p.metadata[injectKey]?.token;
+		if (token != null) {
+			return container.get(token);
+		}
+		// Fall back to auto-resolution by type
+		return container.getByType(p.type);
+	});
 	return new cls(...ctorArgs);
 }
 
 class OrderService {
 	#db: Database;
 	#mailer: Mailer;
+	#logger: Logger;
 
 	constructor(
 		@inject('database') db: Database,
-		@inject('mailer') mailer: Mailer
+		@inject('mailer') mailer: Mailer,
+		logger: Logger, // No @inject — resolved by type
 	) {
 		this.#db = db;
 		this.#mailer = mailer;
+		this.#logger = logger;
 	}
 }
+
+const container = new Container();
+container.register('database', () => new PostgresDatabase());
+container.register('mailer', () => new SmtpMailer());
+container.registerByType<Logger>(() => new ConsoleLogger());
 
 const service = resolve(OrderService, container);
 ```
@@ -1983,16 +2036,12 @@ type ConstraintDoc = {
 	pattern?: string,
 };
 
-function constraintsFor(type): ConstraintDoc | undefined {
+function constraintsFor(type: float32<B: NumberBounds> | string<S: StringBounds>): ConstraintDoc | undefined {
 	return match (type) {
-		when extends number<B: NumberBounds>: // This would be new syntax for pattern matching
-			break { ...B };
+		when extends float32<B: NumberBounds>: // This would be new syntax for pattern matching
+			({ ...B });
 		when extends string<S: StringBounds>:
-			const c: ConstraintDoc = {};
-			if (S.minLength != null) c.minLength = S.minLength;
-			if (S.maxLength != null) c.maxLength = S.maxLength;
-			if (S.pattern != null) c.pattern = S.pattern.source;
-			break c;
+			({ ...S, pattern: S.pattern?.toString() }); // Replace the pattern with the string representation
 		default:
 			break undefined;
 	};
