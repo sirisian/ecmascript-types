@@ -1985,22 +1985,13 @@ type ConstraintDoc = {
 
 function constraintsFor(type): ConstraintDoc | undefined {
 	return match (type) {
-		when extends number:
-			const nb = Reflect.getTypeMeta<NumberBounds>(type);
-			if (nb == null) break undefined;
+		when extends number<B: NumberBounds>: // This would be new syntax for pattern matching
+			break { ...B };
+		when extends string<S: StringBounds>:
 			const c: ConstraintDoc = {};
-			if (nb.minimum != null) c.minimum = nb.minimum;
-			if (nb.maximum != null) c.maximum = nb.maximum;
-			if (nb.exclusiveMinimum != null) c.exclusiveMinimum = nb.exclusiveMinimum;
-			if (nb.exclusiveMaximum != null) c.exclusiveMaximum = nb.exclusiveMaximum;
-			break c;
-		when extends string:
-			const sb = Reflect.getTypeMeta<StringBounds>(type);
-			if (sb == null) break undefined;
-			const c: ConstraintDoc = {};
-			if (sb.minLength != null) c.minLength = sb.minLength;
-			if (sb.maxLength != null) c.maxLength = sb.maxLength;
-			if (sb.pattern != null) c.pattern = sb.pattern.source;
+			if (S.minLength != null) c.minLength = S.minLength;
+			if (S.maxLength != null) c.maxLength = S.maxLength;
+			if (S.pattern != null) c.pattern = S.pattern.source;
 			break c;
 		default:
 			break undefined;
