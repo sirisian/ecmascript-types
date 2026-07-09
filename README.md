@@ -2148,6 +2148,68 @@ const b:[].<A> = [0, 1, 2];
 b[0].b; // 0
 ```
 
+### Weak References
+
+Weak references require identity. ```WeakRef```, ```WeakMap``` keys, ```WeakSet``` values, and ```FinalizationRegistry``` targets accept reference types: ordinary objects, class instances, typed arrays (which are objects), functions, and unregistered symbols.
+
+```js
+class WeakRef<T extends object | symbol> {
+  constructor(target: T);
+  deref(): T | undefined;
+}
+class WeakMap<K extends object | symbol, V> {
+  get(key: K): V | undefined;
+  set(key: K, value: V): WeakMap.<K, V>;
+  has(key: K): boolean;
+  delete(key: K): boolean;
+}
+class WeakSet<T extends object | symbol> {
+  add(value: T): WeakSet.<T>;
+  has(value: T): boolean;
+  delete(value: T): boolean;
+}
+class FinalizationRegistry<T> {
+  constructor(callback: (heldValue: T) => void);
+  register(target: object | symbol, heldValue: T, unregisterToken?: object | symbol): void;
+  unregister(unregisterToken: object | symbol): boolean;
+}
+```
+
+A value type has no identity to weakly hold. It is copied on assignment, and when it lives inside a typed array its lifetime is the array's, not its own, so weakly referencing it is meaningless rather than merely useless. Passing one is a TypeError, statically when the type is known and at runtime otherwise. This includes value type classes, whose instances copy on assignment as described in the class value type section:
+
+```js
+let a: uint8 = 0;
+// new WeakRef(a); // TypeError: uint8 is a value type
+
+class A { a: uint8; } // A value type class
+const b = new A();
+// new WeakRef(b); // TypeError: A is a value type
+
+const c: [10].<A> = [];
+// new WeakRef(ref c[0]); // TypeError: an element's lifetime is the array's
+
+const d: [10].<uint8> = []; // A typed array is an object
+new WeakRef(d); // WeakRef.<[10].<uint8>>
+```
+
+Unioning a value type class with ```null``` produces the reference form, as with arrays of references, and those references can be held weakly:
+
+```js
+let e: A | null = new A();
+new WeakRef(e); // WeakRef.<A | null>, deref(): A | null | undefined
+```
+
+```FinalizationRegistry```'s held value is unconstrained, so it can be a value type. This is the common case, since a held value must not be the target and is usually a key or handle:
+
+```js
+const registry = new FinalizationRegistry.<uint32>((handle) => {
+  release(handle); // handle: uint32
+});
+registry.register(texture, textureHandle);
+```
+
+Registered symbols from ```Symbol.for``` remain a TypeError, as they do today. Under the [threading](threading.md) extension's shared heap a target is live while any thread holds it, and a cleanup callback is queued on the thread that registered it.
+
 ### Global Objects
 
 The following global objects could be used as types:
@@ -2159,6 +2221,12 @@ The following global objects could be used as types:
 This extension collects the typed signatures of the standard library's generic methods: the iterator helpers, grouping, the Set operations, the Promise statics, and ```Array.fromAsync```.
 
 [Standard Library](standardlibrary.md)
+
+### Regular Expressions
+
+This extension types regular expression literals by their capture groups, giving match results exact tuple and named group shapes, typed replacement callbacks, and string narrowing through pattern constraints.
+
+[Typed Regular Expressions](regexp.md)
 
 ### Generics
 
@@ -2336,7 +2404,7 @@ This accomplishes exception filters without requiring a keyword like "when". Tha
 [Threading](threading.md)
 
 # Example:  
-Packet bit writer/reader: [Binary Packet](binarypacket.md) with example WebSocket and WebTransport usage.
+Packet bit writer/reader: [Binary Packet](examples/binarypacket.md) with example WebSocket and WebTransport usage.
 
 # Previous discussions
 
