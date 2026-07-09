@@ -2336,7 +2336,7 @@ This accomplishes exception filters without requiring a keyword like "when". Tha
 [Threading](threading.md)
 
 # Example:  
-Packet bit writer/reader https://gist.github.com/sirisian/dbc628dde19771b54dec
+Packet bit writer/reader: [Binary Packet](binarypacket.md) with example WebSocket and WebTransport usage.
 
 # Previous discussions
 
