@@ -2085,6 +2085,12 @@ This extension covers syntax for supporting JSON Schema's dependentRequired, dep
 
 [Dependent Record Types](dependentrecordtypes.md)
 
+### Serialization
+
+This extension covers typed JSON parsing and stringification, structured clone of typed values, and binary layout - validating data at I/O boundaries with the machinery from primitive metadata, dependent record types, and reflection.
+
+[Serialization](serialization.md)
+
 ### Records and Tuples
 
 https://github.com/sirisian/ecmascript-types/issues/56
