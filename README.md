@@ -133,25 +133,73 @@ let c: [].<uint8> = []; // typeof c == "object"
 let d: (uint8) => uint8 = x => x * x; // typeof d == "function"
 ```
 
-TODO: Should there be a way to get the specific type? See https://github.com/sirisian/ecmascript-types/issues/60
+#### Runtime Type Objects and Reflect.typeOf
+
+Every type is also a value. In expression position a type name evaluates to its runtime type object, the same object the object typing section passes in property descriptors (```{ type: uint8 }```) and that reflection reports in ```type``` fields. Type objects are interned by structural identity, so equivalent types are the same object:
+
+```js
+uint8 === uint8; // true
+[].<uint8> === [].<uint8>; // true, interned
+Map.<string, uint8> === Map.<string, uint8>; // true
+```
+
+Only type names and dotted generic applications are valid in expression position. Type literals that collide with existing expression grammar, function types, inline object interfaces, and unions (```|``` already means bitwise or), appear only in type positions; naming one with ```type``` provides its object:
+
+```js
+type F = (uint8) => uint8;
+F; // the type object for (uint8) => uint8
+```
+
+The built-in type names are ordinary shadowable globals, so an existing program that declares its own ```uint8``` is unaffected, and ```typeof uint8 === 'object'``` doubles as feature detection for this proposal.
+
+```Reflect.typeOf(value)``` returns a value's runtime type object:
+
+```js
+let a: uint8 = 0;
+typeof a; // "number", unchanged
+Reflect.typeOf(a); // uint8
+Reflect.typeOf(5); // number
+Reflect.typeOf('a'); // string
+Reflect.typeOf(null); // the null type object
+Reflect.typeOf(new Map.<string, uint8>()); // Map.<string, uint8>
+```
+
+For a metadata-parameterized value it returns the full parameterization, e.g. ```float32.<{ m: 1 }>``` for a Meter from the primitive metadata document, which is how reflection obtains constraint information at runtime.
 
 ### instanceof Operator
 
-THIS SECTION IS A WIP
+Type objects implement ```Symbol.hasInstance```, so ```instanceof``` extends to every type in the proposal through the existing protocol with no new operator semantics. The check is a subtype test against the value's runtime type:
 
 ```js
-if (a instanceof uint8) {}
+let a: uint8 = 0;
+a instanceof uint8; // true
+a instanceof uint16; // false, a distinct type even though typeof reports "number" for both
+
+const m: Meter = 5; // float32.<{ m: 1 }>
+m instanceof float32; // true, a parameterization is a subtype of its base
+
+const arr: [4].<uint8> = [0, 0, 0, 0];
+arr instanceof [].<uint8>; // true, fixed-length is assignable to variable-length
 ```
 
-Also this would be nice for function signatures.
+Classes are unchanged: a class's type object is its constructor, and prototype chain semantics apply exactly as today. In a fully typed program these checks compile away or reduce to cheap tag tests. The ```instanceof``` operator is useful at boundaries where the static type is a union or ```any```, and a successful check narrows the static type in that branch, the nominal counterpart to the structural ```is``` operator from the [dependent record types](dependentrecordtypes.md) document:
 
 ```js
-if (a instanceof ((uint8) => uint8)) {}
+function f(a: uint8 | string) {
+  if (a instanceof uint8) {
+    // a: uint8 in this branch
+  }
+}
 ```
 
-That would imply ```Object.getPrototypeOf(a) === ((uint8) => uint8).prototype```.
+Typed functions all share ```Function.prototype```. The signature lives in the type, and a named function can type check whether the value has an overload matching it:
 
-I'm not well versed on if this makes sense though, but it would be like each typed function has a prototype defined by the signature.
+```js
+type F = (uint8) => uint8;
+const f = (x: uint8): uint8 => x * x;
+f instanceof F; // true
+f instanceof Function; // true, unchanged
+```
 
 ### Union and Nullable Types
 
@@ -337,6 +385,15 @@ let a:[5].<uint8> = [0, 1, 2, 3, 4];
 // a.length = 4; TypeError: a is fixed-length
 ```
 
+The change-by-copy methods preserve fixed lengths when the operation cannot change the length. ```toSorted```, ```toReversed```, and ```with``` on a ```[N].<T>``` return a new ```[N].<T>```, while ```toSpliced``` always returns a variable-length ```[].<T>``` since its length may differ. On a ```[].<T>``` each returns ```[].<T>```. The length type generic carries over in both cases.
+
+```js
+const a: [4].<uint8> = [3, 1, 2, 0];
+const b = a.toSorted(); // [4].<uint8> [0, 1, 2, 3]
+const c = a.with(0, 9); // [4].<uint8> [9, 1, 2, 0]
+const d = a.toSpliced(1, 2); // [].<uint8> [3, 0]
+```
+
 ### Array Views
 
 Like ```TypedArray``` views, this array syntax allows any array, even arrays of typed objects to be viewed as different objects. 
@@ -366,6 +423,18 @@ b[2]; // 2
 ```
 
 The ```buffer``` argument accepts any typed array as well as existing ```TypedArray```, ```ArrayBuffer```, and ```SharedArrayBuffer``` instances, so a ```[].<uint8>``` and a ```Uint8Array``` viewing the same buffer alias the same memory. Views read and write using platform byte order, matching ```TypedArray```. Individual class members can fix their byte order for parsing wire formats with the ```@endian``` decorator described in the member memory layout section.
+
+Views over resizable buffers follow ```TypedArray``` semantics. A ```[].<T>``` view is length-tracking: its ```length``` derives from the buffer's current byte length, growing and shrinking as the buffer is resized. A fixed ```[N].<T>``` view has a fixed byte extent recorded at construction; if the buffer shrinks below that extent the view is detached and any access throws a TypeError. Growth never invalidates a view. ```shared``` views over a growable ```SharedArrayBuffer``` track growth the same way, and shared buffers never shrink.
+
+```js
+const buffer = new ArrayBuffer(4, { maxByteLength: 16 });
+const tracking = [].<uint8>(buffer); // length 4
+buffer.resize(8);
+tracking.length; // 8
+const fixed = [8].<uint8>(buffer);
+buffer.resize(4);
+// fixed[0]; // TypeError: the view's extent exceeds the resized buffer
+```
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 
@@ -1819,6 +1888,26 @@ f(0, 1, 2); // a: [0, 1], b: [], c: 2
 f(a: 0, 1, 2, b: 3, 4, 5, 6); // a: [0, 1, 2], b: [3, 4, 5], c: 6
 ```
 
+### Tagged Templates
+
+A tag function is typed like any other function. The strings parameter is a ```TemplateStringsArray```, and the interpolations are a rest parameter whose type constrains what a call site may interpolate, checked at compile time when the site is fully typed:
+
+```js
+interface TemplateStringsArray extends [].<string> {
+  raw: [].<string>;
+}
+
+function sql(strings: TemplateStringsArray, ...values: [].<uint32 | string>): string {
+  // values may only contain uint32 and string
+}
+
+const id: uint32 = 5;
+sql`select * from t where id = ${id}`;
+// sql`select ${{}}`; // TypeError: object is not assignable to uint32 | string
+```
+
+Tags overload like other functions and are selected by the interpolation types, so one tag name can handle distinct interpolation vocabularies. An untyped tag continues to accept anything.
+
 ### Try Catch
 
 Catch clauses can be typed allowing for minimal conditional catch clauses.
@@ -1854,6 +1943,8 @@ let a = new(buffer, byteOffset, byteElementLength) [10].<Type>(0);
 ```
 
 By default ```byteElementLength``` is the size of the type. Using a larger value than the size of the type acts as a stride adding padding between allocations in the buffer. Using a smaller length is unusual as it causes allocations to overlap.
+
+Placement ```new``` over a resizable buffer records the byte extent of the allocation. Shrinking the buffer below a live allocation's extent detaches those instances, and touching one afterward is a TypeError; growing never invalidates them.
 
 ### Value Type References
 
@@ -2062,6 +2153,12 @@ b[0].b; // 0
 The following global objects could be used as types:
 
 ```AggregateError```, ```ArrayBuffer```, ```AsyncDisposableStack```, ```AsyncIterator```, ```DataView```, ```Date```, ```DisposableStack```, ```Error```, ```EvalError```, ```FinalizationRegistry```, ```InternalError```, ```Iterator```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SharedArrayBuffer```, ```Symbol```, ```SyntaxError```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakRef```, ```WeakSet```
+
+### Standard Library
+
+This extension collects the typed signatures of the standard library's generic methods: the iterator helpers, grouping, the Set operations, the Promise statics, and ```Array.fromAsync```.
+
+[Standard Library](standardlibrary.md)
 
 ### Generics
 
