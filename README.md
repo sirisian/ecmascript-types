@@ -1526,6 +1526,141 @@ const a: [10].<A>; // [A, ...]
 const b: [10].<A|null>; // [null, ...]
 ```
 
+### Class Members
+
+A field declared without an initializer takes its type's default value rather than ```undefined```, following the variable declaration section. A typed slot never holds ```undefined``` unless its type says so.
+
+```js
+class A {
+  a: uint8; // 0
+  b: string; // ''
+  c: uint8 | null; // null
+  d: [4].<uint8>; // [0, 0, 0, 0]
+}
+```
+
+#### Static Members
+
+Static fields are typed like instance fields and live on the constructor, where they become typed properties of that object. They are not part of an instance's memory layout, so they never affect whether a class qualifies as a value type.
+
+```js
+class A {
+  static count: uint32 = 0; // A.count is a typed property of the constructor
+  static #instances: uint32 = 0; // Private static
+  a: uint8; // A is still a value type class
+}
+```
+
+Static blocks run interleaved with static field initializers in source order, with ```this``` bound to the class. Because a typed static field is created with its type's default value when the class is defined, a static block that runs before the field's initializer observes that default, never ```undefined```:
+
+```js
+class A {
+  static {
+    A.count; // 0, the uint32 default
+  }
+  static count: uint32 = 5;
+  static {
+    A.count; // 5
+  }
+}
+```
+
+#### Private Members
+
+Private fields participate in the memory layout exactly as public fields do, which is why the value type rule in the previous section counts both. Private methods and static private methods are typed like any other method.
+
+```js
+class A {
+  #a: uint8;
+  #scale(value: uint8): uint16 {
+    return value * 2;
+  }
+}
+```
+
+The brand check ```#a in value``` narrows the static type of ```value``` to the class in the true branch, joining ```instanceof``` and the structural ```is``` operator as a narrowing form. On a sealed typed class the check is a tag test:
+
+```js
+class A {
+  #a: uint8 = 0;
+  static isA(value: any): boolean {
+    if (#a in value) {
+      value.#a; // value: A in this branch
+      return true;
+    }
+    return false;
+  }
+}
+```
+
+#### Accessors
+
+A getter's return type and a setter's parameter type are annotated normally. A pair sharing a name must agree: the setter's parameter type has to accept every value the getter can return. A property with only a getter is read only, and assigning to it is a compile-time TypeError rather than a silent no-op, since typed code is strict.
+
+```js
+class Celsius {
+  #value: float32 = 0;
+  get value(): float32 {
+    return this.#value;
+  }
+  set value(value: float32 | string) { // Accepts everything the getter returns, and more
+    this.#value = value;
+  }
+  get frozen(): boolean {
+    return this.#value <= 0;
+  }
+}
+const c = new Celsius();
+c.value = '10'; // Calls parse through the string overload
+// c.frozen = true; // TypeError: frozen has no setter
+```
+
+An ```accessor``` field declares a typed field together with a getter and setter over it. It desugars to a private typed field and the matching pair, so the backing field participates in the memory layout, and an undecorated accessor is inlined to a direct field access. This is the form the [decorators](decorators.md) extension operates on.
+
+```js
+class A {
+  accessor a: uint32 = 5;
+  static accessor count: uint32 = 0;
+}
+```
+
+#### Methods and Inheritance
+
+Methods overload by signature like functions. A derived class adds its signatures to the set inherited from the base rather than hiding them, so overload resolution on a derived instance considers both, and ```super``` restricts resolution to the base's set.
+
+```js
+class A {
+  f(a: uint8): uint8 {
+    return a;
+  }
+}
+class B extends A {
+  f(a: string): string { // Adds an overload, doesn't hide A's
+    return a;
+  }
+  g(a: uint8): uint8 {
+    return super.f(a) + this.f(a); // super.f resolves against A only
+  }
+}
+const b = new B();
+b.f(0); // uint8, A's signature
+b.f('a'); // string, B's signature
+```
+
+A derived method whose parameter list matches a base signature exactly overrides it, and its return type must be identical. Overloading on return type is allowed between sibling declarations, but a derived class cannot reuse a base's parameter list with a different return type, since a call site typed against the base would then select a signature the base never declared.
+
+```js
+class A {
+  f(a: uint8): uint8 {}
+}
+class B extends A {
+  f(a: uint8): uint8 {} // Overrides
+  // f(a: uint8): string {} // TypeError: cannot change the return type of an inherited signature
+}
+```
+
+```new.target``` has type ```T | undefined``` where ```T``` is the constructor type of the class, so it narrows like any nullable union.
+
 ### Constructor Overloading
 
 ```js
@@ -1705,6 +1840,43 @@ class Vector2 {
 ```
 
 Note that no members may be defined in an extension class. The new methods are simply appended to the existing class definition.
+
+### Class Expressions and Mixins
+
+A class expression takes the same annotations and type parameters as a declaration. Generic parameters are declared with ```<...>``` and applied with ```.<...>``` as everywhere else:
+
+```js
+const Box = class <T> {
+  value: T;
+  constructor(value: T) {
+    this.value = value;
+  }
+};
+const a = new Box.<uint8>(0);
+```
+
+A mixin is a function taking a constructor and returning a class expression that extends it. The constraint is a construct signature, the same form used to pass a class as a value elsewhere in this proposal:
+
+```js
+type Constructor<T = object> = { new(...args: [].<any>): T };
+
+function Serializable<TBase extends Constructor>(Base: TBase) {
+  return class extends Base {
+    serialize(): string {
+      return JSON.stringify(this);
+    }
+  };
+}
+
+class Point {
+  x: float32;
+  y: float32;
+}
+class SerializablePoint extends Serializable(Point) {}
+new SerializablePoint().serialize();
+```
+
+The layout of a mixin's class is determined when the mixin is applied, not where it's declared, because the base is a parameter. Applying a mixin that adds only value type fields to a value type base produces a value type class; applying one to a dynamic or untyped base produces an ordinary reference type. A mixin whose base is ```Constructor``` without further constraint cannot assume any field of the base.
 
 ### SIMD Operators
 
