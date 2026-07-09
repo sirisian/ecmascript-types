@@ -1228,6 +1228,8 @@ validateInstance(user); // false, pattern violated
 
 ### JSON Serialization with field name overrides
 
+Native typed JSON parsing that runs these constraints during the parse itself is specified in [Serialization](serialization.md). The decorator pattern here is the userland form and the way to express field name overrides.
+
 ```js
 const schemaKey = Symbol('schema');
 

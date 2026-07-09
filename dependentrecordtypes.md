@@ -220,6 +220,8 @@ Note: There's a comment about 'alice' being a dynamic value because a hardcoded 
 
 ### JSON Serialization
 
+A native, fused version of this boundary (parsing, validation, and typed allocation in one pass) is specified in [Serialization](serialization.md). The reflective pattern below remains the way to express wire-name mappings and custom policies.
+
 ```js
 // String constraints like pattern/minLength/maxLength come from the
 // StringBounds meta type defined in the primitive metadata proposal.
