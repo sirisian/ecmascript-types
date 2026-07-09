@@ -17,7 +17,7 @@ https://github.com/sirisian/ecmascript-types/blob/master/decorators.md
 
 The proposed solution has three components:
 
-1. Metadata types - plain type declarations whose fields attach to primitives via <{...}> syntax.
+1. Metadata types - plain type declarations whose fields attach to primitives via ```.<{...}>``` syntax.
 2. Meta protocols - meta blocks that teach the compiler the semantics of a metadata type (subtyping, validation, narrowing).
 3. Primitive operator blocks - primitive T<M: MetaType> blocks that define how operators transform metadata.
 
@@ -27,7 +27,7 @@ The metadata type is just a typed object defining the metadata parts and their i
 
 ```js
 type Metadata = { part: int32 };
-const a: float32<{ part: 1 }> = 1;
+const a: float32.<{ part: 1 }> = 1;
 ```
 
 The metadata protocol defines how a primitive with a metadata type propagates through the language at compile time and runtime. This protocol is defined in meta blocks that define the semantic hooks for a metadata type. All hooks are pure functions that can be evaluated at both compile time and runtime.
@@ -48,14 +48,19 @@ meta T {
 	validate?(value: primitive, constraint: T): boolean;
 
 	// Optional: single-branch control flow narrowing.
-	// Called by the compiler when it encounters a comparison
-	// in an if/while/ternary condition.
+	// Called by the compiler when it encounters a comparison in an if/while/ternary condition.
 	// The compiler handles operator negation for the else branch:
 	// >=  to  <
 	// >   to  <=
 	// ==  to  !=
 	// Returns only meaningful fields, absence means unconstrained.
 	narrow?(current: T, op: string, value: primitive): T;
+
+	// Optional: linear conversion between two subtype-compatible parameterizations of this meta type. Returns the factor the value is multiplied by when converting `from` to `to`. Applied at assignment boundaries, including operator parameters (see composition rules).
+	conversionFactor?(from: T, to: T): float64;
+
+	// Optional: adjust this meta type's constraint when the underlying value is scaled by another meta type's conversion, keeping value-space metadata like bounds consistent. When absent while a conversion occurs, this meta type's portion falls back to `default`.
+	rescale?(constraint: T, factor: float64): T;
 
 	// Optional: human-readable description for error messages.
 	describe?(constraint: T): string;
@@ -65,35 +70,47 @@ meta T {
 It's possible to hold a reference to a meta protocol:
 
 ```js
-interface MetaProtocol<T> {
-    default: T;
-    subtype(sub: T, sup: T): boolean;
-    validate?(value: any, constraint: T): boolean;
-    narrow?(current: T, op: string, value: any): T;
-    describe?(constraint: T): string;
+interface MetaProtocol.<T> {
+	default: T;
+	subtype(sub: T, sup: T): boolean;
+	validate?(value: any, constraint: T): boolean;
+	narrow?(current: T, op: string, value: any): T;
+	conversionFactor?(from: T, to: T): float64;
+	rescale?(constraint: T, factor: float64): T;
+	describe?(constraint: T): string;
 }
 ```
 
 Two examples will be used, a dimensions (units of measure) and bounds (minimum and maximum constraints from JSON Schema).
 
 **Metadata Type**: Dimensions  
-Tracks SI base dimensions as integer exponents plus a rational scale factor for unit prefixes. The ratio field encodes the relationship between a prefixed unit and its base SI unit (e.g., ratio: 1000.0 for kilometers, ratio: 0.001 for millimeters).
+Tracks SI base dimensions as integer exponents plus a rational scale factor for unit prefixes. The ratio field encodes the relationship between a prefixed unit and its base SI unit (e.g., ```ratio: 1000``` for kilometers, ```ratio: 1/1000``` for millimeters).
 
 ```js
 type Dimensions = {
 	m: int32, // length exponent
 	kg: int32, // mass exponent
 	s: int32, // time exponent
-	ratio: float32, // scale factor relative to base SI (1.0 = base)
+	A: int32, // electric current exponent
+	K: int32, // temperature exponent
+	mol: int32, // amount of substance exponent
+	cd: int32, // luminous intensity exponent
+	ratio: rational, // exact scale factor relative to base SI (1 = base)
 };
 
 meta Dimensions {
-	default = { m: 0, kg: 0, s: 0, ratio: 1.0 };
+	default = { m: 0, kg: 0, s: 0, A: 0, K: 0, mol: 0, cd: 0, ratio: 1 };
 
-	// Dimensional subtyping: exact match on exponents.
-	// Ratio can differ - a Kilometer is assignable to a Meter-typed slot; the value is scaled at assignment time.
+	// Dimensional subtyping: exact match on exponents. Exact comparisons keep the relation transitive; epsilon comparisons are reserved for runtime value checks.
+	// Ratio can differ - a Kilometer is assignable to a Meter-typed slot; the value is scaled at the assignment via conversionFactor().
 	subtype(sub: Dimensions, sup: Dimensions): boolean {
-		return sub.m == sup.m && sub.kg == sup.kg && sub.s == sup.s;
+		return sameDimensions(sub, sup);
+	}
+
+	// Unit conversion within a dimension is linear: multiply the value by
+	// the ratio of ratios. With rational ratios the factor is exact.
+	conversionFactor(from: Dimensions, to: Dimensions): float64 {
+		return from.ratio / to.ratio;
 	}
 
 	// No validate - dimensions constrain type compatibility, not value ranges.
@@ -102,16 +119,69 @@ meta Dimensions {
 	// No narrow - comparison operators don't affect dimensions.
 
 	describe(constraint: Dimensions): string {
-		const parts: string[] = [];
-		if (constraint.m != 0)
-			parts.push(constraint.m == 1 ? "m" : `m^${constraint.m}`);
-		if (constraint.kg != 0)
-			parts.push(constraint.kg == 1 ? "kg" : `kg^${constraint.kg}`);
-		if (constraint.s != 0)
-			parts.push(constraint.s == 1 ? "s" : `s^${constraint.s}`);
-		const dim = parts.join("·") || "dimensionless";
-		return !feq(constraint.ratio, 1.0) ? `${constraint.ratio}* ${dim}` : dim;
+		const parts: [].<string> = [];
+		const exponents = [
+			['m', constraint.m],
+			['kg', constraint.kg],
+			['s', constraint.s],
+			['A', constraint.A],
+			['K', constraint.K],
+			['mol', constraint.mol],
+			['cd', constraint.cd]
+		];
+		for (const [name, exponent] of exponents) {
+			if (exponent != 0)
+				parts.push(exponent == 1 ? name : `${name}^${exponent}`);
+		}
+		const dim = parts.join('·') || 'dimensionless';
+		return constraint.ratio != 1 ? `${constraint.ratio}* ${dim}` : dim;
 	}
+}
+```
+
+Helper functions shared by the ```meta``` block, ```where``` clauses, and return type annotations. With seven base dimensions these keep the operator blocks readable:
+
+```js
+// Same physical dimension: exact match on all seven exponents. Ratio is
+// deliberately excluded; it's a unit scale within the dimension.
+function sameDimensions(a: Dimensions, b: Dimensions): boolean {
+	return a.m == b.m && a.kg == b.kg && a.s == b.s
+		&& a.A == b.A && a.K == b.K && a.mol == b.mol && a.cd == b.cd;
+}
+
+// Dimension algebra for multiplication: exponents add, ratios multiply exactly.
+function multiplyDimensions(a: Dimensions, b: Dimensions): Dimensions {
+	return {
+		m: a.m + b.m, kg: a.kg + b.kg, s: a.s + b.s, A: a.A + b.A,
+		K: a.K + b.K, mol: a.mol + b.mol, cd: a.cd + b.cd,
+		ratio: a.ratio * b.ratio,
+	};
+}
+
+// Dimension algebra for division: exponents subtract, ratios divide exactly.
+function divideDimensions(a: Dimensions, b: Dimensions): Dimensions {
+	return {
+		m: a.m - b.m, kg: a.kg - b.kg, s: a.s - b.s, A: a.A - b.A,
+		K: a.K - b.K, mol: a.mol - b.mol, cd: a.cd - b.cd,
+		ratio: a.ratio / b.ratio,
+	};
+}
+
+// All exponents even, for square roots.
+function evenDimensions(d: Dimensions): boolean {
+	return d.m % 2 == 0 && d.kg % 2 == 0 && d.s % 2 == 0
+		&& d.A % 2 == 0 && d.K % 2 == 0 && d.mol % 2 == 0 && d.cd % 2 == 0;
+}
+
+// Halved exponents, for square roots. The ratio must be a perfect square
+// of a rational for the result to stay exact; convert to base units
+// (ratio 1) first otherwise.
+function halveDimensions(d: Dimensions): Dimensions {
+	return {
+		m: d.m / 2, kg: d.kg / 2, s: d.s / 2, A: d.A / 2,
+		K: d.K / 2, mol: d.mol / 2, cd: d.cd / 2,
+		ratio: Math.sqrt(d.ratio),
+	};
 }
 ```
 
@@ -162,6 +232,7 @@ type NumberBounds = {
 meta NumberBounds {
 	default = {};
 
+	// Subtyping uses exact comparisons on the canonical metadata values so the relation stays transitive; epsilon comparisons are reserved for runtime value validation below.
 	subtype(sub: NumberBounds, sup: NumberBounds): boolean {
 		const subLo = effectiveMin(sub);
 		const supLo = effectiveMin(sup);
@@ -175,16 +246,16 @@ meta NumberBounds {
 		// Sub's lower bound must be at least as tight as sup's
 		if (supLo != null) {
 			if (subLo == null) return false;
-			if (flt(subLo, supLo)) return false;
-			// Equal within epsilon: exclusive is tighter than inclusive
-			if (feq(subLo, supLo) && supLoX && !subLoX) return false;
+			if (subLo < supLo) return false;
+			// Equal: exclusive is tighter than inclusive
+			if (subLo == supLo && supLoX && !subLoX) return false;
 		}
 
 		// Sub's upper bound must be at least as tight as sup's
 		if (supHi != null) {
 			if (subHi == null) return false;
-			if (fgt(subHi, supHi)) return false;
-			if (feq(subHi, supHi) && supHiX && !subHiX) return false;
+			if (subHi > supHi) return false;
+			if (subHi == supHi && supHiX && !subHiX) return false;
 		}
 
 		return true;
@@ -202,11 +273,16 @@ meta NumberBounds {
 		return true;
 	}
 
+	// Bounds live in the value's own unit space. When another meta type's conversion scales the value by `factor`, the bounds scale identically.
+	rescale(constraint: NumberBounds, factor: float64): NumberBounds {
+		return scalarMulNumberBounds(constraint, factor);
+	}
+
 	narrow(current: NumberBounds, op: string, value: float32): NumberBounds {
 		const result: NumberBounds = { ...current };
 
 		switch (op) {
-			case ">=": {
+			case '>=': {
 				const curMin = effectiveMin(current);
 				if (curMin == null || fgt(value, curMin)) {
 					result.minimum = value;
@@ -214,7 +290,7 @@ meta NumberBounds {
 				}
 				break;
 			}
-			case ">": {
+			case '>': {
 				const curMin = effectiveMin(current);
 				if (curMin == null || fge(value, curMin)) {
 					result.exclusiveMinimum = value;
@@ -222,7 +298,7 @@ meta NumberBounds {
 				}
 				break;
 			}
-			case "<=": {
+			case '<=': {
 				const curMax = effectiveMax(current);
 				if (curMax == null || flt(value, curMax)) {
 					result.maximum = value;
@@ -230,7 +306,7 @@ meta NumberBounds {
 				}
 				break;
 			}
-			case "<": {
+			case '<': {
 				const curMax = effectiveMax(current);
 				if (curMax == null || fle(value, curMax)) {
 					result.exclusiveMaximum = value;
@@ -238,14 +314,14 @@ meta NumberBounds {
 				}
 				break;
 			}
-			case "==": {
+			case '==': {
 				result.minimum = value;
 				result.maximum = value;
 				delete result.exclusiveMinimum;
 				delete result.exclusiveMaximum;
 				break;
 			}
-			// "!=" cannot meaningfully narrow a single range
+			// '!=' cannot meaningfully narrow a single range
 			// (would require union of two disjoint ranges)
 		}
 
@@ -253,7 +329,7 @@ meta NumberBounds {
 	}
 
 	describe(constraint: NumberBounds): string {
-		const parts: string[] = [];
+		const parts: [].<string> = [];
 		if (constraint.minimum != null)
 			parts.push(`>= ${constraint.minimum}`);
 		if (constraint.exclusiveMinimum != null)
@@ -262,70 +338,55 @@ meta NumberBounds {
 			parts.push(`<= ${constraint.maximum}`);
 		if (constraint.exclusiveMaximum != null)
 			parts.push(`< ${constraint.exclusiveMaximum}`);
-		return parts.join(" and ") || "unconstrained";
+		return parts.join(' and ') || 'unconstrained';
 	}
 }
 ```
 
 ### Primitive Operators
 
+Two rules govern operator blocks:
+
+**Raw operations inside bodies.** Inside a ```primitive``` operator body, expressions evaluate on raw values; no operator blocks (value or metadata-only) are re-entered. Without this rule ```return this + rhs;``` inside ```operator+``` would recurse infinitely, and the cast body ```return this * D.ratio;``` would re-enter ```operator*```. The metadata of an operation's result comes solely from the return type annotations per the composition rules below.
+
+**Operator generic parameter lists use ```.<...>```.** The operator token itself may end in ```<``` or ```>```, so ```operator<.<D2: Dimensions>``` lexes unambiguously where ```operator< <D2: Dimensions>``` would collide with the ```<<``` token.
+
+Unit conversion between operands happens at the operator's argument boundary through the standard implicit conversion described under the composition rules; the bodies below can assume ```rhs``` is already in ```this```'s unit system.
+
 ```js
 primitive float32<D: Dimensions> {
 	// Same-dimension addition
-	// D2 captures the RHS's actual metadata, including its ratio.
-	// The where clause enforces matching exponents (same physical dimension).
-	// If ratios differ, RHS is scaled to LHS's unit system.
-	operator+<D2: Dimensions>(rhs: float32<D2>): float32<D>
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		if (feq(D.ratio, D2.ratio)) {
-			return this + rhs;
-		}
-		return this + rhs * (D2.ratio / D.ratio);
+	// The parameter type reuses D, so passing a value with matching exponents but a different ratio goes through the standard implicit conversion at the call boundary: the value is scaled by conversionFactor() and every other meta type's metadata is passed through its rescale() hook.
+	// Passing a different dimension fails subtype() and is a compile error.
+	operator+(rhs: float32.<D>): float32.<D> {
+		return this + rhs;
 	}
 
-	operator-<D2: Dimensions>(rhs: float32<D2>): float32<D>
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		if (feq(D.ratio, D2.ratio)) {
-			return this - rhs;
-		}
-		return this - rhs * (D2.ratio / D.ratio);
+	operator-(rhs: float32.<D>): float32.<D> {
+		return this - rhs;
 	}
 
 	// Dimension-combining multiplication
-	// Exponents add, ratios multiply.
-	operator*<D2: Dimensions>(rhs: float32<D2>):
-		float32<{
-			m: D.m + D2.m,
-			kg: D.kg + D2.kg,
-			s: D.s + D2.s,
-			ratio: D.ratio * D2.ratio,
-		}>
-	{
+	// Exponents add, ratios multiply. No boundary conversion happens here;
+	// the parameter captures the RHS parameterization exactly, and raw values
+	// combine with the ratio product carrying the scale.
+	operator*.<D2: Dimensions>(rhs: float32.<D2>): float32.<multiplyDimensions(D, D2)> {
 		return this * rhs;
 	}
 
 	// Dimension-combining division
 	// Exponents subtract, ratios divide.
-	operator/<D2: Dimensions>(rhs: float32<D2>):
-		float32<{
-			m: D.m - D2.m,
-			kg: D.kg - D2.kg,
-			s: D.s - D2.s,
-			ratio: D.ratio / D2.ratio,
-		}>
-	{
+	operator/.<D2: Dimensions>(rhs: float32.<D2>): float32.<divideDimensions(D, D2)> {
 		return this / rhs;
 	}
 
 	// Unary operators
 
-	operator-(): float32<D> {
+	operator-(): float32.<D> {
 		return -this;
 	}
 
-	operator+(): float32<D> {
+	operator+(): float32.<D> {
 		return +this;
 	}
 
@@ -333,11 +394,11 @@ primitive float32<D: Dimensions> {
 	// A plain float32 (no metadata) is dimensionless.
 	// Multiplying preserves the LHS dimension.
 
-	operator*(rhs: float32): float32<D> {
+	operator*(rhs: float32): float32.<D> {
 		return this * rhs;
 	}
 
-	operator/(rhs: float32): float32<D> {
+	operator/(rhs: float32): float32.<D> {
 		return this / rhs;
 	}
 
@@ -346,76 +407,51 @@ primitive float32<D: Dimensions> {
 	// in-place mutation. Returns the LHS type so the expression
 	// evaluates to the new value, allowing chaining.
 
-	operator+=<D2: Dimensions>(rhs: float32<D2>): float32<D>
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		if (!feq(D.ratio, D2.ratio)) {
-			this += rhs * (D2.ratio / D.ratio);
-		} else {
-			this += rhs;
-		}
+	operator+=(rhs: float32.<D>): float32.<D> {
+		this += rhs;
 		return this;
 	}
 
-	operator-=<D2: Dimensions>(rhs: float32<D2>): float32<D>
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		if (!feq(D.ratio, D2.ratio)) {
-			this -= rhs * (D2.ratio / D.ratio);
-		} else {
-			this -= rhs;
-		}
+	operator-=(rhs: float32.<D>): float32.<D> {
+		this -= rhs;
 		return this;
 	}
 
-	operator*=(rhs: float32): float32<D> {
+	operator*=(rhs: float32): float32.<D> {
 		this *= rhs;
 		return this;
 	}
 
-	operator/=(rhs: float32): float32<D> {
+	operator/=(rhs: float32): float32.<D> {
 		this /= rhs;
 		return this;
 	}
 
 	// Comparison operators
-	// Same dimension required (enforced by where clause).
-	// Values are normalized to base SI units before comparison so that e.g. Kilometer(1) == Meter(1000).
+	// Same dimension required via the parameter type. Differing ratios are normalized by the boundary conversion, so e.g. Kilometer(1) == Meter(1000).
 
-	operator==<D2: Dimensions>(rhs: float32<D2>): boolean
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		return feq(this * D.ratio, rhs * D2.ratio);
+	operator==(rhs: float32.<D>): boolean {
+		return feq(this, rhs);
 	}
 
-	operator!=<D2: Dimensions>(rhs: float32<D2>): boolean
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		return !feq(this * D.ratio, rhs * D2.ratio);
+	operator!=(rhs: float32.<D>): boolean {
+		return !feq(this, rhs);
 	}
 
-	operator< <D2: Dimensions>(rhs: float32<D2>): boolean
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		return flt(this * D.ratio, rhs * D2.ratio);
+	operator<(rhs: float32.<D>): boolean {
+		return flt(this, rhs);
 	}
 
-	operator<=<D2: Dimensions>(rhs: float32<D2>): boolean
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		return fle(this * D.ratio, rhs * D2.ratio);
+	operator<=(rhs: float32.<D>): boolean {
+		return fle(this, rhs);
 	}
 
-	operator> <D2: Dimensions>(rhs: float32<D2>): boolean
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		return fgt(this * D.ratio, rhs * D2.ratio);
+	operator>(rhs: float32.<D>): boolean {
+		return fgt(this, rhs);
 	}
 
-	operator>=<D2: Dimensions>(rhs: float32<D2>): boolean
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		return fge(this * D.ratio, rhs * D2.ratio);
+	operator>=(rhs: float32.<D>): boolean {
+		return fge(this, rhs);
 	}
 
 	// Cast: strip dimension, apply scale to get base SI value
@@ -524,24 +560,18 @@ function boundsFromProducts(a: NumberBounds, b: NumberBounds): NumberBounds {
 	const lo = Math.min(...products);
 	const hi = Math.max(...products);
 
-	// Determine exclusivity: if the contributing bounds were exclusive,
-	// the result bound is exclusive.
-	// Find which product(s) achieved the min/max and check their source bounds.
-	const loExclusive = products.some((p, i) => {
-		if (!feq(p, lo)) return false;
+	// Determine exclusivity: a resulting bound is exclusive only if EVERY product attaining it involves at least one exclusive source bound.
+	// If any attaining combination uses only inclusive bounds, the extremum is attainable and the result bound is inclusive.
+	// Example: a = [0, 1], b = [0, 2). The minimum 0 is attained by 0 * 0 using only inclusive endpoints, so the result minimum is inclusive even though aLo * bHi also equals 0 and touches an exclusive endpoint.
+	const usesExclusive = (i: uint32): boolean => {
 		const usedALo = (i == 0 || i == 1);
 		const usedBLo = (i == 0 || i == 2);
 		return (usedALo && isExclusiveMin(a)) || (!usedALo && isExclusiveMax(a))
 			|| (usedBLo && isExclusiveMin(b)) || (!usedBLo && isExclusiveMax(b));
-	});
+	};
 
-	const hiExclusive = products.some((p, i) => {
-		if (!feq(p, hi)) return false;
-		const usedALo = (i == 0 || i == 1);
-		const usedBLo = (i == 0 || i == 2);
-		return (usedALo && isExclusiveMin(a)) || (!usedALo && isExclusiveMax(a))
-			|| (usedBLo && isExclusiveMin(b)) || (!usedBLo && isExclusiveMax(b));
-	});
+	const loExclusive = products.every((p, i) => !feq(p, lo) || usesExclusive(i));
+	const hiExclusive = products.every((p, i) => !feq(p, hi) || usesExclusive(i));
 
 	return clean(makeNumberBounds(lo, loExclusive, hi, hiExclusive));
 }
@@ -602,7 +632,9 @@ function negateNumberBounds(b: NumberBounds): NumberBounds {
 // Correctly handles negative scalars by swapping and re-pairing
 // the inclusive/exclusive attributes.
 function scalarMulNumberBounds(b: NumberBounds, scalar: float32): NumberBounds {
-	if (feq(scalar, 0)) {
+	if (scalar === 0) {
+		// Exactly zero collapses any interval to the single attainable point 0, regardless of endpoint exclusivity, since 0 * x == 0.
+		// Near-zero scalars fall through and scale the bounds like any other value.
 		return { minimum: 0, maximum: 0 };
 	}
 
@@ -628,19 +660,49 @@ function scalarMulNumberBounds(b: NumberBounds, scalar: float32): NumberBounds {
 		lo != null ? lo * scalar : undefined, loExclusive, // old lo -> new hi
 	));
 }
+
+// Scalar division of bounds. Division by exactly zero produces an unconstrained result rather than storing infinities.
+function scalarDivNumberBounds(b: NumberBounds, scalar: float32): NumberBounds {
+	if (scalar === 0) {
+		return {};
+	}
+	return scalarMulNumberBounds(b, 1.0 / scalar);
+}
+
+// Interval arithmetic for division: [a] / [b] = [a] * [1 / b].
+function boundsFromQuotient(a: NumberBounds, b: NumberBounds): NumberBounds {
+	const bLo = effectiveMin(b);
+	const bHi = effectiveMax(b);
+
+	// The divisor must be completely bounded away from zero, otherwise the quotient is unbounded and no propagation is possible.
+	// This also rejects exclusive bounds touching zero, like (0, 1], since values may be arbitrarily close to zero.
+	if (bLo == null || bHi == null || !(fgt(bLo, 0) || flt(bHi, 0))) {
+		return {};
+	}
+
+	// Reciprocal interval: [1 / bHi, 1 / bLo], exclusivity following the
+	// originating endpoint.
+	const recip = makeNumberBounds(
+		1.0 / bHi, isExclusiveMax(b),
+		1.0 / bLo, isExclusiveMin(b),
+	);
+
+	return boundsFromProducts(a, recip);
+}
 ```
 </details>
 
 ```js
 primitive float32<B: NumberBounds> {
-	operator+<B2: NumberBounds>(rhs: float32<B2>): float32<boundsFromSum(B, B2)>;
-	operator-<B2: NumberBounds>(rhs: float32<B2>): float32<boundsFromDifference(B, B2)>;
-	operator*<B2: NumberBounds>(rhs: float32<B2>): float32<boundsFromProducts(B, B2)>;
+	operator+.<B2: NumberBounds>(rhs: float32.<B2>): float32.<boundsFromSum(B, B2)>;
+	operator-.<B2: NumberBounds>(rhs: float32.<B2>): float32.<boundsFromDifference(B, B2)>;
+	operator*.<B2: NumberBounds>(rhs: float32.<B2>): float32.<boundsFromProducts(B, B2)>;
+	operator/.<B2: NumberBounds>(rhs: float32.<B2>): float32.<boundsFromQuotient(B, B2)>;
 
-	operator-(): float32<negateNumberBounds(B)>;
+	operator-(): float32.<negateNumberBounds(B)>;
 
-	operator*(rhs: float32): float32<scalarMulNumberBounds(B, rhs)>;
-	operator/(rhs: float32): float32<scalarMulNumberBounds(B, 1.0 / rhs)>;
+	operator*(rhs: float32): float32.<scalarMulNumberBounds(B, rhs)>;
+	operator/(rhs: float32): float32.<scalarDivNumberBounds(B, rhs)>;
 }
 ```
 
@@ -648,83 +710,91 @@ primitive float32<B: NumberBounds> {
 
 For a given operator invocation:
 
-1. At most one value block may match. Its body computes the result value. If two value blocks match the same operator, the compiler reports an ambiguity error.
-2. Any number of metadata-only blocks may match. Each contributes its portion of the result metadata via its return type annotation.
-3. If no value block matches, the default primitive operation runs.
-4. All return type annotations (from both value and metadata-only blocks) are evaluated independently, and their metadata fields are merged into the flat result object.
+1. **Conversion at the argument boundary.** Operator parameters convert like any other typed parameter. For each meta type on the parameter's type: `subtype()` must hold; if `conversionFactor()` is defined and yields a factor other than `1`, the argument's value is multiplied by it and every *other* meta type's metadata on that argument is passed through its `rescale()` hook (falling back to `default` when `rescale` is absent). Value blocks therefore receive operands already in the LHS's unit system.
+2. At most one value block may match. Its body computes the result value. If two value blocks match the same operator, the compiler reports an ambiguity error.
+3. Any number of metadata-only blocks may match. Each contributes its portion of the result metadata via its return type annotation, observing operand metadata *after* the conversion in step 1.
+4. If no value block matches, the default primitive operation runs.
+5. All return type annotations (from both value and metadata-only blocks) are evaluated independently, and their metadata fields are merged into the flat result object.
 
 #### Example: `Kilometer(5) + Meter(300)` where both have `NumberBounds { minimum: 0 }`
 
+**Conversion at the boundary:** `operator+`'s parameter is typed `float32.<D>` with `D` being the LHS's Dimensions. The `Meter` argument passes `Dimensions.subtype` (same exponents). `Dimensions.conversionFactor(ratio: 1, ratio: 1000)` = `1/1000`, so the argument value becomes `300 * 1/1000 = 0.3` and the argument's NumberBounds pass through `NumberBounds.rescale({ minimum: 0 }, 1/1000)` = `{ minimum: 0 }`.
+
 **Dimensions block** (value block):
-- `where` clause: `m: 1 == m: 1 && kg: 0 == kg: 0 && s: 0 == s: 0`
-- Body runs: `5 + 300 * (1 / 1000) = 5.3`
-- Return metadata (Dimensions portion): `{ m: 1, kg: 0, s: 0, ratio: 1000 }`
+- Body runs on converted operands: `5 + 0.3 = 5.3`
+- Return metadata (Dimensions portion): `{ m: 1, ratio: 1000 }` (remaining exponents `0`)
 
 **NumberBounds block** (metadata-only):
 - Return metadata (NumberBounds portion): `boundsFromSum({ minimum: 0 }, { minimum: 0 })` = `{ minimum: 0 }`
 - No body, so no conflicting value calculation.
 
-**Final result:** float32 value `5.3` with merged metadata `{ m: 1, kg: 0, s: 0, ratio: 1000, minimum: 0 }`
+**Final result:** float32 value `5.3` with merged metadata `{ m: 1, kg: 0, s: 0, A: 0, K: 0, mol: 0, cd: 0, ratio: 1000, minimum: 0 }`
 
-This resolves the potential conflict where Dimensions would compute `5.3` (ratio-scaled) but a NumberBounds body would compute `305` (unscaled). The metadata-only block never touches the value.
+The boundary conversion is what keeps cross-meta-type interactions sound. Had `Meter`'s bounds been `{ minimum: 100 }` (at least 100 meters), the rescale step yields `{ minimum: 0.1 }` in kilometer space and the sum's bound becomes `{ minimum: 0.1 }`, correctly expressed in the result's unit space. Without rescaling, `boundsFromSum` would have mixed meter-space and kilometer-space numbers. The metadata-only block never touches the value.
 
 ## Unit Type Aliases
 
-All metadata is specified as flat objects. The compiler decomposes automatically based on field ownership: `{m, kg, s, ratio}` fields are claimed by `Dimensions`, `{minimum, maximum, exclusiveMinimum, exclusiveMaximum}` fields are claimed by `NumberBounds`.
+All metadata is specified as flat objects. The compiler decomposes automatically based on field ownership: `{m, kg, s, A, K, mol, cd, ratio}` fields are claimed by `Dimensions`, `{minimum, maximum, exclusiveMinimum, exclusiveMaximum}` fields are claimed by `NumberBounds`.
 
 ### Base SI Units
 
 ```js
-type Meter = float32<{ m: 1, kg: 0, s: 0, ratio: 1.0 }>;
-type Kilogram = float32<{ m: 0, kg: 1, s: 0, ratio: 1.0 }>;
-type Second = float32<{ m: 0, kg: 0, s: 1, ratio: 1.0 }>;
+type Meter = float32.<{ m: 1 }>;
+type Kilogram = float32.<{ kg: 1 }>;
+type Second = float32.<{ s: 1 }>;
+type Ampere = float32.<{ A: 1 }>;
+type Kelvin = float32.<{ K: 1 }>;
+type Mole = float32.<{ mol: 1 }>;
+type Candela = float32.<{ cd: 1 }>;
 ```
+
+Fields omitted from a metadata object take the owning meta type's default values, so the remaining exponents are `0` and the ratio is `1`.
 
 ### Prefixed Units
 
 The `ratio` field encodes the prefix as a scale factor relative to the base SI unit.
 
 ```js
-type Kilometer = float32<{ m: 1, kg: 0, s: 0, ratio: 1000.0 }>;
-type Centimeter = float32<{ m: 1, kg: 0, s: 0, ratio: 0.01 }>;
-type Millimeter = float32<{ m: 1, kg: 0, s: 0, ratio: 0.001 }>;
-type Micrometer = float32<{ m: 1, kg: 0, s: 0, ratio: 0.000001 }>;
-type Gram = float32<{ m: 0, kg: 1, s: 0, ratio: 0.001 }>;
-type Milligram = float32<{ m: 0, kg: 1, s: 0, ratio: 0.000001 }>;
-type Millisecond = float32<{ m: 0, kg: 0, s: 1, ratio: 0.001 }>;
-type Microsecond = float32<{ m: 0, kg: 0, s: 1, ratio: 0.000001 }>;
+type Kilometer = float32.<{ m: 1, ratio: 1000 }>;
+type Centimeter = float32.<{ m: 1, ratio: 1/100 }>;
+type Millimeter = float32.<{ m: 1, ratio: 1/1000 }>;
+type Micrometer = float32.<{ m: 1, ratio: 1/1000000 }>;
+type Gram = float32.<{ kg: 1, ratio: 1/1000 }>;
+type Milligram = float32.<{ kg: 1, ratio: 1/1000000 }>;
+type Millisecond = float32.<{ s: 1, ratio: 1/1000 }>;
+type Microsecond = float32.<{ s: 1, ratio: 1/1000000 }>;
 ```
 
 ### Derived SI Units
 
 ```js
-type Velocity = float32<{ m: 1, kg: 0, s: -1, ratio: 1.0 }>; // m/s
-type Acceleration = float32<{ m: 1, kg: 0, s: -2, ratio: 1.0 }>; // m/s**2
-type Newton = float32<{ m: 1, kg: 1, s: -2, ratio: 1.0 }>; // kg*m/s**2
-type Joule = float32<{ m: 2, kg: 1, s: -2, ratio: 1.0 }>; // kg*m**2/s**2
-type Watt = float32<{ m: 2, kg: 1, s: -3, ratio: 1.0 }>; // kg*m**2/s**3
-type Pascal = float32<{ m: -1, kg: 1, s: -2, ratio: 1.0 }>; // kg/(m*s**2)
-type Hertz = float32<{ m: 0, kg: 0, s: -1, ratio: 1.0 }>; // 1/s
-type Momentum = float32<{ m: 1, kg: 1, s: -1, ratio: 1.0 }>; // kg*m/s
-type Density = float32<{ m: -3, kg: 1, s: 0, ratio: 1.0 }>; // kg/m**3
-type Dimensionless = float32<{ m: 0, kg: 0, s: 0, ratio: 1.0 }>;
+type Velocity = float32.<{ m: 1, s: -1 }>; // m/s
+type Acceleration = float32.<{ m: 1, s: -2 }>; // m/s**2
+type Newton = float32.<{ m: 1, kg: 1, s: -2 }>; // kg*m/s**2
+type Joule = float32.<{ m: 2, kg: 1, s: -2 }>; // kg*m**2/s**2
+type Watt = float32.<{ m: 2, kg: 1, s: -3 }>; // kg*m**2/s**3
+type Pascal = float32.<{ m: -1, kg: 1, s: -2 }>; // kg/(m*s**2)
+type Hertz = float32.<{ s: -1 }>; // 1/s
+type Momentum = float32.<{ m: 1, kg: 1, s: -1 }>; // kg*m/s
+type Density = float32.<{ m: -3, kg: 1 }>; // kg/m**3
+type Dimensionless = float32.<{}>;
 ```
 
 ### Compound Prefixed Derived Units
 
 ```js
-type KilometersPerHour = float32<{ m: 1, kg: 0, s: -1, ratio: 1000.0 / 3600.0 }>;
-type GramsPerCubicCm = float32<{ m: -3, kg: 1, s: 0, ratio: 0.001 / 0.000001 }>;
+type KilometersPerHour = float32.<{ m: 1, s: -1, ratio: 1000/3600 }>;
+type GramsPerCubicCm = float32.<{ m: -3, kg: 1, ratio: (1/1000) / (1/1000000) }>;
 ```
 
 ### NumberBounds-Only Types (No Dimension)
 
 ```js
-type Positive = float32<{ exclusiveMinimum: 0 }>;
-type NonNegative = float32<{ minimum: 0 }>;
-type Normalized = float32<{ minimum: 0, maximum: 1 }>;
+type Positive = float32.<{ exclusiveMinimum: 0 }>;
+type NonNegative = float32.<{ minimum: 0 }>;
+type Normalized = float32.<{ minimum: 0, maximum: 1 }>;
 type Probability = Normalized;
-type Percentage = float32<{ minimum: 0, maximum: 100 }>;
+type Percentage = float32.<{ minimum: 0, maximum: 100 }>;
 ```
 
 ### Combined: Dimension + NumberBounds
@@ -732,25 +802,23 @@ type Percentage = float32<{ minimum: 0, maximum: 100 }>;
 Fields from both `Dimensions` and `NumberBounds` appear in a single flat object. The compiler decomposes them automatically.
 
 ```js
-type PositiveMeter = float32<{
-	m: 1, kg: 0, s: 0, ratio: 1.0,
+type PositiveMeter = float32.<{
+	m: 1,
 	exclusiveMinimum: 0
 }>;
 
-type SafeSpeed = float32<{
-	m: 1, kg: 0, s: -1, ratio: 1.0,
+type SafeSpeed = float32.<{
+	m: 1, s: -1,
 	minimum: 0,
 	maximum: 343
 }>;
 
-type Latitude = float32<{
-	m: 0, kg: 0, s: 0, ratio: 1.0,
+type Latitude = float32.<{
 	minimum: -90,
 	maximum: 90
 }>;
 
-type Longitude = float32<{
-	m: 0, kg: 0, s: 0, ratio: 1.0,
+type Longitude = float32.<{
 	minimum: -180,
 	exclusiveMaximum: 180
 }>;
@@ -758,12 +826,12 @@ type Longitude = float32<{
 
 ## Compiler Decomposition Rules
 
-When the compiler encounters `float32<{ ... }>`:
+When the compiler encounters `float32.<{ ... }>`:
 
 **Step 1.** Collect all registered `meta` types and their field sets.
 
 ```
-Dimensions -> { m, kg, s, ratio }
+Dimensions -> { m, kg, s, A, K, mol, cd, ratio }
 NumberBounds -> { minimum, maximum, exclusiveMinimum, exclusiveMaximum }
 ```
 
@@ -772,8 +840,8 @@ NumberBounds -> { minimum, maximum, exclusiveMinimum, exclusiveMaximum }
 **Step 3.** Group fields by their `meta` type.
 
 ```
-Input: { m: 1, kg: 0, s: -1, ratio: 1.0, minimum: 0, maximum: 343 }
-  -> Dimensions: { m: 1, kg: 0, s: -1, ratio: 1.0 }
+Input: { m: 1, kg: 0, s: -1, ratio: 1, minimum: 0, maximum: 343 }
+  -> Dimensions: { m: 1, kg: 0, s: -1, ratio: 1 }
   -> NumberBounds: { minimum: 0, maximum: 343 }
 ```
 
@@ -781,9 +849,9 @@ Input: { m: 1, kg: 0, s: -1, ratio: 1.0, minimum: 0, maximum: 343 }
 
 **Step 5.** Merge results from all blocks back into a flat object.
 
-**Conflict detection:** If two `meta` types claim the same field name, the compiler reports an error at the `meta` declaration site, not at usage. This is enforced when a `meta` block is registered. Symbol-keyed fields can be used to avoid conflicts between third-party libraries.
+**Conflict detection:** If two `meta` types claim the same field name, the compiler reports an error at the `meta` declaration site, not at usage. This is enforced when a `meta` block is registered. Symbol-keyed fields can be used to avoid conflicts between third-party libraries. Because field claiming is global and flat, a meta type cannot be extended with new fields by a third party; extensions ship as separate meta types with their own (ideally symbol-keyed) fields, as shown in the metadata key scoping section.
 
-**Missing fields:** When a value's metadata doesn't include fields for a given `meta` type, that type's `default` value is used. For example, a plain `float32` has no metadata fields, all meta types use their defaults (`Dimensions.default = { m:0, kg:0, s:0, ratio:1.0 }`, `NumberBounds.default = {}`).
+**Missing fields:** When a value's metadata doesn't include fields for a given `meta` type, that type's `default` value is used. For example, a plain `float32` has no metadata fields, all meta types use their defaults (`Dimensions.default = { m:0, kg:0, s:0, A:0, K:0, mol:0, cd:0, ratio:1 }`, `NumberBounds.default = {}`). This also applies per field: fields omitted from a metadata object take their values from the owning meta type's `default`, so `float32.<{ m: 1 }>` is a Meter and `float32.<{ m: 1, s: -1 }>` is a Velocity.
 
 **Operator block absence:** If a `meta` type has no operator block defining a particular operator, the metadata for that type falls back to `default` on the result. This means metadata types only need to define operators where they have meaningful propagation logic.
 
@@ -796,46 +864,22 @@ The `operator T()` syntax defines an implicit cast that the compiler invokes at 
 ### Defining Cast Operators
 
 ```js
-// Cast from number -> float32 -> float32 with Dimensions metadata.
-// The value passes through unchanged. The target's
-// Dimensions metadata is attached based on the destination type.
+// Cast from number -> float32 with metadata. The value passes through unchanged and the destination type's metadata is attached.
+// One cast operator is defined per meta type; during decomposition the compiler invokes the cast for each meta type present on the destination but absent on the source (the source carries that meta type's default, which is why no extra "does not already have Dimensions" constraint is needed here).
 
-type NotDimensions<T> = keyof T & keyof Dimensions extends never ? T : never;
-primitive float32<T extends NotDimensions<T>> {
-	operator float32<Dimensions>() {
+primitive float32 {
+	operator float32.<Dimensions>() {
 		return this;
 	}
-}
 
-// Cast from number -> float32 -> float32 with NumberBounds metadata.
-// The value passes through, but NumberBounds.validate() is called at the cast boundary.
-
-type NotNumberBounds<T> = keyof T & keyof NumberBounds extends never ? T : never;
-primitive float32<T extends NotNumberBounds<T>> {
-	operator float32<NumberBounds>() {
+	// NumberBounds.validate() is called at the cast boundary.
+	operator float32.<NumberBounds>() {
 		return this;
 	}
 }
 ```
 
-Alternative syntax that could be used using ```where```:
-
-```js
-type NotDimensions<T> = keyof T & keyof Dimensions extends never ? T : never;
-type NotNumberBounds<T> = keyof T & keyof NumberBounds extends never ? T : never;
-
-primitive float32<T> {
-	operator float32<Dimensions>() where NotDimensions<T> {
-		return this;
-	}
-
-	operator float32<NumberBounds>() where NotNumberBounds<T> {
-		return this;
-	}
-}
-```
-
-Both operators compose for combined types. When the target is `float32<{ m:1, ..., exclusiveMinimum: 0 }>`, the compiler decomposes into Dimensions and NumberBounds slots and invokes both cast operators. `NumberBounds.validate()` runs at the cast boundary (elided for compile-time-provable constant literals).
+Both operators compose for combined types. When the target is `float32.<{ m:1, ..., exclusiveMinimum: 0 }>`, the compiler decomposes into Dimensions and NumberBounds slots and invokes both cast operators. `NumberBounds.validate()` runs at the cast boundary (elided for compile-time-provable constant literals).
 
 ### Cast Operator Invocation Points
 
@@ -844,21 +888,21 @@ The compiler invokes implicit cast operators at these boundaries:
 - **Variable declaration:** `const v: Velocity = 10;`
 - **Function argument:** `kineticEnergy(80, 10)` where parameters are typed
 - **Return statement:** `return 9.80665;` where return type is typed
-- **Array element:** `const forces: Newton[] = [10, 20, 30];`
+- **Array element:** `const forces: [].<Newton> = [10, 20, 30];`
 - **Constructor:** `Meter(100)` invokes the same cast as `const m: Meter = 100;`
 
 ## Examples
 
 ```js
 // number -> Velocity via cast operator:
-const v: Velocity = 10; // operator float32<Dimensions>() invoked
+const v: Velocity = 10; // operator float32.<Dimensions>() invoked
 
 // number -> Probability via cast operator + validation:
 const p: Probability = 0.7;
-// operator float32<NumberBounds>() invoked
+// operator float32.<NumberBounds>() invoked
 // NumberBounds.validate(0.7, { minimum: 0, maximum: 1 }) -> true
 
-const p2: Probability = 1.5; // NumberBounds.validate(1.5, { minimum: 0, maximum: 1 }) -> false, throws TypeError("Expected >= 0 and <= 1, got 1.5")
+const p2: Probability = 1.5; // NumberBounds.validate(1.5, { minimum: 0, maximum: 1 }) -> false, throws TypeError('Expected >= 0 and <= 1, got 1.5')
 
 // number -> PositiveMeter via both cast operators:
 const h: PositiveMeter = 1.75; // Dimensions cast, NumberBounds.validate(1.75, { exclusiveMinimum: 0 }) -> true
@@ -869,6 +913,12 @@ const h2: PositiveMeter = -3;
 // Already-typed value, cast operator doesn't apply:
 const m: Meter = 100;
 const v1: Velocity = m; // Dimensions.subtype({ m: 1, s: 0 }, { m: 1, s: -1 }), throws TypeError
+
+// Unit conversion on assignment via conversionFactor:
+const km: Kilometer = 5;
+const m2: Meter = km;
+// subtype passes (same exponents), value * conversionFactor({ ratio: 1000 }, { ratio: 1 })
+// = 5 * 1000 = 5000
 
 // Same type assignment: no checks
 const v2: Velocity = 10;
@@ -896,7 +946,7 @@ const time: Second = 9.58;
 const speed: Velocity = distance / time;
 // Dimensions: { m: 1 - 0, kg: 0 - 0, s: 0 - 1, ratio: 1 / 1 } = { m: 1, kg: 0, s: -1, ratio: 1 }
 // NumberBounds: no bounds on either -> default {} -> not present in result
-// Result: float32<{ m: 1, kg: 0, s: -1, ratio: 1.0 }> matches Velocity
+// Result: float32.<{ m: 1, kg: 0, s: -1, ratio: 1 }> matches Velocity
 
 const mass: Kilogram = 80;
 const accel: Acceleration = speed / time;
@@ -911,26 +961,27 @@ const power: Watt = energy / time;
 const d1: Kilometer = 5;
 const d2: Meter = 300;
 
-// LHS ratio wins. RHS is scaled to LHS unit system.
+// LHS ratio wins. The RHS argument is converted into the LHS unit
+// system at the operator's argument boundary.
 const totalKm: Kilometer = d1 + d2;
-// Value: 5 + 300 * (1.0 / 1000.0) = 5 + 0.3 = 5.3
+// Value: 5 + 300 * (1/1000) = 5 + 0.3 = 5.3
 // totalKm == Kilometer(5.3)
 
 // To get result in meters, put Meter on the LHS:
 const totalM: Meter = d2 + d1;
-// Value: 300 + 5 * (1000.0 / 1.0) = 300 + 5000 = 5300
+// Value: 300 + 5 * (1000/1) = 300 + 5000 = 5300
 // totalM == Meter(5300)
 
 const d3: Centimeter = 50;
 const d4: Millimeter = 200;
 const sum: Centimeter = d3 + d4;
-// Value: 50 + 200 * (0.001 / 0.01) = 50 + 20 = 70
+// Value: 50 + 200 * ((1/1000) / (1/100)) = 50 + 20 = 70
 // sum == Centimeter(70)
 
-// Cross-prefix comparison works via normalization:
+// Cross-prefix comparison works via the boundary conversion:
 const a: Kilometer = 1;
 const b: Meter = 1000;
-console.log(a == b); // true (1 * 1000 == 1000 * 1)
+console.log(a == b); // true (rhs converted: 1000 * (1/1000) = 1, then 1 == 1)
 ```
 
 ### Combined Dimension + NumberBounds
@@ -942,7 +993,7 @@ const area = width * height;
 // Dimensions: { m: 1 } * { m: 1 } = { m: 2, kg: 0, s: 0, ratio: 1 }
 // NumberBounds: boundsFromProducts({ exclusiveMinimum: 0 }, { exclusiveMinimum: 0 })
 //   both non-negative, partial propagation -> { exclusiveMinimum: 0 }
-// area: float32<{ m: 2, kg: 0, s: 0, ratio: 1.0, exclusiveMinimum: 0 }>
+// area: float32.<{ m: 2, kg: 0, s: 0, ratio: 1, exclusiveMinimum: 0 }>
 // That's a positive square-meter.
 ```
 
@@ -951,12 +1002,12 @@ const area = width * height;
 ```js
 function clampToSafe(v: Velocity): SafeSpeed {
 	if (v >= 0) {
-		// NumberBounds.narrow({}, ">=", 0) -> { minimum: 0 }
-		// v: float32<{ m: 1, kg: 0, s: -1, ratio: 1, minimum: 0 }>
+		// NumberBounds.narrow({}, '>=', 0) -> { minimum: 0 }
+		// v: float32.<{ m: 1, kg: 0, s: -1, ratio: 1, minimum: 0 }>
 
 		if (v <= 343) {
-			// NumberBounds.narrow({ minimum: 0 }, "<=", 343) -> { minimum: 0, maximum: 343 }
-			// v: float32<{ m: 1, kg: 0, s: -1, ratio: 1, minimum: 0, maximum: 343 }>
+			// NumberBounds.narrow({ minimum: 0 }, '<=', 343) -> { minimum: 0, maximum: 343 }
+			// v: float32.<{ m: 1, kg: 0, s: -1, ratio: 1, minimum: 0, maximum: 343 }>
 			//
 			// SafeSpeed.subtype check:
 			//   Dimensions: exponents match
@@ -1005,7 +1056,7 @@ function potentialEnergy(m: Kilogram, h: PositiveMeter): Joule {
 ### Pressure
 
 ```js
-type SquareMeter = float32<{ m: 2, kg: 0, s: 0, ratio: 1.0 }>;
+type SquareMeter = float32.<{ m: 2 }>;
 
 function pressure(force: Newton, area: SquareMeter): Pascal {
 	return force / area;
@@ -1020,13 +1071,13 @@ const prob: Probability = 0.7;
 const prob2: Probability = 0.2;
 const sum = prob + prob2;
 // NumberBounds: { minimum: 0, maximum: 1 } + { minimum: 0, maximum: 1 } = { minimum: 0, maximum: 2 }
-// sum: float32<{ minimum: 0, maximum: 2 }>
+// sum: float32.<{ minimum: 0, maximum: 2 }>
 
 // const bad: Probability = sum;
 // NumberBounds.subtype({ minimum: 0, maximum: 2 }, { minimum: 0, maximum: 1 }) -> false (max 2 > max 1)
 
 if (sum <= 1) {
-	// NumberBounds.narrow({ minimum: 0, maximum: 2 }, "<=", 1) -> { minimum: 0, maximum: 1 }
+	// NumberBounds.narrow({ minimum: 0, maximum: 2 }, '<=', 1) -> { minimum: 0, maximum: 1 }
 	const safe: Probability = sum; // proven by narrowing
 }
 ```
@@ -1035,12 +1086,13 @@ if (sum <= 1) {
 
 ```js
 // distance + time;
-// Dimensions block: addition requires same dimension
+// operator+ requires the same dimension via its parameter type;
+// Dimensions.subtype fails:
 //    { m: 1, kg: 0, s: 0 } != { m: 0, kg: 0, s: 1 }
 //    Error: cannot add Meter (m) to Second (s)
 
 // speed + force;
-// Dimensions block: { m: 1, kg: 0, s: -1 } != { m: 1, kg: 1, s: -2 }
+// Dimensions.subtype: { m: 1, kg: 0, s: -1 } != { m: 1, kg: 1, s: -2 }
 //    Error: cannot add Velocity (m/s) to Newton (kg*m/s**2)
 
 // const bad: Velocity = distance;
@@ -1054,12 +1106,12 @@ For library-quality code where name collisions are a concern, metadata keys can 
 
 ```js
 const si = Object.freeze({
-	m: Symbol("SI.length"),
-	kg: Symbol("SI.mass"),
-	s: Symbol("SI.time"),
+	m: Symbol('SI.length'),
+	kg: Symbol('SI.mass'),
+	s: Symbol('SI.time'),
 });
 
-type Dimensions = { [si.m]: int32, [si.kg]: int32, [si.s]: int32, ratio: float32 };
+type Dimensions = { [si.m]: int32, [si.kg]: int32, [si.s]: int32, ratio: rational };
 ```
 
 ## Decorators
@@ -1080,8 +1132,8 @@ class User {
 ```js
 // Metadata approach
 class User {
-	age: number<{ minimum: 0, maximum: 150 }>;
-	email: string<{ pattern: /^[^@]+@[^@]+$/ }>;
+	age: number.<{ minimum: 0, maximum: 150 }>;
+	email: string.<{ pattern: /^[^@]+@[^@]+$/ }>;
 }
 ```
 
@@ -1092,45 +1144,59 @@ The latter allows compile time validation as well as runtime validation. The fol
 The following ```@validate``` decorator could still be created, but it would just be doing redundant work.
 
 ```js
-type NumberBounds = {
-	minimum?: float64,
-	maximum?: float64,
-	exclusiveMinimum?: float64,
-	exclusiveMaximum?: float64
-};
+// NumberBounds is the meta type defined earlier. StringBounds is its
+// string counterpart, registered the same way:
 
 type StringBounds = {
 	pattern?: RegExp,
 	minLength?: uint32,
-	maxLength?: uint32
+	maxLength?: uint32,
 };
+
+meta StringBounds {
+	default = {};
+
+	subtype(sub: StringBounds, sup: StringBounds): boolean {
+		if (sup.pattern != null && sub.pattern != sup.pattern) return false;
+		if (sup.minLength != null && (sub.minLength == null || sub.minLength < sup.minLength)) return false;
+		if (sup.maxLength != null && (sub.maxLength == null || sub.maxLength > sup.maxLength)) return false;
+		return true;
+	}
+
+	validate(value: string, constraint: StringBounds): boolean {
+		if (constraint.pattern != null && !constraint.pattern.test(value)) return false;
+		if (constraint.minLength != null && value.length < constraint.minLength) return false;
+		if (constraint.maxLength != null && value.length > constraint.maxLength) return false;
+		return true;
+	}
+}
 
 const validatorsKey = Symbol('validators');
 
 type ValidateField<T> = {
 	name: string,
 	constraint: T,
-	meta: MetaProtocol<T>
+	meta: MetaProtocol.<T>
 };
 
-partial class Metadata {
-	[validatorsKey]: [].<ValidateField<NumberBounds> | ValidateField<StringBounds>> = [];
+partial class ClassMetadata {
+	[validatorsKey]: [].<ValidateField.<NumberBounds> | ValidateField.<StringBounds>> = [];
 }
 
 function validate<B: NumberBounds, TClass>(
-	{ name, metadata }: ClassFieldDecorator<number<B>, TClass>
-) where typeof name == string {
+	{ name, metadata }: Reflect.ClassField.<number.<B>, TClass>
+) where typeof name == 'string' {
 	metadata[validatorsKey].push({ name, constraint: B, meta: NumberBounds });
 }
 
 function validate<S: StringBounds, TClass>(
-	{ name, metadata }: ClassFieldDecorator<string<S>, TClass>
-) where typeof name == string {
+	{ name, metadata }: Reflect.ClassField.<string.<S>, TClass>
+) where typeof name == 'string' {
 	metadata[validatorsKey].push({ name, constraint: S, meta: StringBounds });
 }
 
 function validateInstance<T>(instance: T): boolean {
-	const entries = Reflect.getMetadata<T>()[validatorsKey];
+	const entries = Reflect.getMetadata.<Reflect.Class, T>()[validatorsKey];
 	if (!entries) return true;
 	for (const { name, constraint, meta } of entries) {
 		if (!meta.validate(instance[name], constraint)) {
@@ -1142,33 +1208,27 @@ function validateInstance<T>(instance: T): boolean {
 
 class User {
 	@validate
-	age: number<{ minimum: 0, maximum: 150 }>;
+	age: number.<{ minimum: 0, maximum: 150 }>;
 	@validate
-	email: string<{ pattern: /^[^@]+@[^@]+$/ }>;
+	email: string.<{ pattern: /^[^@]+@[^@]+$/ }>;
 }
 
 const user = new User();
 user.age = 25;
-user.email = "alice@example.com";
+user.email = 'alice@example.com';
 validateInstance(user); // true
 
 user.age = -5; // Note: This would throw at compile time. If the value was dynamic then it would throw at runtime assuming the meta block defines a validate
 validateInstance(user); // false, minimum: 0 violated
 
 user.age = 25;
-user.email = "not-an-email"; // Note: This would throw at compile time. If the value was dyanmic then it would throw at runtime assuming the meta block defines a validate
+user.email = 'not-an-email'; // Note: This would throw at compile time. If the value was dynamic then it would throw at runtime assuming the meta block defines a validate
 validateInstance(user); // false, pattern violated
 ```
 
 ### JSON Serialization with field name overrides
 
 ```js
-type StringBounds = {
-	pattern?: RegExp,
-	minLength?: uint32,
-	maxLength?: uint32
-};
-
 const schemaKey = Symbol('schema');
 
 type SerializeData = {
@@ -1176,34 +1236,34 @@ type SerializeData = {
 	wireName: string
 };
 
-partial class Metadata {
+partial class ClassMetadata {
 	[schemaKey]: [].<SerializeData> = [];
 }
 
 // @field() - registers a field for serialization with an optional wire name
 function field<T, TClass>(
-	{ name, metadata }: ClassFieldDecorator<T, TClass>
-) where typeof name == string {
+	{ name, metadata }: Reflect.ClassField.<T, TClass>
+) where typeof name == 'string' {
 	metadata[schemaKey].push({ name, wireName: name });
 }
 function field<T, TClass>(
 	wireName: string,
-	{ name, metadata }: ClassFieldDecorator<T, TClass>
-) where typeof name == string {
+	{ name, metadata }: Reflect.ClassField.<T, TClass>
+) where typeof name == 'string' {
 	metadata[schemaKey].push({ name, wireName });
 }
 
-function serialize<T>(instance: T): Record<string, any> {
-	const result: Record<string, any> = {};
-	for (const { name, wireName } of Reflect.getMetadata<T>()[schemaKey]) {
+function serialize<T>(instance: T): { [key: string]: any } {
+	const result: { [key: string]: any } = {};
+	for (const { name, wireName } of Reflect.getMetadata.<Reflect.Class, T>()[schemaKey]) {
 		result[wireName] = instance[name];
 	}
 	return result;
 }
 
-function deserialize<T>(cls: { new(): T }, data: Record<string, any>): T {
+function deserialize<T>(cls: { new(): T }, data: { [key: string]: any }): T {
 	const instance = new cls();
-	for (const { name, wireName } of Reflect.getMetadata<T>()[schemaKey]) {
+	for (const { name, wireName } of Reflect.getMetadata.<Reflect.Class, T>()[schemaKey]) {
 		instance[name] = data[wireName]; // implicit cast -> triggers meta validate
 	}
 	return instance;
@@ -1213,18 +1273,18 @@ class UserResponse {
 	@field
 	id: uint64;
 	@field('user_name')
-	userName: string<{ minLength: 1, maxLength: 100 }>;
+	userName: string.<{ minLength: 1, maxLength: 100 }>;
 	@field('email_address')
-	email: string<{ pattern: /^[^@]+@[^@]+$/ }>;
+	email: string.<{ pattern: /^[^@]+@[^@]+$/ }>;
 	@field
-	age: number<{ minimum: 0, maximum: 150 }>;
+	age: number.<{ minimum: 0, maximum: 150 }>;
 }
 
 // Incoming JSON:
 // { "id": 42, "user_name": "alice", "email_address": "a@b.com", "age": 30 }
 const user = deserialize(UserResponse, json);
-// Assignment to `email` triggers: string<StringBounds>.validate("a@b.com", { pattern: ... })
-// Assignment to `age` triggers: number<NumberBounds>.validate(30, { minimum: 0, maximum: 150 })
+// Assignment to `email` triggers: string.<StringBounds>.validate('a@b.com', { pattern: ... })
+// Assignment to `age` triggers: number.<NumberBounds>.validate(30, { minimum: 0, maximum: 150 })
 
 serialize(user);
 // { "id": 42, "user_name": "alice", "email_address": "a@b.com", "age": 30 }
@@ -1233,12 +1293,6 @@ serialize(user);
 ### Typed API routing
 
 ```js
-type PathParam = { param: true };
-type QueryParam = {
-	param: true,
-	query: true
-};
-
 const routeKey = Symbol('route');
 
 type Route = {
@@ -1247,30 +1301,30 @@ type Route = {
 	handler: string
 };
 
-partial class Metadata {
+partial class ClassMetadata {
 	[routeKey]: [].<Route> = [];
 }
 
-function get<T extends (...args: any) => any, TClass>(
+function get<T extends (...args: [].<any>) => any, TClass>(
 	path: string,
-	{ name, metadata }: ClassMethodDecorator<T, TClass>
-) where typeof name == string {
+	{ name, metadata }: Reflect.ClassMethod.<T, TClass>
+) where typeof name == 'string' {
 	metadata[routeKey].push({ method: 'GET', path, handler: name });
 }
 
-function post<T extends (...args: any) => any, TClass>(
+function post<T extends (...args: [].<any>) => any, TClass>(
 	path: string,
-	{ name, metadata }: ClassMethodDecorator<T, TClass>
-) where typeof name == string {
+	{ name, metadata }: Reflect.ClassMethod.<T, TClass>
+) where typeof name == 'string' {
 	metadata[routeKey].push({ method: 'POST', path, handler: name });
 }
 
 class EventController {
 	@get('/events')
 	list(
-		limit: uint32<{ minimum: 1, maximum: 100 }> = 20,
-		offset: uint32<{ minimum: 0 }> = 0
-	): Event[] {
+		limit: uint32.<{ minimum: 1, maximum: 100 }> = 20,
+		offset: uint32.<{ minimum: 0 }> = 0
+	): [].<Event> {
 		return db.events.slice(offset, offset + limit);
 	}
 
@@ -1290,9 +1344,9 @@ class EventController {
 }
 
 class EventCreate {
-	title: string<{ minLength: 1, maxLength: 200 }>;
-	date: string<{ pattern: /^\\d{4}-\\d{2}-\\d{2}$/ }>;
-	capacity: uint32<{ minimum: 1, maximum: 10000 }>;
+	title: string.<{ minLength: 1, maxLength: 200 }>;
+	date: string.<{ pattern: /^\\d{4}-\\d{2}-\\d{2}$/ }>;
+	capacity: uint32.<{ minimum: 1, maximum: 10000 }>;
 }
 ```
 
@@ -1307,27 +1361,27 @@ type Column = {
 	column: string
 };
 
-partial class Metadata {
+partial class ClassMetadata {
 	[tableKey]: string = '';
 	[columnKey]: [].<Column> = [];
 }
 
 function table<T>(
 	name: string,
-	{ metadata }: ClassDecorator<T>
+	{ metadata }: Reflect.Class.<T>
 ) {
 	metadata[tableKey] = name;
 }
 
 function column<T, TClass>(
-	{ name, metadata }: ClassFieldDecorator<T, TClass>
-) where typeof name == string {
+	{ name, metadata }: Reflect.ClassField.<T, TClass>
+) where typeof name == 'string' {
 	metadata[columnKey].push({ field: name, column: name });
 }
 function column<T, TClass>(
 	column: string,
-	{ name, metadata }: ClassFieldDecorator<T, TClass>
-) where typeof name == string {
+	{ name, metadata }: Reflect.ClassField.<T, TClass>
+) where typeof name == 'string' {
 	metadata[columnKey].push({ field: name, column });
 }
 
@@ -1338,11 +1392,11 @@ class SensorReading {
 	@column('sensor_id')
 	sensorId: uint32;
 	@column
-	temperature: float32<{ minimum: -273.15 }>; // can't go below absolute zero
+	temperature: float32.<{ minimum: -273.15 }>; // can't go below absolute zero
 	@column
-	humidity: float32<{ minimum: 0, maximum: 100 }>; // percentage
+	humidity: float32.<{ minimum: 0, maximum: 100 }>; // percentage
 	@column('recorded_at')
-	recordedAt: string<{ pattern: /^\\d{4}-\\d{2}-\\d{2}T/ }>;
+	recordedAt: string.<{ pattern: /^\\d{4}-\\d{2}-\\d{2}T/ }>;
 }
 
 // ORM builds:
@@ -1352,7 +1406,7 @@ class SensorReading {
 //
 // Row hydration assigns each column value to the typed field.
 // temperature = row['temperature'] triggers:
-//   float32<{ minimum: -273.15 }>.validate(value, { minimum: -273.15 })
+//   float32.<{ minimum: -273.15 }>.validate(value, { minimum: -273.15 })
 // A corrupted row with temperature = -300 fails validation at the ORM boundary, not deep in business logic.
 ```
 
@@ -1363,135 +1417,78 @@ This is more in-depth and covers function metadata propagation. This is the ```D
 ```js
 // Generic 3-vector parameterized by Dimensions
 // All three components share the same dimensional metadata.
-type vec3<D: Dimensions> = vector<float32<D>, 3>;
+type vec3<D: Dimensions> = vector.<float32.<D>, 3>;
 
 // Concrete physics vector types
-type Position = vec3<{ m: 1, kg: 0, s: 0, ratio: 1.0 }>; // meters
-type Velocity3 = vec3<{ m: 1, kg: 0, s: -1, ratio: 1.0 }>; // m/s
-type Acceleration3 = vec3<{ m: 1, kg: 0, s: -2, ratio: 1.0 }>; // m/s**2
-type Force3 = vec3<{ m: 1, kg: 1, s: -2, ratio: 1.0 }>; // N
-type Momentum3 = vec3<{ m: 1, kg: 1, s: -1, ratio: 1.0 }>; // kg*m/s
-type Torque3 = vec3<{ m: 2, kg: 1, s: -2, ratio: 1.0 }>; // N*m
-type AngularVel3 = vec3<{ m: 0, kg: 0, s: -1, ratio: 1.0 }>; // rad/s
-type Unitless3 = vec3<{ m: 0, kg: 0, s: 0, ratio: 1.0 }>; // direction, etc.
+type Position = vec3.<{ m: 1 }>; // meters
+type Velocity3 = vec3.<{ m: 1, s: -1 }>; // m/s
+type Acceleration3 = vec3.<{ m: 1, s: -2 }>; // m/s**2
+type Force3 = vec3.<{ m: 1, kg: 1, s: -2 }>; // N
+type Momentum3 = vec3.<{ m: 1, kg: 1, s: -1 }>; // kg*m/s
+type Torque3 = vec3.<{ m: 2, kg: 1, s: -2 }>; // N*m
+type AngularVel3 = vec3.<{ s: -1 }>; // rad/s
+type Unitless3 = vec3.<{}>; // direction, etc.
 
 // Scalar types (from scalar spec, repeated for context)
-type Meter = float32<{ m: 1, kg: 0, s: 0, ratio: 1.0 }>;
-type Kilogram = float32<{ m: 0, kg: 1, s: 0, ratio: 1.0 }>;
-type Second = float32<{ m: 0, kg: 0, s: 1, ratio: 1.0 }>;
-type Velocity = float32<{ m: 1, kg: 0, s: -1, ratio: 1.0 }>;
-type Newton = float32<{ m: 1, kg: 1, s: -2, ratio: 1.0 }>;
-type Joule = float32<{ m: 2, kg: 1, s: -2, ratio: 1.0 }>;
-type SquareMeter = float32<{ m: 2, kg: 0, s: 0, ratio: 1.0 }>;
+type Meter = float32.<{ m: 1 }>;
+type Kilogram = float32.<{ kg: 1 }>;
+type Second = float32.<{ s: 1 }>;
+type Velocity = float32.<{ m: 1, s: -1 }>;
+type Newton = float32.<{ m: 1, kg: 1, s: -2 }>;
+type Joule = float32.<{ m: 2, kg: 1, s: -2 }>;
+type SquareMeter = float32.<{ m: 2 }>;
 
 // Note: vector.<T, N> has built-in element-wise operators on raw values.
 // So these operators skip redeclaring operator bodies.
 
-primitive vector<float32<D: Dimensions>, 3> {
+primitive vector<float32<D: Dimensions>, N: uint32> {
 
-	// Same-dimension add/subtract
+	// Same-dimension add/subtract. The parameter type reuses D, so unit
+	// conversion happens through the standard implicit conversion at the
+	// call boundary, exactly as with the scalar operators. Each component
+	// is scaled by the same conversionFactor().
 
-	operator+<D2: Dimensions>(rhs: vec3<D2>): vec3<D>
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		if (feq(D.ratio, D2.ratio)) {
-			return this + rhs;
-		}
-		return this + rhs * (D2.ratio / D.ratio);
-	}
+	operator+(rhs: vector.<float32.<D>, N>): vector.<float32.<D>, N>;
 
-	operator-<D2: Dimensions>(rhs: vec3<D2>): vec3<D>
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		if (feq(D.ratio, D2.ratio)) {
-			return this - rhs;
-		}
-		return this - rhs * (D2.ratio / D.ratio);
-	}
+	operator-(rhs: vector.<float32.<D>, N>): vector.<float32.<D>, N>;
 
 	// Scalar multiply/divide
-	// vec3<D> * float32 = vec3<D> (scale a vector)
+	// vec3.<D> * float32 = vec3.<D> (scale a vector)
 
-	operator*(rhs: float32): vec3<D>;
+	operator*(rhs: float32): vector.<float32.<D>, N>;
 
-	operator/(rhs: float32): vec3<D>;
+	operator/(rhs: float32): vector.<float32.<D>, N>;
 
 	// Dimensioned scalar multiply/divide
-	// vec3<D> * float32<D2> = vec3<D*D2>
+	// vec3.<D> * float32.<D2> = vec3.<D*D2>
 	// e.g. Velocity3 * Second = Position
 
-	operator*<D2: Dimensions>(rhs: float32<D2>): vec3<{
-		m: D.m + D2.m,
-		kg: D.kg + D2.kg,
-		s: D.s + D2.s,
-		ratio: D.ratio * D2.ratio
-	}>;
+	operator*.<D2: Dimensions>(rhs: float32.<D2>): vector.<float32.<multiplyDimensions(D, D2)>, N>;
 
-	operator/<D2: Dimensions>(rhs: float32<D2>): vec3<{
-		m: D.m - D2.m,
-		kg: D.kg - D2.kg,
-		s: D.s - D2.s,
-		ratio: D.ratio / D2.ratio
-	}>;
+	operator/.<D2: Dimensions>(rhs: float32.<D2>): vector.<float32.<divideDimensions(D, D2)>, N>;
 
 	// Unary
 
-	operator-(): vec3<D>;
+	operator-(): vector.<float32.<D>, N>;
 
 	// Compound assignment
 
-	operator+=<D2: Dimensions>(rhs: vec3<D2>): vec3<D>
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		if (!feq(D.ratio, D2.ratio)) {
-			this += rhs * (D2.ratio / D.ratio);
-		} else {
-			this += rhs;
-		}
-		return this;
-	}
+	operator+=(rhs: vector.<float32.<D>, N>): vector.<float32.<D>, N>;
 
-	operator-=<D2: Dimensions>(rhs: vec3<D2>): vec3<D>
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		if (!feq(D.ratio, D2.ratio)) {
-			this -= rhs * (D2.ratio / D.ratio);
-		} else {
-			this -= rhs;
-		}
-		return this;
-	}
+	operator-=(rhs: vector.<float32.<D>, N>): vector.<float32.<D>, N>;
 
-	operator*=(rhs: float32): vec3<D>;
-	//{
-	//	this *= rhs;
-	//	return this;
-	//}
+	operator*=(rhs: float32): vector.<float32.<D>, N>;
 
-	operator/=(rhs: float32): vec3<D>;
-	//{
-	//	this /= rhs;
-	//	return this;
-	//}
+	operator/=(rhs: float32): vector.<float32.<D>, N>;
 
 	// Comparison
-	// Per-component equality after normalization.
-	// Just an example as float equality requires special handling usually
+	// Per-component equality; differing ratios are normalized by the
+	// boundary conversion. Just an example as float equality usually
+	// requires special handling.
 
-	operator==<D2: Dimensions>(rhs: vec3<D2>): boolean
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		if (feq(D.ratio, D2.ratio)) {
-			return this == rhs;
-		}
-		return this * D.ratio == rhs * D2.ratio;
-	}
+	operator==(rhs: vector.<float32.<D>, N>): boolean;
 
-	operator!=<D2: Dimensions>(rhs: vec3<D2>): boolean
-		where D.m == D2.m && D.kg == D2.kg && D.s == D2.s
-	{
-		return !(this == rhs);
-	}
+	operator!=(rhs: vector.<float32.<D>, N>): boolean;
 }
 
 
@@ -1500,14 +1497,9 @@ primitive vector<float32<D: Dimensions>, 3> {
 // e.g. dot(Force3, Position) -> Joule (N*m = J)
 //      dot(Velocity3, Velocity3) -> m**2/s**2 (speed**2)
 function dot<D: Dimensions, D2: Dimensions>(
-	a: vec3<D>,
-	b: vec3<D2>
-): float32<{
-	m: D.m + D2.m,
-	kg: D.kg + D2.kg,
-	s: D.s + D2.s,
-	ratio: D.ratio * D2.ratio
-}> {
+	a: vec3.<D>,
+	b: vec3.<D2>
+): float32.<multiplyDimensions(D, D2)> {
 	return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 	// Each a[i]*b[i] has Dimensions { D.m+D2.m, D.kg+D2.kg, D.s+D2.s }.
 	// All three products share the same dimension, so + is valid.
@@ -1515,16 +1507,11 @@ function dot<D: Dimensions, D2: Dimensions>(
 
 // Cross product
 // e.g. cross(Position, Force3) -> Torque3 (m*N = N*m)
-//      cross(Velocity3, Velocity3) -> vec3<m**2/s**2>
+//      cross(Velocity3, Velocity3) -> vec3.<m**2/s**2>
 function cross<D: Dimensions, D2: Dimensions>(
-	a: vec3<D>,
-	b: vec3<D2>,
-): vec3<{
-	m: D.m + D2.m,
-	kg: D.kg + D2.kg,
-	s: D.s + D2.s,
-	ratio: D.ratio * D2.ratio
-}> {
+	a: vec3.<D>,
+	b: vec3.<D2>,
+): vec3.<multiplyDimensions(D, D2)> {
 	return vec3(
 		a[1] * b[2] - a[2] * b[1],
 		a[2] * b[0] - a[0] * b[2],
@@ -1538,61 +1525,51 @@ function cross<D: Dimensions, D2: Dimensions>(
 // sqrt(m**2) = m, Valid (2/2 = 1)
 // sqrt(m**2/s**2) = m/s, Valid (2/2 = 1, -2/2 = -1)
 // sqrt(m) = ???, Invalid (1/2 not int32)
-function Math.sqrt<D: Dimensions>(x: float32<D>): float32<{
-	m: D.m / 2,
-	kg: D.kg / 2,
-	s: D.s / 2,
-	ratio: Math.sqrt(D.ratio)
-}>
-where D.m % 2 == 0 && D.kg % 2 == 0 && D.s % 2 == 0;
+function Math.sqrt<D: Dimensions>(x: float32.<D>): float32.<halveDimensions(D)>
+	where evenDimensions(D);
 
 // Propagate Dimensions metadata
-function Math.hypot<D: Dimensions>(...args: float32<D>[]): float32<D>;
+function Math.hypot<D: Dimensions>(...args: [].<float32.<D>>): float32.<D>;
 
 // Magnitude (vector length)
 // Uses Math.hypot, which preserves Dimensions.
 // magnitude(Position) -> Meter
 // magnitude(Force3) -> Newton
-function magnitude<D: Dimensions>(v: vec3<D>): float32<D> {
+function magnitude<D: Dimensions>(v: vec3.<D>): float32.<D> {
 	return Math.hypot(v[0], v[1], v[2]);
 }
 
 // Alternative via dot + sqrt (equivalent):
-//function magnitude<D: Dimensions>(v: vec3<D>): float32<D> {
+//function magnitude<D: Dimensions>(v: vec3.<D>): float32.<D> {
 //	return Math.sqrt(dot(v, v));
-//	// dot(v, v): float32<{ m: 2*D.m, kg: 2*D.kg, s: 2*D.s, ... }>
-//	// Math.sqrt:  halves exponents -> float32<D>
+//	// dot(v, v): float32.<{ m: 2*D.m, kg: 2*D.kg, s: 2*D.s, ... }>
+//	// Math.sqrt:  halves exponents -> float32.<D>
 //}
 
 // Squared magnitude
 // Returns D*D exponents.
-function magnitudeSq<D: Dimensions>(v: vec3<D>): float32<{
-	m: D.m + D.m,
-	kg: D.kg + D.kg,
-	s: D.s + D.s,
-	ratio: D.ratio * D.ratio
-}> {
+function magnitudeSq<D: Dimensions>(v: vec3.<D>): float32.<multiplyDimensions(D, D)> {
 	return dot(v, v);
 }
 
 // Normalize (unit vector)
 // Divides out the dimension, returning a Unitless3.
-// magnitude is float32<D>, dividing vec3<D> / float32<D>
-// yields vec3<D-D> = vec3<dimensionless>.
+// magnitude is float32.<D>, dividing vec3.<D> / float32.<D>
+// yields vec3.<D-D> = vec3.<dimensionless>.
 
-function normalize<D: Dimensions>(v: vec3<D>): Unitless3 {
+function normalize<D: Dimensions>(v: vec3.<D>): Unitless3 {
 	return v / magnitude(v);
-	// vec3<D> / float32<D>
+	// vec3.<D> / float32.<D>
 	// Dimensions: { D.m - D.m, D.kg - D.kg, D.s - D.s } = { 0, 0, 0 }
 	//   Unitless3
 }
 
 // Distance between two positions
 
-function distance<D: Dimensions>(a: vec3<D>, b: vec3<D>): float32<D> {
+function distance<D: Dimensions>(a: vec3.<D>, b: vec3.<D>): float32.<D> {
 	return magnitude(a - b);
-	// a - b: vec3<D> (same dimension)
-	// magnitude: float32<D>
+	// a - b: vec3.<D> (same dimension)
+	// magnitude: float32.<D>
 }
 ```
 Usage
@@ -1629,13 +1606,13 @@ const dt: Second = 1 / 60;
 
 // One integration step:
 velocity += acceleration * dt;
-// accel * dt -> vec3<{ m: 1, s: -2 }> * float32<{ s: 1 }> -> vec3<{ m: 1, s: -1 }> = Velocity3
+// accel * dt -> vec3.<{ m: 1, s: -2 }> * float32.<{ s: 1 }> -> vec3.<{ m: 1, s: -1 }> = Velocity3
 // velocity += Velocity3 -> same dimension
 
 position += velocity * dt;
 // velocity * dt: Velocity3 * Second
-//   = vec3<{ m: 1, s: -1 }> * float32<{ s: 1 }>
-//   = vec3<{ m: 1, s: 0 }> = Position
+//   = vec3.<{ m: 1, s: -1 }> * float32.<{ s: 1 }>
+//   = vec3.<{ m: 1, s: 0 }> = Position
 // position += Position -> same dimension
 
 // Full simulation loop:
@@ -1659,8 +1636,8 @@ Kinetic energy via dot product
 ```js
 function kineticEnergy(m: Kilogram, v: Velocity3): Joule {
 	return dot(v, v) * m * 0.5;
-	// dot(v, v): float32<{ m: 2, s: -2 }>, speed squared
-	// * Kilogram: float32<{ m: 2, kg: 1, s: -2 }>, Joule
+	// dot(v, v): float32.<{ m: 2, s: -2 }>, speed squared
+	// * Kilogram: float32.<{ m: 2, kg: 1, s: -2 }>, Joule
 	// * 0.5: scalar multiply, still Joule
 }
 
@@ -1700,7 +1677,7 @@ Magnitude and normalization
 
 ```js
 const dist: Meter = magnitude(pos);
-// magnitude(Position) -> float32<Meter>
+// magnitude(Position) -> Meter
 // hypot(3, 4, 0) = 5
 
 const dir: Unitless3 = normalize(pos);
@@ -1708,7 +1685,7 @@ const dir: Unitless3 = normalize(pos);
 // vec3(3/5, 4/5, 0) = vec3(0.6, 0.8, 0)
 
 const speed: Velocity = magnitude(vel);
-// magnitude(Velocity3) -> float32<Velocity>
+// magnitude(Velocity3) -> Velocity
 ```
 
 Distance and squared distance
@@ -1761,10 +1738,10 @@ function reflect(v: Velocity3, normal: Unitless3): Velocity3 {
 	return v - normal * dot(v, normal) * 2;
 	// dot(Velocity3, Unitless3):
 	//   Dimensions: { m: 1, s: -1 } + { 0,0,0 } = { m: 1, s: -1 }
-	//   = float32<Velocity> (scalar speed along normal)
+	//   = float32.<Velocity> (scalar speed along normal)
 	//
-	// normal * Velocity: Unitless3 * float32<Velocity>
-	//   = vec3<{ 0+m: 1, s: -1 }> = Velocity3
+	// normal * Velocity: Unitless3 * float32.<Velocity>
+	//   = vec3.<{ m: 1, s: -1 }> = Velocity3
 	//
 	// Velocity3 * 2: scalar -> Velocity3
 	// v - Velocity3: same dimension
@@ -1796,7 +1773,7 @@ Gravitational force between two masses
 ```js
 // Gravitational constant G ≈ 6.674e-11 m³/(kg*s**2)
 // G has Dimensions { m: 3, kg: -1, s: -2 }
-type GravConst = float32<{ m: 3, kg: -1, s: -2, ratio: 1.0 }>;
+type GravConst = float32.<{ m: 3, kg: -1, s: -2 }>;
 const G: GravConst = 6.674e-11;
 
 function gravitationalForce(
@@ -1822,21 +1799,22 @@ Dimensional errors with vectors
 
 ```js
 // position + velocity;
-//   where clause: { m: 1, s: 0 } != { m: 1, s: -1 }, Invalid
+//   operator+ parameter is typed with the LHS Dimensions;
+//   Dimensions.subtype({ m: 1, s: -1 }, { m: 1, s: 0 }) fails, Invalid
 // Error: cannot add Position (m) to Velocity3 (m/s)
 
 // const bad: Force3 = accel;
-//   vec3<Acceleration> -> vec3<Force>
+//   vec3.<Acceleration> -> vec3.<Force>
 // Dimensions.subtype: kg: 0 != kg: 1, Invalid
 
 // cross(position, vel);
 // This is allowed, cross multiplies dimensions:
 // Dimensions: { m: 1, s: 0 } + { m: 1, s: -1 } = { m: 2, s: -1 }
-// Result: vec3<{ m: 2, s: -1 }>, Valid, not a named type
+// Result: vec3.<{ m: 2, s: -1 }>, Valid, not a named type
 
 // dot(position, vel);
 // Also allowed, dot multiplies dimensions:
-// float32<{ m: 2, s: -1 }>, Valid, unnamed
+// float32.<{ m: 2, s: -1 }>, Valid, unnamed
 ```
 
 
@@ -1846,7 +1824,7 @@ Math.sqrt compile errors
 const speedSq: SquareMeter = 25; // m**2
 const spd: Meter = Math.sqrt(speedSq);
 // D = { m: 2, s: 0 }. m%2==0, kg%2==0, s%2==0
-// Result: float32<{ m: 1, s: 0 }> = Meter, Valid
+// Result: float32.<{ m: 1, s: 0 }> = Meter, Valid
 
 // const bad = Math.sqrt(Meter(9));
 // D = { m: 1, s: 0 }. m%2 == 1 != 0, Invalid
@@ -1854,7 +1832,7 @@ const spd: Meter = Math.sqrt(speedSq);
 // Compile error: sqrt requires even dimensional exponents.
 ```
 
-Note: That function blocks that define metadata operations follow the same merge rules as operators.
+Note that function blocks that define metadata operations follow the same merge rules as operators.
 
 ## TODO Items
 

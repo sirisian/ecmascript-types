@@ -8,16 +8,15 @@ With TypedArrays and classes finalized, ECMAScript is in a good place to finally
 
 The types described below bring ECMAScript in line or surpasses the type systems in most languages. For developers it cleans up a lot of the syntax, as described later, for TypedArrays, SIMD, and working with number types (floats vs signed and unsigned integers). It also allows for new language features like function overloading and a clean syntax for operator overloading. For implementors, added types offer a way to better optimize the JIT when specific types are used. For languages built on top of Javascript this allows more explicit type usage and closer matching to hardware.
 
-The explicit goal of this proposal is to not just to give developers static type checking. It's to offer information to engines to use native types and optimize callstacks and memory usage. Ideally engines could inline and optimize code paths that are fully typed offering closer to native performance.
+The explicit goal of this proposal is not just to give developers static type checking. It's to offer information to engines to use native types and optimize callstacks and memory usage. Ideally engines could inline and optimize code paths that are fully typed offering closer to native performance.
 
 ### Native/Runtime Typing vs Type Annotations aka Types as Comments
 
 This proposal covers a native/runtime type system and associated language features. That is the types introduced are able to be used by the engine to implement new features and optimize code. Errors related to passing the wrong types throws ```TypeError``` exceptions meaning the types are validated at runtime.
 
-A type annotation or types as comments proposal treats type syntax as comments with no impact on the behavior of the code. It's primarily used with bundlers and IDEs to run checks during development. See the Type Annotations proposal for more details.
+A type annotation or types as comments proposal treats type syntax as comments with no impact on the behavior of the code. It's primarily used with bundlers and IDEs to run checks during development. See the [Type Annotations proposal](https://github.com/tc39/proposal-type-annotations) for more details.
 
 ### Types Proposed
-- [x] In Proposal Specification
 
 Since it would be potentially years before this would be implemented this proposal includes a new keyword ```enum``` for enumerated types and the following types:
 
@@ -100,12 +99,9 @@ type float64x4 = vector.<float64, 4>;
 ```complex```  
 ```any```  
 
-These types once imported behave like a ```const``` declaration and cannot be reassigned.
+These types behave like ```const``` declarations and cannot be reassigned.
 
 ### Variable Declaration With Type
-- [x] In Proposal Specification
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 This syntax is taken from ActionScript and other proposals over the years. It's subjectively concise, readable, and consistent throughout the proposal.
 
@@ -116,9 +112,6 @@ const c: Type = value;
 ```
 
 ### typeof Operator
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 ```typeof```'s behavior is essentially unchanged. All numerical types return ```"number"```. SIMD, rational, and complex types return ```"object"```.
 
@@ -132,9 +125,6 @@ let d: (uint8) => uint8 = x => x * x; // typeof d == "function"
 TODO: Should there be a way to get the specific type? See https://github.com/sirisian/ecmascript-types/issues/60
 
 ### instanceof Operator
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 THIS SECTION IS A WIP
 
@@ -145,17 +135,14 @@ if (a instanceof uint8) {}
 Also this would be nice for function signatures.
 
 ```js
-if (a instanceof (uint8) => uint8) {}
+if (a instanceof ((uint8) => uint8)) {}
 ```
 
-That would imply ```Object.getPrototypeOf(a) === ((uint8):uint8).prototype```.
+That would imply ```Object.getPrototypeOf(a) === ((uint8) => uint8).prototype```.
 
 I'm not well versed on if this makes sense though, but it would be like each typed function has a prototype defined by the signature.
 
 ### Union and Nullable Types
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 All types except ```any``` are non-nullable. The syntax below creates a nullable ```uint8``` typed variable:
 ```js
@@ -167,7 +154,7 @@ A union type can be defined like:
 let a: uint8 | string = 'a';
 ```
 
-The ```|``` can placed at the beginning when defining a union across multiple lines.
+The ```|``` can be placed at the beginning when defining a union across multiple lines.
 ```js
 type a =
   | b
@@ -179,8 +166,6 @@ type a =
 // TODO
 
 ### any Type
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Algorithms
 
 Using ```any|null``` would result in a syntax error since ```any``` already includes nullable types. As would using ```[].<any>``` since it already includes array types. Using just ```[]``` would be the type for arrays that can contain anything. For example:
 
@@ -189,11 +174,8 @@ let a:[];
 ```
 
 ### Variable-length Typed Arrays
-- [x] In Proposal Specification
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
-A generic syntax ```.<T>``` is used to type array elements.
+A generic syntax ```.<T>``` is used to type array elements. Throughout the proposal, generic parameters are declared with ```<...>```, as in ```class A<T> {}```, while all generic argument application, whether in a type or an expression, uses ```.<...>```, as in ```new A.<uint8>()```. The leading ```.``` avoids grammar ambiguity with the less-than operator in expressions like ```a<b>(c)```.
 
 ```js
 let a: [].<uint8>; // []
@@ -213,10 +195,14 @@ a['a'] = 0;
 delete a['a'];
 ```
 
+Deleting an indexed element of a typed array results in a type error since typed arrays cannot contain holes:
+
+```js
+const a: [].<uint8> = [0, 1, 2, 3];
+// delete a[0]; TypeError: Cannot delete an element of a typed array
+```
+
 ### Fixed-length Typed Arrays
-- [x] In Proposal Specification
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 ```js
 let a: [4].<uint8>; // [0, 0, 0, 0]
@@ -230,7 +216,11 @@ let c: [4].<uint8> | null; // null
 
 Typed arrays would be zero-ed at creation. That is the allocated memory would be set to all zeroes.
 
-Also all fixed-length typed arrays use a SharedArrayBuffer by default.
+Sharing a fixed-length typed array across agents is opt-in with the ```shared``` modifier. A ```shared``` array is backed by a SharedArrayBuffer and follows the host's cross-origin isolation requirements for shared memory:
+
+```js
+let a: shared [4].<uint8>;
+```
 
 ### Mixing Variable-length and Fixed-length Arrays
 
@@ -249,25 +239,13 @@ function f(c:boolean):[6].<uint8> { // Resizes a if c is true
 ```
 
 ### Any Typed Array
-- [x] In Proposal Specification
-- [x] Proposal Specification Grammar
 
 ```js
 let a: []; // Using [].<any> is a syntax error as explained before
 let b: [] | null; // null
 ```
 
-Deleting a typed array element results in a type error:
-
-```js
-const a: [].<uint8> = [0, 1, 2, 3];
-// delete a[0]; TypeError: a is fixed-length
-```
-
 ### Array length Type And Operations
-- [x] In Proposal Specification
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 Valid types for defining the length of an array are ```int8```, ```int16```, ```int32```, ```int64```, ```uint8```, ```uint16```, ```uint32```, and ```uint64```.
 
@@ -297,8 +275,8 @@ Setting the ```length``` reallocates the array truncating when applicable.
 
 ```js
 let a: [].<uint8> = [0, 1, 2, 3, 4];
-a.length = 4; // [0, 1, 2, 4]
-a.length = 6; // [0, 1, 2, 4, 0, 0]
+a.length = 4; // [0, 1, 2, 3]
+a.length = 6; // [0, 1, 2, 3, 0, 0]
 ```
 
 ```js
@@ -307,8 +285,6 @@ let a:[5].<uint8> = [0, 1, 2, 3, 4];
 ```
 
 ### Array Views
-- [x] [Proposal Specification Grammar](https://sirisian.github.io/ecmascript-types/#prod-ArrayView)
-- [ ] Proposal Specification Algorithms
 
 Like ```TypedArray``` views, this array syntax allows any array, even arrays of typed objects to be viewed as different objects. 
 
@@ -336,40 +312,39 @@ const b = [].<uint16>(a, 1, 3); // Offset of 1 byte into the array and 3 byte le
 b[2]; // 2
 ```
 
+The ```buffer``` argument accepts any typed array as well as existing ```TypedArray```, ```ArrayBuffer```, and ```SharedArrayBuffer``` instances, so a ```[].<uint8>``` and a ```Uint8Array``` viewing the same buffer alias the same memory. Views read and write using platform byte order, matching ```TypedArray```. Individual class members can fix their byte order for parsing wire formats with the ```@endian``` decorator described in the member memory layout section.
+
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 Rather than defining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. More than one can be defined as long as they have unique signatures.
 
-An example of a user-defined index to access a 16 element grid with ```(x, y)``` coordinates:
+An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates:
 
 ```js
-class GridArray<N: uint32> extends [N].<uint8> {
+class GridArray<W: uint32, H: uint32> extends [W * H].<uint8> {
   get operator[](x: uint32, y: uint32) {
-    return ref this[y * 4 + x];
+    return ref this[y * W + x];
   }
 }
-const grid = new GridArray<16>();
+const grid = new GridArray.<4, 4>();
 grid[2, 1] = 10;
 ```
 
 ```js
-class GridArray<N: uint32> extends [N].<uint8> {
+class GridArray<W: uint32, H: uint32> extends [W * H].<uint8> {
   get operator[](i: uint32) {
     return ref this[i];
   }
   get operator[](x: uint32, y: uint32) {
-    return ref this[y * 4 + x];
+    return ref this[y * W + x];
   }
 }
-const grid = new GridArray<16>();
+const grid = new GridArray.<4, 4>();
 grid[0] = 10;
 grid[2, 1] = 10;
 ```
 
-For a variable-length array it works as expected:
+For a variable-length array it works as expected. This example indexes into a 4x4x4 grid:
 
 ```js
 class GridArray extends [].<uint8> {
@@ -379,7 +354,7 @@ class GridArray extends [].<uint8> {
 }
 const grid = new GridArray();
 grid.push(...);
-grid[1, 2] = 10;
+grid[1, 2, 3] = 10;
 ```
 
 Views also work as expected allowing one to apply custom indexing to existing arrays:
@@ -390,10 +365,8 @@ const gridView = new GridArray(grid);
 ```
 
 ### Implicit Casting
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Algorithms
 
-The default numeric type Number would convert implicitly with precedence given to ```decimal128/64/32```, ```float128/80/64/32/16```, ```uint64/32/16/8```, ```int64/32/16/8```. (This is up for debate). Examples are shown later with class constructor overloading.
+The default numeric type Number would convert implicitly with precedence given to ```float64``` first, since Number is a float64 and the conversion is exact, then ```float128/80/32/16```, ```decimal128/64/32```, ```uint64/32/16/8```, ```int64/32/16/8```. (This is up for debate). Examples are shown later with class constructor overloading.
 
 ```js
 function f(a: float32) {}
@@ -415,34 +388,31 @@ class A {
 }
 
 const a = new A();
-const [x, y, z] = A;
+const [x, y, z] = a;
 ```
 
 ### Explicit Casting
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Algorithms
 
 ```js
-let a := 65535 as uint8; // Cast taking the lowest 8 bits so the value 255, but note that a is still typed as any
+let a := 65535 as uint8; // Cast taking the lowest 8 bits so the value 255. The typed assignment infers the type from the cast, so a is typed uint8
 let b: uint8 = 65535; // Same as the above
 ```
 
 Many truncation rules have intuitive rules going from larger bits to smaller bits or signed types to unsigned types. Type casts like decimal to float or float to decimal would need to be clear.
 
 ### Function signatures with constraints
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
-A typed function defaults to a return type of ```undefined```. In almost every case where ```undefined``` might be needed it's implicit and defining it is not allowed.
+A typed function without an explicit return type defaults to a return type of ```void```, meaning it returns no value. ```void``` can also be written explicitly. ```undefined``` is not allowed as a return type.
 ```js
-function f() {} // return type any
-// function f(a: int32) { return 10; } // TypeError: Function signature for F, undefined, does not match return type, number.
-function g(a: int32) {} // return type undefined
-// function g(a: int32):undefined {} // TypeError: Explicitly defining a return type of undefined is not allowed.
+function f() {} // untyped function, return type any
+// function f(a: int32) { return 10; } // TypeError: Function signature for f, void, does not match return type, number.
+function g(a: int32) {} // return type void
+function h(a: int32): void {} // identical behavior to g with the return type written explicitly
+// function i(a: int32): undefined {} // TypeError: undefined is not a valid return type. Use void.
 ```
-The only case where ```undefined``` is allowed is for functions that take no parameters where the return type signals it's a typed function.
+A function that takes no parameters is made a typed function by writing the return type:
 ```js
-function f(): undefined {}
+function f(): void {}
 ```
 
 An example of applying more parameter constraints:
@@ -461,12 +431,10 @@ f(1, 2);
 ```
 
 ### Typed Arrow Functions
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 ```js
 let a: (int32, string) => string; // hold a reference to a signature of this type
-let b: (); // undefined is the default return type for a signature without a return type
+let b: (); // void is the default return type for a signature without a return type
 let c = (s: string, x: int32) => s + x; // implicit return type of string
 let d = (x: uint8, y: uint8): uint16 => x + y; // explicit return type
 let e = x: uint8 => x + y; // single parameter
@@ -481,7 +449,6 @@ let a: { (uint32 | null): uint32; } | null = null;
 ```
 
 ### Integer Binary Shifts
-- [ ] Proposal Specification Algorithms
 
 ```js
 let a: int8 = -128;
@@ -491,7 +458,6 @@ b >> 1; // 64, no sign extension as would be expected with an unsigned type
 ```
 
 ### Integer Division
-- [ ] Proposal Specification Algorithms
 
 ```js
 let a: int32 = 3;
@@ -499,8 +465,6 @@ a /= 2; // 1
 ```
 
 ### Type Propagation to Literals
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Algorithms
 
 In ECMAScript currently the following values are equal:
 
@@ -597,9 +561,23 @@ function f(a: [].<float32x4>) {
 f([(1, 2, 3, 4)]);
 ```
 
+### 64-bit Integer Types and Number Interop
+
+```typeof``` reports ```"number"``` for ```int64``` and ```uint64```, but their values can exceed Number's safe integer range. The following rules keep that from silently losing precision:
+
+```js
+let a: uint64 = 2**53 + 1;
+let b = a; // b is typed any and holds the uint64 value with no precision loss
+// let c: number = a; // TypeError: Implicit conversion of a uint64 outside the safe integer range to Number
+let d: number = Number(a); // Explicit conversion rounds to the nearest float64
+JSON.stringify({ a }); // '{"a":9007199254740993}' - always serialized with exact decimal digits
+// let e = a + 1n; // TypeError: Cannot mix uint64 and bigint
+let f = bigint(a) + 1n; // Explicit casts convert between the integer families
+```
+
+Assigning to an untyped variable keeps the underlying 64-bit value since the variable is dynamically typed rather than converted. Implicit conversion to Number, such as passing to a parameter typed ```number```, throws a TypeError when the value is outside the safe integer range. An explicit cast always succeeds and rounds.
+
 ### Destructuring Assignment Casting
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 Array destructuring with default values:
 
@@ -610,7 +588,7 @@ Array destructuring with default values:
 Object destructuring with default values:
 
 ```js
-{ (a: uint8) = 1, (b: uint8) = 2 } = { a: 2 };
+({ (a: uint8) = 1, (b: uint8) = 2 } = { a: 2 });
 ```
 
 Object destructuring with default value and new name:
@@ -644,7 +622,7 @@ const { a: { (a2: uint32): b, a3: [, c: uint8] } } = { a: { a2: 1, a3: [2, 3] } 
 Destructuring objects with arrays:
 
 ```js
-const { (a: [].<uint8>) } = { a: [1, 2, 3] } }; // a is [1, 2, 3] with type [].<uint8>
+const { (a: [].<uint8>) } = { a: [1, 2, 3] }; // a is [1, 2, 3] with type [].<uint8>
 ```
 
 ### Array Rest Destructuring
@@ -687,8 +665,6 @@ b; // { x: 2, y: 3 }
 ```
 
 ### Typed return values for destructuring
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 Basic array destructuring:
 ```js
@@ -737,6 +713,9 @@ const [a] = f(); // a is 1
 const [b, ...c] = f(); // b is 2 and c is [3]
 const { a: d, b: e } = f(); // d is 1 and e is 2
 ```
+
+Overload selection from a destructuring pattern prefers the signature whose shape the pattern matches exactly. An array pattern without a rest element selects the signature with the same arity, an array pattern with a rest element selects the longest matching signature, and an object pattern selects the signature containing every destructured property. If no unique signature matches, a TypeError is thrown and an explicit type is required as shown below.
+
 See the section on overloading return types for more information: https://github.com/sirisian/ecmascript-types#overloading-on-return-type
 
 Explicitly selecting an overload:
@@ -760,21 +739,17 @@ function f(): [int32, float32] {
 ```
 
 ### Interfaces
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 Interfaces can be used to type objects, arrays, and functions. This allows users to remove redundant type information that is used in multiple places such as in destructuring calls. In addition, interfaces can be used to define contracts for classes and their required properties.
 
 #### Object Interfaces
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 ```js
 interface IExample {
   a: string;
   b: (uint32) => uint32;
-  ?c: any; // Optional property. A default value can be assigned like:
-  // c: any = [];
+  c?: any; // Optional property. A default value can be assigned like:
+  // c?: any = [];
 }
 
 function f(): IExample {
@@ -816,15 +791,13 @@ g({ a: 'a' });
 ```
 
 #### Array Interfaces
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 ```js
 interface IExample [
   string,
   uint32,
-  ?string // Optional item. A default value can be assigned like:
-  // ?string = 10
+  string? // Optional item. A default value can be assigned like:
+  // string? = 'c'
 ]
 ```
 
@@ -835,8 +808,6 @@ function f(): IExample {
 ```
 
 #### Function Interfaces
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 With function overloading an interface can place multiple function constraints. Unlike parameter lists in function declarations the type precedes the optional name.
 
@@ -844,8 +815,8 @@ With function overloading an interface can place multiple function constraints. 
 interface IExample {
   (string, uint32); // undefined is the default return type
   (uint32);
-  ?(string, string): string; // Optional overload. A default value can be assigned like:
-  // (string, string): string = (x, y) => x + y;
+  (string, string)?: string; // Optional overload. A default value can be assigned like:
+  // (string, string)?: string = (x, y) => x + y;
 }
 ```
 
@@ -883,7 +854,7 @@ Argument names in function interfaces are optional. This to support named argume
 
 ```js
 interface IExample {
-  (string = 5, uint32: named);
+  (string = '5', uint32: named);
 }
 function f(a: IExample) {
   a(named: 10); // 10
@@ -924,8 +895,6 @@ interface IB {
 ```
 
 #### Extending Interfaces
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 Extending object interfaces:
 
@@ -958,8 +927,6 @@ function f(a: B) {
 ```
 
 ### Implementing Interfaces
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 ```js
 interface A {
@@ -982,8 +949,6 @@ Note that since ```b``` isn't overloaded, defining the type of the member functi
 Once a class implements an interface it cannot remove that contract. Attempting to delete the member ```a``` or the method ```b``` would throw a TypeError.
 
 ### Typed Assignment
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 A variable by default is typed ```any``` meaning it's dynamic and its type changes depending on the last assigned value. As an example one can write:
 
@@ -994,14 +959,14 @@ a = 5; // a is type any and is 5
 If one wants to constrain the variable type they can write:
 ```js
 let a:MyType = new MyType();
-// a = 5; // Equivelant to using implicit casting: a = MyType(5);
+// a = 5; // Equivalent to using implicit casting: a = MyType(5);
 ```
 
 This redundancy in declaring types for the variable can be removed with a typed assignment:
 
 ```js
 let a := new MyType(); // a is type MyType
-// a = 5; // Equivelant to using implicit casting: a = MyType(5);
+// a = 5; // Equivalent to using implicit casting: a = MyType(5);
 ```
 
 This new form of assignment is useful with both ```var``` and ```let``` declarations. With ```const``` it has no uses:
@@ -1024,7 +989,6 @@ let { a, b } := { (a: uint8): 1, (b: uint32): 2 }; // a is type uint8 and b is t
 ```
 
 ### Function Overloading
-- [ ] Proposal Specification Algorithms
 
 All function can be overloaded if the signature is non-ambiguous. A signature is defined by the parameter types and return type. (Return type overloading is covered in a subsection below as this is rare).
 
@@ -1034,12 +998,12 @@ function f(s: [].<string>): string { return 'string'; }
 f(['test']); // "string"
 ```
 
-Up for debate is if accessing the separate functions is required. Functions are objects so using a key syntax with a string isn't ideal. Something like ```F['(int32[])']``` wouldn't be viable. It's possible ```Reflect``` could have something added to it to allow access.
+An overloaded name evaluates to a single function object that performs overload resolution at the call site. Its ```name``` is the shared name and its ```length``` is the smallest parameter count among the signatures. ```call```, ```apply```, and ```bind``` go through the same resolution. Individual signatures aren't addressable through property keys like ```F['(int32[])']```; they're exposed through reflection using type records.
 
 Signatures must match for a typed function:
 ```js
 function f(a: uint8, b: string) {}
-// f(1); // TypeError: Function F has no matching signature
+// f(1); // TypeError: Function f has no matching signature
 ```
 
 Adding a normal untyped function acts like a catch all for any arguments:
@@ -1050,11 +1014,11 @@ function f(a: uint8) {}
 f(1, 2); // Calls the untyped function
 ```
 
-If the intention is to created a typed function with no arguments then setting the return value is sufficient:
+If the intention is to create a typed function with no arguments then setting the return type is sufficient:
 
 ```js
 function f(): void {}
-// f(1); // TypeError: Function F has no matching signature
+// f(1); // TypeError: Function f has no matching signature
 ```
 
 Duplicate signatures are not allowed:
@@ -1072,6 +1036,17 @@ function f(a: float32): void {}
 
 See the [Type Records](typerecords.md) page for more information on signatures.
 
+#### Overload Resolution
+
+A call selects its signature as follows:
+
+1. Collect every declared signature for the name.
+2. Keep the viable signatures where the argument list satisfies the parameter list's arity, accounting for default values, optional parameters, and rest parameters, and where every argument is convertible to its parameter's type.
+3. Rank each viable signature by the worst conversion any of its arguments requires: an exact type match, then a numeric conversion following the precedence order in the implicit casting section, then a user-defined implicit cast, then binding to an untyped catch all signature.
+4. If exactly one signature ranks best it's called. Otherwise the call is ambiguous, a TypeError is thrown, and explicit casts are required to select a signature.
+
+Return types don't participate in ranking. Selecting between signatures that differ only by return type is covered below.
+
 #### Overloading on Return Type
 
 ```js
@@ -1081,7 +1056,7 @@ function f(): uint32 {
 function f(): string {
   return "10";
 }
-// f(); // TypeError: Ambiguous signature for F. Requires explicit left-hand side type or cast.
+// f(); // TypeError: Ambiguous signature for f. Requires explicit left-hand side type or cast.
 const a: string = f(); // "10"
 const b: uint32 = f(); // 10
 
@@ -1092,7 +1067,7 @@ g(f()); // 10
 
 function h(a:uint8) {}
 function h(a:string) {}
-// h(f()); // TypeError: Ambiguous signature for F. Requires explicit left-hand side type or cast.
+// h(f()); // TypeError: Ambiguous signature for f. Requires explicit left-hand side type or cast.
 h(uint32(f()));
 ```
 
@@ -1105,12 +1080,12 @@ __mmask8 _mm_cmpeq_epi32_mask (__m128i a, __m128i b)
 Notice Intel differentiates signatures by adding ```_mask```. When translated to real types with operators they are identical however:
 
 ```js
-//const something = int32x4(0, 1, 2, 3) === int32x4(0, 1, 3, 2); // TypeError: Ambiguous return type. Requires explicit cast to int32x4 or boolean8
+//const something = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2); // TypeError: Ambiguous return type. Requires explicit cast to int32x4 or boolean8
 ```
 With overloaded return types we can support both signatures:
 ```js
-const a: int32x4 = int32x4(0, 1, 2, 3) === int32x4(0, 1, 3, 2);
-const b: boolean8 = int32x4(0, 1, 2, 3) === int32x4(0, 1, 3, 2);
+const a: int32x4 = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
+const b: boolean8 = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
 ```
 For reference, the operators look like:
 ```js
@@ -1162,7 +1137,6 @@ await f();
 Refer to the try catch section on how different exception types would be explicitly captured: https://github.com/sirisian/ecmascript-types#try-catch
 
 ### Generator Overloading
-- [ ] Proposal Specification Algorithms
 
 WIP: I don't like this syntax.
 
@@ -1196,8 +1170,6 @@ I'd rather do something like:
 ```
 
 ### Object Typing
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 Syntax:
 
@@ -1246,7 +1218,7 @@ Object.defineProperties(o, {
 The type information is also available in the property descriptor accessed with ```Object.getOwnPropertyDescriptor``` or ```Object.getOwnPropertyDescriptors```:
 
 ```js
-const o = { a: uint8 };
+const o = { (a: uint8): 0 };
 const descriptor = Object.getOwnPropertyDescriptor(o, 'a');
 descriptor.type; // uint8
 
@@ -1260,9 +1232,9 @@ The key ```value``` for a property with a numeric type defined in this spec defa
 
 ### Class: Value Type and Reference Type Behavior
 
-Any class where at least one public and private field is typed is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
+Any class where at least one public or private field is typed is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
 
-If every field is typed with a value type then instances can be treated like a value type in arrays. The class also inherits from SharedArrayBuffer allowing instances or arrays to be shared among web workers.
+If every field is typed with a value type then instances can be treated like a value type in arrays and are backed by contiguous memory. When allocated as ```shared``` the backing storage is a SharedArrayBuffer, allowing instances or arrays of them to be shared among web workers.
 
 ```js
 class A { // can be treated like a value type
@@ -1282,10 +1254,10 @@ The value type behavior is used when creating sequential data in typed arrays.
 
 ```js
 const a: [10].<A>; // creates an array of 10 items with sequential data
-a[0] = 10;
-const b: [10].<A>|null; // reference
+a[0].a = 10;
+let b: [10].<A>|null; // null
 b = a;
-b[0]; // 10
+b[0].a; // 10
 ```
 This is identical to allocating an array of 20 bytes that looks like ```a, #b, a, #b, ...```.
 
@@ -1302,7 +1274,7 @@ class Header {
   c: HeaderSection;
 }
 const buffer: [100].<uint8>; // Pretend this has data
-const header = ref [].<Header>(buffer)[0]; // Create a view over the bytes using the [].<Header> and get the first element
+const ref header = [].<Header>(buffer)[0]; // Create a view over the bytes using the [].<Header> and get a reference to the first element
 header.c.a = 10;
 buffer[3]; // 10
 ```
@@ -1332,8 +1304,6 @@ const b: [10].<A|null>; // [null, ...]
 ```
 
 ### Constructor Overloading
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 ```js
 class MyType {
@@ -1359,8 +1329,6 @@ let t = new [5].<MyType>(1);
 ```
 
 ### parseFloat and parseInt For Each New Type
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Algorithms
 
 For integers (including ```bigint```) the parse function would have the signature ```parse(string, radix = 10)```.
 
@@ -1379,8 +1347,6 @@ let a: float32 = float32.parse('1.2');
 TODO: Define the expected inputs allowed. (See: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseFloat). Also should a failure throw or return NaN if the type supports it. I'm leaning toward throwing in all cases where erroneous values are parsed. It's usually not in the program's design that NaN is an expected value and parsing to NaN just created hidden bugs.
 
 ### Implicit SIMD Constructors
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Algorithms
 
 Going from a scalar to a vector:
 
@@ -1389,9 +1355,6 @@ let a: float32x4 = 1; // Equivalent to let a = float32x4(1, 1, 1, 1);
 ```
 
 ### Classes and Operator Overloading
-- [x] In Proposal Specification
-- [x] [Proposal Specification Grammar](https://sirisian.github.io/ecmascript-types/#prod-MethodDefinition)
-- [ ] Proposal Specification Algorithms
 
 A compact syntax is proposed with signatures. These can be overloaded to work with various types. Note that the unary operators have no parameters which differentiates them from the binary operators.
 
@@ -1445,6 +1408,10 @@ class A {
 }
 ```
 
+The strict equality operators ```===``` and ```!==``` are not overloadable and always retain their identity semantics.
+
+Compound assignment operators (```+=``` and the rest of the assignment forms) are invoked as method calls on the left-hand side. The binding itself is never reassigned, so they work on ```const``` bindings, and the value of the expression ```a += b``` is whatever the operator returns, allowing operators to return ```this``` for chaining.
+
 Examples:
 
 ```js
@@ -1459,7 +1426,7 @@ class Vector2 {
     return Math.hypot(this.x, this.y); // uses Math.hypot(...:float32):float32 due to input and return type
   }
   operator+(v: Vector2): Vector2 { // Same as [Symbol.addition](v:Vector2)
-    return new vector2(this.x + v.x, this.y + v.y);
+    return new Vector2(this.x + v.x, this.y + v.y);
   }
   operator==(v: Vector2): boolean {
     const epsilon = 0.0001;
@@ -1494,13 +1461,12 @@ class A {
     this.x += value;
   }
 }
-A += 5; // A.x is 5
+A += 5; // A.x is 5. The binding A itself is not reassigned
 ```
 
 This is kind of niche, but it's consistent with other method definitions, so it's included.
 
 ### Class Extension
-- [ ] Proposal Specification Algorithms
 
 Example defined in say ```MyClass.js``` defining extensions to ```Vector2``` defined above:
 
@@ -1518,8 +1484,6 @@ class Vector2 {
 Note that no members may be defined in an extension class. The new methods are simply appended to the existing class definition.
 
 ### SIMD Operators
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Algorithms
 
 All SIMD types would have operator overloading added when used with the same type.
 ```js
@@ -1529,9 +1493,6 @@ let b = uint32x4(1, 2, 3, 4) < uint32x4(5, 6, 7, 8); // boolean32x4
 It's also possible to overload class operators to work with them, but the optimizations would be implementation specific if they result in SIMD instructions.
 
 ### enum Type
-- [x] In Proposal Specification
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 Enumerations with ```enum``` that support any type including functions and symbols.
 ```js
@@ -1552,7 +1513,7 @@ enum Count: float32 { Zero = (index, name) => index * 100, One, Two }; // 0, 100
 enum Count: string { Zero = (index, name) => name, One, Two = (index, name) => name.toLowerCase(), Three }; // "Zero", "One", "two", "three"
 enum Flags: uint32 { None = 0, Flag1 = (index, name) => 1 << (index - 1), Flag2, Flag3 } // 0, 1, 2, 4
 ```
-An enumeration that uses a non-numeric type must define a starting value. If a sequential function or an overloaded assignment operator is not found the next value will be equal to the previous value.
+An enumeration that uses a non-numeric type must define a starting value. Each subsequent value without an initializer is computed by applying the prefix increment operator to the previous value. (The previous enumerator itself is not modified). If neither a sequential function nor a prefix increment operator, ```operator++()```, exists for the type then the next value will be equal to the previous value.
 
 ```js
 // enum Count:string { Zero, One, Two }; // TypeError Zero is undefined, expected string
@@ -1564,11 +1525,11 @@ class A {
   constructor(value) {
     this.value = value;
   }
-  operator+(value: number) { // prefix increment
-    return new A(this.value + value);
+  operator++() { // prefix increment
+    return new A(this.value + 1);
   }
 }
-enum ExampleA: A { Zero = new A(0), One, Two }; // One = new A(0) + 1, Two = One + 1 using the addition operator.
+enum ExampleA: A { Zero = new A(0), One, Two }; // One = ++Zero, Two = ++One using the prefix increment operator.
 ```
 
 Index operator:
@@ -1592,16 +1553,16 @@ new enum(':uint8', 'a', 0, 'b', 1);
 new enum(':string', 'None', 'none', 'Flag1', '(index, name) => name', 'Flag2', 'Flag3'); // This doesn't make much sense though since the value pairing is broken. Need a different syntax
 ```
 
-Similar to ```Array``` there would be a number of reserved functions:
+Similar to ```Array```, enumeration objects share a common prototype, written here as %Enum.prototype%, with a number of reserved functions:
 
 ```js
-enum.prototype.keys() // Array Iterator with the string keys
-enum.prototype.values() // Array Iterator with the values
-enum.prototype.entries() // Array Iterator with [key, value]
-enum.prototype.forEach((key, value, enumeration) => {})
-enum.prototype.filter((key, value, enumeration) => {}) // returns an Array
-enum.prototype.map((key, value, enumeration) => {}) // returns an Array
-enum.prototype[@@iterator]()
+%Enum.prototype%.keys() // Array Iterator with the string keys
+%Enum.prototype%.values() // Array Iterator with the values
+%Enum.prototype%.entries() // Array Iterator with [key, value]
+%Enum.prototype%.forEach((key, value, enumeration) => {})
+%Enum.prototype%.filter((key, value, enumeration) => {}) // returns an Array
+%Enum.prototype%.map((key, value, enumeration) => {}) // returns an Array
+%Enum.prototype%[@@iterator]()
 ```
 
 Iteration would work like this:
@@ -1629,7 +1590,7 @@ function f(a: uint8, b: string = 0, ...args: string) {}
 f(8, args: 'a', 'b');
 
 function g(option1: string, option2: string) {}
-g(option2: 'a'); // TypeError no signature for G matches (option2: string)
+g(option2: 'a'); // TypeError no signature for g matches (option2: string)
 ```
 
 Spread operator on an object will implement an iterable:
@@ -1671,8 +1632,6 @@ function f(...Mixed: mixed) {
 ```
 
 ### Rest Parameters
-- [x] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 ```js
 function f(a: string, ...args: [].<uint32>) {}
@@ -1689,7 +1648,7 @@ f('a', 0, 1, 2, 'a', 'b', () => {});
 ```
 Dynamic types have less precedence than typed parameters:
 ```js
-function f(...args1, callback: (), ...args2, callback: ()) {}
+function f(...args1, callback1: (), ...args2, callback2: ()) {}
 f('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
 ```
 Rest array destructuring:
@@ -1699,7 +1658,7 @@ function f(...[a: uint8, b: uint8, c: uint8]) {
 }
 ```
 
-The behavior of rest parameters can create confusing signatures. While these are allowed, they aren't recommedned. Arguments are taken by parameters greedily and given back to satisfy signatures.
+The behavior of rest parameters can create confusing signatures. While these are allowed, they aren't recommended. Arguments are taken by parameters greedily and given back to satisfy signatures.
 ```js
 function f(...a: [].<uint32>, ...b: [].<uint32>, c: uint32): void {}
 f(0, 1, 2); // a: [0, 1], b: [], c: 2
@@ -1707,8 +1666,6 @@ f(a: 0, 1, 2, b: 3, 4, 5, 6); // a: [0, 1, 2], b: [3, 4, 5], c: 6
 ```
 
 ### Try Catch
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 Catch clauses can be typed allowing for minimal conditional catch clauses.
 
@@ -1727,8 +1684,6 @@ try {
 ```
 
 ### Placement New
-- [x] [Proposal Specification Grammar](https://sirisian.github.io/ecmascript-types/#prod-ArrayView)
-- [ ] Proposal Specification Algorithms
 
 Arbitrary arrays can be allocated into using the placement new syntax. This works with both a single instance and array of instances.
 
@@ -1783,7 +1738,7 @@ References can also be used to refer to elements in value type arrays.
 
 ```js
 const a: [].<int32>;
-let b = ref a[0];
+let ref b = a[0];
 b = 10;
 a[0]; // 10
 ```
@@ -1796,7 +1751,7 @@ class A {
   b:uint32;
 }
 const a: [10].<A>;
-const b = ref a[0];
+const ref b = a[0];
 b.a = 10;
 
 function f(ref c: A) {
@@ -1826,8 +1781,6 @@ ref b = a[1];
 ```
 
 ### Control Structures
-- [ ] In Proposal Specification
-- [ ] Proposal Specification Algorithms
 
 ## if else
 
@@ -1835,7 +1788,7 @@ A table should be included here with every type and which values evaluate to exe
 
 ## switch
 
-The variable when typed in a switch statement must be integral, string, or symbol type. Specifically ```int8/16/32/64```, ```uint8/16/32/64```, ```number```, and ```string```. Most languages do not allow floating point case statements unless they also support ranges. (This could be considered later without causing backwards compatability issues).
+The variable when typed in a switch statement must be integral, string, or symbol type. Specifically ```int8/16/32/64```, ```uint8/16/32/64```, ```number```, and ```string```. Most languages do not allow floating point case statements unless they also support ranges. (This could be considered later without causing backwards compatibility issues).
 
 Enumerations can be used dependent on if their type is integral or string.
 ```js
@@ -1855,9 +1808,6 @@ let a: float32 = 1.23;
 ```
 
 ### Member memory alignment and offset
-- [x] In Proposal Specification
-- [ ] Proposal Specification Grammar
-- [ ] Proposal Specification Algorithms
 
 By default the memory layout of a typed class - a class where every property is typed - simply appends to the memory of the extended class. For example:
 
@@ -1876,6 +1826,8 @@ class AB {
 ```
 
 Two new keys would be added to the property descriptor called ```align``` and ```offset```. For consistency between codebases two reserved decorators would be created called ```@align``` and ```@offset``` that would set the underlying keys with byte values. Align defines the memory address to be a multiple of a given number. (On some software architectures specialized move operations and cache boundaries can use these for small advantages). Offset is always defined as the number of bytes from the start of the class allocation in memory. (The offset starts at 0 for each class. Negative offset values can be used to overlap the memory of base classes). It's possible to create a union by defining overlapping offsets.
+
+A third reserved decorator, ```@endian('little')``` / ```@endian('big')``` with the descriptor key ```endian```, fixes the byte order of a multi-byte member for parsing wire formats. By default members use platform byte order, matching ```TypedArray```s.
 
 Along with the member decorators, two object reserved descriptor keys would be created, ```alignAll``` and ```size```. These would control the allocated memory alignment of the instances and the allocated size of the instances.
 
@@ -1938,7 +1890,6 @@ b[0].b; // 0
 ```
 
 ### Global Objects
-- [ ] In Proposal Specification
 
 The following global objects could be used as types:
 
@@ -1969,6 +1920,8 @@ This extension covers syntax for supporting JSON Schema's dependentRequired, dep
 ### Records and Tuples
 
 https://github.com/sirisian/ecmascript-types/issues/56
+
+Note: The Records and Tuples proposal was withdrawn in April 2025 and subsumed by the [Composites proposal](https://github.com/tc39/proposal-composites). The examples below keep the original ```#{}```/```#[]``` syntax until this section is reworked against Composites.
 
 Types would work as expected with Records and Tuples:
 ```js
@@ -2017,12 +1970,20 @@ console.log(correctedMeasures2[3]); // -1
 console.log(correctedMeasures2.map(x => x + 1)); // #[43, 13, 68, 0]
 ```
 
+## New Syntax and Backwards Compatibility
+
+All new syntax in this proposal is a syntax error in current ECMAScript, so no existing program changes meaning:
+
+- ```enum``` is already a reserved word. ```interface``` and ```implements``` are reserved in strict mode and are treated as reserved everywhere this proposal uses them as declarations.
+- ```type```, ```ref```, ```operator```, ```dynamic```, ```partial```, ```shared```, ```where```, and ```is``` are contextual keywords. They're only treated as keywords in positions that don't parse today. For example ```type X = 1;``` is currently a syntax error on one line, and the grammar uses a [no LineTerminator here] restriction after ```type``` so a two-statement sequence split across lines keeps its current meaning.
+- ```:=``` and ```.<``` are token sequences that cannot appear in any valid program today, which is why the typed assignment and generic application syntaxes are built on them.
+- ```a: Type``` annotations appear only in declaration positions (bindings, parameters, class members, return types) where a ```:``` is currently invalid. Object literal and destructuring positions, where ```:``` already has a meaning, use the parenthesized ```(a: Type)``` form throughout the proposal for exactly this reason.
+
 ## Undecided Topics
 
 ### Import Types
-- [ ] In Proposal Specification
 
-This has been brought up before, but possible solutions due to compatability issues would be to introduce special imports. Brenden once suggested something like:
+This has been brought up before, but possible solutions due to compatibility issues would be to introduce special imports. Brendan once suggested something like:
 ```js
 import {int8, int16, int32, int64} from "@valueobjects";
 //import "@valueobjects";

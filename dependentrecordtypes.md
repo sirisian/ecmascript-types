@@ -86,8 +86,8 @@ type PaymentWithSchema = {
 };
 
 // if/then/else
-type USPostalCode = string<{ pattern: /^[0-9]{5}(-[0-9]{4})?$/ }>;
-type CAPostalCode = string<{ pattern: /^[A-Z]\d[A-Z] \d[A-Z]\d$/ }>;
+type USPostalCode = string.<{ pattern: /^[0-9]{5}(-[0-9]{4})?$/ }>;
+type CAPostalCode = string.<{ pattern: /^[A-Z]\d[A-Z] \d[A-Z]\d$/ }>;
 type Address = {
 	streetAddress: string,
 	country: 'US' | 'CA',
@@ -143,9 +143,9 @@ const payment: Payment = {
 payment.name = 'Bob'; // Valid: name has no constraints
 ```
 
-#### Possible Solution
+#### Solution
 
-Mark fields in the ```where``` clauses that cannot be updated independently.
+Fields referenced in a ```where``` clause are dependent: they cannot be validated on independent assignment, so the clause is checked at boundaries instead - construction, function calls, and object assignment. This is the rule the examples in this document assume.
 
 The spread operator can be used to set a fully valid object:
 ```js
@@ -161,7 +161,7 @@ const invalidPayment: Payment = {
 }; // Compile or runtime error: 'where' clause validation failed at construction. (In this case it would be a compile time error).
 ```
 
-For marked fields check at boundaries, like construction and function calls.
+Dependent fields are checked at boundaries:
 
 ```js
 const payment: Payment = { name: 'Alice' }; // Checked, construction
@@ -171,7 +171,7 @@ validate(payment); // Checked, function call
 const payment2: Payment = payment; // Checked, object assignment
 ```
 
-This allows an object to be put into an invalid state momentarily and the compiler ensures it doesn't stay in an invalid state. If this cannot be determined at compile-time however it up to the user to add runtime checks:
+This allows an object to be put into an invalid state momentarily while the compiler ensures it doesn't stay invalid across a boundary. When validity cannot be determined at compile time, a runtime check of the ```where``` clause is inserted at the boundary and throws on failure. To branch on validity instead of throwing, test explicitly:
 
 ```js
 if (payment is Payment) { 
@@ -188,22 +188,25 @@ type User = {
 	mode: 'strict' | 'loose',
 	name: string
 } where if (this.mode == 'strict') {
-	this.name is string<{ pattern: /^[a-z]+$/ }> // lowercase only
+	this.name is string.<{ pattern: /^[a-z]+$/ }> // lowercase only
 } else {
-	this.name is string<{ pattern: /^[a-zA-Z]+$/ }> // mixed case
+	this.name is string.<{ pattern: /^[a-zA-Z]+$/ }> // mixed case
 };
 
 const user: User = { mode: 'strict', name: 'alice' }; // Pretend 'alice' is a dynamic value
-// Compiler's knows: 
+// Compiler knows:
 // user.mode is 'strict'
-// user.name is string<{ pattern: /^[a-z]+$/ }>
+// user.name is string.<{ pattern: /^[a-z]+$/ }>
 
 user.mode = 'loose';
 
-example(user); // throws as the compiler cannot infer that user is valid
+example(user);
+// The compiler cannot prove the where clause still holds, so a runtime
+// check is inserted at the call boundary. It passes here since 'alice'
+// matches the loose pattern, but the check cannot be elided.
 ```
 
-If the compiler was smart then it would know that the 'loose' regex is a subset of the 'strict' regex. It's unlikely such a subset operation would be added (or implemented by a user in the metadata subtype operation at least in general) so the compiler would require a runtime check.
+If the compiler were smart it would know that strings matching the 'strict' regex are a subset of those matching the 'loose' regex and elide the check. It's unlikely such a subset operation would be added (or implemented by a user in the metadata subtype operation, at least in general), so the compiler falls back to the inserted runtime check. To branch on validity instead:
 
 ```js
 if (user is User) {
@@ -211,51 +214,56 @@ if (user is User) {
 }
 ```
 
-Note: There's a comment about 'alice' being a dynamic value because a hardcoded literal would propagate and validate. That is the compiler would be totally fine with the above example and correctly determine that no runtime check is required.
+Note: There's a comment about 'alice' being a dynamic value because a hardcoded literal would propagate and validate. That is, the compiler would be totally fine with the above example and correctly determine that no runtime check is required.
 
 ## Examples
 
 ### JSON Serialization
 
 ```js
-type StringConstraints = {
-	// Upgraded to native RegExp based on our discussion!
-	pattern?: RegExp,
-	minLength?: uint32,
-	maxLength?: uint32
-};
+// String constraints like pattern/minLength/maxLength come from the
+// StringBounds meta type defined in the primitive metadata proposal.
 
 const schemaKey = Symbol('schema');
 
+type SerializeData = {
+	name: string,
+	wireName: string
+};
+
+partial class ClassMetadata {
+	[schemaKey]: [].<SerializeData> = [];
+}
+
 // @field() registers a field for serialization with an optional wire name
 function field<T, TClass>(
-	{ name, metadata }: ClassFieldDecorator<T, TClass>
-) {
-	(metadata[schemaKey] ??= []).push({ name, wireName: name });
+	{ name, metadata }: Reflect.ClassField.<T, TClass>
+) where typeof name == 'string' {
+	metadata[schemaKey].push({ name, wireName: name });
 }
 function field<T, TClass>(
 	wireName: string,
-	{ name, metadata }: ClassFieldDecorator<T, TClass>
-) {
-	(metadata[schemaKey] ??= []).push({ name, wireName });
+	{ name, metadata }: Reflect.ClassField.<T, TClass>
+) where typeof name == 'string' {
+	metadata[schemaKey].push({ name, wireName });
 }
 
-function serialize<T>(instance: T): Record<string, any> {
-	const result: Record<string, any> = {};
-	for (const { name, wireName } of Reflect.getMetadata<T>(schemaKey)) {
+function serialize<T>(instance: T): { [key: string]: any } {
+	const result: { [key: string]: any } = {};
+	for (const { name, wireName } of Reflect.getMetadata.<Reflect.Class, T>()[schemaKey]) {
 		result[wireName] = instance[name];
 	}
 	return result;
 }
 
-function deserialize<T>(cls: { new(): T }, data: Record<string, any>): T {
+function deserialize<T>(cls: { new(): T }, data: { [key: string]: any }): T {
 	const instance = new cls();
 	
 	// 1. Mutation phase: Populate the fields.
 	// Scalar bounds (like string or union types) are checked immediately on assignment.
 	// However, cross-field 'where' clauses are not evaluated yet, allowing us to assign fields in any order without triggering false validation errors.
-	for (const { name, wireName } of Reflect.getMetadata<T>(schemaKey)) {
-		instance[name] = data[wireName]; 
+	for (const { name, wireName } of Reflect.getMetadata.<Reflect.Class, T>()[schemaKey]) {
+		instance[name] = data[wireName];
 	}
 
 	// 2. Boundary phase: Now that the object is fully populated, we assert the cross-field invariants. The `is` operator evaluates the `where` clause.
@@ -299,7 +307,7 @@ class AddressResponse {
 };
 ```
 
-This would be used as decorators are only allowed in the class body:
+Instead this form would be used, as decorators are only allowed in the class body:
 
 ```js
 class AddressResponse {
@@ -317,7 +325,7 @@ class AddressResponse {
 
 ### Network Messages
 
-Showing ```where match``` syntax.
+Showing ```where match``` syntax. The ```match```/```when``` forms follow the [pattern matching proposal](https://github.com/tc39/proposal-pattern-matching); ```where match``` inherits its semantics.
 
 ```js
 type NetworkState = {
@@ -368,16 +376,24 @@ On construction, this would throw if userRole doesn't match the allowed action.
 
 ```js
 type Email = {
-	to: string<{ pattern: /@/ }>,
+	to: string.<{ pattern: /@/ }>,
 	subject?: string,
 	body?: string
 } where this.subject?.length > 0 || this.body?.length > 0;
 
-function draftEmail(): Partial<Email> {
+// The optional-field draft shape, written out since utility types like
+// TypeScript's Partial aren't part of the proposal:
+type EmailDraft = {
+	to?: string.<{ pattern: /@/ }>,
+	subject?: string,
+	body?: string
+};
+
+function draftEmail(): EmailDraft {
 	return {};
 }
 
-function sendEmail(ref draft: Partial<Email>) {
+function sendEmail(ref draft: EmailDraft) {
 	if (!(draft is Email)) {
 		throw new Error("Invalid email draft");
 	}

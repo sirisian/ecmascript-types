@@ -2,6 +2,8 @@
 
 An exposed type format is available to programmers. This can also be used internally in engines.
 
+Note: The Records and Tuples proposal these literals are based on was withdrawn in April 2025 and subsumed by the [Composites proposal](https://github.com/tc39/proposal-composites). The ```#{}```/```#[]``` syntax is kept below for now. Independent of where the format lands, type values compare by value inside these structures, so types are treated as interned primitives rather than object references.
+
 ### Deterministic format
 
 TODO: Identical types encode to the same record. (Define this algorithm). Basically expanding all the references to types should create identical records between the same types independent of their order in unions and intersections. Sorting should be somewhat sufficient?
@@ -18,7 +20,7 @@ TODO: Identical types encode to the same record. (Define this algorithm). Basica
 ```js
 #{
   intersection: #[]
-]
+}
 ```
 
 #### Literals
@@ -30,7 +32,7 @@ const T = type 'a' | 'b' | 'c';
 
 #{
   union: #[
-    'a'
+    'a',
     'b',
     'c'
   ]
@@ -143,9 +145,9 @@ const T = type f;
 Overloaded functions are interesting because their type record can be quite massive, especially generic functions and decorators.
 
 ```js
-function f(x: string): number {}
-function f(x: number): string {}
-function f(x: string, y: boolean): number {}
+function f(x: string): number { return 0; }
+function f(x: number): string { return ''; }
+function f(x: string, y: boolean): number { return 0; }
 
 const T = type f;
 
@@ -171,17 +173,19 @@ const T = type f;
 }
 ```
 
-Note, I don't like this setup using a tuple. I would much rather use a set if they were added as the order of signatures doesn't matter.
+Signatures merge during canonicalization when one parameter list is a prefix of the other with matching names and types and the return types match; the extra parameters become ```optional```. That's why the record above holds two signatures rather than three. The merged form accepts exactly the same calls with the same return types, so it's the same type.
+
+The signatures are stored in the canonical order defined by the deterministic format, so the tuple behaves like a set: two overload sets containing the same signatures in different declaration order encode to the same record.
 
 #### Generic function
 
 Tentatively all generic parameters are included in the parameters.
 
 ```js
-function complex<T extends number, U extends Array<T>, V>(
+function complex<T extends number, U extends Array.<T>, V>(
   x: U,
   y: (t: T) => V,
-  z: Map<V, T>
+  z: Map.<V, T>
 ): U { ... }
 
 #{
@@ -194,9 +198,9 @@ function complex<T extends number, U extends Array<T>, V>(
       type: type,
       constraint: #{
         type: Array,
-        parameters: #[
-          #{ parameter: 'T' }
-        ]
+        parameters: #{
+          T: #{ parameter: 'T' }
+        }
       }
     },
     V: #{
@@ -207,12 +211,9 @@ function complex<T extends number, U extends Array<T>, V>(
     },
     y: #{
       type: #{
-        parameters: #[
-          #{
-            name: 't',
-            type: #{ parameter: 'T' }
-          }
-        ],
+        parameters: #{
+          t: #{ type: #{ parameter: 'T' } }
+        },
         return: #{ parameter: 'V' }
       }
     },
@@ -225,7 +226,7 @@ function complex<T extends number, U extends Array<T>, V>(
         }
       }
     }
-  ],
+  },
   return: #{ parameter: 'U' }
 }
 ```
@@ -234,13 +235,13 @@ Is there any edge case where a parameter needs to be marked explicit/implicit?
 
 ### class type
 
-A class 
+A class type is a record of its properties. Methods, getters, and setters are properties whose types are function records. Interfaces encode to the same format:
 
 ```js
 const T = type interface {
   x: number;
   f: (value: number, ...foo: [].<number>) => boolean;
-  g: Generator<...>;
+  g: Generator.<...>;
 };
 
 #{
@@ -254,20 +255,23 @@ const T = type interface {
     },
     #{
       name: 'f',
-      parameters: #{
-        value: number,
-        foo: #{
-          type: [].<number>,
-          rest: true
-        }
-      ],
+      type: #{
+        parameters: #{
+          value: number,
+          foo: #{
+            type: [].<number>,
+            rest: true
+          }
+        },
+        return: boolean
+      },
       public: true,
       private: false,
       static: false
     },
     #{
       name: 'g',
-      type: Generator<...>,
+      type: Generator.<...>,
       public: true,
       private: false,
       static: false
@@ -276,7 +280,7 @@ const T = type interface {
 }
 ```
 
-As mentioned in the spec, async types are just a Promise<T, E>.
+As mentioned in the spec, async types are just a ```Promise.<T, E>```.
 TODO: Include example
 
 #### optional properties
@@ -303,7 +307,7 @@ TODO: Include example
 class Pair<T, U> {
   first: T;
   second: U;
-  swap(): Pair<U, T> {
+  swap(): Pair.<U, T> {
     return new Pair(this.second, this.first);
   }
 }
@@ -314,7 +318,7 @@ const T = type Pair;
   parameters: #{
     T: type,
     U: type
-  ],
+  },
   properties: #[
     #{
       name: 'first',
@@ -331,7 +335,7 @@ const T = type Pair;
         return: #{
           type: Pair,
           parameters: #{
-            T: #{ parameter: 'U' }
+            T: #{ parameter: 'U' },
             U: #{ parameter: 'T' }
           }
         }
@@ -394,7 +398,7 @@ enum Count: string { Zero = 'Zero', One = 'One', Two = 'Two', Three = 'Three' }
 
 #{
   intersection: #[
-    string
+    string,
     #{
       values: #{
         Zero: 'Zero',
@@ -427,12 +431,13 @@ enum Flags: uint32 { None = 0, Flag1 = 1, Flag2 = 2, Flag3 = 4 }
 
 ### Recursive types
 
+TODO: Records are acyclic and constructed bottom-up, so a self-referential type like ```type Tree = { value: number, children: [].<Tree> };``` can't contain itself directly. The encoding needs a symbolic reference form, similar to how generic parameters are referenced with ```#{ parameter: 'T' }```, for example a named reference to the enclosing type.
 
 ### Record operators
 
 #### keyof
 
-returns a type with all the property keys
+Returns a type with all the property keys.
 
 ```js
 keyof T;

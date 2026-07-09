@@ -6,13 +6,18 @@ Refer to this as I'll base these notes off of it: https://github.com/tc39/propos
 
 **Note**: This is a pseudorandom library identical to Math.random and not cryptographically random. It's designed around speed for things like games. Extending the Crypto library later into ECMAScript would probably be ideal to have a wide range of Crypto RNG generation.
 
-### Math.random.<T, Method=???>()
+### Math.random.<T, Method = Math.PRNG.Default>()
 
 The first addition is a generic version of ```Math.random``` for the float types: 
 
 ```float16```, ```float32```, ```float64```
 
-The second generic argument is a method set to the browser default PRNG method. Not sure how to namespace that. Like ```Math.PRNG.Default```.
+The second generic argument selects the PRNG method. Methods are namespaced as an enumeration on ```Math```, with ```Math.PRNG.Default``` being the browser's default method:
+
+```js
+enum PRNG { Default, Xoshiro256StarStar, PCG32, SplitMix64 }; // Exposed as Math.PRNG
+Math.random.<float32, Math.PRNG.Xoshiro256StarStar>();
+```
 
 Rapidly generating arrays of random numbers in the range \[0, 1):
 
@@ -21,7 +26,9 @@ const a: [100].<float32>;
 Math.random.<float32>(a);
 ```
 
-When used with an integer type it will generate a random integer in their range.
+The array fill overload returns the filled array, allowing chaining.
+
+When used with an integer type it will generate a random integer across the type's full range, inclusive.
 
 ```int8```, ```int16```, ```int32```, ```int64```  
 ```uint8```, ```uint16```, ```uint32```, ```uint64```
@@ -38,9 +45,9 @@ Math.random.<uint8>(a);
 a; // [100, 20, 25] as an example
 ```
 
-### Math.random.<T, Method=???>(min: T, max: T)
+### Math.random.<T, Method = Math.PRNG.Default>(min: T, max: T)
   
-For generating between a min and max inclusive the following data types are allowed:
+For generating between a min and max the following data types are allowed. Integer types and ```bigint``` use the inclusive range \[min, max]. Float types use the half-open range \[min, max), matching the no-argument \[0, 1) convention:
   
 ```int8```, ```int16```, ```int32```, ```int64```  
 ```uint8```, ```uint16```, ```uint32```, ```uint64```  
@@ -61,9 +68,9 @@ const a: [100].<float32>;
 prng.random(a, -1, 1);
 ```
 
-Could also define ```Math.random<T, M=???>(max)``` since function overloading exists.
+Could also define ```Math.random.<T, Method = Math.PRNG.Default>(max)``` since function overloading exists.
   
-### Math.seededRandom.<T, Method=???>(config)
+### Math.seededRandom.<T, Method = Math.PRNG.Default>(config)
 
 ```js
 const prng = Math.seededRandom.<float32>({ seed: 0 });

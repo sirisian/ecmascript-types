@@ -1,59 +1,116 @@
 # Threading Extension and Notes
 
-ECMAScript needs real threading where any function can be spawned as a thread to run asynchronously. Most value type data should be accessible across threads with some operations being atomic automatically. The syntax for creating and managing threads should be very minimal and effortless to use.
+ECMAScript needs real threading where any function can be spawned as a thread that runs on another core, in the same heap, sharing the same objects. This is the shared-memory model that Java, Go, and C# have - not the worker model, where every thread is a separate heap that communicates by copying. There is no structured clone, no ```postMessage```, and no need to marshal data through a ```SharedArrayBuffer``` byte buffer: you share a value by referencing it. The syntax for creating and managing threads should be minimal and effortless.
 
-For example, you should be able to define a global ```a: uint32``` and in a thread ```Atomics.add(a, 5)``` it without shuffling it into a typed array.
+For example, you should be able to define a global ```a: uint32``` and atomically add to it from a thread with ```Atomics.add(ref a, 5)```, without first shuffling it into a typed array:
 
 ```js
-let a: uint32 = 0; 
+let a: uint32 = 0;
 function A() {
-  Atomics.add(a, 5);
+  Atomics.add(ref a, 5);
 }
 async function B() {
   A();
-  Atomics.add(a, 5);
+  Atomics.add(ref a, 5);
 }
-// Naive call syntax to show these execute on their own thread and callThread returns a promise.
+// callThread runs the function on another thread and returns a joinable handle.
 await Promise.all([A.callThread(), B.callThread()]); // Join
 a; // 15
 ```
 
-The ```callThread``` method would return a Promise. Internally it spawns a thread that automatically closes over all the state referenced. In fully typed code this operation can be relatively optimizable; however, it is possible to use this with dynamic code with higher costs, but this usage would be rare.
+```callThread``` runs the function on another thread and returns a Promise that settles with the function's return value, or rejects with the exception it threw. Internally it spawns a thread that closes over the state the function references - the closure sees the same variables, objects, and imported bindings it would see on the calling thread, because there is one heap. In fully typed code the compiler knows statically which state is shared and can make this close to free; dynamic code works too, at higher cost, but that case is rare.
 
-It was my hope that a Cancelable Promise proposal would have been finalized by now. Assume one exists.
+## The shared heap
 
-Some value type operations would be atomic automatically. Addition on integers for instance.
+Spawned threads run in the same realm. ```globalThis``` is the same object, there is one ```Array```, one ```Object.prototype```, one copy of each of your classes, and one already-executed module graph. ```x instanceof Foo``` is true on every thread because there is exactly one ```Foo```. Spawning a thread costs a thread - a native stack and some per-thread allocator state - not another copy of your program's startup, so a thread per request or per connection is a reasonable thing to do rather than something to avoid.
+
+Because objects are shared by reference, a value that never leaves the thread that created it costs nothing; a value only takes on the cost of concurrency once a second thread actually touches it. The ```shared``` modifier (a contextual keyword in the main proposal) is the explicit, typed form of that boundary: it marks a binding or field whose value is expected to cross threads, which lets the compiler place it in shared storage from the start and reason statically about where synchronization is required, rather than inferring thread-locality at runtime.
+
+## Promises across threads
+
+A promise is an ordinary heap object, so it is shared like everything else. If one thread registers a ```.then()``` (or is suspended at an ```await```) and another thread settles the promise, the reaction runs on the settling thread's microtask queue - there is no hop back to the registering thread. Each thread drains its own microtask queue, and queues never interleave jobs from other threads. The handle returned by ```callThread``` is the exception to the settling-thread rule: like an explicit join, it settles on the thread that called ```callThread```, tied to that thread's event loop, so awaiting a spawned function behaves the way you expect.
+
+## Memory model
+
+The language stays single-threaded in its semantics *per thread*. The engine guarantees memory safety no matter how badly a program races: no torn engine values, no corrupted object storage, no type confusion. A data race in your own code produces a stale or surprising *value*, never a corrupted heap and never a crash - races on your data are your problem, races on the engine's data are the engine's problem.
+
+Plain operations on shared data are **not** automatically atomic. A shared ```a += 5``` performed by two threads without synchronization is a data race; the result is one of the values allowed by the relaxed memory model - the same model ECMAScript already defines for ```SharedArrayBuffer``` access - that is, a value that may have missed the other thread's update. Reads and writes of a single primitive value don't corrupt the engine, but wide value types and updates that span multiple fields (a record, a composite) can be observed torn or half-applied by another thread. Atomicity is obtained exclusively through ```Atomics.*```; there is no implicit "some operations are atomic" rule, because leaving that set undefined would make racing programs unspecifiable and would tax every shared write.
+
 ```js
 let a: uint32 = 0;
 function A() {
   while (true) {
-    a += 5;
+    a += 5; // data race: not atomic
   }
 }
 A.callThread();
 await new Promise(resolve => setTimeout(resolve, 100));
-a; //
+a; // Unspecified value: concurrent unsynchronized writes. Use Atomics.add(ref a, 5) for a defined result.
 ```
+
+## Atomics on typed values
+
+Today ```Atomics``` operates only on integer typed arrays: ```Atomics.add(typedArray, index, value)```. The extension keeps that form and adds two more, so the same operations apply to a typed binding or an object's own property:
+
+```js
+Atomics.add(ref a, value);         // atomic RMW on a typed binding
+Atomics.add(obj, 'count', value);  // atomic RMW on an own data property
+Atomics.add(typedArray, i, value); // unchanged
+```
+
+The full set carries over from the SharedArrayBuffer atomics: ```load```, ```store```, ```add```, ```sub```, ```and```, ```or```, ```xor```, ```exchange```, ```compareExchange```, ```wait```, ```waitAsync```, and ```notify```. Each is a single sequentially-consistent step on the target. ```compareExchange``` compares with SameValueZero, so compare-and-swap loops that cycle through ```NaN``` behave. The arithmetic and bitwise operations require a target whose type is an integer value type; ```load```, ```store```, ```exchange```, ```compareExchange```, ```wait```, and ```notify``` also apply to other shared value types where the operation is meaningful.
+
+## Synchronization
+
+Atomics cover single-location updates. For anything larger - guarding a multi-field update, a shared collection, or a handoff between threads - the extension provides ordinary objects with blocking and async methods:
+
+```js
+const lock = new Lock();
+lock.hold(() => { /* critical section, released like a finally */ });
+const release = await lock.asyncHold(); // non-blocking acquire, call release() when done
+
+const cond = new Condition();
+lock.hold(() => {
+  while (!ready) {
+    cond.wait(lock); // atomically releases the lock and parks, spurious wakeups allowed
+  }
+});
+cond.notify(); // or cond.notifyAll()
+await cond.asyncWait(lock); // promise resolves holding the lock again
+
+const tls = new ThreadLocal(); // .value is independent per thread, holds any value
+```
+
+```Lock``` is non-recursive. ```wait```/```notify``` are the textbook condition-variable handshake - and since the mailbox can be any shared object with real methods, a producer/consumer handoff is expressible directly rather than as an index into a byte buffer. On threads where the embedder forbids blocking, for instance the main thread of a browser, the ```async``` forms are used instead of the blocking ones.
+
+## Cancellation
+
+A thread is cancelled with an ```AbortSignal```, the same mechanism the rest of the platform uses. (The Cancelable Promise proposal this file once assumed was withdrawn.)
+
+```js
+const controller = new AbortController();
+const t = search.callThread({ signal: controller.signal });
+// ...
+controller.abort(); // the thread observes the abort at its next check point
+```
+
+A cooperative check is often just a shared boolean the winner flips, which every other thread sees on its next read. Cancellation is data like anything else.
 
 ## Applications
 
-* Game algorithms like pathfinding
-* Parsing large binary data formats when using binary Web Sockets.
+* Game algorithms like pathfinding.
+* Parsing large binary data formats when using binary WebSocket or WebTransport tasks.
 
 ## Future Applications
 
 * Building DOM nodes in a separate thread then appending in the main thread. This is intuitive for programmers, but currently is not possible. In an ideal web environment this would just work where you could document.createElement in a function and as long as you didn't try to reference the active DOM you'd be fine.
   * In a large single page application multiple threads could be spun up creating different sections of the DOM that are then joined and appended to the document.
-* In cases where you're waiting for data from a REST call and get a JSON object back you then need to process the data. A thread could do the rest call, perform the JSON.parse, processing, then return back the data without having to postMessage.
+* In cases where you're waiting for data from a REST call and get a JSON object back you then need to process the data. A thread could do the REST call, perform the JSON.parse, processing, then return the data without having to postMessage.
 
 ## Concurrent Data Structures
 
-Concurrent data structures would be nice to have with native implementations.
+Because a ```Map``` or ```Set``` is a shared object like any other, one instance guarded by a ```Lock``` is directly usable as a shared cache across threads. This removes any per-thread copies, cache-server thread, or hand-rolled hashmap over a byte buffer that might have been used. Native concurrent (lock-free or fine-grained) implementations of these structures would be valuable so the guarding is built in.
 
-## Pipelines
+# Node.js, Deno, etc
 
-WIP How do pipelines fit into this? Intuitively piping data to a threaded function should just work and create a thread. Is that a realistic scenario though?
-
-# Node.JS
-
-It should be assumed that Node.JS would use this as well where offloading parsing and expensive operations to threads is very beneficial.
+Node.js would use this as well, where offloading parsing and expensive operations to threads is very beneficial and where the shared-heap model avoids the serialization that Worker threads currently pay.
