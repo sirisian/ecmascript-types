@@ -111,6 +111,17 @@ let b: Type = value;
 const c: Type = value;
 ```
 
+A typed declaration without an initializer is initialized to the type's default value rather than ```undefined```: numeric and SIMD types default to ```0```, ```string``` to ```''```, ```boolean``` to ```false```, nullable unions to ```null```, and array types to an empty (or zero-filled fixed-length) array. This matches the default ```value``` behavior of typed property descriptors described in the object typing section.
+
+```js
+let a: uint32; // 0
+let b: string; // ''
+let c: uint8 | null; // null
+let d: [4].<uint8>; // [0, 0, 0, 0]
+```
+
+```var```, ```let```, and ```const``` accept the same annotations, and a ```const``` still requires an initializer. The temporal dead zone is unchanged: accessing ```a``` above its ```let``` line remains a ReferenceError. The default value applies at the declaration, not before it.
+
 ### typeof Operator
 
 ```typeof```'s behavior is essentially unchanged. All numerical types return ```"number"```. SIMD, rational, and complex types return ```"object"```.
@@ -161,9 +172,51 @@ type a =
   | c;
 ```
 
+#### null, undefined, and the Short-Circuiting Operators
+
+```null``` and ```undefined``` remain distinct values with distinct types. A value type admits neither unless its union says so, and an engine is free to represent a small nullable union with a tag or sentinel rather than boxing the value.
+
+```js
+let a: uint8 = 0;
+// a = null; // TypeError: uint8 is non-nullable
+let b: uint8 | null = null;
+let c: uint8 | undefined; // undefined
+```
+
+The nullish operators narrow the union they operate on, and using them where the left side can never be nullish is a compile-time TypeError rather than silent dead code:
+
+```js
+let a: uint8 | null = f();
+let b: uint8 = a ?? 5; // ?? removes null and undefined from the result type
+a ??= 5; // a is narrowed to uint8 until a nullable reassignment
+
+let d: uint8 = 0;
+// d ?? 5; // TypeError: left side of ?? is never null or undefined
+```
+
+Optional chaining produces ```undefined``` when it short-circuits, so its result type widens with ```| undefined```:
+
+```js
+interface IExample { a: uint8; }
+let o: IExample | null = f();
+let a = o?.a; // uint8 | undefined
+let b: uint8 = o?.a ?? 0;
+```
+
+```&&=``` and ```||=``` require the left side to be valid in a boolean context per the control structures section, and the assigned right side must be assignable to the declared type of the left side.
+
 ### Intersection types
 
-// TODO
+An intersection combines object interfaces; the result requires every member of each. Members sharing a name must have identical types or the declaration is a TypeError:
+
+```js
+interface A { a: uint32; }
+interface B { b: string; }
+type AB = A & B;
+function f(o: AB) {} // o.a and o.b are both required
+```
+
+Intersections are for object shapes. Intersecting value types, like ```uint8 & string```, is a TypeError since no value inhabits both; refining a single primitive is instead handled with [primitive metadata](primitivemetadata.md).
 
 ### any Type
 
@@ -514,11 +567,27 @@ This behavior is especially useful when using the float and decimal types.
 const a: decimal128 = 9.999999999999999999999999999999999;
 ```
 
+Numeric separators and alternative bases propagate the same way, and a literal outside the target type's range is a compile-time TypeError rather than a silent wrap:
+
+```js
+const a: uint32 = 4_294_967_295;
+const b: uint8 = 0b1111_1111; // 255
+const c: uint16 = 0xFFFF;
+// const d: uint8 = 256; // TypeError: literal out of range for uint8
+```
+
+BigInt literals keep the ```n``` suffix and stay ```bigint```. An unsuffixed literal assigned to ```int64```/```uint64``` relies on type propagation, so no suffix system is needed for the new integer types:
+
+```js
+const a: uint64 = 18446744073709551615; // propagated, exact
+const b: bigint = 18446744073709551615n;
+```
+
 ### Typed Array Propagation to Arrays
 
 Identically to how types propagate to literals they also propagate to arrays. For example, the array type is propagated to the right side:
 ```js
-const a:[].<bigint> = [999999999999999999999999999999999999999999];
+const a: [].<bigint> = [999999999999999999999999999999999999999999];
 ```
 
 This can be used to construct instances using implicit casting:
@@ -789,6 +858,25 @@ function g(a: A | B) {
 }
 g({ a: 'a' });
 ```
+
+#### Index Signatures
+
+An interface or object type can constrain arbitrary keys with an index signature. The key type must be ```string```, ```symbol```, ```uint32```, or a union of these, and every explicitly declared property must be assignable to the signature's value type:
+
+```js
+interface StringMap {
+  [key: string]: uint32;
+}
+let scores: StringMap = {};
+scores['a'] = 1;
+// scores['b'] = 'x'; // TypeError: string is not assignable to uint32
+
+interface Sparse {
+  [index: uint32]: float32;
+}
+```
+
+The inline form appears throughout the extended documents as ```{ [key: string]: any }``` for JSON-shaped data. An index signature types possible properties; it does not make an object array-like or iterable on its own.
 
 #### Array Interfaces
 
@@ -1120,6 +1208,8 @@ async function f(): Promise.<uint8, undefined> {
 }
 ```
 
+```await``` unwraps the resolve type: awaiting a ```Promise.<uint8, Error>``` yields a ```uint8```, and the reject type feeds the typed catch clauses described in the try catch section. The combinators infer from their inputs, so ```Promise.all``` over a tuple of typed promises resolves to a tuple of the resolve types and rejects with the union of the reject types.
+
 Right now there's no check except the runtime check when a function actually throws to validate the exception types. It is feasible however that the immediate async function scope could be checked to match the type and generate a TypeError if one is found even for codepaths that can't resolve. This is stuff one's IDE might flag.
 
 #### Overloading Async Functions and Typed Promises
@@ -1136,38 +1226,102 @@ await f();
 
 Refer to the try catch section on how different exception types would be explicitly captured: https://github.com/sirisian/ecmascript-types#try-catch
 
-### Generator Overloading
+### Typed Iteration and Generators
 
-WIP: I don't like this syntax.
+A generator annotates its yield type directly; the full generic form names the yield, return, and next types.
 
 ```js
-var o = {};
-o[Symbol.iterator] =
-[
-  function* (): int32 {
+function* f(): int32 { // shorthand for Generator.<int32, void, void>
+  yield 1;
+  yield 2;
+}
+
+function* g(): Generator.<int32, string, boolean> {
+  const again: boolean = yield 0; // a yield expression evaluates to the next() argument type
+  return 'done';
+}
+const it = g();
+it.next(true); // { value, done } with value: int32 until done, then string
+```
+
+The loop variable of ```for...of``` infers from the iterable's yield type and can be annotated to assert it:
+
+```js
+for (const a: int32 of f()) {}
+```
+
+#### The Iteration Operator
+
+Classes and object literals define their iteration protocol with the ```...``` operator rather than assigning ```Symbol.iterator``` by hand. It's a generator method, and like every other operator it overloads on its signature, here the yield type:
+
+```js
+class Grid {
+  *operator...(): int32 {
     yield* [1, 2, 3];
-  },
-  function* (): [int32, int32] {
+  }
+  *operator...(): [int32, int32] {
     yield* [[0, 1], [1, 2], [2, 3]];
   }
-];
-
-[...o:int32]; // [1, 2, 3] Explicit selection of the generator return signature
-for (const a:int32 of o) {} // Type is optional in this case
-[...o:[int32, int32]]; // [[0, 1], [1, 2], [2, 3]]
-for (const [a:int32, b:int32] of o) {} // Type is optional in this case
+}
+const g = new Grid();
 ```
 
-I'd rather do something like:
+The consuming type selects the overload, following the same rules as typed destructuring:
 
 ```js
-*operator...(): int32 {
-  yield* [1, 2, 3];
-}
-*operator...(): [int32, int32] {
-  yield* [[0, 1], [1, 2], [2, 3]];
-}
+const a: [].<int32> = [...g]; // [1, 2, 3]
+for (const [a: int32, b: int32] of g) {} // [[0, 1], [1, 2], [2, 3]] overload
+// const b = [...g]; // TypeError: ambiguous iteration, annotate the receiving type
 ```
+
+```[Symbol.iterator]``` remains the underlying protocol. ```*operator...()``` defines it, and untyped code iterating the object uses the first declared overload for compatibility. A class with a single ```*operator...()``` iterates everywhere without annotations.
+
+#### Async Iteration
+
+```async function*``` types the same way with ```AsyncGenerator.<Y, R, N>```, and ```async *operator...()``` defines ```[Symbol.asyncIterator]```:
+
+```js
+async function* f(): AsyncGenerator.<uint8, void, void> {
+  yield 0;
+}
+for await (const a: uint8 of f()) {}
+```
+
+#### Iterator Helpers
+
+The iterator helper methods flow element types through their callbacks, so fully typed chains need no annotations and can be fused by the engine:
+
+```js
+function* f(): int32 { yield* [1, 2, 3]; }
+const a: [].<int32> = f().map(x => x * 2).filter(x => x > 2).toArray(); // x: int32 inferred
+```
+
+### Explicit Resource Management
+
+```using``` and ```await using``` declarations accept the same annotations as ```const```. The well-known disposal symbols have typed signatures, and a typed class participates by declaring them:
+
+```js
+interface Disposable {
+  [Symbol.dispose](): void;
+}
+interface AsyncDisposable {
+  [Symbol.asyncDispose](): Promise.<void, any>;
+}
+
+class File {
+  [Symbol.dispose](): void {
+    // close the handle
+  }
+}
+
+{
+  using f: File = open();
+} // f[Symbol.dispose]() ran here
+
+await using c: Connection = await connect();
+```
+
+A ```using``` declaration whose declared type doesn't include ```[Symbol.dispose]``` (or ```[Symbol.asyncDispose]``` for ```await using```) is a compile-time TypeError instead of today's runtime error, and disposal of a fully typed resource is an ordinary devirtualizable call.
 
 ### Object Typing
 
@@ -1807,6 +1961,20 @@ let a: float32 = 1.23;
 //}
 ```
 
+When the switch expression is enum-typed, case labels must be enumerators of that enum, and the compiler checks exhaustiveness: a switch over an enum with no ```default``` must list every enumerator or it's a compile-time TypeError. Adding an enumerator later then surfaces every switch that needs updating.
+
+```js
+enum Count { Zero, One, Two };
+let a: Count = Count.Zero;
+switch (a) {
+  case Count.Zero:
+    break;
+  case Count.One:
+    break;
+  // TypeError: switch over Count is missing case Count.Two (or add a default)
+}
+```
+
 ### Member memory alignment and offset
 
 By default the memory layout of a typed class - a class where every property is typed - simply appends to the memory of the extended class. For example:
@@ -1893,7 +2061,7 @@ b[0].b; // 0
 
 The following global objects could be used as types:
 
-```DataView```, ```Date```, ```Error```, ```EvalError```, ```InternalError```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SyntaxError```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakSet```
+```AggregateError```, ```ArrayBuffer```, ```AsyncDisposableStack```, ```AsyncIterator```, ```DataView```, ```Date```, ```DisposableStack```, ```Error```, ```EvalError```, ```FinalizationRegistry```, ```InternalError```, ```Iterator```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SharedArrayBuffer```, ```Symbol```, ```SyntaxError```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakRef```, ```WeakSet```
 
 ### Generics
 
@@ -1987,6 +2155,24 @@ This has been brought up before, but possible solutions due to compatibility iss
 ```js
 import {int8, int16, int32, int64} from "@valueobjects";
 //import "@valueobjects";
+```
+
+Since every annotation position in this proposal is new syntax, the simplest direction, and the one the rest of this document assumes, is that the built-in value type names are contextual type names requiring no import. The remaining module surface follows from types being values:
+
+- ```type```, ```interface```, and ```enum``` declarations use ordinary ```export``` and ```import```. An imported type behaves like a ```const``` binding.
+- Typed function and class exports carry their full signatures in the module record, so overload resolution, cross-module inlining, and typed call sites work without re-declaration.
+- ```import()``` resolves to a namespace whose members keep their declared types, and deferred evaluation doesn't affect signatures.
+
+```js
+// shapes.js
+export type Point = { x: float32; y: float32; };
+export interface Drawable { draw(): void; }
+export function magnitude(p: Point): float32 { return Math.hypot(p.x, p.y); }
+
+// main.js
+import { Point, magnitude } from './shapes.js';
+const p: Point = { x: 3, y: 4 };
+magnitude(p); // signature known across the module boundary
 ```
 
 ## Overview of Future Considerations and Concerns
