@@ -2148,6 +2148,68 @@ const b:[].<A> = [0, 1, 2];
 b[0].b; // 0
 ```
 
+### Proxy and Typed Objects
+
+A ```Proxy``` synthesizes an object's shape from traps that may return anything. That is in direct tension with what typed objects exist to provide, so the interaction is defined by how much of the guarantee a given target still holds.
+
+Instances of typed classes and typed arrays are backed by memory layouts rather than property tables. A field read is an offset load the engine performs without consulting a handler, and there is no correct point at which to run a trap. Constructing a proxy over one is a TypeError:
+
+```js
+class A { a: uint8; }
+// new Proxy(new A(), {}); // TypeError: A is a typed class
+// new Proxy([].<uint8>([0]), {}); // TypeError: a typed array is layout-backed
+new Proxy({ a: 0 }, {}); // Unchanged, an untyped object
+```
+
+An ordinary object may carry typed own properties from the object typing section. Proxying one is allowed, and every trap result for a typed property is checked against that property's declared type. This extends the existing proxy invariants, which already force a trap to tell the truth about non-configurable, non-writable data properties:
+
+```js
+const o = { (a: uint8): 0 };
+const p = new Proxy(o, {
+  get(target, key) {
+    return 'a';
+  }
+});
+// p.a; // TypeError: the get trap returned a string for property 'a' of type uint8
+```
+
+```deleteProperty``` on a typed property is a TypeError, as ```delete``` is elsewhere in this proposal, and ```defineProperty``` cannot change a property's ```type```.
+
+#### Proxies as Interfaces
+
+A proxy is a structural value, so it can implement an interface. Because the shape comes from traps rather than storage, each trapped read is checked against the interface's member type at the read, which is the same boundary at which a cast is checked:
+
+```js
+Proxy<T = any>
+
+interface ProxyHandler<T> {
+  get?(target: T, key: string | symbol, receiver: any): any;
+  set?(target: T, key: string | symbol, value: any, receiver: any): boolean;
+  has?(target: T, key: string | symbol): boolean;
+  deleteProperty?(target: T, key: string | symbol): boolean;
+}
+```
+
+```js
+interface ICounter {
+  count: uint32;
+}
+const counter: ICounter = new Proxy.<ICounter>({}, {
+  get(target, key) {
+    return 0;
+  }
+});
+counter.count; // uint32, checked on the way out of the trap
+```
+
+```Reflect.typeOf``` on a proxy reports ```T```, the type it was constructed with, since that is the contract the trap checks enforce. Without a type argument a proxy is ```any``` and behaves as it does today.
+
+The tradeoff is deliberate: a proxy exchanges the engine's ability to elide checks for the ability to synthesize shape. A typed class instance never makes that exchange, which is why it cannot be a target.
+
+#### Reflect
+
+The ```Reflect``` methods mirror the operations above. ```Reflect.get``` and ```Reflect.set``` obey a property's declared type, ```Reflect.defineProperty``` accepts the ```type``` key of a descriptor, ```Reflect.deleteProperty``` on a typed property is a TypeError, and ```Reflect.typeOf``` returns a runtime type object as described in the typeof section.
+
 ### Weak References
 
 Weak references require identity. ```WeakRef```, ```WeakMap``` keys, ```WeakSet``` values, and ```FinalizationRegistry``` targets accept reference types: ordinary objects, class instances, typed arrays (which are objects), functions, and unregistered symbols.
@@ -2214,7 +2276,7 @@ Registered symbols from ```Symbol.for``` remain a TypeError, as they do today. U
 
 The following global objects could be used as types:
 
-```AggregateError```, ```ArrayBuffer```, ```AsyncDisposableStack```, ```AsyncIterator```, ```DataView```, ```Date```, ```DisposableStack```, ```Error```, ```EvalError```, ```FinalizationRegistry```, ```InternalError```, ```Iterator```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SharedArrayBuffer```, ```Symbol```, ```SyntaxError```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakRef```, ```WeakSet```
+```AggregateError```, ```ArrayBuffer```, ```AsyncDisposableStack```, ```AsyncIterator```, ```DataView```, ```Date```, ```DisposableStack```, ```Error```, ```EvalError```, ```FinalizationRegistry```, ```InternalError```, ```Iterator```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SharedArrayBuffer```, ```Symbol```, ```SyntaxError```, ```Temporal```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakRef```, ```WeakSet```
 
 ### Standard Library
 
@@ -2227,6 +2289,12 @@ This extension collects the typed signatures of the standard library's generic m
 This extension types regular expression literals by their capture groups, giving match results exact tuple and named group shapes, typed replacement callbacks, and string narrowing through pattern constraints.
 
 [Typed Regular Expressions](regexp.md)
+
+### Temporal
+
+This extension covers typed Temporal signatures, units as an enumeration, and durations as dimensioned quantities that participate in the primitive metadata unit system.
+
+[Temporal](temporal.md)
 
 ### Generics
 
@@ -2317,6 +2385,21 @@ All new syntax in this proposal is a syntax error in current ECMAScript, so no e
 - ```type```, ```ref```, ```operator```, ```dynamic```, ```partial```, ```shared```, ```where```, and ```is``` are contextual keywords. They're only treated as keywords in positions that don't parse today. For example ```type X = 1;``` is currently a syntax error on one line, and the grammar uses a [no LineTerminator here] restriction after ```type``` so a two-statement sequence split across lines keeps its current meaning.
 - ```:=``` and ```.<``` are token sequences that cannot appear in any valid program today, which is why the typed assignment and generic application syntaxes are built on them.
 - ```a: Type``` annotations appear only in declaration positions (bindings, parameters, class members, return types) where a ```:``` is currently invalid. Object literal and destructuring positions, where ```:``` already has a meaning, use the parenthesized ```(a: Type)``` form throughout the proposal for exactly this reason.
+
+### Strict Mode
+
+Typed code is strict mode code. A function whose parameters, return type, or body contain a type annotation is strict, as if it began with ```'use strict'```, and functions nested inside it inherit that. Class bodies and modules are already strict, so in practice this extends the rule to typed functions and scripts. Since annotations are new syntax, no existing program's mode changes, and code with no annotations is unaffected. Typed and sloppy functions call each other normally.
+
+Each sloppy mode behavior this removes is one that conflicts with something typed code depends on:
+
+- ```with``` introduces bindings whose types cannot be known statically.
+- The ```arguments``` object is unmapped, so a write through ```arguments[0]``` cannot bypass a parameter's declared type. Typed rest parameters are the replacement.
+- Assignment to a non-writable property throws rather than failing silently, matching typed assignment, which throws a TypeError on a type mismatch.
+- ```this``` is ```undefined``` rather than the global object in a function called without a receiver, which matters when ```this``` is typed.
+- ```delete``` of an unqualified identifier is a SyntaxError. Deleting a typed field or typed array element remains a TypeError per the interfaces and arrays sections.
+- Legacy octal literals and the ```\8``` and ```\9``` escapes are SyntaxErrors, keeping the numeric literal grammar unambiguous alongside separators and type propagation to literals.
+- ```Function.prototype.caller``` and ```arguments.callee``` are absent, so a function's identity cannot be recovered from its frame.
+- A direct ```eval``` gets its own scope and cannot introduce bindings into the enclosing typed scope. The compiler's knowledge of a typed scope is therefore complete, which is what allows a typed function to be compiled without guards against injected bindings.
 
 ## Undecided Topics
 
