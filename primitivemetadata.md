@@ -62,6 +62,9 @@ meta T {
 	// Optional: adjust this meta type's constraint when the underlying value is scaled by another meta type's conversion, keeping value-space metadata like bounds consistent. When absent while a conversion occurs, this meta type's portion falls back to `default`.
 	rescale?(constraint: T, factor: float64): T;
 
+	// Optional: map a value onto the representation this constraint requires, such as rounding a decimal to a fixed scale. Applied at assignment, argument, and return boundaries after `subtype` passes and after any `conversionFactor` scaling, so intermediate results within an expression keep full precision.
+	quantize?(value: primitive, constraint: T): primitive;
+
 	// Optional: human-readable description for error messages.
 	describe?(constraint: T): string;
 }
@@ -77,6 +80,7 @@ interface MetaProtocol.<T> {
 	narrow?(current: T, op: string, value: any): T;
 	conversionFactor?(from: T, to: T): float64;
 	rescale?(constraint: T, factor: float64): T;
+	quantize?(value: any, constraint: T): any;
 	describe?(constraint: T): string;
 }
 ```
@@ -710,7 +714,7 @@ primitive float32<B: NumberBounds> {
 
 For a given operator invocation:
 
-1. **Conversion at the argument boundary.** Operator parameters convert like any other typed parameter. For each meta type on the parameter's type: `subtype()` must hold; if `conversionFactor()` is defined and yields a factor other than `1`, the argument's value is multiplied by it and every *other* meta type's metadata on that argument is passed through its `rescale()` hook (falling back to `default` when `rescale` is absent). Value blocks therefore receive operands already in the LHS's unit system.
+1. **Conversion at the argument boundary.** Operator parameters convert like any other typed parameter. For each meta type on the parameter's type: `subtype()` must hold; if `conversionFactor()` is defined and yields a factor other than `1`, the argument's value is multiplied by it and every *other* meta type's metadata on that argument is passed through its `rescale()` hook (falling back to `default` when `rescale` is absent); finally, any meta type defining `quantize()` maps the converted value onto the representation its constraint requires. Value blocks therefore receive operands already in the LHS's unit system and representation.
 2. At most one value block may match. Its body computes the result value. If two value blocks match the same operator, the compiler reports an ambiguity error.
 3. Any number of metadata-only blocks may match. Each contributes its portion of the result metadata via its return type annotation, observing operand metadata *after* the conversion in step 1.
 4. If no value block matches, the default primitive operation runs.
@@ -822,6 +826,110 @@ type Longitude = float32.<{
 	minimum: -180,
 	exclusiveMaximum: 180
 }>;
+```
+
+## DecimalContext
+
+The decimal types follow IEEE 754-2008 decimal arithmetic: `decimal128` carries 34 significant digits and rounds ties to even. Money, tax, and measurement code needs more than that. It needs values pinned to a scale - a number of digits after the decimal point - and it needs to say how a value that doesn't land on that grid is rounded. `DecimalContext` is a meta type carrying both, so scale and rounding live in the type instead of being threaded through every call as a context object.
+
+```js
+enum Rounding: uint8 { HalfEven, HalfUp, HalfDown, Down, Up, Ceiling, Floor };
+
+type DecimalContext = {
+	scale?: int32, // Digits kept after the decimal point
+	rounding?: Rounding // Applied when quantizing to `scale`. Defaults to HalfEven
+};
+
+meta DecimalContext {
+	default = {};
+
+	// A value at a given scale is assignable where an unscaled value is
+	// expected. Assigning between different scales is permitted and
+	// quantizes; assigning an unscaled value into a scaled type quantizes
+	// as well. Both go through rescale() below.
+	subtype(sub: DecimalContext, sup: DecimalContext): boolean {
+		return true;
+	}
+
+	// No conversionFactor: quantization changes a value's representation,
+	// not its unit, so nothing is multiplied.
+
+	// Round the value onto the constraint's grid. Called at boundaries, so an
+	// expression's intermediates stay exact and only the stored value rounds.
+	quantize(value: decimal128, constraint: DecimalContext): decimal128 {
+		if (constraint.scale == null) {
+			return value;
+		}
+		return value.round(constraint.scale, constraint.rounding ?? Rounding.HalfEven);
+	}
+
+	describe(constraint: DecimalContext): string {
+		if (constraint.scale == null)
+			return 'unscaled';
+		return `scale ${constraint.scale}, ${Rounding.toString(constraint.rounding ?? Rounding.HalfEven)}`;
+	}
+}
+```
+
+Arithmetic is exact within an expression. Quantization happens where every other metadata rule is applied: at assignment, argument, and return boundaries. An intermediate result therefore keeps full precision and only the value that lands in a scaled type is rounded, so `a * b * c` rounds once rather than three times.
+
+```js
+primitive decimal128<C: DecimalContext> {
+	// Arithmetic drops the scale: the result of an operation is exact and
+	// unscaled until it reaches a boundary that fixes a scale.
+	operator+(rhs: decimal128): decimal128;
+	operator-(rhs: decimal128): decimal128;
+	operator*(rhs: decimal128): decimal128;
+	operator/(rhs: decimal128): decimal128;
+}
+```
+
+```js
+type Money = decimal128.<{ scale: 2 }>;
+
+const price: Money = 19.999; // 20.00, quantized at the assignment boundary
+const rate: decimal128 = 0.0825;
+const total: Money = price * (1 + rate); // Exact product, quantized once on assignment
+
+function charge(amount: Money) {}
+charge(price * 3); // Quantized at the argument boundary
+```
+
+Division that has no exact representation quantizes to the destination's scale. When the destination fixes no scale, the result keeps 34 significant digits and rounds ties to even, as IEEE 754 specifies:
+
+```js
+const third: decimal128.<{ scale: 4, rounding: Rounding.Down }> = 1 / 3; // 0.3333
+const exact: decimal128 = 1 / 3; // 0.3333333333333333333333333333333333
+```
+
+Comparisons compare values, not representations, so a scale difference never changes the answer:
+
+```js
+const a: decimal128.<{ scale: 2 }> = 1.5;
+const b: decimal128.<{ scale: 4 }> = 1.5;
+a == b; // true, 1.50 and 1.5000 are the same value
+```
+
+Because `DecimalContext` claims only `scale` and `rounding`, it composes with any other meta type on the same value by the flat merge rules below. A currency-tagged money type is the two together:
+
+```js
+type Currency = { currency: string };
+meta Currency {
+	default = { currency: '' };
+	// No conversionFactor: currencies never convert implicitly.
+	subtype(sub: Currency, sup: Currency): boolean {
+		return sup.currency == '' || sub.currency == sup.currency;
+	}
+	describe(constraint: Currency): string {
+		return constraint.currency || 'currency-less';
+	}
+}
+
+type USD = decimal128.<{ currency: 'USD', scale: 2 }>;
+type EUR = decimal128.<{ currency: 'EUR', scale: 2 }>;
+
+const a: USD = 19.99;
+// const b: EUR = a; // TypeError: Currency.subtype({ currency: 'USD' }, { currency: 'EUR' }) failed
 ```
 
 ## Compiler Decomposition Rules
@@ -1532,6 +1640,30 @@ function Math.sqrt<D: Dimensions>(x: float32.<D>): float32.<halveDimensions(D)>
 
 // Propagate Dimensions metadata
 function Math.hypot<D: Dimensions>(...args: [].<float32.<D>>): float32.<D>;
+
+// The remaining Math functions that take dimensioned arguments preserve the
+// dimension, since selecting, negating, or rounding a quantity cannot change
+// what it measures. Comparison-based selection requires the same
+// parameterization on both arguments, so a Kilometer and a Meter are
+// converted at the argument boundary before being compared.
+
+function Math.min<D: Dimensions>(...args: [].<float32.<D>>): float32.<D>;
+function Math.max<D: Dimensions>(...args: [].<float32.<D>>): float32.<D>;
+function Math.abs<D: Dimensions>(x: float32.<D>): float32.<D>;
+function Math.clamp<D: Dimensions>(x: float32.<D>, low: float32.<D>, high: float32.<D>): float32.<D>;
+function Math.floor<D: Dimensions>(x: float32.<D>): float32.<D>;
+function Math.ceil<D: Dimensions>(x: float32.<D>): float32.<D>;
+function Math.round<D: Dimensions>(x: float32.<D>): float32.<D>;
+function Math.trunc<D: Dimensions>(x: float32.<D>): float32.<D>;
+function Math.fround<D: Dimensions>(x: float32.<D>): float32.<D>;
+
+// sign returns a dimensionless -1, 0, or 1.
+function Math.sign<D: Dimensions>(x: float32.<D>): float32;
+
+// The transcendental functions take dimensionless arguments. Passing a
+// dimensioned value is a TypeError, since exp, log, and the trigonometric
+// functions are only defined on pure numbers.
+// Math.log(Meter(5)); // TypeError: expected a dimensionless float32
 
 // Magnitude (vector length)
 // Uses Math.hypot, which preserves Dimensions.

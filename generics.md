@@ -43,6 +43,31 @@ I think that's sufficient and covers common use cases.
 
 A value can be passed into generics like a function argument. The only caveat is they must be const and will be treated like const variables that are compiled away.
 
+A generic value parameter may be declared with any primitive value type: the integer types, the float types, the decimal and rational types, ```boolean```, ```string```, and enum types. Two applications name the same specialization when their arguments are the same value under SameValue, the comparison ```Object.is``` performs. Reference values are not permitted as generic arguments, since specialization identity would then depend on object identity.
+
+```js
+class Buffer<Size: uint32, Name: string> {}
+const a = new Buffer.<1024, 'input'>();
+
+enum Endian: uint8 { Little, Big };
+function read<E: Endian>(bytes: [].<uint8>): uint32 {}
+read.<Endian.Big>(bytes);
+```
+
+String parameters make user-defined meta types practical, since a metadata object can be built from them:
+
+```js
+function convert<From: string, To: string>(
+  amount: decimal128.<{ currency: From }>,
+  rate: decimal128
+): decimal128.<{ currency: To }> {
+  return decimal128.<{ currency: To }>(amount * rate);
+}
+const euros = convert.<'USD', 'EUR'>(dollars, 0.86);
+```
+
+Float parameters are allowed for consistency, with two consequences worth knowing rather than prohibiting. SameValue makes ```A.<0>``` and ```A.<-0>``` distinct specializations, and it makes ```A.<NaN>``` a usable one, since ```Object.is(NaN, NaN)``` is true. Both follow from the identity rule above rather than being special cases, and a float argument must still be an exact compile-time constant like any other.
+
 ```js
 class A<V: int32> {
   f(): int32 {

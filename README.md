@@ -34,6 +34,7 @@ type int8 = int.<8>;
 type int16 = int.<16>;
 type int32 = int.<32>;
 type int64 = int.<64>;
+type int128 = int.<128>;
 ```
 </details>
 
@@ -46,12 +47,14 @@ type uint8 = uint.<8>;
 type uint16 = uint.<16>;
 type uint32 = uint.<32>;
 type uint64 = uint.<64>;
+type uint128 = uint.<128>;
 ```
 </details>
 
 ```bigint```  
 ```float16```, ```float32```, ```float64```, ```float80```, ```float128```  
 ```decimal32```, ```decimal64```, ```decimal128```  
+The decimal types follow IEEE 754-2008 decimal arithmetic, so ```decimal128``` carries 34 significant digits and rounds ties to even by default. Scale and rounding mode can be fixed on a type through the ```DecimalContext``` meta type described in [primitive metadata](primitivemetadata.md), which is how money types are declared.  
 ```vector.<T, N>```
 
 <details>
@@ -265,6 +268,27 @@ function f(o: AB) {} // o.a and o.b are both required
 ```
 
 Intersections are for object shapes. Intersecting value types, like ```uint8 & string```, is a TypeError since no value inhabits both; refining a single primitive is instead handled with [primitive metadata](primitivemetadata.md).
+
+### Type Aliases and Recursion
+
+A ```type``` alias may refer to itself and to other aliases, including mutually. Aliases are hoisted within a module, so declaration order doesn't matter.
+
+The only restriction is a layout restriction: a value type's layout may not contain itself, directly or through other value types, because such a layout has no finite size. A cycle is legal whenever it passes through a *reference position*: a field whose type is a reference type, an array element, a nullable union, or an interface member.
+
+```js
+type Tree = { value: float64, children: [].<Tree> }; // Through an array
+type List = { value: uint32, next: List | null }; // Through a nullable union
+type Node = NumberNode | UnaryNode | BinaryNode; // Class types are references
+
+// type Bad = { next: Bad }; // TypeError: Bad has an infinite layout
+// class C { c: C; } // TypeError: a value type class cannot contain itself
+class D { d: D | null; } // Fine, D is a reference type
+
+type Expression = { op: string, operands: [].<Expression> } | Literal; // Mutually recursive
+type Literal = { value: float64 };
+```
+
+Assignability between recursive structural types is decided coinductively: while checking whether ```A``` is assignable to ```B```, the pair is assumed to hold, and the check succeeds if nothing contradicts the assumption. This is what lets two independently declared but structurally identical trees be assignable.
 
 ### any Type
 
@@ -488,7 +512,7 @@ const gridView = new GridArray(grid);
 
 ### Implicit Casting
 
-The default numeric type Number would convert implicitly with precedence given to ```float64``` first, since Number is a float64 and the conversion is exact, then ```float128/80/32/16```, ```decimal128/64/32```, ```uint64/32/16/8```, ```int64/32/16/8```. (This is up for debate). Examples are shown later with class constructor overloading.
+The default numeric type Number would convert implicitly with precedence given to ```float64``` first, since Number is a float64 and the conversion is exact, then ```float128/80/32/16```, ```decimal128/64/32```, ```uint128/64/32/16/8```, ```int128/64/32/16/8```. (This is up for debate). Examples are shown later with class constructor overloading.
 
 ```js
 function f(a: float32) {}
@@ -1126,6 +1150,18 @@ let a := new MyType(); // a is type MyType
 // a = 5; // Equivalent to using implicit casting: a = MyType(5);
 ```
 
+```expression := Type``` is also an expression. It evaluates its left side and converts it to ```Type``` by the same rules a typed binding uses, so it constructs from a matching shape, runs implicit casts, and validates metadata. It's usable in any expression position, which is what makes constructing and returning a typed value in one step read well:
+
+```js
+function makeNode(op: TokenType, left: Node, right: Node): BinaryNode {
+  return { position: 0, op, left, right } := BinaryNode;
+}
+f({ x: 0, y: 0 } := Vertex);
+const a = [1, 2, 3] := [3].<uint8>;
+```
+
+This is equivalent to the cast call form ```BinaryNode({ ... })```; both are kept, since ```:=``` reads better trailing a large literal. As an operator it binds looser than ```|``` and tighter than ```,```.
+
 This new form of assignment is useful with both ```var``` and ```let``` declarations. With ```const``` it has no uses:
 
 ```js
@@ -1312,6 +1348,39 @@ function* g(): Generator.<int32, string, boolean> {
 const it = g();
 it.next(true); // { value, done } with value: int32 until done, then string
 ```
+
+```next``` takes the generator's next type and returns an iterator result:
+
+```js
+type IteratorResult<Y, R> = {
+  value: Y | R,
+  done: boolean
+};
+
+class Generator<Y, R = void, N = void> {
+  next(value: N): IteratorResult.<Y, R>;
+  return(value: R): IteratorResult.<Y, R>;
+  throw(exception: any): IteratorResult.<Y, R>;
+}
+```
+
+Testing ```done``` narrows ```value```: it's ```Y``` where ```done``` is false and ```R``` where it's true. This narrowing is a rule about the built-in iterator result, not a general facility for discriminating a record by one of its fields. When ```R``` is ```void``` there's no union to narrow and ```value``` is simply ```Y```, which is why a generator used as a token stream reads cleanly:
+
+```js
+function* tokenize(source: string): Token {} // Generator.<Token, void, void>
+const tokens = tokenize(source);
+const current: Token = tokens.next().value; // No narrowing needed
+
+const it = g(); // Generator.<int32, string, boolean>
+const result = it.next(true);
+if (result.done) {
+  result.value; // string
+} else {
+  result.value; // int32
+}
+```
+
+```for...of``` binds only ```Y```, since it stops when ```done``` is true.
 
 The loop variable of ```for...of``` infers from the iterable's yield type and can be annotated to assert it:
 
@@ -1539,6 +1608,40 @@ class A {
 }
 ```
 
+#### Readonly Fields
+
+A field marked ```readonly``` may be assigned only in its own initializer and in the declaring class's constructors. Every other assignment is a TypeError, at compile time where the type is known and at runtime otherwise, including through a subclass, a reference, or reflection.
+
+```js
+class Invoice {
+  readonly id: uint64;
+  readonly issued: Temporal.PlainDate;
+  status: Status; // Mutable through the workflow
+  constructor(id: uint64, issued: Temporal.PlainDate) {
+    this.id = id; // Legal here only
+    this.issued = issued;
+  }
+  void() {
+    // this.id = 0; // TypeError: id is readonly
+  }
+}
+```
+
+Interface members can be ```readonly``` as well, which forbids assignment through that view of an object:
+
+```js
+interface IConfig {
+  readonly port: uint16;
+}
+function f(config: IConfig) {
+  // config.port = 0; // TypeError: port is readonly in IConfig
+}
+```
+
+```readonly``` is shallow, as it is in other languages: the binding is fixed, not the object it refers to. A ```readonly``` field holding an array can't be replaced, but its elements can be written unless the array itself is ```const```. It's an access rule, not a layout rule, so it never affects whether a class qualifies as a value type, and a ```readonly``` field of a value type class still participates in the layout.
+
+Assignment in a method the constructor calls is a TypeError, not an exception, since only constructor bodies are permitted. ```Object.freeze``` on a typed instance is defined as making every field ```readonly``` at runtime.
+
 #### Static Members
 
 Static fields are typed like instance fields and live on the constructor, where they become typed properties of that object. They are not part of an instance's memory layout, so they never affect whether a class qualifies as a value type.
@@ -1624,6 +1727,22 @@ class A {
 }
 ```
 
+Accessors override rather than overload, since a property has at most one getter and one setter. A derived getter may refine its type covariantly under the same conversion free rule that governs method returns. A derived setter is contravariant: it must accept every value the base setter accepts, and may accept more. The within-class rule still applies to the resulting pair, so the derived setter must also accept everything the derived getter can return.
+
+```js
+class Shelter {
+  get resident(): Animal {}
+  set resident(value: Animal) {}
+}
+class Kennel extends Shelter {
+  get resident(): Dog {} // Covariant: every caller still receives an Animal
+  set resident(value: Animal | string) {} // Contravariant: still accepts every Animal
+  // set resident(value: Dog) {} // TypeError: the base setter accepts any Animal
+}
+```
+
+Replacing an inherited field with an accessor of the same name, or the reverse, is a TypeError. A field occupies a slot in the base's memory layout and an accessor doesn't, so the substitution would change the layout of a type that already exists.
+
 #### Methods and Inheritance
 
 Methods overload by signature like functions. A derived class adds its signatures to the set inherited from the base rather than hiding them, so overload resolution on a derived instance considers both, and ```super``` restricts resolution to the base's set.
@@ -1647,7 +1766,7 @@ b.f(0); // uint8, A's signature
 b.f('a'); // string, B's signature
 ```
 
-A derived method whose parameter list matches a base signature exactly overrides it, and its return type must be identical. Overloading on return type is allowed between sibling declarations, but a derived class cannot reuse a base's parameter list with a different return type, since a call site typed against the base would then select a signature the base never declared.
+A derived method whose parameter list matches a base signature exactly overrides it. Overloading on return type is allowed between sibling declarations in one class, but a derived class cannot reuse a base's parameter list with an unrelated return type.
 
 ```js
 class A {
@@ -1658,6 +1777,63 @@ class B extends A {
   // f(a: uint8): string {} // TypeError: cannot change the return type of an inherited signature
 }
 ```
+
+The reason is that return type overloads resolve against the call site's expected type, which is static, while overriding dispatches on the receiver, which is dynamic. If both keyed on the same parameter list, three things would follow. The derived declaration would be a sibling overload rather than an override, so which body runs would depend on what the result is assigned to, for the same receiver and arguments, and the derived body would be unreachable through any base-typed reference. A call through ```any``` or reflection, having no expected type to resolve against, would become ambiguous the moment a subclass was declared elsewhere. And a dispatch slot, which is keyed on a name and parameter types, has no room for a return type. Rename the method or differentiate it by parameters instead.
+
+#### Covariant Return Types
+
+A derived return type that is a subtype of the base's is a different thing: it refines one signature rather than declaring a second. There is one dispatch slot and one reachable body, and every base-typed caller still receives a value of the base's return type.
+
+```js
+class Animal {
+  clone(): Animal {}
+}
+class Dog extends Animal {
+  clone(): Dog {} // Covariant: one signature, refined
+}
+
+const d: Dog = new Dog().clone(); // Dog, no cast
+function breed(a: Animal): Animal {
+  return a.clone(); // Animal, and a Dog at runtime
+}
+```
+
+Covariance is permitted when the derived return type is assignable to the base's **with no implicit conversion applied**: subtyping holds, and every meta type's ```conversionFactor``` yields ```1``` or is absent. A conversion at the return would mean the value depended on the static type of the call site, which is the same hazard the rule above avoids.
+
+That admits class subtyping and metadata refinements that don't change representation:
+
+```js
+class Sensor {
+  read(): float32 {}
+}
+class Thermometer extends Sensor {
+  read(): float32.<{ exclusiveMinimum: 0 }> {} // Same representation, refined constraint
+}
+```
+
+And it rejects the two cases where a subtype relation exists but a conversion is required. Numeric widening needs a conversion at the return:
+
+```js
+class A {
+  f(): uint16 {}
+}
+class B extends A {
+  // f(): uint8 {} // TypeError: uint8 converts to uint16, so the return is not conversion free
+}
+```
+
+So does a unit refinement, even though ```Dimensions.subtype``` accepts it, because its ```conversionFactor``` is not ```1```:
+
+```js
+class Rangefinder {
+  distance(): Meter {}
+}
+class LaserRangefinder extends Rangefinder {
+  // distance(): Kilometer {} // TypeError: Dimensions.conversionFactor is 1000, not conversion free
+}
+```
+
+Parameters need no variance rule. A derived method with different parameter types declares an overload, per the resolution above, rather than overriding anything.
 
 ```new.target``` has type ```T | undefined``` where ```T``` is the constructor type of the class, so it narrows like any nullable union.
 
@@ -1702,7 +1878,31 @@ For floats, decimals, and rational the signature is just ```parse(string)```.
 let a: float32 = float32.parse('1.2');
 ```
 
-TODO: Define the expected inputs allowed. (See: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseFloat). Also should a failure throw or return NaN if the type supports it. I'm leaning toward throwing in all cases where erroneous values are parsed. It's usually not in the program's design that NaN is an expected value and parsing to NaN just created hidden bugs.
+The accepted input is the grammar of a typed literal of that type, with optional leading and trailing whitespace and an optional sign. That means numeric separators are accepted, and the radix-taking form accepts the matching prefix:
+
+```js
+uint32.parse('4_294_967_295'); // 4294967295
+uint8.parse('0b1111_1111', 2); // 255
+uint16.parse('0xFFFF', 16); // 65535
+float32.parse('1.2e3'); // 1200
+```
+
+Unlike ```parseInt``` and ```parseFloat```, no trailing garbage is consumed: the entire string must be a literal of the type. Parsing throws on any erroneous input, including a value outside the type's range, rather than returning ```NaN```. An integer type can't represent ```NaN``` at all, so throwing is forced there, and doing the same for the float types keeps a failed parse from becoming a hidden ```NaN``` that surfaces far from its cause.
+
+```js
+// uint8.parse('256'); // RangeError: 256 is out of range for uint8
+// uint8.parse('12abc'); // SyntaxError: not a uint8 literal
+// float32.parse(''); // SyntaxError
+```
+
+For code that expects failure, each type also has a non-throwing form returning a nullable union, which narrows the way any nullable does:
+
+```js
+const a: uint8 | null = uint8.tryParse(input);
+if (a != null) {
+  // a: uint8
+}
+```
 
 ### Implicit SIMD Constructors
 
@@ -1841,6 +2041,28 @@ class Vector2 {
 
 Note that no members may be defined in an extension class. The new methods are simply appended to the existing class definition.
 
+### Sealed Classes
+
+A ```sealed``` class restricts ```extends``` to the module that declares it. The set of direct subclasses is therefore fixed and known when the module finishes evaluating, which lets the compiler treat the class as a closed set of cases:
+
+```js
+sealed class Node {
+  position: uint32;
+}
+class NumberNode extends Node { value: float64; }
+class UnaryNode extends Node { op: TokenType; operand: Node; }
+class BinaryNode extends Node { op: TokenType; left: Node; right: Node; }
+
+// In another module:
+// class Extra extends Node {} // TypeError: Node is sealed
+```
+
+Only subclassing is restricted. The class extension syntax above, which appends methods to an existing class, remains available on a sealed class from any module, since it adds no cases. Applying a mixin to a sealed class from outside its module creates a subclass and is therefore a TypeError.
+
+A subclass of a sealed class may itself be sealed or left open. Exhaustiveness, described in the control structures section, is always over the *direct* subclasses; an open direct subclass covers all of its own descendants through the ```instanceof``` test that selects it.
+
+A sealed class is the proposal's closed hierarchy. Combined with type objects being values, it gives a sum type without a new construct: the cases are the subclasses, and their type objects are the case labels.
+
 ### Class Expressions and Mixins
 
 A class expression takes the same annotations and type parameters as a declaration. Generic parameters are declared with ```<...>``` and applied with ```.<...>``` as everywhere else:
@@ -1940,13 +2162,7 @@ Get ```enum``` value as string:
 Count.toString(Count.Zero); // 'Zero'
 ```
 
-It seems like there needs to be an expression form also. Something akin to Function or GeneratorFunction which allows the construction of features with strings. It's not clear to me if this is required or beneficial, but it could be. I guess the syntax would look like:
-
-```js
-new enum('a', 0, 'b', 1);
-new enum(':uint8', 'a', 0, 'b', 1);
-new enum(':string', 'None', 'none', 'Flag1', '(index, name) => name', 'Flag2', 'Flag3'); // This doesn't make much sense though since the value pairing is broken. Need a different syntax
-```
+There's no expression form. Enumerations are static declarations, as they are in C#, Java, Rust, and Swift, which is what lets an engine treat an enum-typed value as its underlying primitive and lets a ```switch``` over one be checked exhaustive. Dynamically built name-to-value mappings are what ```Map``` is for, and reflection exposes a declared enum's entries.
 
 Similar to ```Array```, enumeration objects share a common prototype, written here as %Enum.prototype%, with a number of reserved functions:
 
@@ -1975,6 +2191,17 @@ Enum values can reference previous values:
 ```js
 enum E { A = 0, B = A + 5 };
 ```
+
+An enumeration whose underlying type is ordered - the integral types and ```string``` - is itself ordered by its underlying values, everywhere ordering applies, including comparison operators and ```where``` clauses:
+
+```js
+enum Unit: uint8 { Nanosecond, Millisecond, Second, Minute, Hour, Day };
+Unit.Second < Unit.Hour; // true
+
+function total<U: Unit>(unit: U): float64 where U <= Unit.Hour; // Fixed time units only
+```
+
+An enumeration over an unordered type, such as one of functions or symbols, supports only ```==``` and ```!=```.
 
 ### Named Parameters
 
@@ -2151,6 +2378,27 @@ f(ref o);
 o.a; // 1
 ```
 
+A ```for...of``` binding can be a reference when iterating a typed array whose elements are value types. Each iteration binds a reference to the element rather than a copy, so the loop writes in place:
+
+```js
+const particles: [1000].<Particle>;
+for (const ref p of particles) {
+  p.velocity += gravity * dt; // Writes into the array
+}
+for (const p of particles) {
+  p.velocity = 0; // Writes into a copy, discarded each iteration
+}
+```
+
+The reference is to the array slot, so writes through other aliases are visible during the loop. Changing the array's length while a ```ref``` iteration is in progress is a TypeError, matching the fixed layout the loop depends on. As everywhere else, a reference may not outlive the access that produced it:
+
+```js
+let escaped;
+// for (const ref p of particles) { escaped = ref p; } // TypeError: the reference outlives the element access
+```
+
+Reference iteration is defined for the built-in typed arrays. A user-defined iterator yielding references is not currently supported; the ```...``` operator's yield type is a value type.
+
 References can also be used to refer to elements in value type arrays.
 
 ```js
@@ -2201,7 +2449,9 @@ ref b = a[1];
 
 ## if else
 
-A table should be included here with every type and which values evaluate to executing. At first glance it might just be 0 and NaN do not execute and all other values do. SIMD types probably would not implicitly cast to boolean and attempting to would produce a TypeError indicating no implicit cast is available.
+Nothing about truthiness changes. A typed value in a boolean context follows the existing ToBoolean: numeric zero and ```NaN``` are falsy, as are ```0n```, the empty string, ```null```, and ```undefined```; every other value, including every typed object and every array regardless of length, is truthy. Zero is falsy for the new numeric types on the same rule, so a zero ```rational```, ```decimal```, or ```float128``` is falsy.
+
+The SIMD types have no implicit cast to ```boolean```, so using one in a boolean context is a TypeError reporting that no implicit cast is available. Comparing SIMD vectors produces a mask, which is what the program almost certainly wanted.
 
 ## switch
 
@@ -2238,7 +2488,125 @@ switch (a) {
 }
 ```
 
+When the switch expression's static type is a sealed class, the case labels are type objects rather than values. Each case is an ```instanceof``` test evaluated in source order, the matched case narrows the expression to that type, and a switch with no ```default``` must cover every direct subclass. This makes a sealed hierarchy exhaustive in the same way an enum is: adding a subclass turns every such switch into a compile-time TypeError until it's handled.
+
+```js
+function evaluate(node: Node): float64 {
+  switch (node) {
+    case NumberNode:
+      return node.value; // node: NumberNode in this case
+    case UnaryNode:
+      return -evaluate(node.operand);
+    case BinaryNode:
+      return apply(node.op, evaluate(node.left), evaluate(node.right));
+  } // Exhaustive over Node's direct subclasses, so no default and no trailing return
+}
+```
+
+A ```default``` clause disables the check, as with enums. Since the sealed class itself may be instantiable, it's a valid case label for its own instances and must be listed when it is:
+
+```js
+sealed class Shape {}
+class Circle extends Shape {}
+switch (shape) {
+  case Circle:
+    break;
+  case Shape: // Instances of Shape itself
+    break;
+}
+```
+
+## Divergence
+
+A statement *diverges* when no path of control through it completes normally. The analysis is syntactic, so it never reasons about values:
+
+- ```return```, ```throw```, and a ```break``` or ```continue``` targeting an enclosing statement diverge.
+- A block diverges when any statement in it diverges.
+- An ```if``` diverges when it has an ```else``` and both branches diverge.
+- A ```switch``` diverges when it's exhaustive - every enumerator, every direct subclass, or a ```default``` - and every case clause diverges.
+- ```while (true)``` and ```for (;;)``` diverge when no ```break``` targets them.
+
+Divergence has two consequences. A case clause whose body diverges needs no ```break``` and is not a fallthrough, and a function whose body diverges satisfies a non-```void``` return type with no trailing ```return```.
+
+```js
+function transition(status: Status, event: Event): Status {
+  switch (status) {
+    case Status.Draft:
+      switch (event) { // Exhaustive over Event, every case diverges, so this switch diverges
+        case Event.Send: return Status.Sent;
+        case Event.Cancel: return Status.Void;
+        case Event.Pay: throw new TypeError('Cannot pay a draft');
+      } // No break needed: control cannot reach the next case
+    case Status.Sent:
+      switch (event) {
+        case Event.Pay: return Status.Paid;
+        case Event.Cancel: return Status.Void;
+        case Event.Send: return Status.Sent;
+      }
+    case Status.Paid:
+    case Status.Void:
+      throw new TypeError('terminal');
+  } // The outer switch diverges, so transition needs no trailing return
+}
+```
+
+This is the checkable part of what other languages express with an uninhabited type, and it's what justifies the missing trailing ```return``` in the sealed class switch above.
+
+## Exhaustiveness and its Limits
+
+Exhaustiveness is checked in exactly two places: a ```switch``` over an enum, and a ```switch``` over a sealed class. Both have a closed set of cases known from a declaration.
+
+It is deliberately not extended to a union of string or numeric literals. This proposal has no literal types - ```'a' | 'b'``` is not a type here - and adding them to support switch exhaustiveness would introduce a second, structural way to spell a closed set alongside enums and sealed classes. A closed set of strings is an ```enum``` over ```string```, which already gets the check:
+
+```js
+enum Mode: string { Read = 'read', Write = 'write' };
+function f(mode: Mode) {
+  switch (mode) {
+    case Mode.Read: return 0;
+    case Mode.Write: return 1;
+  } // Exhaustive
+}
+```
+
+Dispatching on the shape or contents of an arbitrary value is the [pattern matching proposal](https://github.com/tc39/proposal-pattern-matching)'s territory, and ```is``` covers a single structural test today.
+
+### 128-bit Integer Types
+
+```int128``` and ```uint128``` follow the same rules as the 64-bit types: they're value types with a fixed layout and alignment, they don't implicitly convert to ```number```, and their literals are typed by propagation rather than a suffix. Engines implement them as a pair of 64-bit limbs, as .NET, Rust, and the C compilers do. They exist because several ordinary values don't fit in 64 bits: a UUID, an IPv6 address, a ```decimal128``` significand, and the epoch nanoseconds of a [Temporal](temporal.md) instant, which spans about 8.64e21 and so needs 74 bits.
+
+```js
+const id: uint128 = 0x550e8400e29b41d4a716446655440000;
+const nanoseconds: int128 = 8640000000000000000000;
+// const n: number = id; // TypeError: no implicit conversion, use number(id) or id.toString()
+```
+
+Nothing in SIMD changes: the 128-bit lanes of the SIMD types are unrelated to these scalar types.
+
 ### Member memory alignment and offset
+
+Every value type and value type class exposes its layout as two static properties. ```byteLength``` is the laid-out size in bytes, including any trailing padding required by the type's alignment, and ```alignment``` is the byte alignment of the type. A typed array's instance ```byteLength``` is its length times its element's ```byteLength```.
+
+```js
+uint8.byteLength; // 1
+float64.byteLength; // 8
+float64.alignment; // 8
+
+class Vertex {
+  x: float32;
+  y: float32;
+  z: float32;
+}
+Vertex.byteLength; // 12
+Vertex.alignment; // 4
+
+const mesh: [10].<Vertex>;
+mesh.byteLength; // 120
+
+// Slicing a pool's byte view for upload:
+[].<uint8>(mesh).slice(0, count * Vertex.byteLength);
+```
+
+These are TypeErrors on a class that has no defined layout, which is any class with an untyped field, and they reflect the declared layout, so the offset and endianness decorators below are accounted for.
 
 By default the memory layout of a typed class - a class where every property is typed - simply appends to the memory of the extended class. For example:
 

@@ -146,7 +146,18 @@ Because the ratio rides along, mixing scales stays correct without the programme
 
 ## Precision
 
-```epochNanoseconds``` is a ```bigint``` because Temporal's range spans roughly ±273,972 years, about 8.64e21 nanoseconds, which needs 74 bits. That exceeds ```int64```, so an ```Instant``` cannot be a value type class under the current type list, and an array of instants is an array of references. A 128-bit integer type would change that; it is noted as an open question rather than assumed.
+```epochNanoseconds``` is a ```bigint``` because Temporal's range spans roughly ±273,972 years, about 8.64e21 nanoseconds, which needs 74 bits. That exceeds ```int64```, but not ```int128```, so an ```Instant``` whose storage is a single ```int128``` field is a value type class: an array of instants is contiguous memory with no boxing, and comparing two instants is a 128-bit integer comparison.
+
+```js
+class Temporal.Instant {
+	#epochNanoseconds: int128; // The whole instant, exactly
+	get epochNanoseconds(): bigint {
+		return bigint(this.#epochNanoseconds);
+	}
+}
+```
+
+```bigint``` remains the type of the public accessor for compatibility with Temporal as specified; the ```int128``` is the storage.
 
 ```Temporal.Duration```, by contrast, has only fixed-width integer fields, so it satisfies the value type class rule in the main proposal: an array of durations is contiguous memory with no boxing, which is what a scheduler or an animation timeline wants.
 
@@ -222,6 +233,5 @@ The reflection examples in [decorators](decorators.md) already type fields as ``
 
 ## Open Questions
 
-- A 128-bit integer type would let ```Temporal.Instant``` be a value type class and make arrays of instants contiguous. Whether ```int128```/```uint128``` belong in the type list is a question for the main proposal, not this document.
-- ```unitRatio``` is total only over the time units. Expressing the ```where U <= Temporal.Unit.Hour``` constraint requires enum values to be ordered and comparable in a ```where``` clause, which the enum section supports for integral and string enums but has not stated for constraint positions.
+- ```unitRatio``` is total only over the time units. The ```where U <= Temporal.Unit.Hour``` constraint relies on enum ordering, which the enum section now defines for enumerations over ordered underlying types.
 - Calendar arithmetic is not dimensioned and cannot be: a month has no fixed length. Durations mixing calendar and time components have no ```{ s: 1 }``` reading, and their ```total``` overload correctly requires ```relativeTo```.

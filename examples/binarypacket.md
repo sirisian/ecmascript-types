@@ -1,6 +1,6 @@
 # Binary Packet Writer and Reader
 
-A bit-granular packet writer and reader for realtime network protocols. Values are written at arbitrary bit widths - a boolean is one bit, an ASCII character is seven, a quantized position fits in eighteen - so state updates pack densely into a single datagram. This is the hand-tuned end of the serialization spectrum: [Serialization](serialization.md) covers typed values whose layout follows their declaration, while this document is for wire formats where every bit is chosen. The ```@data``` decorators in [Decorators](decorators.md) sit on top of exactly these ```write.<T>``` methods to automate field-driven packets.
+A bit-granular packet writer and reader for realtime network protocols. Values are written at arbitrary bit widths - a boolean is one bit, an ASCII character is seven, a quantized position fits in eighteen - so state updates pack densely into a single datagram. This is the hand-tuned end of the serialization spectrum: [Serialization](../serialization.md) covers typed values whose layout follows their declaration, while this document is for wire formats where every bit is chosen. The ```@data``` decorators in [Decorators](../decorators.md) sit on top of exactly these ```write.<T>``` methods to automate field-driven packets.
 
 The code doubles as a tour of the proposal, and several pieces only work *because* of types:
 

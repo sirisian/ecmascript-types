@@ -259,6 +259,7 @@ namespace Reflect {
 		name: string | symbol;
 		static: boolean;
 		private: boolean;
+		readonly: boolean;
 		initial: T | undefined;
 		metadata: ClassFieldMetadata;
 	};

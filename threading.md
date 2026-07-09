@@ -58,7 +58,20 @@ Atomics.add(obj, 'count', value);  // atomic RMW on an own data property
 Atomics.add(typedArray, i, value); // unchanged
 ```
 
-The full set carries over from the SharedArrayBuffer atomics: ```load```, ```store```, ```add```, ```sub```, ```and```, ```or```, ```xor```, ```exchange```, ```compareExchange```, ```wait```, ```waitAsync```, and ```notify```. Each is a single sequentially-consistent step on the target. ```compareExchange``` compares with SameValueZero, so compare-and-swap loops that cycle through ```NaN``` behave. The arithmetic and bitwise operations require a target whose type is an integer value type; ```load```, ```store```, ```exchange```, ```compareExchange```, ```wait```, and ```notify``` also apply to other shared value types where the operation is meaningful.
+The full set carries over from the SharedArrayBuffer atomics: ```load```, ```store```, ```add```, ```sub```, ```and```, ```or```, ```xor```, ```exchange```, ```compareExchange```, ```wait```, ```waitAsync```, and ```notify```. Each is a single sequentially-consistent step on the target. ```compareExchange``` compares with SameValueZero, so compare-and-swap loops that cycle through ```NaN``` behave. The bitwise operations - ```and```, ```or```, ```xor``` - require an integer target. ```wait``` and ```notify``` require an integer target as well, since a futex compares bit patterns. ```load```, ```store```, ```exchange```, and ```compareExchange``` apply to any shared value type where the operation is meaningful.
+
+```add``` and ```sub``` also accept ```float32``` and ```float64``` targets. They are specified as a sequentially consistent compare-exchange loop - read, add, compare-exchange, retry - which is how hardware without a native atomic float add implements it, and how C++20's ```atomic<double>::fetch_add``` is defined. Because ```compareExchange``` uses SameValueZero, the loop terminates when the observed value is ```NaN```, rather than spinning forever as a bitwise comparison would.
+
+```js
+let total: shared float64 = 0;
+function accumulate(values: [].<float64>) {
+  for (const v of values) {
+    Atomics.add(ref total, v);
+  }
+}
+```
+
+Atomic float addition is not associative, so a parallel reduction over floats produces a result that depends on thread interleaving. Where reproducibility matters, accumulate a per-thread partial and sum the partials on the joining thread in a fixed order; that is also faster, since it touches shared memory once per thread rather than once per value.
 
 ## Synchronization
 

@@ -147,8 +147,40 @@ The main proposal already contains the primitives for binary serialization: a ty
 
 Wire-name mapping, field omission, and versioning stay in userland. The [dependent record types](dependentrecordtypes.md) document shows the pattern: an `@field('wireName')` decorator records mappings into class metadata and a reflective `serialize`/`deserialize` walks them. `JSON.parse.<T>` itself maps JSON keys to same-named fields only. An open direction is a standard decorator vocabulary the native parser understands, so renamed fields keep the fused fast path instead of falling back to reflective code.
 
+## Streaming
+
+A large JSON array shouldn't have to be resident in memory as text and again as values. `JSON.parseStream` takes a stream of chunks and, for a top-level array type, yields each element as it completes, validated:
+
+```js
+JSON.parseStream.<T>(stream: AsyncIterable.<string | [].<uint8>>): AsyncIterator.<T>
+```
+
+```js
+type Reading = { sensor: string, value: float32, at: Temporal.Instant };
+
+for await (const reading: Reading of JSON.parseStream.<[].<Reading>>(response.body)) {
+	// Each element is validated as it completes; the array is never materialized
+	record(reading);
+}
+```
+
+The element type is the array type's element, so `parseStream.<[].<Reading>>` yields `Reading`. A malformed chunk throws a SyntaxError from the iterator, and an element that fails its type throws a TypeError naming the index and path, both surfacing at the `for await` that pulled them. Streaming a non-array top-level type yields exactly one value when the stream ends, which is the degenerate case rather than an error.
+
+## Host APIs
+
+Host APIs that produce values from bytes should adopt the same overload shape rather than each inventing one. The pattern is a generic parameter naming the expected type and a rejection type that includes the parse and validation failures:
+
+```js
+class Response {
+	json<T = any>(): Promise.<T, SyntaxError | TypeError>;
+	text(): Promise.<string, any>;
+}
+
+const config = await (await fetch('/config.json')).json.<ServerConfig>();
+```
+
+The same shape applies to `structuredClone.<T>(value)`, to storage reads such as an IndexedDB `get.<Player>(key)`, and to `WebSocket` message events over binary or text frames. These are specified by their host, not here; what this document fixes is the shape they should copy, so that a validated read looks the same wherever the bytes came from.
+
 ## Open Questions
 
-- Streaming: an incremental `JSON.parse.<[].<T>>` that yields typed elements as they complete would suit large arrays; it likely composes with the typed iteration operator.
-- Host mirrors: `Response.json.<T>()` and similar host APIs should adopt the same overload shape rather than each inventing one.
 - Composites: once the records and tuples section aligns with the Composites proposal, `#{}`/`#[]` need a JSON mapping here.

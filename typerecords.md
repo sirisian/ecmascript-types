@@ -431,7 +431,58 @@ enum Flags: uint32 { None = 0, Flag1 = 1, Flag2 = 2, Flag3 = 4 }
 
 ### Recursive types
 
-TODO: Records are acyclic and constructed bottom-up, so a self-referential type like ```type Tree = { value: number, children: [].<Tree> };``` can't contain itself directly. The encoding needs a symbolic reference form, similar to how generic parameters are referenced with ```#{ parameter: 'T' }```, for example a named reference to the enclosing type.
+Records are acyclic and constructed bottom-up, so a self-referential type cannot contain itself directly. A recursive type is encoded by naming it and referring to that name symbolically, the same way a generic parameter is referred to with ```#{ parameter: 'T' }```.
+
+A ```recursive``` record binds a name over a body. Inside the body, ```#{ reference: 'Name' }``` stands for the whole enclosing record:
+
+```js
+type Tree = { value: number, children: [].<Tree> };
+
+#{
+  recursive: 'Tree',
+  type: #{
+    value: #{ type: number },
+    children: #{
+      type: Array,
+      parameters: #{
+        T: #{ reference: 'Tree' }
+      }
+    }
+  }
+}
+```
+
+Mutually recursive types share one ```recursive``` binding group, so each name is in scope in every body:
+
+```js
+type Expression = { op: string, operands: [].<Expression> } | Literal;
+type Literal = { value: float64 };
+
+#{
+  recursive: #[ 'Expression', 'Literal' ],
+  types: #{
+    Expression: #{
+      union: #[
+        #{
+          op: #{ type: string },
+          operands: #{
+            type: Array,
+            parameters: #{ T: #{ reference: 'Expression' } }
+          }
+        },
+        #{ reference: 'Literal' }
+      ]
+    },
+    Literal: #{
+      value: #{ type: float64 }
+    }
+  }
+}
+```
+
+The bound name is scoped to the record, not to the program, so it doesn't leak the source alias name into type identity. Two structurally identical recursive types must therefore encode identically after the deterministic format's renaming step: bound names are rewritten in order of first occurrence, so ```recursive: 'Tree'``` and ```recursive: 'Branch'``` over the same body produce the same record.
+
+Comparing two recursive records for equality, and deciding assignability between them, is coinductive: assume the pair under comparison is equal, then verify no field contradicts the assumption. This matches the recursion rule in the main proposal, where a cycle is legal exactly when it passes through a reference position, so every cycle in a record has a finite unrolling through an ```Array```, a union with ```null```, or a class reference.
 
 ### Record operators
 

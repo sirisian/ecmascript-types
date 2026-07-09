@@ -168,7 +168,69 @@ const parser = new RegExp.<[string, string], { year: string, month: string }>(pa
 parser.exec(input)?.groups.year; // string | undefined, typed thereafter
 ```
 
-A pattern built from a template with an interpolated ```RegExp``` composes the group tuples of its parts, which is how a dynamically assembled pattern can stay typed.
+## Composing Patterns
+
+Between a literal, whose shape is fully known, and a string assembled at runtime, whose shape is unknown, sits the common case: a pattern built from parts that are themselves known. Concatenating ```source``` strings loses the typing and silently breaks both operator precedence and backreference numbering. ```RegExp.template``` is a tagged template that composes parts and derives the result's type by parsing the composed pattern:
+
+```js
+const year = /(?<year>\d{4})/; // RegExp.<[string], { year: string }>
+const month = /(?<month>\d{2})/;
+const day = /(?<day>\d{2})/;
+
+const iso = RegExp.template`^${year}-${month}-${day}$`;
+// RegExp.<[string, string, string], { year: string, month: string, day: string }>
+
+iso.exec(input)?.groups.month; // string | undefined
+```
+
+Six rules define it:
+
+- Interpolating a ```RegExp``` splices its source wrapped in ```(?:...)```, which preserves precedence, and contributes its ```Captures``` and ```Groups```.
+- Interpolating a ```string``` escapes it as literal text and contributes nothing.
+- Static parts of the template are pattern fragments, parsed normally, contributing any groups they declare.
+- ```Captures``` is the concatenation of the parts' capture tuples in source order, and ```Groups``` is their merge. A group name appearing in two parts is a compile-time TypeError.
+- Optionality follows from the composed pattern, so a hole in an optional or alternation position has its captures widened with ```undefined``` without the compiler looking inside the hole.
+- Flags belong to the tag. A part's own flags are ignored, except that ```u``` and ```v``` must agree with the tag's, since they change what an escape means.
+
+Escaping string interpolations is the rule that matters most. A pattern assembled around user input cannot be made to interpret that input as syntax:
+
+```js
+const needle = 'a.b*c'; // From user input
+const p = RegExp.template`^${needle}$`; // Source: ^a\.b\*c$, type RegExp.<[], {}>
+p.test('a.b*c'); // true
+p.test('axbxxc'); // false, the metacharacters are literal
+```
+
+To splice a fragment as syntax rather than text, interpolate a ```RegExp```, which is exactly the distinction the two rules draw.
+
+Context widens a hole's captures, and duplicate names are rejected:
+
+```js
+const optional = RegExp.template`(?:${year})?`;
+// RegExp.<[string | undefined], { year: string | undefined }>
+
+// RegExp.template`${year}-${year}`; // TypeError: duplicate group name 'year'
+```
+
+Because the capture tuples concatenate, a function can wrap an arbitrary pattern and pass its type through:
+
+```js
+function anchored<C extends [], G>(pattern: RegExp.<C, G>): RegExp.<C, G> {
+	return RegExp.template`^${pattern}$`;
+}
+anchored(year).exec('2026')?.groups.year; // string | undefined
+```
+
+Flags use the string value generic parameters from the [generics](generics.md) document:
+
+```js
+const words = RegExp.template.<'gi'>`\b${term}\b`;
+for (const match of input.matchAll(words)) {}
+```
+
+With the ```d``` flag, the ```indices``` tuple concatenates the same way ```Captures``` does.
+
+Numeric backreferences inside an interpolated ```RegExp``` refer to positions that shift when the part is spliced. They are a TypeError in an interpolated part; named backreferences, which survive splicing unchanged, are the composable form. Interpolating a value whose type is the untyped dynamic shape produces a result of that shape, so composition and typing degrade together rather than failing.
 
 ## Narrowing Strings
 
@@ -224,5 +286,5 @@ class Delimited {
 ## Notes
 
 - The compiler parses regular expression literals to derive these types. Engines already do this work, so the cost is in the specification rather than at runtime, and it's the same analysis that reports an invalid pattern today.
-- Backreferences and lookaround don't add captures and don't change the tuple. Duplicate named groups in separate alternation branches, allowed by the ```v``` flag rules, contribute a single ```string | undefined``` entry to ```Groups```.
+- Backreferences and lookaround don't add captures and don't change the tuple. Inside an interpolated part of a composed pattern, numeric backreferences are a TypeError, as described above. Duplicate named groups in separate alternation branches, allowed by the ```v``` flag rules, contribute a single ```string | undefined``` entry to ```Groups```.
 - Nothing here changes the matching semantics of a regular expression. Every rule above is about the *shape* of what a match produces, which is exactly the part that is currently untyped.
