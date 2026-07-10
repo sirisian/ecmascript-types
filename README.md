@@ -750,19 +750,80 @@ f(1, 2);
 
 ```js
 let a: (int32, string) => string; // hold a reference to a signature of this type
-let b: (); // void is the default return type for a signature without a return type
+let b: () => void; // the arrow is always written, even with no parameters
 let c = (s: string, x: int32) => s + x; // implicit return type of string
 let d = (x: uint8, y: uint8): uint16 => x + y; // explicit return type
-let e = x: uint8 => x + y; // single parameter
+let e = (x: uint8) => x * x; // a single typed parameter still takes its parentheses
+let f = x => x * x; // an untyped parameter does not, as today
 ```
-Like other types they can be made nullable. An example showing an extreme case where everything is made nullable:
+
+A parameter in a function type is a type, optionally introduced by a name and a colon. ```(uint8) => uint8``` takes one ```uint8```; ```(x: uint8) => uint8``` names it. A bare identifier is therefore a *type* rather than an implicitly typed parameter, which is the reverse of TypeScript and removes the case where a misspelled type quietly becomes a parameter name.
+
+Two shapes are written out that a grammar would otherwise have to guess at.
+
+The arrow is part of a function type, so a parenthesized type is always just a type. Without that rule ```(uint8)``` could be either a grouped ```uint8``` or a function taking a ```uint8``` and returning ```void```.
+
+```js
+let a: (uint8); // A uint8. Parentheses group, they do not make a function type
+let b: () => void; // A function taking nothing and returning nothing
+```
+
+An arrow function's parameter list is parenthesized whenever a parameter is typed, because otherwise the parameter's colon cannot be told from the conditional operator's:
+
+```js
+// let e = x: uint8 => x + 1; // Which colon is which?
+// a ? x: uint8 => 1 : 2; // `a ? x : (uint8 => 1)`, or `a ? (x: uint8 => 1) : 2`?
+let e = (x: uint8) => x + 1; // Unambiguous
+```
+
+#### Function Types in Unions
+
+A function type's return extends as far to the right as it can, so the common case needs no parentheses:
+
+```js
+type Find = (string) => uint32 | null; // Returns uint32 | null
+```
+
+A function type is therefore not, by itself, a member of a union or an intersection. Putting one in a union means parenthesizing it, and that is true on either side, so the order of a union's members never matters:
+
+```js
+type A = ((string) => uint32) | null;
+type B = null | ((string) => uint32); // The same type
+```
+
+The two readings of the same characters are then told apart by where the parentheses are rather than by which side of the ```|``` the function happens to sit on:
+
+```js
+type C = (b) => c | d; // A function returning c | d
+type D = ((b) => c) | d; // A union of a function type and d
+
+type E = (b) => c | ((e) => f) | g; // A function returning c | ((e) => f) | g
+type F = ((b) => c) | ((e) => f) | g; // A union of two function types and g
+```
+
+```=>``` associates to the right, so a function that returns a function needs no parentheses either:
+
+```js
+type Curried = (uint8) => (uint8) => uint8; // (uint8) => ((uint8) => uint8)
+```
+
+Nullable function types are the common case the parentheses cost something for. The interface spelling of a call signature is bounded by its braces, so it needs none, which is a reason to prefer it once a type stops fitting on one line:
+
 ```js
 let a: ((number | null) => number | null) | null = null;
+let b: { (uint32 | null): uint32; } | null = null;
 ```
-This can be written also using the interfaces syntax, which is explained later:
-```js
-let a: { (uint32 | null): uint32; } | null = null;
-```
+
+#### Type Operator Precedence
+
+From tightest to loosest:
+
+1. Generic application, ```Map.<K, V>```, and array types, ```[N].<T>```.
+2. Intersection, ```A & B```.
+3. Union, ```A | B```.
+4. The return type of ```=>```, which reaches as far right as it can and so binds loosest of all.
+
+Grouping parentheses override this anywhere. A parenthesized type is the same type, so ```(A)``` and ```A``` are interchangeable.
 
 ### Integer Binary Shifts
 
@@ -1264,7 +1325,7 @@ function f(): IExample {
 
 #### Function Interfaces
 
-With function overloading an interface can place multiple function constraints. Unlike parameter lists in function declarations the type precedes the optional name.
+With function overloading an interface can place multiple function constraints. Unlike parameter lists in function declarations the name is optional, so a bare type is a parameter type rather than a parameter name, as it is in a function type. A call signature is bounded by the interface's braces, so its return type never needs parentheses to be told apart from a surrounding union.
 
 ```js
 interface IExample {
@@ -1322,9 +1383,11 @@ The interface in this example defines the mapping for "named" to the second para
 It might not be obvious at first glance, but there are two separate syntaxes for defining function type constraints. One without an interface, for single non-overloaded function signatures, and with interface, for either constraining the parameter names or to define overloaded function type constraints.
 
 ```js
-function (a: (uint32, uint32)) {} // Using non-overloaded function signature
+function (a: (uint32, uint32) => void) {} // Using non-overloaded function signature
 function (a: { (uint32, uint32); }) {} // Identical to the above using Interface syntax
 ```
+
+The interface form omits the arrow, since its braces already say where the signature ends. Outside braces the arrow is required, which is what keeps ```(uint32)``` a grouped type rather than a function type.
 Most of the time users will use the first syntax, but the latter can be used if a function is overloaded:
 ```js
 function (a: { (uint32); (string); }) {
@@ -2598,18 +2661,19 @@ function f(...Mixed: mixed) {
 function f(a: string, ...args: [].<uint32>) {}
 f('a', 0, 1, 2, 3);
 ```
-Rest parameters are valid for signatures:
+Rest parameters are valid for signatures. An unnamed parameter is written as its type, so an unnamed rest parameter is ```...``` followed by its type:
 ```js
-let a:(...: [].<uint8>);
+let a: (...[].<uint8>) => void;
+let b: (...args: [].<uint8>) => void; // The same signature, with the parameter named
 ```
 Multiple rest parameters can be used:
 ```js
-function f(a: string, ...args: [].<uint32>, ...args2: [].<string>, callback: ()) {}
+function f(a: string, ...args: [].<uint32>, ...args2: [].<string>, callback: () => void) {}
 f('a', 0, 1, 2, 'a', 'b', () => {});
 ```
 Dynamic types have less precedence than typed parameters:
 ```js
-function f(...args1, callback1: (), ...args2, callback2: ()) {}
+function f(...args1, callback1: () => void, ...args2, callback2: () => void) {}
 f('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
 ```
 Rest array destructuring:
