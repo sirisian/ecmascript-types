@@ -1640,10 +1640,13 @@ This is identical to allocating an array of 20 bytes that looks like ```a, #b, a
 An array view can be created over this sequential memory to view as something else. Since this applies to all typed arrays, value type class array views can also be applied over contiguous bytes to create more readable code when parsing binary formats.
 
 ```js
+// A wire header is packed, so its members sit at the byte offsets the format specifies rather than the ones natural alignment would choose.
+@packed
 class HeaderSection {
   a: uint8;
   b: uint32;
 }
+@packed
 class Header {
   a: uint8;
   b: uint16;
@@ -1652,8 +1655,10 @@ class Header {
 const buffer: [100].<uint8>; // Pretend this has data
 const ref header = [].<Header>(buffer)[0]; // Create a view over the bytes using the [].<Header> and get a reference to the first element
 header.c.a = 10;
-buffer[3]; // 10
+buffer[3]; // 10, since c starts at byte 3
 ```
+
+Without ```@packed``` the same declarations align ```b``` to byte 2 and ```c``` to byte 4, and ```header.c.a``` would be ```buffer[4]```.
 
 When using value type classes in typed arrays it's beneficial to be able to reference individual elements. The example above uses this syntax. Refer to the references section on the syntax for this. Attempting to assign a value type to a variable would copy it creating a new instance.
 
@@ -1663,10 +1668,17 @@ header.c.a = 10;
 buffer[3]; // 0
 ```
 
-To create arrays of references simply union with null.
+To create arrays of references simply union with null. A nullable union of a value type class is the reference form, so no separate reference sigil is needed, and the same spelling works through a generic parameter.
+
 ```js
 const a: [10].<A|null>; // [null, ...]
 a[0] = new A();
+
+class Container<T> {
+  a: [10].<T>;
+}
+new Container.<A>(); // a is 10 inline instances
+new Container.<A|null>(); // a is 10 references
 ```
 
 To change a class to be unsealed when its fields are typed use the ```dynamic``` keyword. This stops the class from being used for sequential data as well, so it cannot become a value type in typed arrays.
@@ -2050,7 +2062,25 @@ class A {
 }
 ```
 
-The strict equality operators ```===``` and ```!==``` are not overloadable and always retain their identity semantics.
+The strict equality operators ```===``` and ```!==``` are not overloadable and always retain their identity semantics. What identity means follows from the type. A reference type's identity is the reference, so two distinct objects are never ```===```. A value type's identity is its value, as it already is for ```uint8``` and ```string```, so two value type class instances are ```===``` exactly when their fields are, compared field by field as the keyed collections section describes.
+
+```js
+class Vector2 { // A value type
+  x: float32;
+  y: float32;
+}
+
+const a: [10].<Vector2>; // Inline, contiguous
+a[0] = a[1]; // Copies the value
+a[0] === a[1]; // true, the fields are equal
+
+const b: [10].<Vector2 | null>; // References
+b[0] = new Vector2();
+b[1] = new Vector2();
+b[0] === b[1]; // false, two distinct objects
+```
+
+An element of a value type array is a value, not a location, so ```===``` on two elements never asks where they live. Use ```==``` to invoke a class's own equality operator when it should mean something looser than exact fields.
 
 Compound assignment operators (```+=``` and the rest of the assignment forms) are invoked as method calls on the left-hand side. The binding itself is never reassigned, so they work on ```const``` bindings, and the value of the expression ```a += b``` is whatever the operator returns, allowing operators to return ```this``` for chaining.
 
@@ -2766,9 +2796,36 @@ class AB {
 }
 ```
 
+Members are naturally aligned. Each member is placed at the next offset that is a multiple of its own alignment, a class's alignment is the largest alignment among its members, and its ```byteLength``` is rounded up to that alignment so that every element of an array of the class is aligned too. This is the rule C, C++, and Rust use, which keeps a typed class layout-compatible with the same declaration in those languages.
+
+```js
+class A {
+  a: uint8; // Offset 0
+  b: uint16; // Offset 2, not 1: uint16 is 2 byte aligned
+}
+A.byteLength; // 4, padded from 3 so that b stays aligned in an array
+A.alignment; // 2
+const a: [10].<A>; // 40 bytes
+```
+
+A ```@packed``` class decorator removes the padding, placing each member immediately after the previous one and giving the class an alignment of ```1```. Members may then be unaligned, which costs a little on every access and is exactly what a wire format wants in exchange for exact byte offsets. ```@packed``` decides member offsets; ```@alignAll``` still decides the alignment of the instance as a whole, so the two compose.
+
+```js
+@packed
+class A {
+  a: uint8; // Offset 0
+  b: uint16; // Offset 1
+}
+A.byteLength; // 3
+A.alignment; // 1
+const a: [10].<A>; // 30 bytes
+```
+
 Two new keys would be added to the property descriptor called ```align``` and ```offset```. For consistency between codebases two reserved decorators would be created called ```@align``` and ```@offset``` that would set the underlying keys with byte values. Align defines the memory address to be a multiple of a given number. (On some software architectures specialized move operations and cache boundaries can use these for small advantages). Offset is always defined as the number of bytes from the start of the class allocation in memory. (The offset starts at 0 for each class. Negative offset values can be used to overlap the memory of base classes). It's possible to create a union by defining overlapping offsets.
 
 A third reserved decorator, ```@endian('little')``` / ```@endian('big')``` with the descriptor key ```endian```, fixes the byte order of a multi-byte member for parsing wire formats. By default members use platform byte order, matching ```TypedArray```s.
+
+```@align``` and ```@offset``` override the natural alignment of the member they decorate, in either direction, so a member can be given a stricter alignment than its type requires or placed at an offset its type would not have chosen.
 
 Along with the member decorators, two object reserved descriptor keys would be created, ```alignAll``` and ```size```. These would control the allocated memory alignment of the instances and the allocated size of the instances.
 
