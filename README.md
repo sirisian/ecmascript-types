@@ -712,7 +712,9 @@ Math.addChecked(a, 1); // RangeError: 256 is out of range for uint8
 Math.addSaturating(a, 1); // 255
 ```
 
-```addChecked```, ```subChecked```, ```mulChecked```, and their saturating counterparts are overloaded for every integer type. Floats saturate to an infinity as they do today, and decimals raise a RangeError, since their range is a property of the type rather than of the format.
+```addChecked```, ```subChecked```, ```mulChecked```, ```divChecked```, and their saturating counterparts are overloaded for every integer type. Floats saturate to an infinity as they do today, and decimals raise a RangeError, since their range is a property of the type rather than of the format.
+
+Division carries edge cases the other operators don't, since it can fail rather than merely wrap. They are covered in the integer division and remainder section below.
 
 ### Function signatures with constraints
 
@@ -771,12 +773,116 @@ let b: uint8 = 128;
 b >> 1; // 64, no sign extension as would be expected with an unsigned type
 ```
 
-### Integer Division
+### Integer Division and Remainder
+
+Dividing two integers of the same type produces that type, so there is no fraction to keep. The quotient truncates toward zero, which is what ```Math.trunc``` does to the same division on Numbers and what ```(a / b) | 0``` has always done.
 
 ```js
 let a: int32 = 3;
 a /= 2; // 1
+
+int32(-3) / 2; // -1, not -2
 ```
+
+The remainder operator is unchanged from Number. Its sign follows the dividend.
+
+```js
+int32(-5) % 3; // -2
+int32(5) % -3; // 2
+```
+
+These are one decision rather than two. Every integer division satisfies
+
+```js
+(a / b) * b + a % b === a;
+```
+
+and that identity holds only when the quotient and the remainder round the same way. Truncated division pairs with a dividend-signed remainder, floored division pairs with a divisor-signed one, and mixing the two produces an arithmetic that does not add back up. A ```%``` that returned a non-negative result while ```/``` truncated would break it for three of every four sign combinations.
+
+Truncated division is the half of that pair worth keeping. Its divergence from Number is not a choice: an ```int32``` has no room for ```1.5```, so the type decides the answer. A floored ```%``` would be a choice, because both answers fit in the type. **Typed code changes what a program checks and what its values can represent. It does not change what an operator means.** Division is the exception only because the result type leaves nothing to decide.
+
+Two smaller reasons point the same way. The hardware computes this pair: ```idiv``` on x86, and ```sdiv``` with ```msub``` on ARM, produce the truncated quotient and the dividend-signed remainder together, while a non-negative remainder needs a comparison and a conditional add after it. And the unsigned types are unaffected either way, since all the definitions agree when neither operand is negative, so redefining ```%``` would split its meaning for every integer type in order to change the answer for half of them.
+
+The floored pair is named rather than assumed:
+
+```js
+Math.mod(-5, 3); // 1, taking the sign of the divisor
+Math.divFloor(-5, 3); // -2
+Math.divFloor(a, b) * b + Math.mod(a, b) === a; // The identity, for this pair
+```
+
+```Math.mod``` is Python's ```%```, Kotlin's ```mod```, and Haskell's ```mod```. For a positive divisor, which is every case where an index is being wrapped, it also equals the Euclidean remainder, so ```array[Math.mod(i, array.length)]``` is always in range. Where the divisor may be negative and a non-negative result is still wanted, ```Math.mod(a, Math.abs(b))``` gives it, which is why no separate Euclidean pair is needed.
+
+Division by zero throws. An integer type has no ```Infinity``` and no ```NaN```, so there is nothing to return, and ```bigint``` already behaves this way.
+
+A literal zero divisor never reaches runtime. It is the same kind of mistake as a literal that doesn't fit its type, so it doesn't compile.
+
+```js
+let a: int32 = 1;
+let b: int32 = readDivisor();
+
+// a / 0; // TypeError: the divisor is a literal zero
+// a % 0; // TypeError: the divisor is a literal zero
+a / b; // RangeError at runtime when b is zero
+
+float32(1) / 0; // Infinity, unchanged. A float has somewhere to put it
+float32(1) % 0; // NaN, unchanged
+```
+
+```bigint``` keeps its runtime ```RangeError``` for ```1n / 0n```, since that expression is legal today and rejecting it earlier would be a breaking change.
+
+One division overflows. The most negative value of a signed type divided by ```-1``` is its magnitude, which the type cannot hold, so it wraps by the overflow rule above, and the matching remainder is zero.
+
+```js
+int32(-2147483648) / -1; // -2147483648, wrapped
+int32(-2147483648) % -1; // 0
+Math.divChecked(int32(-2147483648), -1); // RangeError
+```
+
+#### Performance
+
+Two of these rules have consequences that run against intuition, so they are written down rather than discovered.
+
+**The floored operations are the cheap ones for a constant divisor.** Truncating toward zero on a signed type needs a sign bias that flooring doesn't, and an optimizing compiler emits, for a power of two:
+
+| Expression | Instructions |
+| --- | --- |
+| ```x / 8``` | 4, a test, a lea, a cmov, and a shift |
+| ```Math.divFloor(x, 8)``` | 1, an arithmetic shift |
+| ```x % 8``` | 6 |
+| ```Math.mod(x, 8)``` | 1, a bitwise and |
+| the same on a ```uint32``` | 1 and 1 |
+
+So ```Math.mod``` is not a slower spelling of ```%``` chosen for its sign. For the case it exists to serve, wrapping an index by a constant, it is the faster one. The reverse holds for a divisor that isn't known: ```a % b``` is the bare hardware remainder, and ```Math.mod(a, b)``` adds a fixup after it, which is branchless when the divisor's type says it is positive and a branch when it doesn't.
+
+**Prefer an unsigned type where the value cannot be negative.** Unsigned division has no most-negative case to guard, uses the cheaper instruction, and reduces to a single shift or a single mask for a power of two.
+
+**A constant divisor removes the division.** A compiler replaces ```x / 7``` with a multiply and two shifts. A 32-bit hardware division is an order of magnitude slower than that, so hoisting a divisor into a constant is the largest available win. ```a / b``` and ```a % b``` in the same expression share one division, so computing both costs nothing extra.
+
+**Division by zero throwing is cheaper than it sounds.** The two failures are exactly the two the hardware already treats specially:
+
+| Expression | This proposal | x86-64 ```idiv``` | AArch64 ```sdiv``` |
+| --- | --- | --- | --- |
+| ```x / 0``` | RangeError | faults, so the handler throws | returns 0, so a check is needed |
+| ```MIN / -1``` | wraps to ```MIN``` | faults, so the handler returns ```MIN``` | returns ```MIN```, so nothing is needed |
+| ```MIN % -1``` | ```0``` | faults, so the handler returns ```0``` | returns ```0```, so nothing is needed |
+
+Wrapping the most negative division rather than trapping it is what makes the second and third rows free on ARM, where ```sdiv``` produces exactly that value. An engine needs at most one predictable compare against zero, and none on a platform whose fault handler can tell the two cases apart.
+
+**A divisor that cannot be zero needs no check at all.** The ```nonZero``` constraint in [primitive metadata](primitivemetadata.md) moves the RangeError from every division to the boundary where the value was built, and control flow reaches it without an annotation:
+
+```js
+function ratio(a: int32, b: int32): int32 {
+  if (b != 0) {
+    return a / b; // b is int32.<{ nonZero: true }> here. No guard, and it cannot throw
+  }
+  return 0;
+}
+```
+
+Because the most negative division wraps instead of throwing, a division by a non-zero divisor cannot fail, which makes it a pure expression: it can be hoisted out of a loop and dropped when its result is unused.
+
+**Float remainder is not cheap.** ```float32 % float32``` is a true floating point remainder rather than a machine instruction, and costs far more than the integer form.
 
 ### Type Propagation to Literals
 

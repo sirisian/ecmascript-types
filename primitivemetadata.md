@@ -233,6 +233,7 @@ type NumberBounds = {
 	maximum?: float32,
 	exclusiveMinimum?: float32,
 	exclusiveMaximum?: float32,
+	nonZero?: boolean,
 };
 
 meta NumberBounds {
@@ -264,6 +265,9 @@ meta NumberBounds {
 			if (subHi == supHi && supHiX && !subHiX) return false;
 		}
 
+		// A range that cannot contain zero is non-zero whether or not it says so.
+		if (excludesZero(sup) && !excludesZero(sub)) return false;
+
 		return true;
 	}
 
@@ -276,10 +280,13 @@ meta NumberBounds {
 			return false;
 		if (constraint.exclusiveMaximum != null && fge(value, constraint.exclusiveMaximum))
 			return false;
+		// `value == 0` is true for -0 as well, which is also a zero divisor.
+		if (constraint.nonZero && value == 0)
+			return false;
 		return true;
 	}
 
-	// Bounds live in the value's own unit space. When another meta type's conversion scales the value by `factor`, the bounds scale identically.
+	// Bounds live in the value's own unit space. When another meta type's conversion scales the value by `factor`, the bounds scale identically. A non-zero factor maps non-zero values to non-zero values, so `nonZero` carries through unchanged.
 	rescale(constraint: NumberBounds, factor: float64): NumberBounds {
 		return scalarMulNumberBounds(constraint, factor);
 	}
@@ -327,8 +334,15 @@ meta NumberBounds {
 				delete result.exclusiveMaximum;
 				break;
 			}
-			// '!=' cannot meaningfully narrow a single range
-			// (would require union of two disjoint ranges)
+			case '!=': {
+				// A single range cannot exclude an arbitrary value, since that
+				// would need a union of two disjoint ranges. Zero is the one
+				// exception, because `nonZero` names exactly that hole.
+				if (value == 0) {
+					result.nonZero = true;
+				}
+				break;
+			}
 		}
 
 		return clean(result);
@@ -344,10 +358,44 @@ meta NumberBounds {
 			parts.push(`<= ${constraint.maximum}`);
 		if (constraint.exclusiveMaximum != null)
 			parts.push(`< ${constraint.exclusiveMaximum}`);
+		if (constraint.nonZero)
+			parts.push('!= 0');
 		return parts.join(' and ') || 'unconstrained';
 	}
 }
 ```
+
+### nonZero and division
+
+`nonZero` is the one constraint a range cannot express, since excluding a single interior value would need a union of two disjoint ranges. It earns its place because it is the constraint the hardware cares about.
+
+Integer division throws a RangeError when its divisor is zero, so an engine emits a test and a branch before every `idiv`. A divisor whose type cannot be zero needs neither, and the check moves from every division to the one boundary where the value was built.
+
+```js
+type Divisor = int32.<{ nonZero: true }>;
+
+function scale(x: int32, by: Divisor): int32 {
+	return x / by; // No guard. `by` cannot be zero
+}
+
+scale(10, 3); // The literal is validated once, here
+// scale(10, 0); // TypeError: literal 0 fails NumberBounds.validate
+```
+
+A range that already excludes zero is non-zero without saying so, which `subtype` accounts for, so `uint32.<{ minimum: 1 }>` is a `Divisor` and an array length is one for free.
+
+The `narrow` hook makes the constraint reachable from ordinary control flow rather than only from an annotation. Guarding a divisor is the way this is written already, and now the guard is what removes the guard:
+
+```js
+function ratio(a: int32, b: int32): int32 {
+	if (b != 0) {
+		return a / b; // b: int32.<{ nonZero: true }> here, and the division cannot throw
+	}
+	return 0;
+}
+```
+
+Because the main proposal makes the most negative value divided by `-1` wrap rather than throw, a division by a non-zero divisor cannot fail at all. It is a pure expression, so it can be hoisted out of a loop, shared between `a / b` and `a % b`, and eliminated when its result is unused. That is the second half of what the constraint buys.
 
 ### Primitive Operators
 
@@ -509,14 +557,30 @@ function isExclusiveMax(b: NumberBounds): boolean {
 	return b.exclusiveMaximum != null;
 }
 
+// Whether the constraint can be satisfied by zero. A range strictly above or
+// strictly below zero excludes it without needing the flag, which is why
+// subtype() asks this question rather than reading `nonZero` directly.
+function excludesZero(b: NumberBounds): boolean {
+	if (b.nonZero) return true;
+	const lo = effectiveMin(b);
+	if (lo != null && (lo > 0 || (lo == 0 && isExclusiveMin(b)))) return true;
+	const hi = effectiveMax(b);
+	if (hi != null && (hi < 0 || (hi == 0 && isExclusiveMax(b)))) return true;
+	return false;
+}
+
 // Remove undefined fields, absence means unconstrained.
 // Never store infinities in metadata.
+// `nonZero` is dropped when the range already excludes zero, so that
+// int32.<{ minimum: 1 }> and int32.<{ minimum: 1, nonZero: true }> intern
+// to the same type.
 function clean(b: NumberBounds): NumberBounds {
 	const result: NumberBounds = {};
 	if (b.minimum != null) result.minimum = b.minimum;
 	if (b.maximum != null) result.maximum = b.maximum;
 	if (b.exclusiveMinimum != null) result.exclusiveMinimum = b.exclusiveMinimum;
 	if (b.exclusiveMaximum != null) result.exclusiveMaximum = b.exclusiveMaximum;
+	if (b.nonZero && !excludesZero(result)) result.nonZero = true;
 	return result;
 }
 
