@@ -2014,6 +2014,8 @@ A compact syntax is proposed with signatures. These can be overloaded to work wi
 
 See this for more examples: https://github.com/tc39/proposal-operator-overloading/issues/29
 
+The [operator overloading](operatoroverloading.md) extension works these rules through a math library: operand resolution, scalars on the left of a user-defined type, and the SIMD intrinsics that make a matrix multiply compile well.
+
 ```js
 class A {
   operator+=(rhs) {}
@@ -2221,7 +2223,7 @@ All SIMD types would have operator overloading added when used with the same typ
 let a = uint32x4(1, 2, 3, 4) + uint32x4(5, 6, 7, 8); // uint32x4
 let b = uint32x4(1, 2, 3, 4) < uint32x4(5, 6, 7, 8); // boolean32x4
 ```
-It's also possible to overload class operators to work with them, but the optimizations would be implementation specific if they result in SIMD instructions.
+It's also possible to overload class operators to work with them. Whether such an operator compiles to the SIMD instructions it describes depends on conditions the [operator overloading](operatoroverloading.md) extension sets out: value type storage, natural alignment, lane indices as compile-time value generic arguments, and inlining of the operator itself.
 
 ### enum Type
 
@@ -3084,6 +3086,12 @@ This extension adds ```SoA.<T>```, a typed array that stores its elements as par
 This extension adds range literals, ```a..b``` and ```a..=b```, as typed values that carry their endpoints and inclusivity, for iteration, slicing, bounded types, and random generation.
 
 [Ranges](ranges.md)
+
+### Operator Overloading
+
+This extension works the operator rules through a 2D and 3D math library, covering scalar operands on the left, the SIMD intrinsics a matrix multiply needs, and what an engine must guarantee to compile it well.
+
+[Operator Overloading](operatoroverloading.md)
 
 ### Regular Expressions
 
