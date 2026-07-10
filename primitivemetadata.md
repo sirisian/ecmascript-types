@@ -192,6 +192,8 @@ function halveDimensions(d: Dimensions): Dimensions {
 **Metadata Type**: NumberBounds  
 JSON Schema numeric constraints. Absent fields mean unconstrained in that direction. Both inclusive (minimum, maximum) and exclusive (exclusiveMinimum, exclusiveMaximum) bounds are supported. When both exist on the same side, the tighter (more restrictive) one takes effect.
 
+A range literal with compile-time constant endpoints, from the [ranges](ranges.md) extension, is a valid metadata argument and desugars to exactly these fields: `..` sets `exclusiveMaximum`, `..=` sets `maximum`, and an omitted endpoint omits its constraint. So `uint8.<1..=6>` is `uint8.<{ minimum: 1, maximum: 6 }>` and `float32.<0..1>` is `float32.<{ minimum: 0, exclusiveMaximum: 1 }>`.
+
 <details>
 	<summary>Expand for float32 epsilon helper functions.</summary>
 	

@@ -542,6 +542,8 @@ rows.window(0, 8); // [].<uint32>, length 8
 
 Without it the same window is spelled with the element size folded in by hand, ```[8].<uint32>(rows, entityIndex * 8 * uint32.byteLength)```, which is correct and repeats the element type three times.
 
+With the [ranges](ranges.md) extension the index operator takes a range, so ```rows[start..end]``` is the same view and is the form to prefer. ```window``` remains for a fixed length over a runtime start.
+
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 
 Rather than defining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. More than one can be defined as long as they have unique signatures.
@@ -3019,6 +3021,12 @@ This extension collects the typed signatures of the standard library's generic m
 This extension adds ```SoA.<T>```, a typed array that stores its elements as parallel per-field columns while presenting the element API of ```[].<T>```, for cache locality, vectorization, and attribute upload.
 
 [Structure of Arrays](soa.md)
+
+### Ranges
+
+This extension adds range literals, ```a..b``` and ```a..=b```, as typed values that carry their endpoints and inclusivity, for iteration, slicing, bounded types, and random generation.
+
+[Ranges](ranges.md)
 
 ### Regular Expressions
 
