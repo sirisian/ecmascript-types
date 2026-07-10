@@ -137,21 +137,50 @@ function play(value: Die) {} // Checked at the boundary
 
 ## Iteration
 
-```Range``` and ```RangeFrom``` over integer types define ```*operator...()```, so they iterate:
+**A range iterates when it has a step.** Over the integer types the step is ```1``` and is implicit, which covers the loop everyone writes:
 
 ```js
-for (const i of 0..array.length) {} // The loop everyone writes
+for (const i of 0..array.length) {} // Half-open, so it stops one short
 for (const i of 0..=9) {} // 0 through 9
 [...0..5]; // [0, 1, 2, 3, 4]. Spread is prefix, so no ambiguity
-(0..100).step(2); // Every other value
-(0..).take(10); // RangeFrom is infinite; iterator helpers apply
 ```
 
-Float ranges are **not iterable**, because there is no canonical step, and iterating one is a TypeError rather than a silent choice of ```1```. ```RangeTo``` and ```RangeFull``` are not iterable either, having no start. Both restrictions match Rust, and both are the kind of thing that must be decided rather than discovered.
+```step``` supplies a step where there is none, and widens the stride where there is one. The step is a *difference*, so its type is the type of ```end - start```: the element type itself for a numeric range, and a ```Temporal.Duration``` for a range of instants.
+
+```js
+(0..100).step(2); // 0, 2, 4, ...
+(0.0..1.0).step(0.25); // 0, 0.25, 0.5, 0.75
+(start..end).step(Temporal.Duration.from('PT1H')); // Every hour
+(0..).step(3).take(4); // 0, 3, 6, 9
+```
+
+The nth value is ```start + n * by``` rather than the previous value plus ```by```, and iteration stops when that value reaches ```end```, tested against the value and not against a computed count. Both halves matter for a float range: ```(end - start) / by``` can round up and yield one value too many, and repeated addition accumulates error.
+
+```js
+[...(0.0..1.0).step(0.1)]; // Ten values, ending at 0.9
+```
+
+Repeated addition would have ended at ```0.8999999999999999```. Individual values still round, so the fourth is ```0.30000000000000004```. The rule prevents accumulation, not rounding.
+
+A range whose element type has no natural unit, which is every type but the integers, is a TypeError to iterate without a step rather than a silent choice of ```1```:
+
+```js
+// for (const x of 0.0..1.0) {} // TypeError: a float range has no implicit step
+for (const x of (0.0..1.0).step(0.1)) {}
+```
+
+```RangeTo``` and ```RangeFull``` are never iterable, having no start. ```RangeFrom``` is unbounded, so the iterator helpers are how it is used.
+
+A range is an ordinary iterable, so the [standard library](standardlibrary.md)'s iterator helpers apply, and materializing one is a spread or a ```toArray```. The element type propagates into a typed array:
+
+```js
+const a: [].<uint32> = [...0..10]; // A typed array of uint32
+(0..10).map(i => `item${i}`).toArray(); // [].<string>
+Array.from(0..10, i => i * i);
+(0..).take(10).toArray();
+```
 
 Because ```Range``` is a value type and ```*operator...()``` is an ordinary iteration operator, ```for (const i of 0..n)``` inlines to a counted loop with no iterator object allocated. It is the C-style loop, spelled once.
-
-This subsumes the common case of ```Iterator.range```, which remains useful for a dynamic step and for ```bigint``` sequences.
 
 ## Indexing and Slicing
 
@@ -210,7 +239,7 @@ Exhaustiveness is not claimed for range labels. Deciding whether a set of interv
 ## The Rest of the Language
 
 - **Dimensioned quantities.** ```Meter(0)..Meter(10)``` is a ```Range.<Meter>``` because ```float32.<D>``` defines ```operator<```. Mixing dimensions is the same TypeError it is anywhere: ```Meter(0)..Second(10)``` fails at the range's construction.
-- **Temporal.** ```start..end``` over ```Temporal.Instant``` works, and it subsumes the ad-hoc ```Interval``` record in [temporal.md](temporal.md). It isn't iterable without a step, and ```(start..end).step(Temporal.Duration.from('PT1H'))``` reads better than the loop it replaces. A non-empty requirement stays a ```where``` clause, since an empty range is a legal value, not an error.
+- **Temporal.** ```start..end``` over ```Temporal.Instant``` works, and it subsumes the ad-hoc ```Interval``` record in [temporal.md](temporal.md). Like any non-integer range it needs a step, and ```(start..end).step(Temporal.Duration.from('PT1H'))``` reads better than the loop it replaces. A non-empty requirement stays a ```where``` clause, since an empty range is a legal value, not an error.
 - **decimal and rational.** Ordered, so ranged. ```Math.random.<decimal128.<{ scale: 2 }>>(0..=100)``` quantizes at the return boundary like any other decimal.
 - **Dependent record types.** ```where (0..=150).contains(this.age)``` reads as the constraint it is, and the bounded-type spelling ```age: uint8.<0..=150>``` is better still, since it validates at every boundary rather than at record construction.
 - **Value type references.** ```for (const ref p of particles[0..n])``` composes: the slice is a view, and reference iteration over a view is reference iteration.
@@ -224,9 +253,29 @@ One lexical rule, one broken idiom, one new expression form, four small classes,
 
 The completeness test this document set for itself was whether existing features absorb ranges without special cases. They do, with two exceptions worth naming rather than hiding: containment cannot use ```in``` without breaking legal code, and exhaustiveness over ranges is not offered. Both are refusals, not gaps.
 
+## Other Proposals
+
+**```Iterator.range```.** These are different kinds of thing rather than competing spellings. ```Iterator.range(start, end, optionOrStep)``` returns an iterator, which is consumed once. ```a..b``` is a value, which can be iterated any number of times, stored in a field, passed to ```Math.random```, and used as a type. So there is no conflict, only an overlap, and the two should agree where they overlap:
+
+```js
+Iterator.range(0, 10); // The values of (0..10)[Symbol.iterator]()
+Iterator.range(0, 10, 2); // The values of (0..100).step(2)
+```
+
+Both are half-open by default, both treat a descending pair as empty, and both admit ```bigint```. Once ranges exist, ```Iterator.range``` is a function spelling of a literal, including for computed bounds, since ```a..b``` takes expressions. That is a duplication worth deciding about rather than a conflict to resolve, and this document takes no position beyond asking that the values agree.
+
+**A static ```range``` on typed arrays**, as in the ```uint32[].range(0, 10)``` that earlier drafts of this idea proposed, is declined. It is a second way to write ```0..10``` that also materializes an array nobody asked for. ```[...0..10]``` and ```(0..10).map(f).toArray()``` cover it, and both propagate their element type.
+
+**Slice notation**, ```a[1:3]```, is subsumed. ```a[1..3]``` is the same operation through the index operator, and it composes with the other range forms, so ```a[..]``` and ```a[2..]``` come free. Two spellings of a slice would be worse than one.
+
+**Pattern matching** gains range patterns from this document rather than needing its own, since a case label is an expression and a range is a value.
+
+**The pipeline operator**, if it advances, binds looser than ```..```, so ```0..10 |> f``` pipes the range rather than piping ```10```.
+
+**Decimal literals and numeric separators** are unaffected. The lexical rule reads a ```.``` as part of a number only when the next character is not another ```.```, and neither ```1_000..2_000``` nor a suffixed decimal literal has two dots in a row.
+
 ## Open Questions
 
 - Should ```String``` gain the range index operator (```str[1..3]```), or is ```slice``` enough? Strings are not typed arrays here, so this is a separate decision.
 - ```Range.of.<Interval.Open>(a, b)``` is the only way to name the two open-start intervals, and it needs its interval as a compile-time constant. Choosing an interval at runtime therefore produces a union of range types, which a ```switch``` handles and which is rare enough that no sugar is proposed.
-- Coordination with ```Iterator.range```: ranges subsume its two-argument form. The proposals should agree on whether ```Iterator.range(0, 10)``` and ```0..10``` produce the same iterator.
-- Precedence against the pipeline operator, if that proposal advances.
+- Whether ```step``` should return an ```Iterator``` or a stepped ```Range```. An iterator is what Rust's ```step_by``` returns and what the helpers want, but it costs the range's other affordances, including ```contains```.
