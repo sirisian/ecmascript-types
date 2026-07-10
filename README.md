@@ -594,15 +594,55 @@ const grid = new [100].<uint8>();
 const gridView = new GridArray(grid);
 ```
 
-### Implicit Casting
+### Conversions
 
-The default numeric type Number would convert implicitly with precedence given to ```float64``` first, since Number is a float64 and the conversion is exact, then ```float128/80/32/16```, ```decimal128/64/32```, ```uint128/64/32/16/8```, ```int128/64/32/16/8```. (This is up for debate). Examples are shown later with class constructor overloading.
+**A value of one value type never implicitly becomes a value of another.** ```uint8``` does not widen to ```uint16```, ```float32``` does not widen to ```float64```, and ```number``` is a value type like the rest, so it converts to none of them. Every conversion between distinct value types is written out. This is the rule Rust, Swift, and Go use, and it exists because there is no widening that is lossless for every pair: ```int64``` to ```float64``` loses precision above 2^53, and a language that admits the easy cases has to enumerate the hard ones anyway.
+
+```js
+let a: uint8 = 1;
+// let b: uint16 = a; // TypeError: uint8 is not assignable to uint16
+let b: uint16 = uint16(a); // Explicit, and free at runtime
+
+let c: float32 = 1;
+// let d: float64 = c; // TypeError: float32 is not assignable to float64
+// let e: number = c; // TypeError: number is float64
+```
+
+Four things remain implicit, and none of them is a conversion between two typed values.
+
+**Literals have no type.** A numeric literal takes the type of its context, and one that doesn't fit is a compile-time TypeError rather than a silent truncation. This is what makes the rule above livable: the arguments and initializers that would want a conversion are usually literals, and a literal never needs one.
+
+```js
+function f(a: uint8) {}
+f(1); // The literal is a uint8
+// f(256); // TypeError: literal out of range for uint8
+
+let a: uint8 = 200;
+a + 1; // uint8. The literal propagates
+// a + 300; // TypeError: literal out of range for uint8
+```
+
+**Untyped bindings are dynamic.** A binding without an annotation is ```any```, so it converts at runtime with a check, exactly as it does today. Only two statically typed values are held to the rule above, which is where the mistakes are.
+
+```js
+let i = 0; // any
+const array: [].<uint8> = [1, 2, 3];
+i < array.length; // Fine. Comparing any with uint32 is dynamic
+```
+
+**Metadata parameterizations of one primitive convert by their meta protocol.** ```Kilometer``` and ```Meter``` are both ```float32```, and the ```conversionFactor``` and ```quantize``` hooks in [primitive metadata](primitivemetadata.md) apply at assignment, argument, and return boundaries. That is a conversion within a type, not between two of them.
+
+**User-defined casts still apply**, because the class that declares them opted in. A constructor taking a ```float32``` makes ```let t: MyType = 1;``` legal, and an ```operator T()``` makes the reverse legal.
+
+The standard library is overloaded for the value types, so nothing in it forces a conversion. ```Math.clz32``` of a ```uint32``` is a ```uint32```, ```Math.min``` of two ```float32``` is a ```float32```, and ```array.length``` is a ```uint32``` that compares against a ```uint32``` loop counter without a cast.
+
+Where a literal satisfies more than one overload, the ranking is ```float64``` first, since Number is a float64 and the conversion is exact, then ```float128/80/32/16```, ```decimal128/64/32```, ```uint128/64/32/16/8```, ```int128/64/32/16/8```. This ranks *literals*, not values, and it is the only place the order matters.
 
 ```js
 function f(a: float32) {}
 function f(a: uint32) {}
-f(1); // float32 called
-f(1 as uint32); // uint32 called
+f(1); // float32 called, by the literal ranking
+f(uint32(1)); // uint32 called, because the argument is typed
 ```
 
 It's also possible to use operator overloading to define implicit casts. The following casts to a heterogeneous tuple:
@@ -623,12 +663,56 @@ const [x, y, z] = a;
 
 ### Explicit Casting
 
+A cast is a call on the type, and ```:=``` is the same conversion written after the value, which reads better trailing a large literal or object.
+
 ```js
-let a := 65535 as uint8; // Cast taking the lowest 8 bits so the value 255. The typed assignment infers the type from the cast, so a is typed uint8
-let b: uint8 = 65535; // Same as the above
+let a := uint8(65535); // 255, the lowest 8 bits. The typed assignment infers uint8
+let b = 65535 := uint8; // 255, the same conversion
+// let c: uint8 = 65535; // TypeError: literal out of range for uint8
 ```
 
+The third line is the difference between a cast and a literal. A cast is an instruction to discard information, so it truncates; a literal that doesn't fit its type is a mistake, so it doesn't compile.
+
 Many truncation rules have intuitive rules going from larger bits to smaller bits or signed types to unsigned types. Type casts like decimal to float or float to decimal would need to be clear.
+
+### Arithmetic and Overflow
+
+Arithmetic never promotes. Two operands of the same value type produce that type, and two operands of different value types are a TypeError, since neither converts to the other. A literal operand takes the other operand's type.
+
+```js
+let a: uint8 = 200;
+let b: uint8 = 100;
+let c: uint16 = 1;
+a + b; // uint8
+// a + c; // TypeError: uint8 and uint16 have no common type
+uint16(a) + c; // uint16
+
+let x: float32 = 1;
+x * x; // float32, computed in float32. No rounding through float64
+```
+
+This matters most for the float types. C promotes ```float``` to ```double``` in many contexts, so the same source produces different results depending on where a value is used. Here ```float32``` arithmetic is ```float32``` arithmetic, which is what makes a computation reproducible across engines.
+
+Integer overflow wraps, discarding the bits that don't fit, which is what an explicit cast does and what a ```TypedArray``` store has always done. Signed types wrap in two's complement.
+
+```js
+const a: uint8 = 255;
+a + 1; // 0
+const b: int8 = 127;
+b + 1; // -128
+
+const array: [].<uint8> = [0];
+array[0] = 300; // 44, unchanged from Uint8Array today
+```
+
+Silent wrapping is the wrong answer when the value is a count rather than a bit pattern, so the checked and saturating forms are named:
+
+```js
+Math.addChecked(a, 1); // RangeError: 256 is out of range for uint8
+Math.addSaturating(a, 1); // 255
+```
+
+```addChecked```, ```subChecked```, ```mulChecked```, and their saturating counterparts are overloaded for every integer type. Floats saturate to an infinity as they do today, and decimals raise a RangeError, since their range is a property of the type rather than of the format.
 
 ### Function signatures with constraints
 
@@ -814,14 +898,14 @@ f([(1, 2, 3, 4)]);
 ```js
 let a: uint64 = 2**53 + 1;
 let b = a; // b is typed any and holds the uint64 value with no precision loss
-// let c: number = a; // TypeError: Implicit conversion of a uint64 outside the safe integer range to Number
-let d: number = Number(a); // Explicit conversion rounds to the nearest float64
+// let c: number = a; // TypeError: uint64 is not assignable to number
+let d: number = number(a); // Explicit conversion rounds to the nearest float64
 JSON.stringify({ a }); // '{"a":9007199254740993}' - always serialized with exact decimal digits
 // let e = a + 1n; // TypeError: Cannot mix uint64 and bigint
 let f = bigint(a) + 1n; // Explicit casts convert between the integer families
 ```
 
-Assigning to an untyped variable keeps the underlying 64-bit value since the variable is dynamically typed rather than converted. Implicit conversion to Number, such as passing to a parameter typed ```number```, throws a TypeError when the value is outside the safe integer range. An explicit cast always succeeds and rounds.
+Assigning to an untyped variable keeps the underlying 64-bit value since the variable is dynamically typed rather than converted. Passing a ```uint64``` where a ```number``` is expected is a TypeError by the conversion rule, whatever the value, so the precision loss is never silent and never depends on the data. An explicit cast always succeeds and rounds. ```int128``` and ```uint128``` behave identically, as does every other pair of value types.
 
 ### Destructuring Assignment Casting
 
@@ -1234,7 +1318,7 @@ let a := new MyType(); // a is type MyType
 // a = 5; // Equivalent to using implicit casting: a = MyType(5);
 ```
 
-```expression := Type``` is also an expression. It evaluates its left side and converts it to ```Type``` by the same rules a typed binding uses, so it constructs from a matching shape, runs implicit casts, and validates metadata. It's usable in any expression position, which is what makes constructing and returning a typed value in one step read well:
+```expression := Type``` is also an expression. It evaluates its left side and converts it to ```Type``` by the same rules a typed binding uses, so it constructs from a matching shape, runs any user-defined cast, and validates metadata. It's usable in any expression position, which is what makes constructing and returning a typed value in one step read well:
 
 ```js
 function makeNode(op: TokenType, left: Node, right: Node): BinaryNode {
@@ -1318,8 +1402,8 @@ See the [Type Records](typerecords.md) page for more information on signatures.
 A call selects its signature as follows:
 
 1. Collect every declared signature for the name.
-2. Keep the viable signatures where the argument list satisfies the parameter list's arity, accounting for default values, optional parameters, and rest parameters, and where every argument is convertible to its parameter's type.
-3. Rank each viable signature by the worst conversion any of its arguments requires: an exact type match, then a numeric conversion following the precedence order in the implicit casting section, then a user-defined implicit cast, then binding to an untyped catch all signature.
+2. Keep the viable signatures where the argument list satisfies the parameter list's arity, accounting for default values, optional parameters, and rest parameters, and where every argument is assignable to its parameter's type.
+3. Rank each viable signature by the worst match any of its arguments requires: an exact type match, then an untyped literal taking the parameter's type by the ranking in the conversions section, then a user-defined implicit cast, then binding to an untyped catch all signature. A typed argument never ranks below an exact match, because a typed argument of the wrong type isn't viable at all.
 4. If exactly one signature ranks best it's called. Otherwise the call is ambiguous, a TypeError is thrown, and explicit casts are required to select a signature.
 
 Return types don't participate in ranking. Selecting between signatures that differ only by return type is covered below.
@@ -1894,7 +1978,7 @@ function breed(a: Animal): Animal {
 }
 ```
 
-Covariance is permitted when the derived return type is assignable to the base's **with no implicit conversion applied**: subtyping holds, and every meta type's ```conversionFactor``` yields ```1``` or is absent. A conversion at the return would mean the value depended on the static type of the call site, which is the same hazard the rule above avoids.
+Covariance is permitted when the derived return type is assignable to the base's **and no conversion is applied at the return**. Between value types that means the same type, since distinct value types are never assignable. Between metadata parameterizations of one type it means every meta type's ```conversionFactor``` yields ```1``` or is absent. Between reference types it means a subclass. A conversion at the return would make the value depend on the static type of the call site, which is the same hazard the rule above avoids.
 
 That admits class subtyping and metadata refinements that don't change representation:
 
@@ -1907,14 +1991,14 @@ class Thermometer extends Sensor {
 }
 ```
 
-And it rejects the two cases where a subtype relation exists but a conversion is required. Numeric widening needs a conversion at the return:
+And it rejects two cases. Numeric types are unrelated, so one never covariantly refines another:
 
 ```js
 class A {
   f(): uint16 {}
 }
 class B extends A {
-  // f(): uint8 {} // TypeError: uint8 converts to uint16, so the return is not conversion free
+  // f(): uint8 {} // TypeError: uint8 is not assignable to uint16
 }
 ```
 
@@ -1949,8 +2033,8 @@ class MyType {
 
 Implicit casting using the constructors:
 ```js
-let t: MyType = 1; // float32 constructor call
-let t: MyType = 1 as uint32; // uint32 constructor called
+let t: MyType = 1; // float32 constructor call, by the literal ranking
+let t: MyType = uint32(1); // uint32 constructor called
 ```
 
 Constructing arrays all of the same type:
@@ -2006,6 +2090,15 @@ Going from a scalar to a vector:
 
 ```js
 let a: float32x4 = 1; // Equivalent to let a = float32x4(1, 1, 1, 1);
+```
+
+```vector.<T, N>``` declares a cast operator from its own lane type ```T```, so the broadcast is one of the user-defined casts the conversions section preserves rather than a conversion between numeric types. It applies to a typed scalar as well as to a literal, and only from the lane type:
+
+```js
+let s: float32 = 2;
+let b: float32x4 = s; // Broadcast, s is a float32 and so is the lane type
+// let c: float64x2 = s; // TypeError: float32 is not the lane type of float64x2
+let d: float64x2 = float64(s); // Cast first, then broadcast
 ```
 
 ### Classes and Operator Overloading
@@ -2746,12 +2839,12 @@ Dispatching on the shape or contents of an arbitrary value is the [pattern match
 
 ### 128-bit Integer Types
 
-```int128``` and ```uint128``` follow the same rules as the 64-bit types: they're value types with a fixed layout and alignment, they don't implicitly convert to ```number```, and their literals are typed by propagation rather than a suffix. Engines implement them as a pair of 64-bit limbs, as .NET, Rust, and the C compilers do. They exist because several ordinary values don't fit in 64 bits: a UUID, an IPv6 address, a ```decimal128``` significand, and the epoch nanoseconds of a [Temporal](temporal.md) instant, which spans about 8.64e21 and so needs 74 bits.
+```int128``` and ```uint128``` follow the same rules as the 64-bit types: they're value types with a fixed layout and alignment, they don't implicitly convert to ```number``` any more than any other value type does, and their literals are typed by propagation rather than a suffix. Engines implement them as a pair of 64-bit limbs, as .NET, Rust, and the C compilers do. They exist because several ordinary values don't fit in 64 bits: a UUID, an IPv6 address, a ```decimal128``` significand, and the epoch nanoseconds of a [Temporal](temporal.md) instant, which spans about 8.64e21 and so needs 74 bits.
 
 ```js
 const id: uint128 = 0x550e8400e29b41d4a716446655440000;
 const nanoseconds: int128 = 8640000000000000000000;
-// const n: number = id; // TypeError: no implicit conversion, use number(id) or id.toString()
+// const n: number = id; // TypeError: uint128 is not assignable to number. Use number(id) or id.toString()
 ```
 
 Nothing in SIMD changes: the 128-bit lanes of the SIMD types are unrelated to these scalar types.
