@@ -85,6 +85,8 @@ class Set<T> {
 
 When ```T``` and ```U``` are unrelated value types the compiler can constant-fold the answer: an ```intersection``` of a ```Set.<uint8>``` and a ```Set.<string>``` is empty without iterating, and ```isDisjointFrom``` is ```true```, since distinct value types share no values.
 
+A ```Set``` of value type class instances deduplicates structurally, and a ```Map``` keyed on one compares its keys by value, per the keyed collections section of the main proposal.
+
 ## Promise Statics
 
 ```js

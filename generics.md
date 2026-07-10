@@ -39,6 +39,24 @@ class A<T extends B & C> {
 ```
 I think that's sufficient and covers common use cases.
 
+### Type Generic Parameters as Values
+
+A generic type parameter is a type object, so in expression position it evaluates to the type it was specialized with, exactly as a type name does. This is what lets generic code key a collection or a registry on its own parameter:
+
+```js
+class EventBus {
+	#channels = new Map.<type, any>();
+	emit<T>(event: T) {
+		this.#channels.get(T)?.push(event);
+	}
+	read<T>(): [].<T> {
+		return this.#channels.get(T) ?? [];
+	}
+}
+```
+
+The main proposal's compile-time type expressions cover the type position counterpart, where an expression yielding a type object is a valid annotation.
+
 ### Value Type Generic Parameters
 
 A value can be passed into generics like a function argument. The only caveat is they must be const and will be treated like const variables that are compiled away.

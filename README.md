@@ -169,6 +169,66 @@ Reflect.typeOf(new Map.<string, uint8>()); // Map.<string, uint8>
 
 For a metadata-parameterized value it returns the full parameterization, e.g. ```float32.<{ m: 1 }>``` for a Meter from the primitive metadata document, which is how reflection obtains constraint information at runtime.
 
+#### The type Type
+
+```type``` is the type of a type object, so a function that computes a type annotates its return with it:
+
+```js
+function elementType(): type {
+  return uint8;
+}
+Reflect.typeOf(uint8); // type
+Reflect.typeOf(type); // type
+```
+
+#### Compile-Time Type Expressions
+
+Because a type object is a value, computing one is ordinary code. **An expression that evaluates to a type object at compile time is a valid type annotation.** A type name is the trivial case of this rule; a call whose arguments are compile-time constants is the useful one:
+
+```js
+enum Component: uint8 { Transform, Velocity, Health };
+
+function componentType(c: Component): type {
+  switch (c) {
+    case Component.Transform: return Transform;
+    case Component.Velocity: return Velocity;
+    case Component.Health: return Health;
+  } // Exhaustive over Component, so every call yields a type
+}
+
+class Store {
+  get<C: Component>(component: C): componentType(C) | null {}
+  set<C: Component>(component: C, value: componentType(C)) {}
+}
+
+const store = new Store();
+store.get(Component.Health); // Health | null
+// store.set(Component.Health, new Velocity()); // TypeError: expected Health
+```
+
+This is what replaces the mapped and indexed access types of erased type systems, and the machinery is already present. Return type annotations evaluate compile-time calls today: ```multiplyDimensions(D, D2)``` in the [primitive metadata](primitivemetadata.md) document computes the metadata an operator returns. A ```switch``` over a value generic parameter is no less evaluable than that arithmetic.
+
+The rules:
+
+- The expression is evaluated at specialization, when every value generic parameter it reads is a known constant. The same function called with a value that isn't constant is a TypeError in type position, though it remains an ordinary function in expression position, which is what a dynamic path calls.
+- Compile-time evaluability is the same notion the ```where``` clauses and metadata annotations use. A function is evaluable when its body reads only its parameters, constants, and other evaluable functions.
+- The expression must produce a type object. A function whose ```switch``` fails to cover a case would produce ```undefined``` and is a TypeError at the annotation; enum and sealed class exhaustiveness make that a compile-time guarantee rather than a runtime surprise.
+- Diagnostics name the expression, not just its value: an assignment failing against ```componentType(Component.Health)``` reports it that way.
+
+Generic type parameters are type objects too, so a parameter in scope evaluates to the type it was specialized with. Registries keyed on types are the common use, replacing the string keys and casts the same code needs elsewhere:
+
+```js
+class Resources {
+  #values = new Map.<type, any>();
+  set<T>(value: T) {
+    this.#values.set(T, value); // T evaluates to its type object
+  }
+  get<T>(): T | undefined {
+    return this.#values.get(T);
+  }
+}
+```
+
 ### instanceof Operator
 
 Type objects implement ```Symbol.hasInstance```, so ```instanceof``` extends to every type in the proposal through the existing protocol with no new operator semantics. The check is a subtype test against the value's runtime type:
@@ -459,6 +519,28 @@ const fixed = [8].<uint8>(buffer);
 buffer.resize(4);
 // fixed[0]; // TypeError: the view's extent exceeds the resized buffer
 ```
+
+The view constructor takes a byte offset, which is the right unit for parsing a wire format and the wrong one for indexing a table. ```window``` takes element indices instead:
+
+```js
+class Array<T> {
+  window(start: uint32, end: uint32 = this.length): [].<T>;
+  window<Length: uint32>(start: uint32): [Length].<T>;
+}
+```
+
+The overload with a value generic returns a fixed extent view, so a row of a table has a type that says how long it is. A window aliases the array it came from, as any view does.
+
+```js
+const rows: [].<uint32> = new [64].<uint32>();
+const row = rows.window.<8>(entityIndex * 8); // [8].<uint32>, no byte arithmetic
+row[0] = 1;
+rows[entityIndex * 8]; // 1, the same storage
+
+rows.window(0, 8); // [].<uint32>, length 8
+```
+
+Without it the same window is spelled with the element size folded in by hand, ```[8].<uint32>(rows, entityIndex * 8 * uint32.byteLength)```, which is correct and repeats the element type three times.
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 
@@ -2176,6 +2258,28 @@ Similar to ```Array```, enumeration objects share a common prototype, written he
 %Enum.prototype%[@@iterator]()
 ```
 
+These give the enumerator count at runtime, and reflection gives it wherever a constant is needed, since an enum is a static declaration:
+
+```js
+enum Component: uint8 { Transform, Velocity, Health };
+
+Component.keys().length; // 3, at runtime
+Reflect.getReflection.<Reflect.Enum, Component>().size; // 3, compile-time evaluable
+```
+
+Being compile-time evaluable, the reflected count is usable as an array extent or a value generic argument, per the compile-time type expressions section. The sentinel idiom that C and C++ use, a final enumerator whose value is the count, works here too, since an enumerator can reference previous values:
+
+```js
+enum Component: uint8 {
+  Transform, Velocity, Health,
+  __COUNT, // 3
+  DisabledVelocity = __COUNT, // Continue numbering after the real components
+  __TOTAL
+};
+```
+
+A sentinel is a member of its enumeration and appears in ```keys()``` and in a ```switch```, which exhaustiveness will then require a case for. The reflected count doesn't, so prefer it unless the sentinel is doing what it does above: naming an offset that later enumerators are defined against.
+
 Iteration would work like this:
 
 ```js
@@ -2351,6 +2455,8 @@ https://github.com/rbuckton/proposal-refs
 
 The only difference with the above is that reference objects have operator overloading so there's no exposed ```value```.
 
+A reference has no observable identity. Every operation applies to the value it refers to, so ```typeof```, ```Reflect.typeOf```, ```===```, and ```instanceof``` all see the referenced value and never the reference itself, and a reference cannot be stored in a binding that outlives it, a field, an array, or a collection. There is therefore no way to distinguish a reference from the value it refers to, which is what makes a reference a storage location and an index rather than an object. Nothing is allocated when one is created or passed.
+
 ```js
 function f(ref a: int32) {
   a++;
@@ -2397,7 +2503,39 @@ let escaped;
 // for (const ref p of particles) { escaped = ref p; } // TypeError: the reference outlives the element access
 ```
 
-Reference iteration is defined for the built-in typed arrays. A user-defined iterator yielding references is not currently supported; the ```...``` operator's yield type is a value type.
+Reference iteration is defined for the built-in typed arrays, including ```SoA.<T>``` from the [structure of arrays](soa.md) extension, where a reference denotes a column set and an index rather than a contiguous element. A user-defined iterator yielding references is not currently supported; the ```...``` operator's yield type is a value type.
+
+#### Reference Callback Parameters
+
+```for...of``` walks one array. Iterating several in step, mutating an element of each, is what a ```ref``` callback parameter is for. A container passes references into a callback, one per array, rebound each iteration:
+
+```js
+function zip<T, U>(a: [].<T>, b: [].<U>, callback: (ref x: T, ref y: U) => void) {
+  for (let i: uint32 = 0; i < a.length; ++i) {
+    callback(ref a[i], ref b[i]);
+  }
+}
+
+zip(transforms, velocities, (ref transform, ref velocity) => {
+  transform.x += velocity.vx * dt; // Writes into transforms
+  velocity.vx *= drag; // Writes into velocities
+});
+```
+
+Nothing new is at work here: these are the ```ref``` parameters from the top of this section, applied to array elements. The idiom exists because it's what a user-defined iterator yielding references would have been for, and it composes what the language already has instead of adding to it.
+
+What the language guarantees is that nothing is allocated. A reference has no identity and cannot escape its call, so passing one is passing a storage location and an index, which is a static property of every conforming program rather than something an optimizer must prove. Whether the *call* survives is a separate question. Engines inline a small callee at a monomorphic call site today, and generic specialization helps, since ```each.<Component.Transform, Component.Velocity>``` is a distinct instantiation rather than one erased body shared by every caller. When the callback inlines, the calls disappear and the loop is the one that would have been written by hand. When it doesn't, the cost is one direct call per element with its arguments in registers, and no garbage.
+
+A program that needs the guarantee rather than the likelihood iterates the underlying arrays itself, which is what the column loops in the [entity component system](examples/ecs.md) example do where the arithmetic is dense enough to vectorize.
+
+The escape rule is the same as everywhere else, and it's what lets a reference stay a location. A reference parameter is valid for the duration of its call, so storing one outlives the element access that produced it:
+
+```js
+let saved;
+// zip(transforms, velocities, (ref t, ref v) => { saved = ref t; }); // TypeError: the reference outlives the element access
+```
+
+The container decides what a reference means. An ```SoA.<T>``` passes a column set and an index, an ordinary array passes a slot, and the callback is written once against either.
 
 References can also be used to refer to elements in value type arrays.
 
@@ -2608,6 +2746,8 @@ mesh.byteLength; // 120
 
 These are TypeErrors on a class that has no defined layout, which is any class with an untyped field, and they reflect the declared layout, so the offset and endianness decorators below are accounted for.
 
+An array stores its elements with this layout, one after another. ```SoA.<T>``` from the [structure of arrays](soa.md) extension stores the same elements as one array per field instead, with the same element API.
+
 By default the memory layout of a typed class - a class where every property is typed - simply appends to the memory of the extended class. For example:
 
 ```js
@@ -2750,6 +2890,56 @@ The tradeoff is deliberate: a proxy exchanges the engine's ability to elide chec
 
 The ```Reflect``` methods mirror the operations above. ```Reflect.get``` and ```Reflect.set``` obey a property's declared type, ```Reflect.defineProperty``` accepts the ```type``` key of a descriptor, ```Reflect.deleteProperty``` on a typed property is a TypeError, and ```Reflect.typeOf``` returns a runtime type object as described in the typeof section.
 
+### Keyed Collections
+
+```Map``` and ```Set``` compare keys with SameValueZero, which for a primitive is value equality and for an object is identity. A value type class instance is neither, so it needs a rule of its own: **value type keys compare structurally**, field by field with SameValueZero, which is what ```==``` on them already does.
+
+Comparison and hashing are defined over a type's fields, never its byte image, because alignment padding is not observable. Each field compares by its own kind: a value type field recursively and structurally, a fixed-length array field element by element, since it's inline storage, and a reference field by identity. That last distinction is the same one that decides whether the containing class is a value type at all.
+
+```js
+class BitSet {
+  readonly words: [4].<uint32>; // Inline storage, so BitSet is a value type
+}
+const a: BitSet;
+const b: BitSet;
+a === b; // true, equal field by field
+
+const index = new Map.<BitSet, Archetype>();
+index.set(a, archetype);
+index.get(b); // archetype, the same key by value
+```
+
+A value type key is copied into the collection when it's inserted, because that is what assigning a value type does. Mutating the original afterwards cannot move a key out of its bucket:
+
+```js
+let mask: BitSet;
+mask.add(3);
+index.set(mask, archetype); // The collection holds its own copy
+mask.add(7); // The stored key is unaffected
+index.get(mask); // undefined, a different key
+```
+
+This is worth stating because it's the failure mode of struct keys in other languages, where a mutable key inserted by reference corrupts the table it lives in. Value semantics forecloses it.
+
+Type objects are interned, so they're ordinary reference keys and identity does the right thing. A registry keyed on types replaces the string keys and casts the same code needs elsewhere, and scalar entries take a wrapper class so their type is distinct:
+
+```js
+class FixedDeltaTime {
+  value: float32;
+}
+class Gravity {
+  value: vec2;
+}
+
+const resources = new Map.<type, any>();
+resources.set(FixedDeltaTime, { value: 1 / 60 } := FixedDeltaTime);
+resources.get(FixedDeltaTime).value; // Not a string, so it can't be misspelled
+```
+
+Two comparisons appear in this proposal and it's worth naming the difference. Keyed collections use SameValueZero, so ```+0``` and ```-0``` are the same key, as they are in ```Map``` today. Generic specialization identity uses SameValue, so ```A.<0>``` and ```A.<-0>``` are distinct types and ```A.<NaN>``` is usable. Each comparison matches its context; neither is a special case for value types.
+
+```WeakMap``` and ```WeakSet``` are unaffected. They require identity for lifetime, not for lookup, so value types remain a TypeError there, as described next.
+
 ### Weak References
 
 Weak references require identity. ```WeakRef```, ```WeakMap``` keys, ```WeakSet``` values, and ```FinalizationRegistry``` targets accept reference types: ordinary objects, class instances, typed arrays (which are objects), functions, and unregistered symbols.
@@ -2823,6 +3013,12 @@ The following global objects could be used as types:
 This extension collects the typed signatures of the standard library's generic methods: the iterator helpers, grouping, the Set operations, the Promise statics, and ```Array.fromAsync```.
 
 [Standard Library](standardlibrary.md)
+
+### Structure of Arrays
+
+This extension adds ```SoA.<T>```, a typed array that stores its elements as parallel per-field columns while presenting the element API of ```[].<T>```, for cache locality, vectorization, and attribute upload.
+
+[Structure of Arrays](soa.md)
 
 ### Regular Expressions
 
@@ -3026,8 +3222,13 @@ This accomplishes exception filters without requiring a keyword like "when". Tha
 
 [Threading](threading.md)
 
-# Example:  
-Packet bit writer/reader: [Binary Packet](examples/binarypacket.md) with example WebSocket and WebTransport usage.
+# Examples
+
+- [Binary Packet](examples/binarypacket.md): a bit-granular packet writer and reader with WebSocket and WebTransport usage.
+- [Particle System](examples/particlesystem.md): value type pools, dimensioned integration, threaded updates, and GPU upload through views.
+- [Expression Parser](examples/expressionparser.md): a tokenizer, recursive descent parser, and evaluator stressing enums, typed generators, and sealed hierarchies.
+- [Invoicing](examples/invoicing.md): decimal money with a user-defined Currency meta type, Temporal dates, where-clause invariants, and typed JSON boundaries.
+- [Entity Component System](examples/ecs.md): archetype storage over value type columns, compile-time component-to-type mapping, type-keyed resources and events, and delta replication for a networked game server.
 
 # Previous discussions
 

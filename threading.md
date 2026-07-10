@@ -73,6 +73,8 @@ function accumulate(values: [].<float64>) {
 
 Atomic float addition is not associative, so a parallel reduction over floats produces a result that depends on thread interleaving. Where reproducibility matters, accumulate a per-thread partial and sum the partials on the joining thread in a fixed order; that is also faster, since it touches shared memory once per thread rather than once per value.
 
+A ```shared SoA.<T>``` from the [structure of arrays](soa.md) extension allocates its columns in shared memory. Because different fields occupy different columns, threads writing different fields of the same elements never contend for a cache line, which interleaved storage cannot avoid.
+
 ## Synchronization
 
 Atomics cover single-location updates. For anything larger - guarding a multi-field update, a shared collection, or a handoff between threads - the extension provides ordinary objects with blocking and async methods:
