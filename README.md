@@ -2851,12 +2851,17 @@ Nothing in SIMD changes: the 128-bit lanes of the SIMD types are unrelated to th
 
 ### Member memory alignment and offset
 
-Every value type and value type class exposes its layout as two static properties. ```byteLength``` is the laid-out size in bytes, including any trailing padding required by the type's alignment, and ```alignment``` is the byte alignment of the type. A typed array's instance ```byteLength``` is its length times its element's ```byteLength```.
+Every value type and value type class exposes its layout as three static properties. ```byteLength``` is the laid-out size in bytes, including any trailing padding required by the type's alignment, ```alignment``` is the byte alignment of the type, and ```bitLength``` is the size in bits, which is what an arbitrary width integer needs to describe itself. A typed array's instance ```byteLength``` is its length times its element's ```byteLength```.
 
 ```js
 uint8.byteLength; // 1
+uint8.bitLength; // 8
+uint.<4>.bitLength; // 4
+uint.<4>.byteLength; // 1, the bits rounded up to a byte
 float64.byteLength; // 8
 float64.alignment; // 8
+float32x4.byteLength; // 16
+float32x4.alignment; // 16
 
 class Vertex {
   x: float32;
@@ -2873,7 +2878,48 @@ mesh.byteLength; // 120
 [].<uint8>(mesh).slice(0, count * Vertex.byteLength);
 ```
 
-These are TypeErrors on a class that has no defined layout, which is any class with an untyped field, and they reflect the declared layout, so the offset and endianness decorators below are accounted for.
+These are properties on the type object rather than a ```sizeof``` operator, so no grammar is added, and they work wherever a type does. A generic reads its own parameter, and dynamic code reads the type of a value:
+
+```js
+function stride<T>(): uint32 {
+  return T.byteLength; // A constant once T is specialized
+}
+Reflect.typeOf(value).byteLength; // One property load on an interned type object
+```
+
+**They are compile-time constants.** For any type whose layout is known, ```byteLength```, ```bitLength```, and ```alignment``` are compile-time evaluable expressions in the sense of the compile-time type expressions section. They constant-fold, they never compute anything at runtime, and they can appear anywhere a constant can, including as an array extent or a value generic argument:
+
+```js
+const scratch: [Vertex.byteLength * 1024].<uint8>; // A 12288 byte buffer
+const header: [Header.byteLength].<uint8>;
+```
+
+Which types have a layout, and which don't:
+
+| Type | Layout |
+| --- | --- |
+| Numeric types, ```boolean```, SIMD vectors | Yes |
+| Enums | Yes, their underlying type's |
+| Value type classes | Yes |
+| ```[N].<T>``` and ```SoA.<T, N>``` | Yes |
+| ```bigint```, ```string```, ```any``` | No. Their size is a property of the value, not the type |
+| Reference types, including a nullable union of a value type class | No. A reference's width is the engine's business |
+| ```[].<T>``` without a length | No as a type. Its instances have a ```byteLength``` |
+| A class with an untyped field | No |
+| A union of value types | No. It has no single layout |
+
+Reading ```byteLength```, ```bitLength```, or ```alignment``` from a type in the second group is a TypeError, which is the point: a program that asks for the size of a ```string``` has made a mistake that a returned number would hide.
+
+The three properties reflect the declared layout, so the offset and endianness decorators below are accounted for.
+
+A field's offset within its class is reflection rather than a property of the type, since it belongs to the field. ```Reflect.getReflection.<Reflect.ClassField, T>(name)``` returns an ```offset```, and it is compile-time evaluable for the same reason the layout is:
+
+```js
+Reflect.getReflection.<Reflect.ClassField, Vertex>('y').offset; // 4
+Reflect.getReflection.<Reflect.ClassField, Vertex>('y').byteLength; // 4
+```
+
+This is the ```offsetof``` of C and C#, and it is what a serializer, a placement ```new```, or a GPU vertex attribute descriptor needs.
 
 An array stores its elements with this layout, one after another. ```SoA.<T>``` from the [structure of arrays](soa.md) extension stores the same elements as one array per field instead, with the same element API.
 

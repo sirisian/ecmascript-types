@@ -261,6 +261,9 @@ namespace Reflect {
 		private: boolean;
 		readonly: boolean;
 		initial: T | undefined;
+		// Layout, present when the declaring class has one. A static field is not part of an instance's layout, so both are undefined for it.
+		offset: uint32 | undefined; // Bytes from the start of the instance
+		byteLength: uint32 | undefined;
 		metadata: ClassFieldMetadata;
 	};
 
