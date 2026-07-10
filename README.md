@@ -2223,6 +2223,8 @@ All SIMD types would have operator overloading added when used with the same typ
 let a = uint32x4(1, 2, 3, 4) + uint32x4(5, 6, 7, 8); // uint32x4
 let b = uint32x4(1, 2, 3, 4) < uint32x4(5, 6, 7, 8); // boolean32x4
 ```
+
+Lane access, the ```v.xyz``` and ```v.rgba``` component accessors, permutation, and masks are covered in the [SIMD](simd.md) extension.
 It's also possible to overload class operators to work with them. Whether such an operator compiles to the SIMD instructions it describes depends on conditions the [operator overloading](operatoroverloading.md) extension sets out: value type storage, natural alignment, lane indices as compile-time value generic arguments, and inlining of the operator itself.
 
 ### enum Type
@@ -3092,6 +3094,12 @@ This extension adds range literals, ```a..b``` and ```a..=b```, as typed values 
 This extension works the operator rules through a 2D and 3D math library, covering scalar operands on the left, the SIMD intrinsics a matrix multiply needs, and what an engine must guarantee to compile it well.
 
 [Operator Overloading](operatoroverloading.md)
+
+### SIMD
+
+This extension covers lane access, component accessors such as ```v.xyz``` and ```v.rgba```, permutation, and masks for the ```vector.<T, N>``` types.
+
+[SIMD](simd.md)
 
 ### Regular Expressions
 

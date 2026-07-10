@@ -140,7 +140,7 @@ Alignment is automatic. ```float32x4``` aligns to sixteen bytes, a class's align
 
 ## Intrinsics
 
-Operators alone can't express a matrix multiply efficiently. Four more operations are needed, and each maps to a single instruction on both major architectures. All four are already expressible with the language's existing machinery, which is the point of listing them.
+Operators alone can't express a matrix multiply efficiently. Four more operations are needed, and each maps to a single instruction on both major architectures. They are defined in the [SIMD](simd.md) extension and summarized here, because the code below depends on them.
 
 **Lane permutation.** ```swizzle``` takes its lane indices as value generic arguments, so they are compile-time constants. That is not a stylistic choice: the immediate operand of ```_mm_shuffle_ps``` and the lane index of ```vdupq_laneq_f32``` must be encoded in the instruction, so an index that is only known at runtime cannot be compiled to either.
 
@@ -183,10 +183,13 @@ class Vector4 {
 		this.v = float32x4(x, y, z, w);
 	}
 
-	get x(): float32 { return this.v.lane.<0>(); }
-	get y(): float32 { return this.v.lane.<1>(); }
-	get z(): float32 { return this.v.lane.<2>(); }
-	get w(): float32 { return this.v.lane.<3>(); }
+	// A wrapper class does not inherit its field's accessors, so these are
+	// written out. A library that wants the full set of component accessors
+	// aliases the vector type instead, as the SIMD extension describes.
+	get x(): float32 { return this.v.x; }
+	get y(): float32 { return this.v.y; }
+	get z(): float32 { return this.v.z; }
+	get w(): float32 { return this.v.w; }
 
 	operator+(rhs: Vector4): Vector4 { return { v: this.v + rhs.v } := Vector4; }
 	operator-(rhs: Vector4): Vector4 { return { v: this.v - rhs.v } := Vector4; }
@@ -454,7 +457,7 @@ Two smaller observations from the table. Zig has native vectors and no operator 
 
 ## Open Questions
 
-- Swizzle sugar. ```v.xyzw``` and ```v.xxzz``` are the shading language spelling, and ```swizzle.<0, 0, 2, 2>()``` is the honest one. A property-name form would need two hundred and fifty six accessors per vector type, or a grammar rule. Deferred; the intrinsic is what the compiler needs, and sugar can be added later without changing it.
+- Component accessors, ```v.xyzw``` and ```v.rgba```, are specified in the [SIMD](simd.md) extension as prototype accessors that desugar to ```swizzle```. They are why a math library aliases its vector types rather than wrapping them.
 - Whether engines will special-case a standard ```Vector4``` and ```Matrix4```, as .NET does. They probably will, and the language's job is to make sure the same code written by hand is not slower for it.
 - ```Matrix3``` wastes a lane per column. A three-column, three-row packed form is thirty-six bytes and needs a shuffle per operation. Both are useful; only the padded one is fast.
 - A general ```inverse()``` needs a cofactor expansion and is numerically delicate. The affine case above covers transforms; the general case belongs in a library rather than in this document.
