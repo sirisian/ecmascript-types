@@ -1,6 +1,6 @@
 # Standard Library Signatures
 
-This document collects typed signatures for the standard library's generic methods. These are signature listings rather than new features: every method here already exists, and the signatures state how element and key types flow through, so fully typed call sites infer their callbacks and engines can specialize the loops. Declarations use ```<...>``` and applications use ```.<...>``` per the main proposal, and the dotted ```function Object.groupBy<...>``` form below is spec-style shorthand for adding a typed overload to an existing function, as used in the primitive metadata document for ```Math.sqrt```.
+This document collects typed signatures for the standard library's generic methods. These are signature listings rather than new features: every method here already exists, and the signatures state how element and key types flow through, so fully typed call sites infer their callbacks and engines can specialize the loops. Declarations use ```<...>``` and applications use ```.<...>``` per the main proposal, and the dotted ```function Object.groupBy<...>``` form below is spec-style shorthand for adding a typed overload to an existing function, as used in the primitive metadata document for ```Math.sqrt```. The same dotted form names a nested class, as ```class Temporal.Instant``` does in the [temporal](temporal.md) extension.
 
 ## Iterables
 

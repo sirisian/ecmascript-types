@@ -381,7 +381,7 @@ type Email = {
 	to: string.<{ pattern: /@/ }>,
 	subject?: string,
 	body?: string
-} where this.subject?.length > 0 || this.body?.length > 0;
+} where (this.subject?.length ?? 0) > 0 || (this.body?.length ?? 0) > 0;
 
 // The optional-field draft shape, written out since utility types like
 // TypeScript's Partial aren't part of the proposal:

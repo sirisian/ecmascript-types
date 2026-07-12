@@ -12,6 +12,8 @@ Two forms, and the difference between them is the difference between one instruc
 
 ```js
 class vector<T, N: uint32> {
+	operator vector(value: T); // Broadcast: a cast operator from the lane type T, filling every lane
+
 	lane<I: uint32>(): T where I < N; // Compile-time index
 	withLane<I: uint32>(value: T): vector.<T, N> where I < N;
 
@@ -43,6 +45,8 @@ a[0]; // 0
 a[3] = 1;
 a; // 0b00001010
 ```
+
+The conversion runs both ways by this bit pattern: an integer value assigned to a boolean vector fills lane ```i``` from bit ```i```, and a boolean vector read where an integer is expected produces the integer with exactly those bits set. The literal above and the ```0b00001010``` readout are the one rule applied in each direction.
 
 ## Component Accessors
 
@@ -115,7 +119,7 @@ So the accessors add no code generation. The intrinsic below is what an engine c
 ## Permutation
 
 ```js
-class vector<T, N: uint32> {
+partial class vector<T, N: uint32> {
 	swizzle<...I: [].<uint32>>(): vector.<T, I.length>; // One source
 	shuffle<...I: [].<uint32>>(other: vector.<T, N>): vector.<T, I.length>; // Two sources
 }
@@ -146,7 +150,11 @@ const a = float32x4(1, 2, 3, 4);
 const b = float32x4(4, 3, 2, 1);
 const m: boolean32x4 = a < b; // (true, true, false, false)
 
-class vector<T, N: uint32> {
+partial class vector<T, N: uint32> {
+	sum(): T; // Horizontal add across the lanes
+}
+
+partial class vector<boolean1, N: uint32> { // Mask operations: boolean lanes only
 	all(): boolean; // Every lane set. movmskps + cmp, or uminv
 	any(): boolean; // Some lane set
 	select<U>(whenSet: vector.<U, N>, whenClear: vector.<U, N>): vector.<U, N>;
@@ -181,12 +189,14 @@ A math library has to decide whether its ```Vector4``` is a class holding a ```f
 
 ```js
 type Vector4 = vector.<float32, 4>; // Swizzles. Operators from the primitive vector block
-class Vector4 { v: float32x4; } // Does not swizzle. v.xyz is a TypeError
+class Vector4 { v: float32x4; } // A Vector4 instance does not swizzle; its float32x4 field does
 ```
 
 A class does not inherit its field's prototype, so a wrapper has no ```.xyz``` unless it declares one, and declaring 680 of them is not a plan. This pushes a library toward the alias for its vector types, where operators come from the ```primitive vector<...>``` block in [primitive metadata](primitivemetadata.md) rather than from class members.
 
 The cost is nominal distinction. ```Quaternion``` and ```Vector4``` are both four floats, and as aliases they would be the same type, so ```Vector4 * Quaternion``` could not be told from ```Vector4 * Vector4```. The resolution is that they want different things: a quaternion needs ```x```, ```y```, ```z```, and ```w``` and nothing else, so it stays a class with four accessors, while a vector wants all 680 and so stays an alias. Rust's ```glam``` makes exactly this split, with ```Vec4``` swizzling and ```Quat``` not.
+
+Stated as a rule: alias a vector type for storage and the full component-accessor set, and make it a nominal class when it carries an operator vocabulary of its own. The reason is the same global operator table the [operator overloading](operatoroverloading.md) extension describes - an alias's operators live on the shared lane type, so a quaternion aliasing ```float32x4``` would have nowhere to put a Hamilton-product ```*``` distinct from the component-wise one, and two libraries aliasing the same lane type would collide on every operator they both define. A class keeps its operators to itself.
 
 ```js
 type Vector2 = vector.<float32, 2>;
@@ -201,6 +211,19 @@ class Quaternion {
 	get w(): float32 { return this.v.w; }
 }
 ```
+
+## Portable Widths
+
+```vector.<T, N>``` takes any lane count, which is the portable shape - a kernel is written once against a width - but the width that runs best differs by target: 128 bits on WebAssembly and baseline x86-64, 256 on AVX2, 512 on AVX-512, 128 on AArch64. ```vector.preferredLanes(T)``` is a compile-time constant giving the platform's natural lane count for element type ```T```, so a kernel can pick the width the machine wants without branching on it:
+
+```js
+const Lanes = vector.preferredLanes(float32); // 4, 8, or 16 depending on the target
+type FloatBatch = vector.<float32, Lanes>;
+```
+
+It is a value generic argument like any other constant, so a generic pass over a column reads it once and specializes. A vector wider than the hardware supports is not an error: an operation on it lowers to a sequence over the hardware width - two ```float32x4``` operations for a ```float32x8``` on a 128-bit target - so ```vector.<float32, 8>``` is always defined, just not always one instruction. Writing ```vector.<float32, vector.preferredLanes(float32)>``` is how a kernel stays both portable and optimal.
+
+Gather, scatter, and masked load and store are not in the first version. They are the operations that vectorize an indirect or predicated loop - reading ```data[index[i]]``` across lanes, or storing only where a mask is set - and they matter for exactly the entity-component sweeps this proposal is aimed at, but WebAssembly's ```simd128``` does not have them either, so a portable baseline cannot assume them. They are named here as a deliberate gap rather than an oversight; a later version would add them as methods on ```vector.<T, N>``` that lower to the portable width the same way the arithmetic operators already do.
 
 ## Instructions
 

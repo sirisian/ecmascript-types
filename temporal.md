@@ -32,6 +32,7 @@ The time units, ```Nanosecond``` through ```Hour```, denote fixed spans. The cal
 
 ```js
 class Temporal.Instant {
+	#epochNanoseconds: int128; // Storage: the whole instant, exactly; the public accessor returns bigint
 	static from(value: string | Temporal.Instant): Temporal.Instant;
 	static fromEpochNanoseconds(value: bigint): Temporal.Instant;
 	static compare(a: Temporal.Instant, b: Temporal.Instant): int32;
@@ -49,16 +50,16 @@ class Temporal.Instant {
 }
 
 class Temporal.Duration {
-	years: int32;
-	months: int32;
-	weeks: int32;
-	days: int32;
-	hours: int32;
-	minutes: int32;
-	seconds: int32;
-	milliseconds: int32;
-	microseconds: int32;
-	nanoseconds: int32;
+	years: int64;
+	months: int64;
+	weeks: int64;
+	days: int64;
+	hours: int64;
+	minutes: int64;
+	seconds: int64;
+	milliseconds: int64;
+	microseconds: int64;
+	nanoseconds: int64;
 
 	get sign(): int32;
 	get blank(): boolean;
@@ -103,7 +104,7 @@ function unitRatio(unit: Temporal.Unit): rational {
 	}
 }
 
-class Temporal.Duration {
+partial class Temporal.Duration {
 	// Fixed time units carry a dimension.
 	total<U: Temporal.Unit>(unit: U): float64.<{ s: 1, ratio: unitRatio(U) }>
 		where U <= Temporal.Unit.Hour;
@@ -122,7 +123,7 @@ const ms = elapsed.total(Temporal.Unit.Millisecond); // Millisecond
 With a cast operator, a duration converts to its seconds quantity implicitly wherever one is expected:
 
 ```js
-class Temporal.Duration {
+partial class Temporal.Duration {
 	operator Second() {
 		return this.total(Temporal.Unit.Second);
 	}
@@ -148,24 +149,16 @@ Because the ratio rides along, mixing scales stays correct without the programme
 
 ```epochNanoseconds``` is a ```bigint``` because Temporal's range spans roughly ±273,972 years, about 8.64e21 nanoseconds, which needs 74 bits. That exceeds ```int64```, but not ```int128```, so an ```Instant``` whose storage is a single ```int128``` field is a value type class: an array of instants is contiguous memory with no boxing, and comparing two instants is a 128-bit integer comparison.
 
-```js
-class Temporal.Instant {
-	#epochNanoseconds: int128; // The whole instant, exactly
-	get epochNanoseconds(): bigint {
-		return bigint(this.#epochNanoseconds);
-	}
-}
-```
-
-```bigint``` remains the type of the public accessor for compatibility with Temporal as specified; the ```int128``` is the storage.
+```bigint``` remains the type of the public accessor, for compatibility with Temporal as specified, while the ```int128``` field in the signatures listing above is the storage that makes ```Instant``` a value type.
 
 ```Temporal.Duration```, by contrast, has only fixed-width integer fields, so it satisfies the value type class rule in the main proposal: an array of durations is contiguous memory with no boxing, which is what a scheduler or an animation timeline wants.
 
 ```total``` in seconds returns a ```float64```, whose 53-bit mantissa represents nanosecond totals exactly for durations up to about 104 days. Beyond that, or when exactness is required regardless, use ```decimal128``` or work in ```epochNanoseconds```:
 
 ```js
-class Temporal.Duration {
-	total<U: Temporal.Unit>(unit: U): decimal128.<{ s: 1, ratio: unitRatio(U) }>;
+partial class Temporal.Duration {
+	total<U: Temporal.Unit>(unit: U): decimal128.<{ s: 1, ratio: unitRatio(U) }>
+		where U <= Temporal.Unit.Hour;
 }
 const exact: decimal128.<{ s: 1 }> = elapsed.total(Temporal.Unit.Second);
 ```
@@ -177,7 +170,7 @@ Overloading on return type selects between these, as described in the main propo
 ```compare``` returns ```int32```, and with operator overloading the comparisons read the way the arithmetic already does. Defining them on the classes is optional sugar over ```compare``` and ```since```:
 
 ```js
-class Temporal.Instant {
+partial class Temporal.Instant {
 	operator<(other: Temporal.Instant): boolean {
 		return Temporal.Instant.compare(this, other) < 0;
 	}
@@ -207,12 +200,14 @@ function schedule(interval: Interval) {}
 // schedule({ start: b, end: a }); // TypeError: the where clause failed
 ```
 
+A range over ```Temporal.Instant```, ```start..end```, covers the same two endpoints and is what the [ranges](ranges.md) extension uses for iteration and containment; this record adds the ```where this.start < this.end``` constraint a bare range does not, since an empty range is a legal value rather than an error.
+
 ## Serialization
 
 Every Temporal type has an ISO 8601 string form and a ```toJSON```. A cast operator from ```string``` is what lets a typed parse construct one directly, so a Temporal-typed field validates during the parse described in [Serialization](serialization.md) rather than in a post-processing pass:
 
 ```js
-class Temporal.Instant {
+partial class Temporal.Instant {
 	operator Temporal.Instant(value: string) {
 		return Temporal.Instant.from(value); // RangeError on a malformed string
 	}
@@ -233,5 +228,5 @@ The reflection examples in [decorators](decorators.md) already type fields as ``
 
 ## Open Questions
 
-- ```unitRatio``` is total only over the time units. The ```where U <= Temporal.Unit.Hour``` constraint relies on enum ordering, which the enum section now defines for enumerations over ordered underlying types.
+- ```unitRatio``` is total only over the time units. The ```where U <= Temporal.Unit.Hour``` constraint relies on enum ordering: the enum section orders a ```string```-underlying enum by declaration order, so ```Unit``` compares shortest-to-longest in the sequence it's written, and the constraint admits exactly the fixed time units through ```Hour```.
 - Calendar arithmetic is not dimensioned and cannot be: a month has no fixed length. Durations mixing calendar and time components have no ```{ s: 1 }``` reading, and their ```total``` overload correctly requires ```relativeTo```.

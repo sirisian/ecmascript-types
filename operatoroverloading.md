@@ -74,7 +74,7 @@ interface ScalarMultiply<S, R> {
 }
 
 primitive float32 {
-	operator*<T extends ScalarMultiply.<float32, T>>(rhs: T): T {
+	operator*.<T extends ScalarMultiply.<float32, T>>(rhs: T): T {
 		return rhs * this;
 	}
 }
@@ -82,9 +82,9 @@ primitive float32 {
 
 One block per scalar type, covering every type that defines scalar multiplication, including ones that don't exist yet. The whole math library needs three: ```number```, ```float32```, and ```float64```. Division does not commute, so no such block exists for it, and ```2 / v``` remains a TypeError - which is correct, because it isn't defined.
 
-An untyped numeric literal propagates into the operand type as it does anywhere else, so ```2 * v``` types the literal as ```float32``` and reaches the ```primitive float32``` block. The ```primitive number``` block exists for the case where the scalar is a ```number``` binding rather than a literal, and it narrows exactly as ```v * 2``` does.
+An untyped numeric literal propagates into the operand type as it does anywhere else, so ```2 * v``` types the literal as ```float32``` and reaches the ```primitive float32``` block. It reaches ```float32``` rather than the ```float64``` the literal ranking would otherwise prefer because viability filtering runs first: ```Vector4``` satisfies ```ScalarMultiply.<float32, Vector4>``` but not ```ScalarMultiply.<number, Vector4>```, so the ```number``` candidate is eliminated before ranking and the ```float64```-first order never applies. The ```primitive number``` block exists for the case where the scalar is a ```number``` binding rather than a literal, and it narrows exactly as ```v * 2``` does.
 
-A ```primitive``` block adds to a global operator table, which is the same exposure the class extension syntax already accepts. Two libraries defining ```float32 * Vector4``` for two different ```Vector4``` types coexist, since the parameter types differ. Two definitions for the same pair of types is a TypeError at the second declaration.
+A ```primitive``` block adds to a global operator table, which is the same exposure the class extension syntax already accepts. Two libraries defining ```float32 * Vector4``` for two different ```Vector4``` types coexist, since the parameter types differ. Two definitions for the same pair of types is a TypeError at the second declaration. This is the reason an operator-bearing type is a nominal class rather than an alias: were ```Vector4``` an alias for ```float32x4```, its operators would land on ```float32x4``` itself, so another library aliasing the same lane type would collide on every shared pair. A class scopes the vocabulary to its own type. The division, spelled out in the [SIMD](simd.md) extension, is to alias for storage and component accessors and to make a nominal class when the type carries its own operators.
 
 ## Layout
 
@@ -161,7 +161,7 @@ Lane-index arguments must be in range for the vector's width, which the compiler
 
 The rest are ordinary overloads on ```Math``` over the vector types, lane-wise: ```sqrt```, ```abs```, ```min```, ```max```, ```floor```, and ```ceil```. ```Math.rsqrt(x)``` is exactly ```1 / Math.sqrt(x)```, correctly rounded, so it does not lower to a bare ```rsqrtps```, which is a twelve-bit approximation. An explicitly approximate reciprocal square root would be a deliberate exception to the strictness rule below, and is listed as an open question rather than smuggled in here.
 
-A one-argument SIMD constructor broadcasts, so ```float32x4(s)``` is ```float32x4(s, s, s, s)```. This is the implicit SIMD constructor from the main proposal written explicitly.
+A one-argument SIMD call broadcasts, so ```float32x4(s)``` is ```float32x4(s, s, s, s)```. This is the lane-type cast operator from the main proposal written explicitly.
 
 ## Floating Point Contraction
 
@@ -222,10 +222,7 @@ function normalize(a: Vector4): Vector4 {
 
 ```dot``` is a library function rather than an intrinsic: it is a lane-wise multiply followed by ```sum```, and naming it doesn't change what it compiles to.
 
-```js
-```
-
-```float32x4(rhs)``` broadcasts a scalar to every lane, which is the implicit SIMD constructor from the main proposal written explicitly.
+```float32x4(rhs)``` broadcasts a scalar to every lane, which is the lane-type cast operator from the main proposal written explicitly.
 
 ## Matrix4
 
@@ -248,10 +245,10 @@ class Matrix4 {
 	// which is what a hand-written SSE routine emits.
 	operator*(n: Matrix4): Matrix4 {
 		return {
-			c0: this.transformColumn(n.c0),
-			c1: this.transformColumn(n.c1),
-			c2: this.transformColumn(n.c2),
-			c3: this.transformColumn(n.c3)
+			c0: this.#transformColumn(n.c0),
+			c1: this.#transformColumn(n.c1),
+			c2: this.#transformColumn(n.c2),
+			c3: this.#transformColumn(n.c3)
 		} := Matrix4;
 	}
 
@@ -311,7 +308,7 @@ class Matrix4 {
 
 ```Matrix4``` satisfies ```ScalarMultiply.<float32, Matrix4>``` through its scalar overload, so the ```primitive float32``` block declared earlier already gives ```2 * m``` without another line.
 
-An object literal cast with ```:=``` fills the class's layout directly rather than calling its constructor, which is the same rule [serialization](serialization.md) uses for parsing. That is what makes these operators allocation-free: the result is four registers, never an object.
+An object literal cast with ```:=``` fills the class's layout directly rather than calling its constructor, the typed-assignment rule from the main proposal and the same one [serialization](serialization.md) uses for parsing. That is what makes these operators allocation-free: the result is four registers, never an object.
 
 An affine inverse, the common case, is a transposed rotation and a negated translation, and needs no general cofactor expansion:
 

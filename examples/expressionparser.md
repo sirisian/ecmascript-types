@@ -1,13 +1,13 @@
 # Expression Parser
 
-A tokenizer, recursive descent parser, and evaluator for arithmetic expressions - the smallest honest compiler frontend. This is the scenario that defines typed languages with algebraic data types: a token stream, a tree of node kinds, and functions that must handle every kind. Rust would write the AST as an enum, TypeScript as a discriminated union, Java as a sealed interface. This example writes it with what the proposal has - classes, ```instanceof``` narrowing, and enums with exhaustive ```switch``` - and records where that falls short of the languages above.
+A tokenizer, recursive descent parser, and evaluator for arithmetic expressions - the smallest honest compiler frontend. This is the scenario that defines typed languages with algebraic data types: a token stream, a tree of node kinds, and functions that must handle every kind. Rust would write the AST as an enum, TypeScript as a discriminated union, Java as a sealed interface. This example writes it as a ```sealed``` class hierarchy with an exhaustive ```switch``` over the subclasses, which gives the same compile-time totality: adding a node kind is a compile error until every function handles it.
 
 Features exercised:
 
 - A ```uint8```-typed enum for token kinds, driving an exhaustive ```switch``` in the evaluator so adding an operator surfaces every site that must handle it.
 - A typed generator as the tokenizer: ```function* tokenize(source: string): Token``` yields value type tokens the parser pulls on demand, no token array allocated.
 - ```Token``` is a value type class - four fixed-width fields - so the generator's yields are copies, not heap objects.
-- ```instanceof``` narrowing over a class hierarchy as the AST discrimination mechanism, with the narrowed field access checked in each branch.
+- A ```sealed``` class hierarchy for the AST, discriminated by a ```switch``` whose case labels are the subclass type objects; with no ```default``` the compiler checks it covers every node kind, and each case narrows to its subclass.
 - A typed error subclass caught by type: ```catch (e: ParseError)``` picks parse failures out from everything else and carries a typed position.
 
 ## Tokens
@@ -15,7 +15,7 @@ Features exercised:
 ```js
 enum TokenType: uint8 { Number, Plus, Minus, Star, Slash, LeftParen, RightParen, End };
 
-class Token { // Value type: enum + float64 + two uint32s
+class Token { // Value type: enum + float64 + one uint32
 	type: TokenType;
 	value: float64; // Meaningful when type is Number
 	position: uint32;
@@ -85,7 +85,7 @@ An object literal where a ```Token``` is expected constructs one through the mat
 ## AST
 
 ```js
-class Node {
+sealed class Node {
 	position: uint32;
 }
 class NumberNode extends Node {
@@ -102,7 +102,7 @@ class BinaryNode extends Node {
 }
 ```
 
-```NumberNode``` is a value type; ```UnaryNode``` and ```BinaryNode``` hold references, so nodes of a tree are ordinary heap objects, which is what a tree wants.
+```NumberNode``` is a value type; ```Node``` is ```sealed```, which the main proposal's sealed-class rule makes a reference type, so ```UnaryNode``` and ```BinaryNode``` hold their children as plain ```Node``` references - a non-sealed value type class would need ```T | null``` for the same - and the nodes of a tree are ordinary heap objects, which is what a tree wants.
 
 ## Parser
 
@@ -175,33 +175,32 @@ export function parse(source: string): Node {
 
 ## Evaluator
 
-Discrimination by ```instanceof```, then an exhaustive ```switch``` on the operator enum inside each class branch:
+An exhaustive ```switch``` over the sealed hierarchy - case labels are the subclass type objects - then a ```switch``` on the operator enum inside the binary case:
 
 ```js
 export function evaluate(node: Node): float64 {
-	if (node instanceof NumberNode) {
-		return node.value; // node: NumberNode in this branch
-	}
-	if (node instanceof UnaryNode) {
-		return -evaluate(node.operand);
-	}
-	if (node instanceof BinaryNode) {
-		const left = evaluate(node.left);
-		const right = evaluate(node.right);
-		switch (node.op) {
-			case TokenType.Plus: return left + right;
-			case TokenType.Minus: return left - right;
-			case TokenType.Star: return left * right;
-			case TokenType.Slash:
-				if (right == 0) {
-					throw new RangeError('Division by zero');
-				}
-				return left / right;
-			default:
-				throw new ParseError('Not a binary operator', node.position);
+	switch (node) {
+		case NumberNode:
+			return node.value; // node: NumberNode in this case
+		case UnaryNode:
+			return -evaluate(node.operand);
+		case BinaryNode: {
+			const left = evaluate(node.left);
+			const right = evaluate(node.right);
+			switch (node.op) {
+				case TokenType.Plus: return left + right;
+				case TokenType.Minus: return left - right;
+				case TokenType.Star: return left * right;
+				case TokenType.Slash:
+					if (right == 0) {
+						throw new RangeError('Division by zero');
+					}
+					return left / right;
+				default:
+					throw new ParseError('Not a binary operator', node.position);
+			}
 		}
-	}
-	throw new TypeError('Unknown node kind'); // Unreachable... says the author, not the compiler
+	} // Exhaustive over Node's three subclasses: no default, no trailing return
 }
 ```
 
@@ -218,11 +217,11 @@ try {
 
 ## Coverage Notes
 
-This is the example that presses hardest on what the proposal doesn't have, because sum types are the one feature every comparison language leads with:
+Sum types are the feature every comparison language leads with, and the proposal now expresses them directly. Most of what earlier drafts recorded as gaps here has since been specified; these notes track what's resolved and the one pattern left deliberately to nominal typing:
 
-- **No closed hierarchies.** The evaluator's final ```throw new TypeError('Unknown node kind')``` is the tell. ```Node``` has exactly three subclasses, but nothing lets the author say so, so the compiler can't verify the ```instanceof``` chain is exhaustive the way the enum ```switch``` is. A ```sealed``` modifier (or ```enum```-of-classes) would make "handled every node kind" a compile-time fact. This is the single largest expressiveness gap the examples found.
-- **Recursive type aliases.** The class-based AST sidesteps it because class names are nominal and hoisted, but the union spelling ```type Node = NumberNode | UnaryNode | BinaryNode``` with those classes referring back to ```Node``` is the natural TypeScript/Rust shape, and [type records](../typerecords.md) currently notes recursive types as unresolved. The classes-work/aliases-don't asymmetry should be stated somewhere on purpose.
+- **Closed hierarchies - resolved.** ```Node``` is ```sealed```, so the evaluator's ```switch``` over its subclasses is checked exhaustive: with no ```default```, adding a node kind is a compile-time error until every evaluator handles it, the same totality Rust's enum and Java's sealed interface give. There is no ```Unknown node kind``` fallthrow because the compiler proves there is no fourth kind. The main proposal demonstrates the sealed-class switch on this very hierarchy.
+- **Recursive types - resolved.** The classes are nominal and hoisted, so ```operand: Node``` refers back to the sealed base without ceremony. The union spelling ```type Node = NumberNode | UnaryNode | BinaryNode``` is equally valid now (a union of classes is a reference), and [type records](../typerecords.md) added the coinductive encoding for the structural case. The sealed class form used here is the closed one; a bare union is the open one.
 - **Narrowing composition.** ```instanceof``` narrows (per its README section), and the enum ```switch``` narrows, but narrowing on a *field* (```if (node.op == TokenType.Plus)```) discriminating the object holding it is the TypeScript-style pattern this proposal has no rule for, and with nominal classes it doesn't need one - worth saying explicitly so it isn't assumed.
-- **Enum-to-string in errors.** ```TokenType.toString(current.type)``` comes from the enum prototype functions; it reads clumsily in an interpolation. An enum value participating in template literals via ```toString``` directly (```${current.type}``` printing ```Star```) would be a small quality addition to the enum section.
-- **```:=``` for typed literals.** ```{ ... } := BinaryNode``` is doing real work here - constructing a class instance from a literal with inference. It's specified under typed assignment for bindings; its use in a ```return``` expression position (construct-and-return) is an extrapolation this example depends on and the README should bless or reject.
-- **Generator plus lookahead.** ```tokens.next().value``` types as ```Token``` mid-iteration but ```Token | string``` once the generator's return type differs from its yield type; here both are ```void```-returning so it stays ```Token```. The iteration section covers ```Generator.<Y, R, N>```; a sentence on ```next()```'s result typing (```{ value: Y | R, done: boolean }``` and how it narrows on ```done```) would close the loop.
+- **Enum-to-string in errors - resolved.** ```TokenType.toString(current.type)``` gives the enumerator's key for messages. The enum section now also lets a ```string```-underlying enum interpolate as its value directly; token kinds here are a ```uint8``` enum, whose interpolation is the underlying number, so ```toString``` is the right call for a readable name.
+- **```:=``` for typed construction - resolved.** ```{ ... } := BinaryNode``` in a ```return``` is blessed by the typed-assignment section, which uses this same construct-and-return shape; it fills the class layout from the literal without running a constructor.
+- **Generator plus lookahead - resolved.** ```tokens.next().value``` types as ```Token``` because ```tokenize```'s yield and return types coincide; the iteration section specifies ```Generator.<Y, R, N>``` and that ```next()``` returns ```{ value: Y | R, done: boolean }```, narrowing on ```done```.

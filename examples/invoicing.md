@@ -5,7 +5,7 @@ Money, dates, and invariants: the domain that made Java's ```BigDecimal```, C#'s
 Features exercised:
 
 - A user-defined meta type: ```Currency``` claims one metadata field and makes mixing currencies a compile error, demonstrating that ```Dimensions``` is an instance of a pattern, not a special case. Deliberately, it defines no ```conversionFactor```: unlike kilometers to meters, dollars never convert to euros implicitly.
-- ```decimal128``` as the money representation, parsed exactly from JSON digits with no float64 round trip.
+- ```decimal128``` with a fixed ```scale``` and half-even rounding from ```DecimalContext``` as the money representation, parsed exactly from JSON digits with no float64 round trip.
 - Two ```where``` clauses on one type, one relating Temporal dates and one summing lines with a typed ```reduce```.
 - A string enum for status with the exhaustive ```switch``` rule catching unhandled transitions.
 - ```Map.groupBy``` and dimensionless aggregation from the [standard library](../standardlibrary.md).
@@ -46,10 +46,14 @@ primitive decimal128<C: Currency> {
 	operator*(rhs: decimal128): decimal128.<C> {
 		return this * rhs;
 	}
+	// An untagged decimal128 - a literal like 19.99, whose default currency is '' -
+	// adopts the destination currency at the boundary, so it assigns to a USD slot.
+	// This is the Dimensions precedent: const v: Velocity = 10 works the same way.
+	operator decimal128.<Currency>() { return this; }
 }
 
-type USD = decimal128.<{ currency: 'USD' }>;
-type EUR = decimal128.<{ currency: 'EUR' }>;
+type USD = decimal128.<{ currency: 'USD', scale: 2 }>;
+type EUR = decimal128.<{ currency: 'EUR', scale: 2 }>;
 ```
 
 ```js
@@ -76,21 +80,21 @@ const c = convert.<'USD', 'EUR'>(a, 0.86);
 enum Status: string { Draft = 'draft', Sent = 'sent', Paid = 'paid', Void = 'void' };
 
 type LineItem = {
-	description: string.<{ minLength: 1, maxLength: 200 }>,
-	quantity: uint32.<{ minimum: 1 }>,
-	unitPrice: USD
+	readonly description: string.<{ minLength: 1, maxLength: 200 }>,
+	readonly quantity: uint32.<{ minimum: 1 }>,
+	readonly unitPrice: USD
 };
 
 type Invoice = {
-	id: uint64,
-	status: Status,
-	issued: Temporal.PlainDate,
-	due: Temporal.PlainDate,
-	lines: [].<LineItem>.<{ minLength: 1 }>,
-	total: USD
+	readonly id: uint64,
+	status: Status, // The one mutable field: it advances through the workflow
+	readonly issued: Temporal.PlainDate,
+	readonly due: Temporal.PlainDate,
+	readonly lines: [].<LineItem>.<{ minLength: 1 }>,
+	readonly total: USD
 }
 where Temporal.PlainDate.compare(this.issued, this.due) <= 0
-where this.total == this.lines.reduce((sum: USD, line) => sum + line.unitPrice * line.quantity, USD(0));
+where this.total == this.lines.reduce((sum: USD, line) => sum + line.unitPrice * decimal128(line.quantity), USD(0));
 ```
 
 The clauses are checked at the boundaries the dependent record types document defines - construction, function calls, assignment - so an invoice whose total drifted from its lines cannot cross one:
@@ -145,7 +149,7 @@ function transition(status: Status, event: Event): Status {
 			}
 		case Status.Paid:
 		case Status.Void:
-			throw new TypeError(`${Status.toString(status)} is terminal`);
+			throw new TypeError(`${status} is terminal`);
 	} // Exhaustive over Status: adding an enumerator breaks this switch loudly
 }
 ```
@@ -162,16 +166,17 @@ function outstanding(invoices: [].<Invoice>, today: Temporal.PlainDate): Map.<St
 	return totals;
 }
 
-const overdue = invoices
-	.filter(invoice => invoice.status == Status.Sent
+function overdueInvoices(invoices: [].<Invoice>, today: Temporal.PlainDate): [].<Invoice> {
+	return invoices.filter(invoice => invoice.status == Status.Sent
 		&& Temporal.PlainDate.compare(invoice.due, today) < 0);
+}
 ```
 
 ## Coverage Notes
 
-- **```readonly``` doesn't exist.** A paid invoice should be immutable, and typed languages express that per field (```readonly``` in TypeScript and C#, ```final``` in Java). The proposal has ```const``` bindings and the dependent-field rule (fields named in ```where``` clauses check at boundaries), but no way to say a field never changes after construction. This came up on every type in this example and is the clearest missing modifier.
-- **Rounding is unspecified.** ```unitPrice * quantity``` on ```decimal128``` is exact here, but ```convert``` multiplies by a rate and real money code must then round to the currency's minor unit under a named mode (half-even, usually). The type list includes the decimal types without defining their rounding control; either operations take a context, or a metadata field carries scale-and-mode the way ```minimum``` carries bounds. Until decided, financial code can't actually be written against this.
+- **```readonly``` fields.** A paid invoice's identity, dates, lines, and total never change after construction, so they are ```readonly```; only ```status``` advances, through the workflow below. The modifier is per-field immutability (```readonly``` in TypeScript and C#, ```final``` in Java), checked at every assignment, including through a reference or reflection.
+- **Rounding via ```DecimalContext```.** ```USD``` is ```decimal128.<{ currency: 'USD', scale: 2 }>```: the scale and its rounding mode (half-even by default) live in the type through the ```DecimalContext``` meta type, and quantizing happens at assignment, argument, and return boundaries. So ```convert```'s rate multiplication rounds to the currency's minor unit once its result lands in a ```USD``` slot, while the ```Currency``` meta type keeps mixing currencies a compile error - money code is expressible end to end.
 - **Metadata on array types.** ```lines: [].<LineItem>.<{ minLength: 1 }>``` is this example's invention: the metadata application syntax attached to an array type, wanting an ```ArrayBounds``` meta type parallel to ```StringBounds```. Nothing defines whether ```.<>``` chains like that or whether array types accept metadata at all. Either bless it or the constraint moves into a ```where``` clause.
-- **String-valued generic parameters.** ```convert<From: string, To: string>``` binds value generics of type ```string``` and uses them inside metadata objects. Value generics are established with integers (```Size: uint32``` throughout); strings are an extrapolation the generics document should confirm, since currency-style meta types depend on it.
-- **Nested exhaustive switches fall through.** ```case Status.Draft:``` ends in an exhaustive inner switch whose every arm returns or throws, so control never reaches the next case - but the outer ```switch``` has no ```break```, and nothing in the control structures section says an exhaustive-and-diverging inner switch satisfies the outer case. TypeScript solves the class of problem with ```never```; here it likely wants a rule that a case body whose control provably diverges needs no ```break```.
-- **Enum values in template literals.** Same note as the parser example: ```${status}``` printing ```paid``` directly instead of requiring ```Status.toString(status)``` in error messages.
+- **String-valued generic parameters - resolved.** ```convert<From: string, To: string>``` binds ```string``` value generics and uses them inside metadata objects; the generics document now lists ```string``` and enum types among the permitted value-generic types, with this exact currency example.
+- **Nested exhaustive switches - resolved.** ```case Status.Draft:``` ends in an inner ```switch``` whose every arm returns or throws, so it diverges and needs no ```break```; the control structures section's divergence rule specifies exactly this, using this document's own ```transition``` function as its example.
+- **Enum values in template literals - resolved.** ```Status``` is ```string```-underlying, so ```${status}``` interpolates as its value (```paid```, ```void```) directly, which the terminal-state error above now uses; the enum section specifies this through the underlying-type conversion.

@@ -20,6 +20,15 @@ a; // 15
 
 ```callThread``` runs the function on another thread and returns a Promise that settles with the function's return value, or rejects with the exception it threw. Internally it spawns a thread that closes over the state the function references - the closure sees the same variables, objects, and imported bindings it would see on the calling thread, because there is one heap. In fully typed code the compiler knows statically which state is shared and can make this close to free; dynamic code works too, at higher cost, but that case is rare.
 
+Its signature places an optional options bag before the forwarded arguments:
+
+```js
+// On any function; Return is the function's own return type.
+callThread(options?: { signal?: AbortSignal }, ...args): Promise.<Return, any>;
+```
+
+The ```options``` bag is optional and distinguished from the function's own arguments by shape, so a function whose own first parameter is itself an ```{ signal }```-shaped object is the one ambiguous case; it is called with its arguments and no bag.
+
 ## The shared heap
 
 Spawned threads run in the same realm. ```globalThis``` is the same object, there is one ```Array```, one ```Object.prototype```, one copy of each of your classes, and one already-executed module graph. ```x instanceof Foo``` is true on every thread because there is exactly one ```Foo```. Spawning a thread costs a thread - a native stack and some per-thread allocator state - not another copy of your program's startup, so a thread per request or per connection is a reasonable thing to do rather than something to avoid.
@@ -33,6 +42,8 @@ A promise is an ordinary heap object, so it is shared like everything else. If o
 ## Memory model
 
 The language stays single-threaded in its semantics *per thread*. The engine guarantees memory safety no matter how badly a program races: no torn engine values, no corrupted object storage, no type confusion. A data race in your own code produces a stale or surprising *value*, never a corrupted heap and never a crash - races on your data are your problem, races on the engine's data are the engine's problem.
+
+This is a weaker guarantee than Rust's and a stronger one than C++'s, and the difference is worth stating plainly. Rust's ```Send```/```Sync``` prove at compile time that a program has no data races at all: the type system carries the proof, and a racy program does not build. This proposal makes no such claim. A race here is a bug with a bounded blast radius - a stale value, never a corrupted heap or a crash - which is the position Go and Java take. What it offers in place of a proof is a discipline the types express: the ```shared``` modifier marks the state that crosses threads, and mutable shared state is reached through ```Atomics``` or under a ```Lock```. A program that keeps to that discipline is race-free; the language enforces memory safety unconditionally but leaves race-*freedom* to the program, because retrofitting ```Send```/```Sync``` onto a shared mutable heap without a borrow checker would make it a different language.
 
 Plain operations on shared data are **not** automatically atomic. A shared ```a += 5``` performed by two threads without synchronization is a data race; the result is one of the values allowed by the relaxed memory model - the same model ECMAScript already defines for ```SharedArrayBuffer``` access - that is, a value that may have missed the other thread's update. Reads and writes of a single primitive value don't corrupt the engine, but wide value types and updates that span multiple fields (a record, a composite) can be observed torn or half-applied by another thread. Atomicity is obtained exclusively through ```Atomics.*```; there is no implicit "some operations are atomic" rule, because leaving that set undefined would make racing programs unspecifiable and would tax every shared write.
 
@@ -93,10 +104,32 @@ lock.hold(() => {
 cond.notify(); // or cond.notifyAll()
 await cond.asyncWait(lock); // promise resolves holding the lock again
 
-const tls = new ThreadLocal(); // .value is independent per thread, holds any value
+const tls = new ThreadLocal.<uint32>(); // ThreadLocal.<T>: .value is a T, independent per thread
 ```
 
-```Lock``` is non-recursive. ```wait```/```notify``` are the textbook condition-variable handshake - and since the mailbox can be any shared object with real methods, a producer/consumer handoff is expressible directly rather than as an index into a byte buffer. On threads where the embedder forbids blocking, for instance the main thread of a browser, the ```async``` forms are used instead of the blocking ones.
+```Lock``` is non-recursive. ```wait```/```notify``` are the textbook condition-variable handshake - and since the mailbox can be any shared object with real methods, a producer/consumer handoff is expressible directly rather than as an index into a byte buffer. On threads where the embedder forbids blocking, for instance the main thread of a browser, the ```async``` forms are used instead of the blocking ones. The closure passed to ```hold``` does not escape the call, so an engine allocates nothing for it and may inline the critical section, though the closure cannot be marked ```inline``` for the reason a ```ref``` callback cannot.
+
+## Parallel iteration
+
+Spawning one thread per element is spawning too many threads. Splitting a range across a fixed pool and joining is the common shape - the ```#integrate(begin, end, dt)``` slice loops in the [entity component system](examples/ecs.md) example are exactly this done by hand - so the extension provides it directly over a shared work-stealing pool:
+
+```js
+// Runs the body over the range, partitioned across the pool, and joins before returning.
+Thread.parallelFor(0, particles.length, (i: uint32) => {
+  const ref p = particles[i];
+  p.position += p.velocity * dt;
+});
+
+// The reduction form sums per-thread partials in a fixed order, so the result is deterministic.
+const total = Thread.parallelReduce(
+  0, rows.length,
+  0.0,
+  (i: uint32) => rows[i].mass, // per-element
+  (a: float64, b: float64) => a + b // combine
+);
+```
+
+Each worker owns a contiguous sub-range, so the reference-liveness rule applies per slice: a reference into an element is valid while that slice runs, and nothing may change the array's length for the duration. Because the sub-ranges are disjoint, writes to distinct elements never contend, and a ```shared SoA.<T>``` makes writes to distinct *fields* non-contending as well, since each field is its own column. ```parallelReduce``` exists rather than a plain ```parallelFor``` with a shared accumulator because atomic floating-point addition is not associative: accumulating a per-thread partial and combining the partials in a fixed order is both reproducible and faster, touching shared memory once per thread rather than once per element. The pool is sized to the hardware by default and reused across calls, so ```parallelFor``` is cheap enough to place inside a frame loop rather than something to set up once.
 
 ## Cancellation
 

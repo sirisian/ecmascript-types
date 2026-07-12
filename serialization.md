@@ -115,7 +115,7 @@ The typed overloads take no reviver. A reviver observes and rewrites intermediat
 
 ## Typed JSON Modules
 
-A JSON module import can annotate its binding, validating the module once at evaluation with the same machinery. A failure is a load-time TypeError identifying the file and path:
+A JSON module import can annotate its binding, validating the module once at evaluation with the same machinery, using the typed-import form specified in the main proposal's import types section. A failure is a load-time TypeError identifying the file and path:
 
 ```js
 import config: ServerConfig from './config.json' with { type: 'json' };
@@ -152,7 +152,7 @@ Wire-name mapping, field omission, and versioning stay in userland. The [depende
 A large JSON array shouldn't have to be resident in memory as text and again as values. `JSON.parseStream` takes a stream of chunks and, for a top-level array type, yields each element as it completes, validated:
 
 ```js
-JSON.parseStream.<T>(stream: AsyncIterable.<string | [].<uint8>>): AsyncIterator.<T>
+JSON.parseStream.<T>(stream: AsyncIterable.<string | [].<uint8>>): AsyncIterator.<elementType(T)>
 ```
 
 ```js
@@ -164,7 +164,7 @@ for await (const reading: Reading of JSON.parseStream.<[].<Reading>>(response.bo
 }
 ```
 
-The element type is the array type's element, so `parseStream.<[].<Reading>>` yields `Reading`. A malformed chunk throws a SyntaxError from the iterator, and an element that fails its type throws a TypeError naming the index and path, both surfacing at the `for await` that pulled them. Streaming a non-array top-level type yields exactly one value when the stream ends, which is the degenerate case rather than an error.
+```elementType(T)``` is the array type's element, so `parseStream.<[].<Reading>>` yields `Reading`; for a non-array `T` it is `T` itself. A malformed chunk throws a SyntaxError from the iterator, and an element that fails its type throws a TypeError naming the index and path, both surfacing at the `for await` that pulled them. Streaming a non-array top-level type yields exactly one value when the stream ends, which is the degenerate case rather than an error.
 
 ## Host APIs
 

@@ -41,18 +41,21 @@ class SoA<T, Length: uint32 = 0> {
 	constructor(length: uint32); // Growable arrays only
 
 	get length(): uint32;
+	get capacity(): uint32; // Growable arrays; the allocation backing every column
 	get byteLength(): uint32;
 	get fields(): Fields.<T>;
 
 	push(value: T): uint32;
 	pop(): T | undefined;
+	reserve(n: uint32): void; // Grow every column to hold at least n elements
 	fill(value: T): SoA.<T, Length>;
 	*operator...(): T;
 
-	static from(values: [].<T>): SoA.<T>;
+	static from<T>(values: [].<T>): SoA.<T>;
+	static withCapacity<T>(n: uint32): SoA.<T>; // Empty, capacity >= n
 	toArray(): [].<T>;
 
-	static get byteLength(): uint32; // Per element, summed over the columns
+	static get elementByteLength(): uint32; // Per element, summed over the columns
 	static get alignment(): uint32;
 }
 ```
@@ -84,7 +87,7 @@ const p: SoA.<Projectile, 4>;
 
 Splitting one level rather than recursively to the leaves is deliberate, and it's the same choice ```MultiArrayList``` makes. A consumer that wants ```origin``` as a contiguous stream of ```Vec2``` - a GPU vertex attribute, a SIMD pass over positions - gets it. A consumer that wants every ```origin.x``` contiguous can flatten ```Projectile``` into ```originX```, ```originY```, and so on. Which is wanted is a property of the data's use, and inlining the decision into the layout rule would take it away from the programmer who knows.
 
-There is no interior padding between an element's fields, because an element's fields are no longer adjacent. Each column is padded and aligned on its own, so a ```T``` whose interleaved layout pads to a larger stride has an ```SoA.byteLength``` smaller than its ```[].<T>``` equivalent.
+There is no interior padding between an element's fields, because an element's fields are no longer adjacent. Each column is padded and aligned on its own, so a ```T``` whose interleaved layout pads to a larger stride has an ```SoA.byteLength``` smaller than its ```[].<T>``` equivalent. ```SoA.<T, Length>.byteLength``` is that full laid-out size, following the type-byteLength convention and the layout table in the main proposal; ```elementByteLength``` is the per-element sum of column strides.
 
 Columns are aligned to at least the platform's vector width, so a lane load at an aligned index is an aligned load.
 
@@ -183,6 +186,8 @@ for (let i: uint32 = whole; i < xs.length; ++i) {
 
 The interleaved equivalent can do neither: a stride of ```Transform.byteLength``` defeats the vector unit and pulls two unused fields into every cache line.
 
+A pass that reads one column and writes another - ```position``` from ```velocity```, the shape of every integrator - needs no runtime overlap check to vectorize, because distinct fields are distinct allocations and so provably cannot alias. This is the single-threaded counterpart of the cache-line fact below: the same premise, that each field is its own column, lets a vector unit load and store two columns without proving at run time that they do not overlap. An engine cannot make that assumption about two arbitrary ```[].<T>``` arguments, since they might be the same array, nor about two ```ref``` parameters, since ```zip(a, a, ...)``` aliases them deliberately; the columns of one ```SoA``` are the case where the guarantee holds by construction rather than by analysis.
+
 Growth reallocates all columns together under one capacity, amortized as ```[].<T>``` is.
 
 Under the [threading](threading.md) extension, ```shared SoA.<Particle, Capacity>``` allocates its columns in shared memory. Two threads writing *different fields* of the same elements never touch the same cache line, because different fields are different columns. Interleaved storage cannot offer that; false sharing on adjacent fields is one of the standard reasons data-oriented code moves to this layout in the first place.
@@ -193,7 +198,7 @@ let particles: shared SoA.<Particle, 65536>;
 
 ## Generic Code
 
-```SoA.<T>``` composes with the compile-time type expressions in the main proposal, which is what lets one storage abstraction hold differently typed columns. The [entity component system](examples/ecs.md) example is built on the combination:
+```SoA.<T>``` composes with the compile-time type expressions in the main proposal: when the component is a compile-time constant, ```SoA.<componentType(C)>``` names that component's exact column type, which is what lets one storage abstraction hold differently typed columns behind a typed accessor. Construction, where the id is a runtime value, goes through a value-level factory instead. The [entity component system](examples/ecs.md) example is built on the combination:
 
 ```js
 class Archetype {
@@ -201,12 +206,13 @@ class Archetype {
 
 	constructor(mask: BitSet) {
 		for (const id of mask) {
-			this.#columns[id] = new SoA.<componentType(id)>();
+			this.#columns[id] = newColumn(id); // Per-type factory; a runtime id can't index a type expression
 		}
 	}
 
-	column<C: Component>(component: C): SoA.<componentType(C)> {
-		return this.#columns[component];
+	// C is a compile-time constant here, so componentType(C) is a valid type expression.
+	column<C: Component>(): SoA.<componentType(C)> {
+		return this.#columns[C];
 	}
 }
 ```

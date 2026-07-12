@@ -116,6 +116,8 @@ const c: Type = value;
 
 A typed declaration without an initializer is initialized to the type's default value rather than ```undefined```: numeric and SIMD types default to ```0```, ```string``` to ```''```, ```boolean``` to ```false```, nullable unions to ```null```, and array types to an empty (or zero-filled fixed-length) array. This matches the default ```value``` behavior of typed property descriptors described in the object typing section.
 
+Zero-filling is part of the semantics, not an optimization a program may opt out of, and the reason is security rather than convenience: an allocation that exposed the bytes of a previously freed one would leak whatever had been there - another script's data, a former secret, a heap pointer that defeats address randomization. A fresh page from the operating system is already zero, so the fill costs nothing on a large new allocation; reused memory must be cleared regardless, so there is nothing to gain by exposing it. There is deliberately no uninitialized-allocation form. The one pattern it would serve, allocate then fill from I/O, is covered by placement ```new``` over an existing buffer and by array views.
+
 ```js
 let a: uint32; // 0
 let b: string; // ''
@@ -123,7 +125,7 @@ let c: uint8 | null; // null
 let d: [4].<uint8>; // [0, 0, 0, 0]
 ```
 
-```var```, ```let```, and ```const``` accept the same annotations, and a ```const``` still requires an initializer. The temporal dead zone is unchanged: accessing ```a``` above its ```let``` line remains a ReferenceError. The default value applies at the declaration, not before it.
+```var```, ```let```, and ```const``` accept the same annotations. A ```const``` normally requires an initializer, but a typed ```const``` may omit it and then takes the type's default - the same zero value a typed field without an initializer takes - fixed immutably at that value. The temporal dead zone is unchanged: accessing ```a``` above its ```let``` line remains a ReferenceError. The default value applies at the declaration, not before it.
 
 ### typeof Operator
 
@@ -146,12 +148,23 @@ uint8 === uint8; // true
 Map.<string, uint8> === Map.<string, uint8>; // true
 ```
 
-Only type names and dotted generic applications are valid in expression position. Type literals that collide with existing expression grammar, function types, inline object interfaces, and unions (```|``` already means bitwise or), appear only in type positions; naming one with ```type``` provides its object:
+A bare type name or dotted generic application is already a value, evaluating to its type object, so ```uint8```, ```[].<uint8>```, and ```Map.<string, uint8>``` may be written directly in expression position. The type literals whose syntax collides with expression grammar cannot be: a function type reads as an arrow function, an inline object interface as a block, and ```'a' | 'b'``` or ```float32 & 1``` as bitwise operations. Prefixing a type expression with ```type``` resolves the collision and yields its type object:
 
 ```js
-type F = (uint8) => uint8;
-F; // the type object for (uint8) => uint8
+const A = type (uint8) => uint8;           // a function type
+const B = type { x: float32, y: float32 }; // an inline object interface
+const C = type 'a' | 'b' | 'c';            // a union
+const D = type float32 & (0 | 1 | 1.5);    // an intersection
 ```
+
+The operator belongs to expression position, where a value is expected. A type position - an annotation, a generic argument, or the right of ```is``` or ```as``` - is already parsing a type and takes no ```type```, so ```let f: (uint8) => uint8``` and ```x is (uint8) => uint8``` have none. The operand is a full type expression and extends as far as one reaches, so ```type A | B``` is the union of ```A``` and ```B```, not ```(type A) | B```; a bare name is a type expression too, which makes ```type uint8``` a redundant spelling of ```uint8```. The statement-position companion is the ```type NAME = ...``` declaration, which binds the same type object to a name and additionally introduces a type alias usable in type position:
+
+```js
+type F = (uint8) => uint8; // F holds the type object and is a type alias
+F; // the type object, the same value as type (uint8) => uint8
+```
+
+To obtain the type of a runtime value rather than of a type literal, use ```Reflect.typeOf(value)```, described below.
 
 The built-in type names are ordinary shadowable globals, so an existing program that declares its own ```uint8``` is unaffected, and ```typeof uint8 === 'object'``` doubles as feature detection for this proposal.
 
@@ -212,7 +225,7 @@ The rules:
 
 - The expression is evaluated at specialization, when every value generic parameter it reads is a known constant. The same function called with a value that isn't constant is a TypeError in type position, though it remains an ordinary function in expression position, which is what a dynamic path calls.
 - Compile-time evaluability is the same notion the ```where``` clauses and metadata annotations use. A function is evaluable when its body reads only its parameters, constants, and other evaluable functions.
-- The expression must produce a type object. A function whose ```switch``` fails to cover a case would produce ```undefined``` and is a TypeError at the annotation; enum and sealed class exhaustiveness make that a compile-time guarantee rather than a runtime surprise.
+- The expression must produce a type object. A function whose ```switch``` fails to cover a case would produce ```undefined``` and is a TypeError at the annotation; enum and sealed class exhaustiveness make that a compile-time guarantee rather than a runtime surprise. When the argument is narrowed by a ```where``` clause at the call - as ```unitRatio(U)``` is by ```where U <= Temporal.Unit.Hour``` in the [temporal](temporal.md) extension - exhaustiveness is checked over that narrowed domain, so the ```switch``` need only cover the cases the constraint admits.
 - Diagnostics name the expression, not just its value: an assignment failing against ```componentType(Component.Health)``` reports it that way.
 
 Generic type parameters are type objects too, so a parameter in scope evaluates to the type it was specialized with. Registries keyed on types are the common use, replacing the string keys and casts the same code needs elsewhere:
@@ -333,12 +346,14 @@ Intersections are for object shapes. Intersecting value types, like ```uint8 & s
 
 A ```type``` alias may refer to itself and to other aliases, including mutually. Aliases are hoisted within a module, so declaration order doesn't matter.
 
-The only restriction is a layout restriction: a value type's layout may not contain itself, directly or through other value types, because such a layout has no finite size. A cycle is legal whenever it passes through a *reference position*: a field whose type is a reference type, an array element, a nullable union, or an interface member.
+The only restriction is a layout restriction: a value type's layout may not contain itself, directly or through other value types, because such a layout has no finite size. A cycle is legal whenever it passes through a *reference position*: a field whose type is a reference type, an array element, a nullable union, an interface member, or a union of value-type classes (which, having more than one possible layout, is stored by reference like any other class union).
+
+A field whose type is a value type class is stored inline by default, so a bare field of such a type embeds a copy - and, for a subclassed value type class, embeds only the base slice, never a subclass instance. Its reference form is the nullable union ```T | null```, exactly as the value type class layout section describes for arrays: ```[10].<A>``` is inline instances, ```[10].<A | null>``` is references. A ```sealed``` class is by contrast a reference type (the sealed classes section), so a field of a sealed type holds any subclass directly. Closing a recursive cycle, or holding a subclass instance polymorphically, is therefore spelled ```T | null``` for a value type class and plainly for a sealed one:
 
 ```js
 type Tree = { value: float64, children: [].<Tree> }; // Through an array
 type List = { value: uint32, next: List | null }; // Through a nullable union
-type Node = NumberNode | UnaryNode | BinaryNode; // Class types are references
+type Node = NumberNode | UnaryNode | BinaryNode; // A class union has many layouts, so it's a reference
 
 // type Bad = { next: Bad }; // TypeError: Bad has an infinite layout
 // class C { c: C; } // TypeError: a value type class cannot contain itself
@@ -350,12 +365,41 @@ type Literal = { value: float64 };
 
 Assignability between recursive structural types is decided coinductively: while checking whether ```A``` is assignable to ```B```, the pair is assumed to hold, and the check succeeds if nothing contradicts the assumption. This is what lets two independently declared but structurally identical trees be assignable.
 
-### any Type
+### Literal Types
 
-Using ```any|null``` would result in a syntax error since ```any``` already includes nullable types. As would using ```[].<any>``` since it already includes array types. Using just ```[]``` would be the type for arrays that can contain anything. For example:
+A literal is usable as a type, denoting the single value it names. String, numeric, boolean, and bigint literals all qualify:
 
 ```js
-let a:[];
+type Direction = 'north' | 'south' | 'east' | 'west';
+let d: Direction = 'north';
+// d = 'up'; // TypeError: 'up' is not assignable to Direction
+
+type Bit = 0 | 1;
+type Ready = true; // Inhabited only by true
+```
+
+A literal type is a value type: its identity is its value, and an untyped literal propagates into a literal-typed slot the same way a numeric literal propagates into a numeric type. A union of literals is the common form, and it pairs with structural types to make a discriminated shape without an enum:
+
+```js
+type Shape =
+  | { kind: 'circle', radius: float64 }
+  | { kind: 'rect', width: float64, height: float64 };
+
+function area(s: Shape): float64 {
+  return s.kind == 'circle' ? Math.PI * s.radius ** 2 : s.width * s.height;
+}
+```
+
+A union of literals is what the [type records](typerecords.md) document's ```keyof``` produces, and what the [dependent record types](dependentrecordtypes.md) document uses for its discriminant fields and its JSON-Schema ```const```/```enum``` mappings. A single literal also refines a primitive to one value; a *range* of a primitive's values is expressed with [primitive metadata](primitivemetadata.md) instead.
+
+What literal types deliberately do not do is drive ```switch``` exhaustiveness. A union of literals is not a closed set for the exhaustiveness check, which stays reserved to enums and sealed classes as the exhaustiveness section explains, so a closed set of strings intended for an exhaustive ```switch``` is an ```enum``` over ```string```.
+
+### any Type
+
+Using ```any | null``` would result in a syntax error since ```any``` already includes nullable types. Arrays of ```any``` are written ```[]``` for short, and ```[].<any>``` is the explicit spelling of the same type, so generic code that fills in ```any``` for an element parameter is fine. A fixed-length array of ```any```, ```[N].<any>```, is a length-N array of reference slots. For example:
+
+```js
+let a: [];
 ```
 
 ### Variable-length Typed Arrays
@@ -370,6 +414,8 @@ let c: [].<uint8> | null; // null
 let d: [].<uint8 | null> = [0, null]; // Not sequential memory
 let e: [].<uint8 | null>|null; // null // Not sequential memory
 ```
+
+```new [].<T>()``` constructs the same empty variable-length array as the ```[]``` literal at that type, and is the form to reach for where no literal is convenient - assigning a fresh column inside a generic method, for instance.
 
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
 
@@ -410,13 +456,13 @@ let a: shared [4].<uint8>;
 ### Mixing Variable-length and Fixed-length Arrays
 
 ```js
-function f(c:boolean):[].<uint8> { // default case, return a resizable array
+function f(c: boolean): [].<uint8> { // default case, return a resizable array
   let a: [4].<uint8> = [0, 1, 2, 3];
   let b: [6].<uint8> = [0, 1, 2, 3, 4, 5];
   return c ? a : b;
 }
 
-function f(c:boolean):[6].<uint8> { // Resizes a if c is true
+function f(c: boolean): [6].<uint8> { // Resizes a if c is true
   let a: [4].<uint8> = [0, 1, 2, 3];
   let b: [6].<uint8> = [0, 1, 2, 3, 4, 5];
   return c ? a : b;
@@ -426,9 +472,41 @@ function f(c:boolean):[6].<uint8> { // Resizes a if c is true
 ### Any Typed Array
 
 ```js
-let a: []; // Using [].<any> is a syntax error as explained before
+let a: []; // [].<any> is the same type, spelled explicitly
 let b: [] | null; // null
 ```
+
+### Tuple Types
+
+A tuple type is a fixed-length sequence of individually typed positions, written with the element types in brackets. Where ```[N].<T>``` is N elements of one type and ```[].<T>``` is any number of one type, ```[T1, T2, ...]``` is a fixed count of possibly-different types:
+
+```js
+let pair: [uint32, string] = [1, 'a'];
+let triple: [uint8, uint8, uint8] = [255, 0, 128];
+```
+
+A trailing position may carry a default, which is what lets a shorter array satisfy a longer tuple return, as the typed return values for destructuring section uses:
+
+```js
+let p: [uint8, uint32 = 10] = [1]; // p is [1, 10]
+```
+
+A tuple may spread another tuple or an array type, at the front or the back, which is how a variable head or tail is expressed:
+
+```js
+type Row = [uint32, ...[].<float32>]; // An id followed by any number of floats
+type Grown<T> = [...Row, T]; // Row with one more typed position appended
+```
+
+Intersecting a tuple, or an array, with an object type produces an array-like value that also carries named properties — the shape a regular-expression match result has, for instance:
+
+```js
+type Match = [string, ...[].<string>] & { index: uint32, input: string };
+```
+
+The homogeneous counterpart of that, an array with named properties, is equally an ```interface X extends [].<E>``` as the tagged-template section writes ```TemplateStringsArray```; the intersection form is the general spelling when the positions differ.
+
+Layout follows the same rule as a class: a tuple of value types is itself a value type laid out contiguously, and a tuple containing a reference position is a reference type. Every tuple is an array, so the array-of-any type ```[]``` doubles as the bound of the tuple family: a type parameter written ```T extends []``` is satisfied by any tuple or array, which is the bound the [RegExp](regexp.md) and [binary packet](examples/binarypacket.md) documents use to accumulate element types.
 
 ### Array length Type And Operations
 
@@ -458,6 +536,19 @@ let b = a.length; // length is type uint64 with value 5
 
 Setting the ```length``` reallocates the array truncating when applicable.
 
+A ```[].<T>``` keeps a capacity at least its length, so ```push``` is amortized O(1); a reallocation copies the existing elements by their layout, which for value types is one contiguous copy rather than an element-by-element loop.
+
+The capacity - the allocation backing the array, counted in elements - is controllable, so a loop that knows its output size allocates once. ```capacity``` reads it, ```reserve(n)``` grows it to hold at least ```n``` elements without changing the length, and the static ```[].<T>.withCapacity(n)``` constructs an empty array with room for ```n```:
+
+```js
+const out = [].<uint32>.withCapacity(1024); // length 0, capacity >= 1024
+out.push(x); // No reallocation until the capacity is exceeded
+out.capacity; // >= 1024
+out.reserve(4096); // Grow the allocation; length unchanged
+```
+
+Capacity never shrinks implicitly; only ```length =``` or an explicit shrink releases it. A ```reserve``` that would reallocate while a reference into the array is live is a TypeError, the same liveness rule ```push``` follows. ```withCapacity``` reserves rather than fills - a zero-filled array of a known length is a fixed ```[N].<T>```.
+
 ```js
 let a: [].<uint8> = [0, 1, 2, 3, 4];
 a.length = 4; // [0, 1, 2, 3]
@@ -465,7 +556,7 @@ a.length = 6; // [0, 1, 2, 3, 0, 0]
 ```
 
 ```js
-let a:[5].<uint8> = [0, 1, 2, 3, 4];
+let a: [5].<uint8> = [0, 1, 2, 3, 4];
 // a.length = 4; TypeError: a is fixed-length
 ```
 
@@ -501,12 +592,14 @@ class A {
     this.b = value;
   }
 }
-const a:[].<A> = [0, 1, 2];
+const a: [].<A> = [0, 1, 2];
 const b = [].<uint16>(a, 1, 3); // Offset of 1 byte into the array and 3 byte length per element
 b[2]; // 2
 ```
 
 The ```buffer``` argument accepts any typed array as well as existing ```TypedArray```, ```ArrayBuffer```, and ```SharedArrayBuffer``` instances, so a ```[].<uint8>``` and a ```Uint8Array``` viewing the same buffer alias the same memory. Views read and write using platform byte order, matching ```TypedArray```. Individual class members can fix their byte order for parsing wire formats with the ```@endian``` decorator described in the member memory layout section.
+
+Because views can overlap like this, an engine assumes by default that any two views into a buffer may alias, and it cannot use type to rule that out: a ```[].<float32>``` and a ```[].<uint32>``` over the same bytes alias legitimately, which is the point of reinterpreting a buffer. Two cases are the exception, derivable from construction rather than assumed. A fixed ```[N].<T>``` placed by ```new``` into a freshly allocated region does not alias any other view a program can name, and two ```window``` views over statically disjoint extents - ```a.window.<8>(0)``` and ```a.window.<8>(8)``` - do not alias each other, though windows at overlapping or runtime-computed offsets are assumed to alias as usual. There is deliberately no ```noalias``` annotation for the general case: without a way to verify it, such an annotation would be C's ```restrict```, an unchecked promise whose violation is undefined behavior - the one hazard this proposal removes everywhere else. Where two references genuinely do not alias and it matters for vectorization, the structure carries the guarantee, distinct ```SoA``` columns and disjoint windows, rather than a programmer's assertion.
 
 Views over resizable buffers follow ```TypedArray``` semantics. A ```[].<T>``` view is length-tracking: its ```length``` derives from the buffer's current byte length, growing and shrinking as the buffer is resized. A fixed ```[N].<T>``` view has a fixed byte extent recorded at construction; if the buffer shrinks below that extent the view is detached and any access throws a TypeError. Growth never invalidates a view. ```shared``` views over a growable ```SharedArrayBuffer``` track growth the same way, and shared buffers never shrink.
 
@@ -521,6 +614,8 @@ buffer.resize(4);
 ```
 
 The view constructor takes a byte offset, which is the right unit for parsing a wire format and the wrong one for indexing a table. ```window``` takes element indices instead:
+
+A class listing that gives member signatures with no bodies, like the one below, describes the typed shape of an existing or intrinsic type rather than defining new behavior. This declare-style form is used throughout the proposal and the extensions for built-ins.
 
 ```js
 class Array<T> {
@@ -539,6 +634,16 @@ rows[entityIndex * 8]; // 1, the same storage
 
 rows.window(0, 8); // [].<uint32>, length 8
 ```
+
+### Bounds Checks
+
+Indexed access into a typed array is bounds-checked, as it is today. The type system elides the check wherever it can prove the index is in range, so the patterns a hot loop is written in pay nothing:
+
+- ```for (const ref p of a)``` performs no per-element check. The length is pinned for the loop's duration - changing it is a TypeError, per the value type references section - and the induction variable is the engine's own, in range by construction.
+- Indexing a fixed-length ```[N].<T>``` with an index the compiler knows is below ```N``` - a value generic, a ```where```-constrained parameter, or the counter of a ```for``` over ```0..N``` from the [ranges](ranges.md) extension - needs no runtime check, because ```N``` is a compile-time constant and the bound is proven statically.
+- ```window.<N>(start)``` checks once that ```start + N``` fits and returns a ```[N].<T>``` whose own accesses are then the case above, so a fixed-size window hoists a single check to cover ```N``` of them.
+
+These are the guarantees Rust's slice and iterator code leans on: the checked operation is the default, and the idioms that let the compiler discharge the check are the ones performance-critical code already uses. Where the bound cannot be proven - a runtime index into a variable-length array - the check stays, and a program that wants it gone makes either the extent or the index statically known.
 
 Without it the same window is spelled with the element size folded in by hand, ```[8].<uint32>(rows, entityIndex * 8 * uint32.byteLength)```, which is correct and repeats the element type three times.
 
@@ -632,7 +737,7 @@ i < array.length; // Fine. Comparing any with uint32 is dynamic
 
 **Metadata parameterizations of one primitive convert by their meta protocol.** ```Kilometer``` and ```Meter``` are both ```float32```, and the ```conversionFactor``` and ```quantize``` hooks in [primitive metadata](primitivemetadata.md) apply at assignment, argument, and return boundaries. That is a conversion within a type, not between two of them.
 
-**User-defined casts still apply**, because the class that declares them opted in. A constructor taking a ```float32``` makes ```let t: MyType = 1;``` legal, and an ```operator T()``` makes the reverse legal.
+**User-defined casts still apply**, because the class that declares them opted in. A constructor taking a ```float32``` makes ```let t: MyType = 1;``` legal, and an ```operator T()``` - a parameterless member that converts the receiver - makes the reverse legal. When a type can't grow such a constructor because its constructor is already spoken for, as ```Temporal.Instant```'s takes epoch nanoseconds, it declares a cast *from* the source instead: ```operator MyType(value: Source)```, a member of the target that takes the source and runs with no receiver. It is consulted at the same assignment, argument, and return boundaries a converting constructor is, with a constructor preferred when both could apply.
 
 The standard library is overloaded for the value types, so nothing in it forces a conversion. ```Math.clz32``` of a ```uint32``` is a ```uint32```, ```Math.min``` of two ```float32``` is a ```float32```, and ```array.length``` is a ```uint32``` that compares against a ```uint32``` loop counter without a cast.
 
@@ -663,7 +768,7 @@ const [x, y, z] = a;
 
 ### Explicit Casting
 
-A cast is a call on the type, and ```:=``` is the same conversion written after the value, which reads better trailing a large literal or object.
+A cast is a call on the type, and ```:=``` is the same conversion written after the value, which reads better trailing a large literal or object. The same operator is also a typed-assignment expression usable in any expression position, covered in the typed assignment section.
 
 ```js
 let a := uint8(65535); // 255, the lowest 8 bits. The typed assignment infers uint8
@@ -693,7 +798,7 @@ x * x; // float32, computed in float32. No rounding through float64
 
 This matters most for the float types. C promotes ```float``` to ```double``` in many contexts, so the same source produces different results depending on where a value is used. Here ```float32``` arithmetic is ```float32``` arithmetic, which is what makes a computation reproducible across engines.
 
-Integer overflow wraps, discarding the bits that don't fit, which is what an explicit cast does and what a ```TypedArray``` store has always done. Signed types wrap in two's complement.
+Integer overflow wraps, discarding the bits that don't fit, which is what an explicit cast does and what a ```TypedArray``` store has always done. Signed types wrap in two's complement, and unary minus on an unsigned value wraps the same way - ```-x``` on a ```uint``` is ```2**width - x``` modulo ```2**width```, not an error - so a signed operation applied to an unsigned value is defined, though casting to the signed type first is usually clearer.
 
 ```js
 const a: uint8 = 255;
@@ -961,7 +1066,7 @@ Types propagate to the right hand side of any expression.
 let a: uint64 = 2**53;
 a == a + 1; // false
     
-let b:uint64 = 9007199254740992 + 9007199254740993; // 18014398509481985
+let b: uint64 = 9007199254740992 + 9007199254740993; // 18014398509481985
 ```
 
 Types propagate to arguments as well.
@@ -981,7 +1086,7 @@ f(a); // 18014398509481984
 
 In typed code this behavior of propagating types to literals means that suffixes aren't required by programmers.
 
-This proposal introduces one breaking change related to the BigInt function. When passing an expression the signature uses ```bigint(n:bigint)```.
+This proposal introduces one breaking change related to the BigInt function. When passing an expression the signature uses ```bigint(n: bigint)```.
 
 ```js
 //BigInt(999999999999999999999999999999999999999999); // Current behavior is 1000000000000000044885712678075916785549312n
@@ -1026,7 +1131,7 @@ class MyType {
   constructor(a: uint32, b: uint32) {
   }
 }
-let a:[].<MyType> = [1, 2, 3, 4, 5];
+let a: [].<MyType> = [1, 2, 3, 4, 5];
 ```
 
 Implicit array casting already exists for single variables as defined above. It's possible one might want to compactly create instances. The following new syntax allows this:
@@ -1097,7 +1202,7 @@ let { (a: uint8): b = 1 } = { a: 2 }; // b is 2
 Assigning to an already declared variable:
 
 ```js
-let b:uint8;
+let b: uint8;
 ({ a: b = 1 } = { a: 2 }); // b is 2
 ```
 
@@ -1139,7 +1244,7 @@ b; // 2
 Typing arrays:
 
 ```js
-let [a: uint8, ...b: uint8] = [1, 2];
+let [a: uint8, ...b: [].<uint8>] = [1, 2];
 b; // [2]
 ```
 
@@ -1254,6 +1359,10 @@ function f(): IExample {
 }
 ```
 
+Interface and type-literal members may be separated by ```;``` or ```,```, as in an object literal; both appear in this document and mean the same thing.
+
+An interface may also declare operator members, as in ```interface Ordered<T> { operator<(other: T): boolean; }```. A type satisfies such an interface by defining those operators, which is how a generic constrains its parameter to carry an operation - the [operator overloading](operatoroverloading.md) and [ranges](ranges.md) extensions use this for scalar multiplication and ordering.
+
 Similar to other types an object interface can be made nullable and also made into an array with ```[]```.
 
 ```js
@@ -1329,7 +1438,7 @@ With function overloading an interface can place multiple function constraints. 
 
 ```js
 interface IExample {
-  (string, uint32); // undefined is the default return type
+  (string, uint32); // void is the default return type
   (uint32);
   (string, string)?: string; // Optional overload. A default value can be assigned like:
   // (string, string)?: string = (x, y) => x + y;
@@ -1337,7 +1446,7 @@ interface IExample {
 ```
 
 ```js
-function f(a:IExample) {
+function f(a: IExample) {
   a('a', 1);
   // a('a'); // TypeError: No matching signature for (string).
 }
@@ -1347,7 +1456,7 @@ Signature equality checks ignore renaming:
 
 ```js
 interface IExample {
-  ({ (a: uint32) }): uint32
+  ({ a: uint32 }): uint32
 }
 function f(a: IExample) {
   a({ a: 1 }); // 1
@@ -1360,7 +1469,7 @@ An example of taking a typed object:
 interface IExample {
   ({ a: uint32; }): uint32;
 }
-function f(a:IExample) {
+function f(a: IExample) {
   a({ a: 1 }); // 1
 }
 f(a => a.a);
@@ -1370,7 +1479,7 @@ Argument names in function interfaces are optional. This to support named argume
 
 ```js
 interface IExample {
-  (string = '5', uint32: named);
+  (string = '5', named: uint32);
 }
 function f(a: IExample) {
   a(named: 10); // 10
@@ -1476,7 +1585,7 @@ a = 5; // a is type any and is 5
 ```
 If one wants to constrain the variable type they can write:
 ```js
-let a:MyType = new MyType();
+let a: MyType = new MyType();
 // a = 5; // Equivalent to using implicit casting: a = MyType(5);
 ```
 
@@ -1487,7 +1596,7 @@ let a := new MyType(); // a is type MyType
 // a = 5; // Equivalent to using implicit casting: a = MyType(5);
 ```
 
-```expression := Type``` is also an expression. It evaluates its left side and converts it to ```Type``` by the same rules a typed binding uses, so it constructs from a matching shape, runs any user-defined cast, and validates metadata. It's usable in any expression position, which is what makes constructing and returning a typed value in one step read well:
+```expression := Type``` is also an expression. It evaluates its left side and converts it to ```Type``` by the same rules a typed binding uses, validating metadata and any ```where``` clauses. When the left side is an *object literal* whose shape matches the target class, the conversion fills the class's layout directly - every field supplied or defaulted - and runs no constructor, the same rule [serialization](serialization.md) uses when it reconstructs an instance from parsed data. A source that isn't a matching literal converts as a typed binding would, through any user-defined cast. It's usable in any expression position, which is what makes constructing and returning a typed value in one step read well:
 
 ```js
 function makeNode(op: TokenType, left: Node, right: Node): BinaryNode {
@@ -1497,7 +1606,7 @@ f({ x: 0, y: 0 } := Vertex);
 const a = [1, 2, 3] := [3].<uint8>;
 ```
 
-This is equivalent to the cast call form ```BinaryNode({ ... })```; both are kept, since ```:=``` reads better trailing a large literal. As an operator it binds looser than ```|``` and tighter than ```,```.
+For a class with no constructor this matches the cast call form ```BinaryNode({ ... })```; for one that defines a constructor the two differ, since the call runs the constructor while ```:=``` from a literal fills the layout - which is what lets an allocation-free operator or a deserializer bypass constructor side effects. Both forms are kept, since ```:=``` reads better trailing a large literal. As an operator it binds looser than ```|``` and tighter than ```,```.
 
 This new form of assignment is useful with both ```var``` and ```let``` declarations. With ```const``` it has no uses:
 
@@ -1553,7 +1662,7 @@ function f(): void {}
 
 Duplicate signatures are not allowed:
 ```js
-function f(a:uint8) {}
+function f(a: uint8) {}
 // function f(a: uint8, b: string = 'b') {} // TypeError: A function declaration with that signature already exists
 f(8);
 ```
@@ -1590,13 +1699,13 @@ function f(): string {
 const a: string = f(); // "10"
 const b: uint32 = f(); // 10
 
-function g(a:uint32):uint32 {
+function g(a: uint32): uint32 {
   return a;
 }
 g(f()); // 10
 
-function h(a:uint8) {}
-function h(a:string) {}
+function h(a: uint8) {}
+function h(a: string) {}
 // h(f()); // TypeError: Ambiguous signature for f. Requires explicit left-hand side type or cast.
 h(uint32(f()));
 ```
@@ -1628,7 +1737,7 @@ operator<(v: int32x4): boolean8 {}
 Typed promises use a generic syntax where the resolve and reject type default to any.
 
 ```js
-Promise<R extends any, E extends any>
+Promise<R = any, E = any>
 ```
 
 ```js
@@ -1650,7 +1759,7 @@ async function f(): Promise.<uint8, undefined> {
 }
 ```
 
-```await``` unwraps the resolve type: awaiting a ```Promise.<uint8, Error>``` yields a ```uint8```, and the reject type feeds the typed catch clauses described in the try catch section. The combinators infer from their inputs, so ```Promise.all``` over a tuple of typed promises resolves to a tuple of the resolve types and rejects with the union of the reject types.
+```await``` unwraps the resolve type: awaiting a ```Promise.<uint8, Error>``` yields a ```uint8```, and the reject type feeds the typed catch clauses described in the try catch section. The combinators infer from their inputs, so ```Promise.all``` over a tuple of typed promises resolves to a tuple of the resolve types and rejects with the union of the reject types. By convention a reject type of ```undefined``` means the promise never rejects, and a resolve type of ```void``` means it resolves with no value; both read directly off the type.
 
 Right now there's no check except the runtime check when a function actually throws to validate the exception types. It is feasible however that the immediate async function scope could be checked to match the type and generate a TypeError if one is found even for codepaths that can't resolve. This is stuff one's IDE might flag.
 
@@ -1751,6 +1860,8 @@ for (const [a: int32, b: int32] of g) {} // [[0, 1], [1, 2], [2, 3]] overload
 
 ```[Symbol.iterator]``` remains the underlying protocol. ```*operator...()``` defines it, and untyped code iterating the object uses the first declared overload for compatibility. A class with a single ```*operator...()``` iterates everywhere without annotations.
 
+For the built-in typed arrays, ```for...of``` with the default iterator is specified to be observably equivalent to an index loop: the ```{ value, done }``` result object exists only where a program can see it, in a manual ```next()``` call or through a patched protocol, so ordinary iteration over a ```[].<float32>``` allocates nothing. A user-defined ```*operator...()``` yields values, not references - Rust's ```iter_mut``` has no counterpart here, because a reference cannot be stored in the iterator result it would pass through - so mutating in place across one array uses ```ref``` iteration and across several uses the ```ref``` callback idiom, both in the value type references section.
+
 #### Async Iteration
 
 ```async function*``` types the same way with ```AsyncGenerator.<Y, R, N>```, and ```async *operator...()``` defines ```[Symbol.asyncIterator]```:
@@ -1812,7 +1923,7 @@ let a = [];
 let o = { a };
 o = { a: [] };
 o = { (a: [].<uint8>) }; // cast a to [].<uint8>
-o = { (a: [].<uint8>):[] }; // new object with property a set to an empty array of type uint8[]
+o = { (a: [].<uint8>): [] }; // new object with property a set to an empty array of type [].<uint8>
 ```
 
 This syntax works with any arrays:
@@ -1863,7 +1974,7 @@ The key ```value``` for a property with a numeric type defined in this spec defa
 
 Any class where at least one public or private field is typed is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
 
-If every field is typed with a value type then instances can be treated like a value type in arrays and are backed by contiguous memory. When allocated as ```shared``` the backing storage is a SharedArrayBuffer, allowing instances or arrays of them to be shared among web workers.
+If every field is typed with a value type then instances can be treated like a value type in arrays and are backed by contiguous memory. When allocated as ```shared``` the backing storage is a SharedArrayBuffer, allowing instances or arrays of them to be shared among web workers. ```shared``` applies to any value type, not only an aggregate: a ```shared uint32``` or ```shared float64``` binding or field is placed in shared storage directly, which is what lets ```Atomics``` operate on it by reference.
 
 ```js
 class A { // can be treated like a value type
@@ -1871,7 +1982,7 @@ class A { // can be treated like a value type
   #b: uint8;
 }
 class B extends A { // can be treated like a value type
-  a: uint16;
+  b: uint16;
 }
 class C { // cannot be treated like a value type
   a: uint8;
@@ -1880,6 +1991,8 @@ class C { // cannot be treated like a value type
 ```
 
 The value type behavior is used when creating sequential data in typed arrays.
+
+A subclass appends its own fields after the base layout; re-declaring an inherited typed field is a TypeError, since two slots of the same name would have no defined offset and would break the array views and ```byteLength``` that depend on the layout.
 
 ```js
 const a: [10].<A>; // creates an array of 10 items with sequential data
@@ -1944,6 +2057,8 @@ const a: [10].<A>; // [A, ...]
 const b: [10].<A|null>; // [null, ...]
 ```
 
+**Copy cost and construction.** Assigning, passing, or returning a value type copies its ```byteLength``` bytes; there is no move that would leave the source invalid, so a large value type - a class with an inline ```[1024].<float64>``` field, say - is expensive to pass by value. Pass such a type by ```ref```, which is the borrow: a storage location and an index, with no copy and no allocation. Construction, on the other hand, never copies through a temporary. A constructor call, an object-literal ```:=``` conversion, and a value type ```return``` build their result directly in the destination - a binding, a field, an array element, or the caller's receiving slot - so ```return { ... } := Matrix4``` writes the caller's ```Matrix4``` in place rather than constructing one and copying it. This is the guaranteed copy elision C++17 specifies for prvalues, made part of the semantics here rather than left to the optimizer.
+
 ### Class Members
 
 A field declared without an initializer takes its type's default value rather than ```undefined```, following the variable declaration section. A typed slot never holds ```undefined``` unless its type says so.
@@ -1970,7 +2085,7 @@ class Invoice {
     this.id = id; // Legal here only
     this.issued = issued;
   }
-  void() {
+  clear() {
     // this.id = 0; // TypeError: id is readonly
   }
 }
@@ -2030,7 +2145,7 @@ class A {
 }
 ```
 
-The brand check ```#a in value``` narrows the static type of ```value``` to the class in the true branch, joining ```instanceof``` and the structural ```is``` operator as a narrowing form. On a sealed typed class the check is a tag test:
+The brand check ```#a in value``` narrows the static type of ```value``` to the class in the true branch, joining ```instanceof``` and the structural ```is``` operator as a narrowing form. These forms narrow in any boolean-tested position, not only an ```if```: the condition of a conditional expression narrows its two branches, and the right operand of ```&&``` or ```||``` is narrowed by the left. On a sealed typed class the check is a tag test:
 
 ```js
 class A {
@@ -2056,14 +2171,14 @@ class Celsius {
     return this.#value;
   }
   set value(value: float32 | string) { // Accepts everything the getter returns, and more
-    this.#value = value;
+    this.#value = value is string ? float32.parse(value) : value; // parse the string case explicitly
   }
   get frozen(): boolean {
     return this.#value <= 0;
   }
 }
 const c = new Celsius();
-c.value = '10'; // Calls parse through the string overload
+c.value = '10'; // The setter's union type accepts a string, which it parses
 // c.frozen = true; // TypeError: frozen has no setter
 ```
 
@@ -2195,7 +2310,7 @@ class MyType {
     this.x = x;
   }
   constructor(y: uint32) {
-    this.x = (y as float32) * 2;
+    this.x = float32(y) * 2;
   }
 }
 ```
@@ -2203,7 +2318,7 @@ class MyType {
 Implicit casting using the constructors:
 ```js
 let t: MyType = 1; // float32 constructor call, by the literal ranking
-let t: MyType = uint32(1); // uint32 constructor called
+let u: MyType = uint32(1); // uint32 constructor called
 ```
 
 Constructing arrays all of the same type:
@@ -2218,7 +2333,7 @@ For integers (including ```bigint```) the parse function would have the signatur
 ```js
 let a: uint8 = uint8.parse('1', 10);
 let b: uint8 = uint8.parse('1'); // Same as the above with a default 10 for radix
-let c: uint8 = '1'; // Calls parse automatically making it identical to the above
+// let c: uint8 = '1'; // TypeError: string is not a conversion source; call uint8.parse
 ```
 
 For floats, decimals, and rational the signature is just ```parse(string)```.
@@ -2359,9 +2474,9 @@ class Vector2 {
     this.y = y;
   }
   length(): float32 {
-    return Math.hypot(this.x, this.y); // uses Math.hypot(...:float32):float32 due to input and return type
+    return Math.hypot(this.x, this.y); // uses Math.hypot(...:float32): float32 due to input and return type
   }
-  operator+(v: Vector2): Vector2 { // Same as [Symbol.addition](v:Vector2)
+  operator+(v: Vector2): Vector2 { // Same as [Symbol.addition](v: Vector2)
     return new Vector2(this.x + v.x, this.y + v.y);
   }
   operator==(v: Vector2): boolean {
@@ -2404,10 +2519,11 @@ This is kind of niche, but it's consistent with other method definitions, so it'
 
 ### Class Extension
 
-Example defined in say ```MyClass.js``` defining extensions to ```Vector2``` defined above:
+A ```partial class``` re-opens an existing class - one declared earlier, in another module, or an intrinsic - to add methods and operators to it. The ```partial``` keyword is required: a bare re-declaration of an already-declared class is a TypeError, not a silent extension, so a program can never fork a class's behavior by accident.
 
 ```js
-class Vector2 {
+// In MyClass.js, extending the Vector2 defined above:
+partial class Vector2 {
   operator==(v: MyClass) {
     // equality check between this and MyClass
   }
@@ -2417,7 +2533,9 @@ class Vector2 {
 }
 ```
 
-Note that no members may be defined in an extension class. The new methods are simply appended to the existing class definition.
+A partial class adds no positional fields, so a class's layout is fixed by its primary declaration and array views over it stay well-defined. The one exception is the restricted form reflection uses: a partial class may append typed, symbol-keyed fields to the intrinsic metadata classes, which the [decorators](decorators.md) extension relies on, and because those fields are keyed by symbol rather than by position they don't enter the positional layout either.
+
+Adding a method or operator the class already has, whether from its primary declaration or another module's partial, is a TypeError at the second declaration - the same rule the operator table uses - so extension is order-independent and two modules cannot silently shadow each other.
 
 ### Sealed Classes
 
@@ -2434,6 +2552,8 @@ class BinaryNode extends Node { op: TokenType; left: Node; right: Node; }
 // In another module:
 // class Extra extends Node {} // TypeError: Node is sealed
 ```
+
+A sealed class is a reference type: its instances are held and passed by reference, which is what lets a ```Node```-typed field, parameter, or return hold any subclass and a ```switch``` dispatch over them. So the child fields are plainly ```Node```, closing the recursive cycle without a nullable or a sigil — where a non-sealed value type class would instead spell its reference form ```T | null```, per the type aliases and recursion section.
 
 Only subclassing is restricted. The class extension syntax above, which appends methods to an existing class, remains available on a sealed class from any module, since it adds no cases. Applying a mixin to a sealed class from outside its module creates a subclass and is therefore a TypeError.
 
@@ -2504,6 +2624,10 @@ enum Count: float32 { Zero, One, Two };
 enum Counter: (float32) => float32 { Zero = x => 0, One = x => x + 1, Two = x => x + 2 }
 ```
 
+An ```enum``` declared without a ```: Type``` annotation has underlying type ```int32```, so the enumerators of ```Count``` above are ```int32``` values numbered from 0.
+
+An enum value converts *to* its underlying type implicitly: a ```Count``` is usable wherever its ```int32``` is, so arithmetic, indexing, and comparison on enum values need no cast. The reverse is explicit — ```Count(n)``` constructs the enumerator whose underlying value is ```n```, a checked conversion that is a ```TypeError``` when ```n``` is not one of the enumeration's values. This one-way rule, as in C#, Rust, and Swift, is what lets a bitmask index like ```comp / 32``` read directly while ```Component(id)``` stays a deliberate, validated step.
+
 Custom sequential functions for types can be used. (Note these aren't closures):
 ```js
 enum Count: float32 { Zero = (index, name) => index * 100, One, Two }; // 0, 100, 200
@@ -2542,6 +2666,8 @@ Get ```enum``` value as string:
 Count.toString(Count.Zero); // 'Zero'
 ```
 
+```toString``` maps a value to its key. String interpolation instead sees the underlying value: for a ```string```-underlying enum, ```${c}``` yields that enumerator's underlying string through the conversion above, so getting the key name is what ```toString``` is for.
+
 There's no expression form. Enumerations are static declarations, as they are in C#, Java, Rust, and Swift, which is what lets an engine treat an enum-typed value as its underlying primitive and lets a ```switch``` over one be checked exhaustive. Dynamically built name-to-value mappings are what ```Map``` is for, and reflection exposes a declared enum's entries.
 
 Similar to ```Array```, enumeration objects share a common prototype, written here as %Enum.prototype%, with a number of reserved functions:
@@ -2550,6 +2676,7 @@ Similar to ```Array```, enumeration objects share a common prototype, written he
 %Enum.prototype%.keys() // Array Iterator with the string keys
 %Enum.prototype%.values() // Array Iterator with the values
 %Enum.prototype%.entries() // Array Iterator with [key, value]
+%Enum.prototype%.toString(value) // the enumerator's key, e.g. 'Zero' for Count.Zero
 %Enum.prototype%.forEach((key, value, enumeration) => {})
 %Enum.prototype%.filter((key, value, enumeration) => {}) // returns an Array
 %Enum.prototype%.map((key, value, enumeration) => {}) // returns an Array
@@ -2576,7 +2703,7 @@ enum Component: uint8 {
 };
 ```
 
-A sentinel is a member of its enumeration and appears in ```keys()``` and in a ```switch```, which exhaustiveness will then require a case for. The reflected count doesn't, so prefer it unless the sentinel is doing what it does above: naming an offset that later enumerators are defined against.
+A sentinel is a member of its enumeration and appears in ```keys()``` and in a ```switch```, which exhaustiveness will then require a case for — a ```default``` clause covers the sentinels but forfeits the exhaustiveness check for the whole ```switch```, whereas casing them explicitly, typically to ```throw```, keeps it. The reflected count carries no such obligation, so prefer it unless the sentinel is doing what it does above: naming an offset that later enumerators are defined against.
 
 Iteration would work like this:
 
@@ -2594,11 +2721,14 @@ Enum values can reference previous values:
 enum E { A = 0, B = A + 5 };
 ```
 
-An enumeration whose underlying type is ordered - the integral types and ```string``` - is itself ordered by its underlying values, everywhere ordering applies, including comparison operators and ```where``` clauses:
+An enumeration whose underlying type is ordered — the integral types and ```string``` — is itself ordered, everywhere ordering applies, including comparison operators and ```where``` clauses. A numeric underlying type orders by its values; a ```string``` underlying type orders by declaration order, the position of each enumerator, because a sequence of named steps like time units or severities is meant to compare in the order it's written, not alphabetically:
 
 ```js
-enum Unit: uint8 { Nanosecond, Millisecond, Second, Minute, Hour, Day };
-Unit.Second < Unit.Hour; // true
+enum Level: uint8 { Low, Medium, High };
+Level.Low < Level.High; // true, by underlying value
+
+enum Unit: string { Nanosecond = 'nanosecond', Microsecond = 'microsecond', Second = 'second', Minute = 'minute', Hour = 'hour', Day = 'day' };
+Unit.Second < Unit.Hour; // true, by declaration order — not the strings, where 'hour' < 'second'
 
 function total<U: Unit>(unit: U): float64 where U <= Unit.Hour; // Fixed time units only
 ```
@@ -2610,11 +2740,11 @@ An enumeration over an unordered type, such as one of functions or symbols, supp
 Named parameters are a compact way to skip default parameters.
 
 ```js
-function f(a: uint8, b: string = 0, ...args: string) {}
+function f(a: uint8, b: string = '', ...args: [].<string>) {}
 f(8, args: 'a', 'b');
 
 function g(option1: string, option2: string) {}
-g(option2: 'a'); // TypeError no signature for g matches (option2: string)
+g(option2: 'a'); // TypeError: no signature for g matches (option2: string)
 ```
 
 Spread operator on an object will implement an iterable:
@@ -2645,7 +2775,7 @@ type IntType = { type: 'int', min: int32, max: int32 };
 type Shared = { label: string };
 type Mixed = (FloatType | IntType) & Shared;
 
-function f(...Mixed: mixed) {
+function f(...mixed: Mixed) {
   // Do something with label
   // ...
   match (mixed) {
@@ -2795,14 +2925,14 @@ for (const p of particles) {
 }
 ```
 
-The reference is to the array slot, so writes through other aliases are visible during the loop. Changing the array's length while a ```ref``` iteration is in progress is a TypeError, matching the fixed layout the loop depends on. As everywhere else, a reference may not outlive the access that produced it:
+The reference is to the array slot, so writes through other aliases are visible during the loop. Any operation that could change a variable-length array's length or move its storage - ```push```, ```pop```, ```shift```, ```unshift```, ```splice```, or assigning ```length``` - while a reference into that array is live is a TypeError, checked at compile time wherever the types are known; a ```ref``` loop is the common case, since it holds a reference across the whole iteration. A fixed-length ```[N].<T>``` and a placement-```new``` allocation never move, so references into them carry no such restriction. As everywhere else, a reference may not outlive the access that produced it:
 
 ```js
 let escaped;
 // for (const ref p of particles) { escaped = ref p; } // TypeError: the reference outlives the element access
 ```
 
-Reference iteration is defined for the built-in typed arrays, including ```SoA.<T>``` from the [structure of arrays](soa.md) extension, where a reference denotes a column set and an index rather than a contiguous element. A user-defined iterator yielding references is not currently supported; the ```...``` operator's yield type is a value type.
+Reference iteration is direct, index-based element access: it does not go through ```Symbol.iterator```, so patching the iterator protocol does not affect it, and it allocates nothing, since there is no ```{ value, done }``` result object - which a reference could not be stored in anyway. It is defined for the built-in typed arrays, including ```SoA.<T>``` from the [structure of arrays](soa.md) extension, where a reference denotes a column set and an index rather than a contiguous element. A user-defined iterator yielding references is not currently supported; the ```...``` operator's yield type is a value type.
 
 #### Reference Callback Parameters
 
@@ -2864,11 +2994,11 @@ f(ref a[1]);
 
 Functions can return a reference to an array value as well.
 ```js
-function f(a): int32 {
+function f(a: [].<int32>): ref int32 {
   return ref a[0];
 }
 const a: [10].<int32>;
-f(a)++; // This is new syntax where the post-increment operates immediately on the returned value
+f(a)++; // The post-increment operates on the referenced element, mutating a[0] in place
 a[0]; // 1
 let ref b = f(a);
 b = 10;
@@ -2882,17 +3012,42 @@ let ref b = a[0];
 ref b = a[1];
 ```
 
+### Guaranteed Inlining
+
+A function, method, or operator marked ```inline``` is expanded at every call site rather than called. This is the mechanism the value type and operator sections depend on: an operator returning a value type is allocation-free, and a column loop over value type elements is the loop that would have been written by hand, only when the calls actually disappear. Left to the optimizer that is a hope; ```inline``` makes it a checked guarantee.
+
+```js
+inline function dot(a: float32x4, b: float32x4): float32 {
+  return (a * b).sum();
+}
+
+class Vector4 {
+  v: float32x4;
+  inline operator+(rhs: Vector4): Vector4 {
+    return { v: this.v + rhs.v } := Vector4;
+  }
+}
+```
+
+```inline``` is a contextual keyword placed before ```function```, a method name, or ```operator```; the reserved decorator ```@inline``` sets the same property, consistent with ```@packed```.
+
+Two restrictions keep the guarantee decidable. A cycle among ```inline``` functions is a compile-time TypeError, since it cannot be fully expanded, so a recursion that terminates only at run time is not ```inline```. And the value of an ```inline``` function cannot be taken - storing it, passing it as a callback, or reading it as a property is a TypeError - because an indirect call has no single site to expand into. An ```inline``` function is therefore called directly and only directly, which is exactly what operators, accessors, and small numeric kernels are.
+
+That last restriction is why the ```ref``` callback idioms above, which pass a callback by value, cannot mark that callback ```inline```; they rely on the engine inlining a monomorphic call as it does today. The guaranteed-fast path is direct iteration over the columns calling ```inline``` operators, which is what the [entity component system](examples/ecs.md) example does where the arithmetic is dense. Operators are resolved from their operand types and so are direct calls, which means ```a + b * c``` over value types inlines fully when those operators are ```inline```.
+
+This is the design C++, Rust, and Swift take with ```#[inline(always)]``` and ```@inline(__always)```, made a guarantee rather than a hint by forbidding the escape that forces those to stay hints. The [operator overloading](operatoroverloading.md) extension's matrix pipeline is the worked example.
+
 ### Control Structures
 
-## if else
+#### if else
 
 Nothing about truthiness changes. A typed value in a boolean context follows the existing ToBoolean: numeric zero and ```NaN``` are falsy, as are ```0n```, the empty string, ```null```, and ```undefined```; every other value, including every typed object and every array regardless of length, is truthy. Zero is falsy for the new numeric types on the same rule, so a zero ```rational```, ```decimal```, or ```float128``` is falsy.
 
 The SIMD types have no implicit cast to ```boolean```, so using one in a boolean context is a TypeError reporting that no implicit cast is available. Comparing SIMD vectors produces a mask, which is what the program almost certainly wanted.
 
-## switch
+#### switch
 
-The variable when typed in a switch statement must be integral, string, or symbol type. Specifically ```int8/16/32/64```, ```uint8/16/32/64```, ```number```, and ```string```. Most languages do not allow floating point case statements unless they also support ranges. (This could be considered later without causing backwards compatibility issues).
+The variable when typed in a switch statement must be integral, string, or symbol type. Specifically ```int8/16/32/64/128```, ```uint8/16/32/64/128```, ```number```, ```string```, and ```symbol```. Most languages do not allow floating point case statements unless they also support ranges. (This could be considered later without causing backwards compatibility issues).
 
 Enumerations can be used dependent on if their type is integral or string.
 ```js
@@ -2900,14 +3055,14 @@ let a: uint32 = 10;
 switch (a) {
   case 10:
     break;
-  case 'baz': // TypeError unexpected string literal, expected uint32 literal
+  case 'baz': // TypeError: unexpected string literal, expected uint32 literal
     break;
 }
 ```
 
 ```js
 let a: float32 = 1.23;
-//switch (a) { // TypeError float32 is not a valid type for switch expression
+//switch (a) { // TypeError: float32 is not a valid type for switch expression
 //}
 ```
 
@@ -2953,7 +3108,7 @@ switch (shape) {
 }
 ```
 
-## Divergence
+#### Divergence
 
 A statement *diverges* when no path of control through it completes normally. The analysis is syntactic, so it never reasons about values:
 
@@ -2963,7 +3118,7 @@ A statement *diverges* when no path of control through it completes normally. Th
 - A ```switch``` diverges when it's exhaustive - every enumerator, every direct subclass, or a ```default``` - and every case clause diverges.
 - ```while (true)``` and ```for (;;)``` diverge when no ```break``` targets them.
 
-Divergence has two consequences. A case clause whose body diverges needs no ```break``` and is not a fallthrough, and a function whose body diverges satisfies a non-```void``` return type with no trailing ```return```.
+Divergence has two consequences. A case clause whose body diverges needs no ```break``` and is not a fallthrough, and a function whose body diverges satisfies a non-```void``` return type with no trailing ```return```. An empty case label - one with no statements before the next ```case``` - is not a fallthrough either; it shares the following clause's body, which is how several labels group onto one clause.
 
 ```js
 function transition(status: Status, event: Event): Status {
@@ -2989,11 +3144,11 @@ function transition(status: Status, event: Event): Status {
 
 This is the checkable part of what other languages express with an uninhabited type, and it's what justifies the missing trailing ```return``` in the sealed class switch above.
 
-## Exhaustiveness and its Limits
+#### Exhaustiveness and its Limits
 
 Exhaustiveness is checked in exactly two places: a ```switch``` over an enum, and a ```switch``` over a sealed class. Both have a closed set of cases known from a declaration.
 
-It is deliberately not extended to a union of string or numeric literals. This proposal has no literal types - ```'a' | 'b'``` is not a type here - and adding them to support switch exhaustiveness would introduce a second, structural way to spell a closed set alongside enums and sealed classes. A closed set of strings is an ```enum``` over ```string```, which already gets the check:
+It is deliberately not extended to a union of literal types. Literal types exist (see the literal types section) and ```'read' | 'write'``` is a type, but making a union of them a *switchable* closed set would introduce a second, structural way to spell what enums and sealed classes already spell — and exhaustiveness specifically is what stays reserved to those two. A closed set of strings meant for an exhaustive ```switch``` is an ```enum``` over ```string```, which gets the check:
 
 ```js
 enum Mode: string { Read = 'read', Write = 'write' };
@@ -3121,6 +3276,8 @@ A.alignment; // 2
 const a: [10].<A>; // 40 bytes
 ```
 
+Because layout follows declaration order, field order is a performance decision: ```{ a: uint8, b: float64, c: uint8 }``` occupies 24 bytes where ```{ b: float64, a: uint8, c: uint8 }``` occupies 16, since the second groups the small fields into one alignment gap. Ordering fields from largest alignment to smallest minimizes padding. The proposal does not reorder for you - views, serialization, and interop depend on the declared order - so this is guidance rather than a guarantee, and because ```byteLength``` is a compile-time constant a test can assert the size a class was meant to have.
+
 A ```@packed``` class decorator removes the padding, placing each member immediately after the previous one and giving the class an alignment of ```1```. Members may then be unaligned, which costs a little on every access and is exactly what a wire format wants in exchange for exact byte offsets. ```@packed``` decides member offsets; ```@alignAll``` still decides the alignment of the instance as a whole, so the two compose.
 
 ```js
@@ -3183,18 +3340,18 @@ WIP: Adding properties later with ```Object.defineProperty``` is only allowed on
 ```js
 class A {
   a: uint8;
-  constructor(a:uint8) {
+  constructor(a: uint8) {
     this.a = a;
   }
 }
-const a:[].<A> = [0, 1, 2];
+const a: [].<A> = [0, 1, 2];
 
 Object.defineProperty(A, 'b', {
   value: 0,
   writable: true,
   type: uint8
 });
-const b:[].<A> = [0, 1, 2];
+const b: [].<A> = [0, 1, 2];
 
 // a[0].b // TypeError: Undefined property b
 b[0].b; // 0
@@ -3300,7 +3457,7 @@ class FixedDeltaTime {
   value: float32;
 }
 class Gravity {
-  value: vec2;
+  value: [2].<float32>;
 }
 
 const resources = new Map.<type, any>();
@@ -3349,10 +3506,10 @@ class A { a: uint8; } // A value type class
 const b = new A();
 // new WeakRef(b); // TypeError: A is a value type
 
-const c: [10].<A> = [];
+const c: [10].<A>;
 // new WeakRef(ref c[0]); // TypeError: an element's lifetime is the array's
 
-const d: [10].<uint8> = []; // A typed array is an object
+const d: [10].<uint8>; // A typed array is an object
 new WeakRef(d); // WeakRef.<[10].<uint8>>
 ```
 
@@ -3378,7 +3535,7 @@ Registered symbols from ```Symbol.for``` remain a TypeError, as they do today. U
 
 The following global objects could be used as types:
 
-```AggregateError```, ```ArrayBuffer```, ```AsyncDisposableStack```, ```AsyncIterator```, ```DataView```, ```Date```, ```DisposableStack```, ```Error```, ```EvalError```, ```FinalizationRegistry```, ```InternalError```, ```Iterator```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SharedArrayBuffer```, ```Symbol```, ```SyntaxError```, ```Temporal```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakRef```, ```WeakSet```
+```AggregateError```, ```ArrayBuffer```, ```AsyncDisposableStack```, ```AsyncIterator```, ```DataView```, ```Date```, ```DisposableStack```, ```Error```, ```EvalError```, ```FinalizationRegistry```, ```Iterator```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SharedArrayBuffer```, ```Symbol```, ```SyntaxError```, ```Temporal```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakRef```, ```WeakSet```
 
 ### Standard Library
 
@@ -3459,9 +3616,9 @@ Note: The Records and Tuples proposal was withdrawn in April 2025 and subsumed b
 Types would work as expected with Records and Tuples:
 ```js
 interface IPoint { x: int32, y: int32 }
-const ship1:IPoint = #{ x: 1, y: 2 };
+const ship1: IPoint = #{ x: 1, y: 2 };
 // ship2 is an ordinary object:
-const ship2:IPoint = { x: -1, y: 3 };
+const ship2: IPoint = { x: -1, y: 3 };
 
 function move(start: IPoint, deltaX: int32, deltaY: int32): IPoint {
   // we always return a record after moving
@@ -3508,7 +3665,7 @@ console.log(correctedMeasures2.map(x => x + 1)); // #[43, 13, 68, 0]
 All new syntax in this proposal is a syntax error in current ECMAScript, so no existing program changes meaning:
 
 - ```enum``` is already a reserved word. ```interface``` and ```implements``` are reserved in strict mode and are treated as reserved everywhere this proposal uses them as declarations.
-- ```type```, ```ref```, ```operator```, ```dynamic```, ```partial```, ```shared```, ```where```, and ```is``` are contextual keywords. They're only treated as keywords in positions that don't parse today. For example ```type X = 1;``` is currently a syntax error on one line, and the grammar uses a [no LineTerminator here] restriction after ```type``` so a two-statement sequence split across lines keeps its current meaning.
+- ```type```, ```ref```, ```operator```, ```dynamic```, ```partial```, ```sealed```, ```readonly```, ```shared```, ```inline```, ```where```, and ```is``` are contextual keywords. They're only treated as keywords in positions that don't parse today. For example ```type X = 1;``` is currently a syntax error on one line, and the grammar uses a [no LineTerminator here] restriction after ```type``` so a two-statement sequence split across lines keeps its current meaning. Extensions introduce further contextual keywords the same way, each a keyword only where it would be a syntax error today: ```meta``` and ```primitive``` in [primitive metadata](primitivemetadata.md), and ```namespace``` where an extension uses it.
 - ```:=``` and ```.<``` are token sequences that cannot appear in any valid program today, which is why the typed assignment and generic application syntaxes are built on them.
 - ```a: Type``` annotations appear only in declaration positions (bindings, parameters, class members, return types) where a ```:``` is currently invalid. Object literal and destructuring positions, where ```:``` already has a meaning, use the parenthesized ```(a: Type)``` form throughout the proposal for exactly this reason.
 
@@ -3542,6 +3699,7 @@ Since every annotation position in this proposal is new syntax, the simplest dir
 - ```type```, ```interface```, and ```enum``` declarations use ordinary ```export``` and ```import```. An imported type behaves like a ```const``` binding.
 - Typed function and class exports carry their full signatures in the module record, so overload resolution, cross-module inlining, and typed call sites work without re-declaration.
 - ```import()``` resolves to a namespace whose members keep their declared types, and deferred evaluation doesn't affect signatures.
+- A module import may annotate its binding, as in ```import config: ServerConfig from './config.json' with { type: 'json' };```. The binding's type validates the module's value at evaluation - a load-time TypeError on failure - which the [serialization](serialization.md) extension relies on for typed JSON modules.
 
 ```js
 // shapes.js
@@ -3557,21 +3715,12 @@ magnitude(p); // signature known across the module boundary
 
 ## Overview of Future Considerations and Concerns
 
-### Partial Class
-
-```js
-partial class MyType {
-}
-```
-
-Partial classes are when you define a single class into multiple pieces. When using partial classes the ordering members would be undefined. What this means is you cannot create views of a partial class using the normal array syntax and this would throw an error.
-
 ### Switch ranges
 
-If case ranges were added and switches were allowed to use non-integral and non-string types then the following syntax could be used in future proposals without conflicting since this proposal would throw a ```TypeError``` restricting all cases of its usage keeping the behavior open for later ideas.
+Case ranges are specified in the [ranges](ranges.md) extension, where a range case label matches by containment. Because containment needs only an ordering, a ```switch``` all of whose case labels are ranges may use any ordered discriminant, including a float - the one place the integral-or-string rule for switch types is relaxed. The core grammar reserves the bare-range case syntax, throwing a ```TypeError``` on any other use of it, so the extension can define it without conflict.
 
 ```js
-let a:float32 = 1 / 5;
+let a: float32 = 1 / 5;
 switch (a) {
   case 0..0.99:
     break;
@@ -3589,6 +3738,10 @@ class Vector2 {
   y: uint.<4>; // 4 bits
 }
 ```
+
+### Automatic field layout
+
+Rust reorders struct fields by default to minimize padding, opting out with ```repr(C)``` only where layout matters. This proposal takes the opposite default, because a typed class's purpose is often a view or a wire format, both of which need the declared order. A ```@layout('auto')``` decorator could let a class that is never viewed or serialized hand its field order to the engine for tighter packing, at the cost of forfeiting layout compatibility. It is deliberately opt-in and left for later; the field-ordering guidance in the member layout section is the answer in the meantime.
 
 ### Exception filters
 

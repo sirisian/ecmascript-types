@@ -1591,9 +1591,11 @@ class SensorReading {
 This is more in-depth and covers function metadata propagation. This is the ```Dimensions``` setup for 3D which is a more practical example.
 
 ```js
-// Generic 3-vector parameterized by Dimensions
-// All three components share the same dimensional metadata.
-type vec3<D: Dimensions> = vector.<float32.<D>, 3>;
+// Generic 2- and 3-vectors parameterized by Dimensions.
+// All components share the same dimensional metadata; the default {} is dimensionless,
+// so bare vec2 and vec3 are ordinary float vectors.
+type vec3<D: Dimensions = {}> = vector.<float32.<D>, 3>;
+type vec2<D: Dimensions = {}> = vector.<float32.<D>, 2>;
 
 // Concrete physics vector types
 type Position = vec3.<{ m: 1 }>; // meters
@@ -2035,6 +2037,10 @@ const spd: Meter = Math.sqrt(speedSq);
 Note that function blocks that define metadata operations follow the same merge rules as operators.
 
 ## TODO Items
+
+### Metadata on array types
+
+The invoicing example writes ```[].<LineItem>.<{ minLength: 1 }>``` for a non-empty array, which the ```minLength```/```maxLength``` pair on ```StringBounds``` already models for strings. The decision is to define an ```ArrayBounds``` meta type carrying ```minLength``` and ```maxLength```, registered the same way, and to let ```.<>``` apply to an array type as it does to a primitive - so ```[].<T>.<{ minLength: 1 }>``` is an array of at least one element, checked at the same assignment, argument, and return boundaries the other metadata is. Rejecting it and pushing every length constraint into a ```where``` clause on the containing type was considered and set aside, because it makes the common non-empty-list case verbose and asymmetric with strings.
 
 ### Metadata on reference types
 

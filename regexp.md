@@ -6,7 +6,7 @@ The performance goal is served directly. When the shape of a match is known at t
 
 ## Pattern Types
 
-A regular expression has type ```RegExp.<Captures, Groups>```, where ```Captures``` is a tuple of the capture group types in source order and ```Groups``` is an object type of the named groups. Both are inferred from a literal:
+A regular expression has type ```RegExp.<Captures, Groups, Flags>```, where ```Captures``` is a tuple of the capture group types in source order (a tuple type, per the main proposal), ```Groups``` is an object type of the named groups, and ```Flags``` is the literal flags string. All three are inferred from a literal:
 
 ```js
 const date = /(\d{4})-(\d{2})-(\d{2})/;
@@ -38,17 +38,17 @@ The rule is syntactic and decidable from the pattern alone: a group is non-optio
 ## Match Results
 
 ```js
-type RegExpExecArray<Captures extends [] = [], Groups = {}> = [string, ...Captures] & {
+type RegExpExecArray<Captures extends [] = [], Groups = {}, Flags: string = ''> = [string, ...Captures] & {
 	index: uint32,
 	input: string,
 	groups: Groups
-};
+} & (Flags.includes('d') ? { indices: RegExpIndices.<Captures, Groups> } : {});
 
-class RegExp<Captures extends [] = [], Groups = {}> {
-	exec(value: string): RegExpExecArray.<Captures, Groups> | null;
+class RegExp<Captures extends [] = [], Groups = {}, Flags: string = ''> {
+	exec(value: string): RegExpExecArray.<Captures, Groups, Flags> | null;
 	test(value: string): boolean;
 	get source(): string;
-	get flags(): string;
+	get flags(): Flags;
 	get lastIndex(): uint32;
 	set lastIndex(value: uint32);
 }
@@ -78,14 +78,14 @@ const year = /(?<year>\d{4})/.exec(input)?.groups.year ?? '0000';
 
 ```js
 class String {
-	match<C extends [], G>(pattern: RegExp.<C, G>): RegExpExecArray.<C, G> | null;
-	matchAll<C extends [], G>(pattern: RegExp.<C, G>): Iterator.<RegExpExecArray.<C, G>>;
+	match<C extends [], G, F: string>(pattern: RegExp.<C, G, F>): F.includes('g') ? [].<string> | null : RegExpExecArray.<C, G, F> | null;
+	matchAll<C extends [], G, F: string>(pattern: RegExp.<C, G, F>): Iterator.<RegExpExecArray.<C, G, F>>;
 	search(pattern: RegExp): int32;
 	split<C extends [], G>(pattern: RegExp.<C, G>, limit?: uint32): [].<string>;
 }
 ```
 
-With the ```g``` flag, ```match``` returns ```[].<string> | null``` instead, since the per-match capture information isn't retained. That difference is visible in the type, which is a good reason to prefer ```matchAll```:
+The ```g```-flag case is the conditional in ```match```'s return: with ```g``` in ```Flags``` the result is ```[].<string> | null```, since the per-match capture information isn't retained, and otherwise it is the full exec array. That difference is visible in the type, which is a good reason to prefer ```matchAll```:
 
 ```js
 const all = input.matchAll(/(?<key>\w+)=(?<value>\w+)/g);
@@ -128,11 +128,14 @@ Named references in a string replacement are checked against ```Groups``` as wel
 
 ## Flags
 
-Flags that change the shape of a result are reflected in the type. The ```d``` flag adds ```indices```, a tuple parallel to the match with an optional ```groups``` of its own:
+Flags that change the shape of a result are reflected in the type. The ```d``` flag adds ```indices```, a tuple parallel to the match with an optional ```groups``` of its own. Each entry is the index pair for the corresponding capture, so the shape is the capture tuple with every string replaced by its ```[uint32, uint32]``` position - a compile-time transform over the type, the kind the [generics](generics.md) document's compile-time functions make expressible, here called ```indexPairs```:
 
 ```js
-type RegExpIndices<Captures extends [], Groups> = [[uint32, uint32], ...Captures] & {
-	groups: Groups
+// indexPairs rebuilds a tuple or object, replacing each member's string type with
+// its index pair [uint32, uint32] and preserving optionality, so a capture typed
+// string | undefined yields [uint32, uint32] | undefined.
+type RegExpIndices<Captures extends [], Groups> = [[uint32, uint32], ...indexPairs(Captures)] & {
+	groups: indexPairs(Groups)
 };
 ```
 
@@ -144,7 +147,7 @@ if (m != null) {
 }
 ```
 
-Without ```d```, reading ```indices``` is a TypeError rather than ```undefined```. A capture typed ```string | undefined``` has its index entry typed ```[uint32, uint32] | undefined``` to match.
+Without ```d```, reading ```indices``` is a TypeError rather than ```undefined```: the member is present in the exec type only when ```Flags``` contains ```d```. A capture typed ```string | undefined``` has its index entry typed ```[uint32, uint32] | undefined``` to match, which is exactly what ```indexPairs``` preserves.
 
 The remaining flags don't change result shapes, but ```g``` and ```y``` make ```lastIndex``` meaningful and select the ```match``` overload above, and ```u```/```v``` are checked when the pattern is parsed, so an invalid escape is a compile-time SyntaxError at the literal.
 

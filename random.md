@@ -19,7 +19,7 @@ The first addition is a generic version of ```Math.random``` for the float types
 The second generic argument selects the PRNG method. Methods are namespaced as an enumeration on ```Math```, with ```Math.PRNG.Default``` being the browser's default method:
 
 ```js
-enum PRNG { Default, Xoshiro256StarStar, PCG32, SplitMix64 }; // Exposed as Math.PRNG
+enum PRNG { Default, ChaCha12, Xoshiro256StarStar, PCG32, SplitMix64 }; // Exposed as Math.PRNG
 Math.random.<float32, Math.PRNG.Xoshiro256StarStar>();
 ```
 
@@ -139,6 +139,13 @@ These are normative, because getting them wrong is the usual way a random librar
 
 ### Math.seededRandom.<T, Method = Math.PRNG.Default>(config)
 
+The config is either a seed for a fresh generator or a saved ```PRNGState``` to resume one:
+
+```js
+type SeededConfig = { seed: uint64 } | { state: PRNGState };
+function Math.seededRandom<T, Method: Math.PRNG = Math.PRNG.Default>(config: SeededConfig): SeededPRNG.<T, Method>;
+```
+
 ```js
 const prng = Math.seededRandom.<float32>({ seed: 0 });
 const i = prng.random(); // [0, 1)
@@ -193,6 +200,10 @@ class PRNGState {  // Exposed as Math.PRNGState
 }
 
 class SeededPRNG<T, Method: Math.PRNG> {
+	random(): T;
+	random<R extends RangeBounds.<T>>(range: R): T;
+	random(array: [].<T>): [].<T>;
+	random<R extends RangeBounds.<T>>(array: [].<T>, range: R): [].<T>;
 	get state(): PRNGState;
 	set state(value: PRNGState);
 	jump(): SeededPRNG.<T, Method>;
@@ -227,6 +238,8 @@ class Pcg32State {
 	inc: uint64;
 } where this.inc % 2 == 1;
 ```
+
+The class-level ```where``` clause is checked at the construction and restore boundaries, following the placement rule in [dependent record types](dependentrecordtypes.md).
 
 An unknown method name, a state length that doesn't match the named method, or a version this implementation doesn't know are each a ```TypeError```: the bytes are not a state of the kind they claim to be.
 

@@ -46,12 +46,12 @@ export class ParticleSystem<Capacity: uint32 = 65536> {
 		const ref p = this.#particles[this.#alive++];
 		p.position = position;
 		p.velocity = velocity + vec3(
-			this.#prng.random(-0.5, 0.5),
-			this.#prng.random(-0.5, 0.5),
-			this.#prng.random(-0.5, 0.5)
+			this.#prng.random(-0.5..=0.5),
+			this.#prng.random(-0.5..=0.5),
+			this.#prng.random(-0.5..=0.5)
 		);
 		p.lifetime = lifetime;
-		p.size = this.#prng.random(0.1, 1);
+		p.size = this.#prng.random(0.1..=1);
 		return true;
 	}
 

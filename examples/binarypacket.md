@@ -7,7 +7,7 @@ The code doubles as a tour of the proposal, and several pieces only work *becaus
 - ```uint.<N>``` arbitrary-width integers are the currency of the whole format, and casting to one range-checks: writing a non-ASCII character through ```uint.<7>``` is a TypeError, not corruption.
 - Typed integer division makes ```this.#bitIndex / BufferBits``` a word index and ```(bits + 7) / 8``` a byte count; untyped, both are fractions.
 - Value generics with defaults (```Size```, ```HeaderSize```, ```BufferBits```) parameterize the class, and compile-time quantization arguments like ```write.<float32, -1024, 1024, 18>``` specialize per call site with no runtime configuration object.
-- Generic method overloads select by their type argument, the family constraint ```LengthType extends uint``` bounds string length prefixes, fixed-length arrays bounds-check overruns, uninitialized typed declarations default to zero, and views reinterpret floats as their bit patterns without a scratch ```DataView```.
+- Generic method overloads select by their type argument, the concrete-type specialization specified in [generics](../generics.md) with ```write.<boolean>``` and ```write.<uint.<N>>``` as its flagship; the family constraint ```LengthType extends uint``` bounds string length prefixes, fixed-length arrays bounds-check overruns, uninitialized typed declarations default to zero, and views reinterpret floats as their bit patterns without a scratch ```DataView```.
 
 ## PacketWriter
 
@@ -118,22 +118,22 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 
 	@doc('Writes a float quantized onto [0, maximum] with the given bit budget.')
 	write<float32, maximum: float32, bits: uint32>(value: float32): PacketWriter {
-		this.#writeBits(Math.round(value / maximum * ((1 << bits) - 1)), bits);
+		this.#writeBits(uint.<BufferBits>(Math.round(value / maximum * ((1 << bits) - 1))), bits);
 		return this;
 	}
 
 	@doc('Writes a float quantized onto [minimum, maximum]. When the range spans zero, code 0 is reserved so 0.0 round-trips exactly.')
 	write<float32, minimum: float32, maximum: float32, bits: uint32>(value: float32): PacketWriter {
 		if (minimum < 0 && maximum > 0) {
-			this.#writeBits(value == 0 ? 0 : Math.round((value - minimum) / (maximum - minimum) * ((1 << bits) - 2)) + 1, bits);
+			this.#writeBits(uint.<BufferBits>(value == 0 ? 0 : Math.round((value - minimum) / (maximum - minimum) * ((1 << bits) - 2)) + 1), bits);
 		} else {
-			this.#writeBits(Math.round((value - minimum) / (maximum - minimum) * ((1 << bits) - 1)), bits);
+			this.#writeBits(uint.<BufferBits>(Math.round((value - minimum) / (maximum - minimum) * ((1 << bits) - 1))), bits);
 		}
 		return this;
 	}
 
 	@doc('Writes an exact 64-bit float by reinterpreting its bits through a view.')
-	write<float64>(value: float64): PacketWriter {
+	write<float64>(value: float64): PacketWriter where BufferBits >= 64 {
 		const scratch: [1].<float64> = [value];
 		return this.write.<uint64>([].<uint64>(scratch)[0]);
 	}
@@ -161,7 +161,7 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	write<string, LengthType extends uint = uint16>(value: string): PacketWriter {
 		this.write.<LengthType>(LengthType(value.length));
 		for (let index: uint32 = 0; index < value.length; ++index) {
-			this.write.<uint.<7>>(value.charCodeAt(index));
+			this.write.<uint.<7>>(uint.<7>(value.charCodeAt(index)));
 		}
 		return this;
 	}
@@ -289,7 +289,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	}
 
 	@doc('Reads an exact 64-bit float.')
-	read<float64>(): float64 {
+	read<float64>(): float64 where BufferBits >= 64 {
 		let scratch: [1].<uint64>;
 		scratch[0] = this.#readBits(64);
 		return [].<float64>(scratch)[0];
@@ -307,7 +307,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	@doc('Reads a signed integer written with the zigzag variable-width encoding.')
 	readVariableWidthInt<bits: uint32 = 8>(): int.<BufferBits> {
 		const zigzag = this.readVariableWidthUint.<bits>();
-		return int.<BufferBits>((zigzag >> 1) ^ -(zigzag & 1));
+		return int.<BufferBits>(zigzag >> 1) ^ -int.<BufferBits>(zigzag & 1);
 	}
 
 	@doc('Reads a length-prefixed ASCII string.')
@@ -437,6 +437,7 @@ function sendMovement(sequence: uint16, x: float32, y: float32) {
 	writer.write(packet.bytes);
 }
 
+let lastSequence: uint16 = 0;
 for await (const datagram of transport.datagrams.readable) {
 	const packet = new PacketReader([].<uint8>(datagram));
 	const sequence = packet.read.<uint16>();

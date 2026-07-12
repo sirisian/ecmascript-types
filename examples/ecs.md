@@ -4,7 +4,7 @@ An archetype-based ECS for a networked game server: entities are rows in tables 
 
 Converted from a TypeScript implementation, and the conversion has a theme: **much of the original code existed to fight the allocator, and value types delete it.** The `BitSet` pool is gone because bitsets copy by assignment, and its `toKey` string hashing is gone because a value type is a structural `Map` key. The reused scratch object threaded through a generator is gone because yielding a value type is already a copy. The four parallel arrays hand-rolling structure-of-arrays for the transition log are one `[].<Transition>` because a value type array is already contiguous. The `as` casts on every column access became typed accessors. The string-literal unions became enums with exhaustive switches.
 
-Features exercised: value type classes as component storage and as bitmasks, structure-of-arrays columns through [`SoA.<T>`](../soa.md), `readonly` fields, `[N].<T>` fixed arrays with `byteLength`-based view windows, `ref` element bindings and `ref` callback parameters as the iteration API, enums replacing string vocabularies with sentinel-value arithmetic, type objects as `Map` keys for resources and events, typed generators, SIMD passes over field columns through ordinary array views, and a compile-time function in type position mapping component ids to component types - the load-bearing extrapolation this example is built to stress, detailed in the coverage notes.
+Features exercised: value type classes as component storage and as bitmasks, structure-of-arrays columns through [`SoA.<T>`](../soa.md), `readonly` fields, `[N].<T>` fixed arrays with `byteLength`-based view windows, `ref` element bindings and `ref` callback parameters as the iteration API, enums replacing string vocabularies with sentinel-value arithmetic, type objects as `Map` keys for resources and events, typed generators, SIMD passes over field columns through ordinary array views, and a compile-time function in type position mapping component ids to component types, the generic machinery this example leans on hardest, detailed in the coverage notes.
 
 ## Components
 
@@ -127,7 +127,8 @@ function componentType(c: Component): type {
 		case Component.RenderTransform: return Transform;
 		case Component.Session: return Session;
 		case Component.DisabledVelocity: return Velocity;
-		// ... one case per component; exhaustiveness keeps it honest
+		// ... one case per real and disabled component; the __COUNT/__TOTAL
+		// sentinels case to throw, which keeps the switch exhaustive
 	}
 }
 ```
@@ -199,6 +200,26 @@ class EntityLocation {
 	row: uint32;
 }
 
+// The value-level twin of componentType. With a runtime id, SoA.<componentType(id)>
+// can't be written in type position, so each column type is constructed explicitly.
+function newColumn(id: Component): any {
+	switch (id) {
+		case Component.Transform: return new SoA.<Transform>();
+		case Component.Velocity: return new SoA.<Velocity>();
+		case Component.Collider: return new SoA.<Collider>();
+		case Component.RigidBody: return new SoA.<RigidBody>();
+		case Component.Health: return new SoA.<Health>();
+		case Component.Armor: return new SoA.<Armor>();
+		case Component.Damage: return new SoA.<Damage>();
+		case Component.SpatialCell: return new SoA.<SpatialCell>();
+		case Component.PreviousTransform: return new SoA.<Transform>();
+		case Component.RenderTransform: return new SoA.<Transform>();
+		case Component.Session: return new SoA.<Session>();
+		case Component.DisabledVelocity: return new SoA.<Velocity>();
+		// ... one case per component, the same set componentType maps
+	}
+}
+
 class Archetype {
 	readonly mask: BitSet; // A value type field: the mask is stored inline
 	readonly #columns: [TotalBits].<any>; // SoA.<componentType(id)> or null per slot
@@ -211,7 +232,7 @@ class Archetype {
 			while (word != 0) {
 				const bit = Math.clz32(word);
 				const id = Component(w * 32 + bit);
-				this.#columns[id] = new SoA.<componentType(id)>();
+				this.#columns[id] = newColumn(id);
 				word ^= MSB >> bit;
 			}
 		}
@@ -221,7 +242,13 @@ class Archetype {
 		return this.entities.length;
 	}
 
-	column<C: Component>(comp: C): SoA.<componentType(C)> {
+	column<C: Component>(): SoA.<componentType(C)> {
+		return this.#columns[C];
+	}
+	// The untyped escape hatch: when the component id is a runtime value its column
+	// type can't be named in type position, so callers that only move the data
+	// opaquely take it as any.
+	columnAny(comp: Component): any {
 		return this.#columns[comp];
 	}
 	hasColumn(comp: Component): boolean {
@@ -289,20 +316,20 @@ class PreparedQuery {
 	// mutates storage in place with no copies and nothing allocated.
 	each<C1: Component>(callback: (entityId: EntityId, ref a: componentType(C1)) => void) {
 		for (const archetype of this.archetypes) {
-			const as = archetype.column.<C1>();
+			const columnA = archetype.column.<C1>();
 			const entities = archetype.entities;
 			for (let i: uint32 = 0; i < archetype.length; ++i) {
-				callback(entities[i], ref as[i]);
+				callback(entities[i], ref columnA[i]);
 			}
 		}
 	}
 	each<C1: Component, C2: Component>(callback: (entityId: EntityId, ref a: componentType(C1), ref b: componentType(C2)) => void) {
 		for (const archetype of this.archetypes) {
-			const as = archetype.column.<C1>();
-			const bs = archetype.column.<C2>();
+			const columnA = archetype.column.<C1>();
+			const columnB = archetype.column.<C2>();
 			const entities = archetype.entities;
 			for (let i: uint32 = 0; i < archetype.length; ++i) {
-				callback(entities[i], ref as[i], ref bs[i]);
+				callback(entities[i], ref columnA[i], ref columnB[i]);
 			}
 		}
 	}
@@ -402,7 +429,7 @@ class World {
 		if (disabled == Component.Transform || location == null || !location.archetype.mask.has(comp)) {
 			return;
 		}
-		const data = location.archetype.column.<comp>()[location.row];
+		const data = location.archetype.columnAny(comp)[location.row];
 		let mask = location.archetype.mask;
 		mask.remove(comp);
 		mask.add(disabled);
@@ -415,7 +442,7 @@ class World {
 		if (disabled == Component.Transform || location == null || !location.archetype.mask.has(disabled)) {
 			return;
 		}
-		const data = location.archetype.column.<disabled>()[location.row];
+		const data = location.archetype.columnAny(disabled)[location.row];
 		let mask = location.archetype.mask;
 		mask.remove(disabled);
 		mask.add(comp);
@@ -440,7 +467,7 @@ class World {
 		const data = this.#migrateData;
 		for (let id: uint8 = 0; id < TotalBits; ++id) {
 			data[id] = id == removed ? added
-				: location.archetype.hasColumn(Component(id)) ? location.archetype.column.<Component(id)>()[location.row]
+				: location.archetype.hasColumn(Component(id)) ? location.archetype.columnAny(Component(id))[location.row]
 				: null;
 		}
 		if (movedTo != null) {
@@ -649,7 +676,7 @@ class ReplicationState {
 }
 ```
 
-The spatial grid, replicated event log, learn/forget packet structures, and the wire encoding are unchanged in shape from the original; [Binary Packet](binarypacket.md) is the natural encoding for `OutgoingPacket`, with the `changedMask` selecting which component writes each delta carries.
+The spatial grid, replicated event log, learn/forget packet structures, and the wire encoding are unchanged in shape from the original, so the identifiers they reference - ```OutgoingPacket```, ```GridCell```, ```HierarchicalGrid```, and the ```narrowphaseTest``` helper - appear at their use sites without their definitions repeated here; [Binary Packet](binarypacket.md) is the natural encoding for ```OutgoingPacket```, with the ```changedMask``` selecting which component writes each delta carries.
 
 ## Systems
 
@@ -943,7 +970,7 @@ function mainLoop(world: GameWorld, runner: SystemRunner) {
 The TypeScript original leans on four type-level features this proposal doesn't have - indexed access types (`ComponentDataMap[C]`), mapped types with `Partial` (the `spawn` literal), `keyof` (the resource map), and string literal unions (transition types, phases). Two of the four have *better* answers here (type-keyed resources and events; enums), one has an adequate one (spawn as typed pairs), and one required the extrapolation everything else in this example stands on:
 
 - **Structure-of-arrays storage.** Resolved as the [structure of arrays](../soa.md) extension: the columns are `SoA.<T>`, one parallel array per immediate field behind the element API of `[].<T>`. Nothing in the systems below changed when the layout did, which was the design's whole claim. The [particle system](particlesystem.md) wanted the same thing for GPU attribute upload.
-- **Compile-time functions in type position.** Resolved: `componentType(C)` used as a type replaces `ComponentDataMap[C]`, and the main proposal's compile-time type expressions bless exactly this - an expression evaluating to a type object is a valid type annotation, with `type` naming the type such a function returns. Without it the alternative was one accessor overload per component, fifty-five declarations edited in lockstep with the enum.
+- **Compile-time functions in type position.** Resolved for the typed paths: where the component is a compile-time constant - `column.<C>()`, `each.<C1>()`, `getRef.<C>()` - `componentType(C)` used as a type replaces `ComponentDataMap[C]`, since the main proposal blesses an expression evaluating to a type object as a valid type annotation, with `type` naming the type such a function returns. Applying `componentType` to a *runtime* id can't go in type position, because the proposal requires a compile-time function's arguments to be constants, so the two sites that construct or read a column from a dynamic id use value-level fallbacks: an exhaustive `newColumn(id)` switch factory in the constructor, and an untyped `columnAny(comp): any` accessor for the opaque data-shuttling in `#migrate`, `disableComponent`, and `enableComponent`. Dependent dispatch over a runtime enum-indexed type function - which would retire both the factory and the untyped accessor - is the open wish. Without the typed form the alternative was one accessor overload per component, fifty-five declarations edited in lockstep with the enum.
 - **Generic type parameters in expression position.** Resolved alongside the above: `getResource<T>()` does `this.#resources.get(T)`, and the runtime type objects section now states that a generic type parameter in scope evaluates to the type object it was specialized with.
 - **Type objects as Map keys** are endorsed in the keyed collections section, with the scalar wrapper-class convention this example uses. They replace both the string-keyed `ResourceMap`/`keyof` machinery and the string-channel event bus with something strictly better: `getResource.<HierarchicalGrid>()` cannot be misspelled.
 - **Value type classes as Map keys** are resolved by the keyed collections section: value type keys compare structurally with SameValueZero and are copied into the collection on insert, so the archetype index is a `Map.<BitSet, Archetype>` and `toKey()` is deleted. The copy-in rule also means `#getOrCreateArchetype` can hand its working mask straight to `set` without defensively copying it first.

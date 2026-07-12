@@ -100,7 +100,7 @@ const T = type
 Functions have a signature defined by a parameters record and a return type.
 
 ```js
-const T = type function(x: number): string { return x.toString(); }
+const T = type (x: number) => string;
 
 #{
   parameters: #{
@@ -109,6 +109,8 @@ const T = type function(x: number): string { return x.toString(); }
   return: string
 }
 ```
+
+A parameter appears as its type directly, as ```x: number``` does above. It is promoted to a record ```#{ type: ..., ... }``` only when it must carry an attribute - ```optional```, ```rest```, ```default```, or a ```constraint``` - so a given parameter has exactly one shape and the format stays deterministic.
 
 This use of a record means that these two functions have the same signature and the second would produce a TypeError:
 
@@ -125,7 +127,7 @@ When using named parameters ```f(x: 0, y: 'abc')``` such calls would have been a
 function f(x?: boolean): void {}
 //function f(x: boolean = true): void {} // Identical signature
 
-const T = type f;
+const T = Reflect.typeOf(f);
 
 #{
   parameters: #{
@@ -149,7 +151,7 @@ function f(x: string): number { return 0; }
 function f(x: number): string { return ''; }
 function f(x: string, y: boolean): number { return 0; }
 
-const T = type f;
+const T = Reflect.typeOf(f);
 
 #{
   union: #[
@@ -182,7 +184,7 @@ The signatures are stored in the canonical order defined by the deterministic fo
 Tentatively all generic parameters are included in the parameters.
 
 ```js
-function complex<T extends number, U extends Array.<T>, V>(
+function complex<T extends number, U extends [].<T>, V>(
   x: U,
   y: (t: T) => V,
   z: Map.<V, T>
@@ -203,27 +205,19 @@ function complex<T extends number, U extends Array.<T>, V>(
         }
       }
     },
-    V: #{
-      type: type
-    },
-    x: #{
-      type: #{ parameter: 'U' }
-    },
+    V: type,
+    x: #{ parameter: 'U' },
     y: #{
-      type: #{
-        parameters: #{
-          t: #{ type: #{ parameter: 'T' } }
-        },
-        return: #{ parameter: 'V' }
-      }
+      parameters: #{
+        t: #{ parameter: 'T' }
+      },
+      return: #{ parameter: 'V' }
     },
     z: #{
-      type: #{
-        type: Map,
-        parameters: #{
-          K: #{ parameter: 'V' },
-          V: #{ parameter: 'T' }
-        }
+      type: Map,
+      parameters: #{
+        K: #{ parameter: 'V' },
+        V: #{ parameter: 'T' }
       }
     }
   },
@@ -238,10 +232,10 @@ Is there any edge case where a parameter needs to be marked explicit/implicit?
 A class type is a record of its properties. Methods, getters, and setters are properties whose types are function records. Interfaces encode to the same format:
 
 ```js
-const T = type interface {
+const T = type {
   x: number;
   f: (value: number, ...foo: [].<number>) => boolean;
-  g: Generator.<...>;
+  g: Generator.<number, void, void>;
 };
 
 #{
@@ -249,7 +243,6 @@ const T = type interface {
     #{
       name: 'x',
       type: number,
-      public: true,
       private: false,
       static: false
     },
@@ -265,14 +258,12 @@ const T = type interface {
         },
         return: boolean
       },
-      public: true,
       private: false,
       static: false
     },
     #{
       name: 'g',
-      type: Generator.<...>,
-      public: true,
+      type: Generator.<number, void, void>,
       private: false,
       static: false
     }
@@ -280,8 +271,20 @@ const T = type interface {
 }
 ```
 
-As mentioned in the spec, async types are just a ```Promise.<T, E>```.
-TODO: Include example
+As mentioned in the spec, async types are just a ```Promise.<T, E>```, so an async function's record is an ordinary function record whose return is that promise type:
+
+```js
+async function f(x: number): Promise.<uint8, Error> { return 0; }
+
+const T = Reflect.typeOf(f);
+
+#{
+  parameters: #{
+    x: number
+  },
+  return: Promise.<uint8, Error>
+}
+```
 
 #### optional properties
 
@@ -312,7 +315,7 @@ class Pair<T, U> {
   }
 }
 
-const T = type Pair;
+const T = Pair;
 
 #{
   parameters: #{
@@ -348,19 +351,24 @@ const T = type Pair;
 ### enum type
 
 ```js
-enum Count { Zero, One, Two }
+enum Count { Zero, One, Two } // Underlying type defaults to int32
 
 #{
-  values: #{
-    Zero: 0,
-    One: 1,
-    Two: 2
-  }
+  intersection: #[
+    int32,
+    #{
+      values: #{
+        Zero: 0,
+        One: 1,
+        Two: 2
+      }
+    }
+  ]
 }
 ```
 
 ```js
-enum Count: int32 { Zero, One, Two }
+enum Count: int32 { Zero, One, Two } // The same record as the bare form above
 
 #{
   intersection: #[
@@ -432,6 +440,8 @@ enum Flags: uint32 { None = 0, Flag1 = 1, Flag2 = 2, Flag3 = 4 }
 ### Recursive types
 
 Records are acyclic and constructed bottom-up, so a self-referential type cannot contain itself directly. A recursive type is encoded by naming it and referring to that name symbolically, the same way a generic parameter is referred to with ```#{ parameter: 'T' }```.
+
+This is why an array type has two encodings. When it is acyclic it interns as the type value itself, ```type: [].<number>```, since types compare by value here. When it sits inside a recursive cycle it cannot intern - it would contain itself - so it takes the symbolic generic-application form ```#{ type: Array, parameters: #{ T: ... } }``` with the element type given as a ```reference```. The symbolic form is the encoding, not a second array type.
 
 A ```recursive``` record binds a name over a body. Inside the body, ```#{ reference: 'Name' }``` stands for the whole enclosing record:
 
@@ -518,6 +528,8 @@ TMethod[parameterName]
 
 Note: This works for generic parameters also
 
+These indexing operators are the type-record counterpart of the main proposal's compile-time type expressions - naming a type in expression position and reading a member off it - applied to an encoded record rather than a live type. The two describe the same operation and should reference each other rather than diverge.
+
 ### Notes
 
 I don't have a 'kind' applied to records. Should functions, classes, etc have a kind? Often their properties infer their kind. Is this sufficient?
@@ -530,4 +542,4 @@ If you add a new overload to a function dynamically, then previous type records 
 
 ### Getting parameter order or other metadata about functions?
 
-I'm thinking that there would be a ```type.info``` operator that returns a more verbose reflection of the current type definition. This would include all the overloads including their default values or references to their initializers. This would not be a record. It could also include serialization information.
+I'm thinking that there would be a ```type.info``` operator that returns a more verbose reflection of the current type definition. This would include all the overloads including their default values or references to their initializers. This would not be a record. It could also include serialization information. This overlaps ```Reflect.getReflection``` in the [decorators](decorators.md) extension, which already exposes a richer, non-record reflection; the two are the same facility and should be specified once, there, rather than twice.

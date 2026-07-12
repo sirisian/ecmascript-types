@@ -262,7 +262,7 @@ namespace Reflect {
 		readonly: boolean;
 		initial: T | undefined;
 		// Layout, present when the declaring class has one. A static field is not part of an instance's layout, so both are undefined for it.
-		offset: uint32 | undefined; // Bytes from the start of the instance
+		offset: int32 | undefined; // Signed bytes from the start of the instance; a negative offset overlaps a base
 		byteLength: uint32 | undefined;
 		metadata: ClassFieldMetadata;
 	};
@@ -618,14 +618,14 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	getReflection<Reflect.Object>(instance): Reflect.ObjectReflection;
+	getReflection<Reflect.Object>(instance: any): Reflect.ObjectReflection;
 
 	// Fields
-	getReflection<Reflect.ObjectField>(instance): { [name: string | symbol]: Reflect.ObjectFieldReflection };
+	getReflection<Reflect.ObjectField>(instance: any): { [name: string | symbol]: Reflect.ObjectFieldReflection };
 	getReflection<Reflect.ObjectField>(instance, name: string | symbol): Reflect.ObjectFieldReflection;
 
 	// Methods
-	getReflection<Reflect.ObjectMethod>(instance): { [name: string | symbol]: Reflect.ObjectMethodReflection };
+	getReflection<Reflect.ObjectMethod>(instance: any): { [name: string | symbol]: Reflect.ObjectMethodReflection };
 	getReflection<Reflect.ObjectMethod>(instance, name: string | symbol): Reflect.ObjectMethodReflection;
 
 	// Method parameters
@@ -637,14 +637,14 @@ namespace Reflect {
 	getReflection<Reflect.ObjectMethodReturn>(instance, method: string | symbol): Reflect.ObjectMethodReturnReflection;
 
 	// Getters
-	getReflection<Reflect.ObjectGetter>(instance): { [name: string | symbol]: Reflect.ObjectGetterReflection };
+	getReflection<Reflect.ObjectGetter>(instance: any): { [name: string | symbol]: Reflect.ObjectGetterReflection };
 	getReflection<Reflect.ObjectGetter>(instance, name: string | symbol): Reflect.ObjectGetterReflection;
 
 	// Getter return
 	getReflection<Reflect.ObjectGetterReturn>(instance, getter: string | symbol): Reflect.ObjectGetterReturnReflection;
 
 	// Setters
-	getReflection<Reflect.ObjectSetter>(instance): { [name: string | symbol]: Reflect.ObjectSetterReflection };
+	getReflection<Reflect.ObjectSetter>(instance: any): { [name: string | symbol]: Reflect.ObjectSetterReflection };
 	getReflection<Reflect.ObjectSetter>(instance, name: string | symbol): Reflect.ObjectSetterReflection;
 
 	// Setter parameter
@@ -686,8 +686,8 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	getReflection<Reflect.Tuple>(instance): Reflect.TupleReflection;
-	getReflection<Reflect.Record>(instance): Reflect.RecordReflection;
+	getReflection<Reflect.Tuple>(instance: any): Reflect.TupleReflection;
+	getReflection<Reflect.Record>(instance: any): Reflect.RecordReflection;
 }
 ```
 
@@ -753,12 +753,12 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	getMetadata<Reflect.Object>(instance): ObjectMetadata;
+	getMetadata<Reflect.Object>(instance: any): ObjectMetadata;
 
-	getMetadata<Reflect.ObjectField>(instance): { [name: string | symbol]: ObjectFieldMetadata };
+	getMetadata<Reflect.ObjectField>(instance: any): { [name: string | symbol]: ObjectFieldMetadata };
 	getMetadata<Reflect.ObjectField>(instance, name: string | symbol): ObjectFieldMetadata;
 
-	getMetadata<Reflect.ObjectMethod>(instance): { [name: string | symbol]: ObjectMethodMetadata };
+	getMetadata<Reflect.ObjectMethod>(instance: any): { [name: string | symbol]: ObjectMethodMetadata };
 	getMetadata<Reflect.ObjectMethod>(instance, name: string | symbol): ObjectMethodMetadata;
 
 	getMetadata<Reflect.ObjectMethodParameter>(instance, method: string | symbol): { [name: string | uint32]: ObjectMethodParameterMetadata };
@@ -767,12 +767,12 @@ namespace Reflect {
 
 	getMetadata<Reflect.ObjectMethodReturn>(instance, method: string | symbol): ObjectMethodReturnMetadata;
 
-	getMetadata<Reflect.ObjectGetter>(instance): { [name: string | symbol]: ObjectGetterMetadata };
+	getMetadata<Reflect.ObjectGetter>(instance: any): { [name: string | symbol]: ObjectGetterMetadata };
 	getMetadata<Reflect.ObjectGetter>(instance, name: string | symbol): ObjectGetterMetadata;
 
 	getMetadata<Reflect.ObjectGetterReturn>(instance, getter: string | symbol): ObjectGetterReturnMetadata;
 
-	getMetadata<Reflect.ObjectSetter>(instance): { [name: string | symbol]: ObjectSetterMetadata };
+	getMetadata<Reflect.ObjectSetter>(instance: any): { [name: string | symbol]: ObjectSetterMetadata };
 	getMetadata<Reflect.ObjectSetter>(instance, name: string | symbol): ObjectSetterMetadata;
 
 	getMetadata<Reflect.ObjectSetterParameter>(instance, setter: string | symbol): ObjectSetterParameterMetadata;
@@ -797,7 +797,7 @@ No `getMetadata` overloads exist for `Reflect.Let`, `Reflect.Const`, `Reflect.Tu
 
 Some contexts have metadata which is on the type (class constructor) and/or target. The same is true for enum types. For objects the metadata is on the instance.
 
-All Metadata uses a partial class which can be appended with typed symbol fields. Note: this depends on partial classes, currently listed under future considerations in the main proposal, being promoted into the core proposal. At minimum the restricted form of appending typed, symbol-keyed fields to the intrinsic metadata classes would need to be supported.
+All Metadata uses a partial class which can be appended with typed symbol fields. Partial classes are specified in the main proposal's class extension section, including the restricted form this relies on: appending typed, symbol-keyed fields to the intrinsic metadata classes.
 
 ```js
 const myMetadata = Symbol('myMetadata');
@@ -1215,7 +1215,7 @@ function deprecated<T extends (...args: [].<any>) => any, TClass>(
 			warned = true;
 		}
 		return original.call(this, ...args);
-	} as T;
+	} := T;
 }
 
 class Api {
@@ -1327,7 +1327,7 @@ function profiled<T, TClass>(
 		metadata[profiledOpsKey].totalTime += performance.now() - start;
 		metadata[profiledOpsKey].calls += 1;
 		return result;
-	} as T;
+	} := T;
 }
 
 class Matrix4 {
@@ -1394,7 +1394,7 @@ function memo<T extends (...args: [].<any>) => any>(
 		}
 		cache.set(key, result);
 		return result;
-	} as T;
+	} := T;
 }
 
 @memo

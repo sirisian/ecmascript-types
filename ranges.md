@@ -72,29 +72,37 @@ A range is a value type class, so ```0..10``` allocates nothing and copies by va
 ```js
 enum Interval: uint8 { Closed, ClosedOpen, OpenClosed, Open }; // Exposed as Range.Interval
 
-interface RangeBounds<T> {
+interface Ordered<T> {
+	operator<(other: T): boolean;
+}
+
+interface RangeBounds<T: Ordered.<T>> {
 	contains(value: T): boolean;
 }
 
-class Range<T, I: Interval = Interval.ClosedOpen> implements RangeBounds.<T> {
+class Range<T: Ordered.<T>, I: Interval = Interval.ClosedOpen> implements RangeBounds.<T> {
 	readonly start: T;
 	readonly end: T;
 	get isEmpty(): boolean;
+	get length(): uint32;
 	contains(value: T): boolean;
+	step(by: T): Iterator.<T>;
+	reverse(): Iterator.<T>;
+	*operator...(): Iterator.<T>;
 
 	// The interval is a value generic, not an argument. A runtime interval
 	// would defeat the specialization the type exists to provide.
-	static of<I: Interval>(start: T, end: T): Range.<T, I>;
+	static of<T: Ordered.<T>, I: Interval>(start: T, end: T): Range.<T, I>;
 }
 
-class RangeFrom<T> implements RangeBounds.<T> { readonly start: T; }
-class RangeTo<T, I: Interval = Interval.ClosedOpen> implements RangeBounds.<T> { readonly end: T; }
-class RangeFull<T> implements RangeBounds.<T> {}
+class RangeFrom<T: Ordered.<T>> implements RangeBounds.<T> { readonly start: T; }
+class RangeTo<T: Ordered.<T>, I: Interval = Interval.ClosedOpen> implements RangeBounds.<T> { readonly end: T; }
+class RangeFull<T: Ordered.<T>> implements RangeBounds.<T> {}
 ```
 
 ```..``` has no endpoint to infer from, so ```RangeFull.<T>``` takes its ```T``` from the context that consumes it, and is ```RangeFull.<any>``` where there is none.
 
-```T``` needs only ```operator<```, so ranges work over the integer types, the float types, ```bigint```, ```decimal128```, ```rational```, dimensioned quantities, and ```Temporal.Instant``` - anything with an ordering.
+```T``` is bounded by ```Ordered.<T>```, an interface whose one member is ```operator<``` (the operator-bearing interface pattern from [operator overloading](operatoroverloading.md)), so ranges work over the integer types, the float types, ```bigint```, ```decimal128```, ```rational```, dimensioned quantities, and ```Temporal.Instant``` - anything with an ordering.
 
 The interval kind lives in the **type**, not in a field. ```1..=6``` is a ```Range.<uint8, Interval.Closed>```, so a function taking a range specializes on its inclusivity and no branch survives to runtime. The two literal forms produce ```Closed``` and ```ClosedOpen```; ```OpenClosed``` and ```Open``` come from ```Range.of```, matching every language surveyed, none of which give ```(a, b]``` a literal.
 
@@ -148,7 +156,7 @@ for (const i of 0..=9) {} // 0 through 9
 ```step``` supplies a step where there is none, and widens the stride where there is one. The step is a *difference*, so its type is the type of ```end - start```: the element type itself for a numeric range, and a ```Temporal.Duration``` for a range of instants.
 
 ```js
-(0..100).step(2); // 0, 2, 4, ...
+(0..10).step(2); // 0, 2, 4, 6, 8
 (0.0..1.0).step(0.25); // 0, 0.25, 0.5, 0.75
 (start..end).step(Temporal.Duration.from('PT1H')); // Every hour
 (0..).step(3).take(4); // 0, 3, 6, 9
@@ -188,7 +196,7 @@ This proposal already has user-defined index operators. A range-taking overload 
 
 ```js
 class Array<T> {
-	get operator[](range: Range.<uint32>): [].<T>; // Aliases, doesn't copy
+	get operator[](range: RangeBounds.<uint32>): [].<T>; // Aliases, doesn't copy; a constant range refines to a fixed extent (below)
 }
 
 array[2..5]; // Elements 2, 3, 4 as a view
