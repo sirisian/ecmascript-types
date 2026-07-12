@@ -2603,7 +2603,7 @@ The layout of a mixin's class is determined when the mixin is applied, not where
 All SIMD types would have operator overloading added when used with the same type.
 ```js
 let a = uint32x4(1, 2, 3, 4) + uint32x4(5, 6, 7, 8); // uint32x4
-let b = uint32x4(1, 2, 3, 4) < uint32x4(5, 6, 7, 8); // boolean32x4
+let b: boolean32x4 = uint32x4(1, 2, 3, 4) < uint32x4(5, 6, 7, 8); // boolean32x4
 ```
 
 Lane access, the ```v.xyz``` and ```v.rgba``` component accessors, permutation, and masks are covered in the [SIMD](simd.md) extension.
