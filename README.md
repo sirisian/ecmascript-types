@@ -840,6 +840,48 @@ Math.addSaturating(a, 1); // 255
 
 Division carries edge cases the other operators don't, since it can fail rather than merely wrap. They are covered in the integer division and remainder section below.
 
+### parseFloat and parseInt For Each New Type
+
+For integers (including ```bigint```) the parse function would have the signature ```parse(string, radix = 10)```.
+
+```js
+let a: uint8 = uint8.parse('1', 10);
+let b: uint8 = uint8.parse('1'); // Same as the above with a default 10 for radix
+// let c: uint8 = '1'; // TypeError: string is not a conversion source; call uint8.parse
+```
+
+For floats, decimals, rational, and complex the signature is just ```parse(string)```.
+
+```js
+let a: float32 = float32.parse('1.2');
+```
+
+The accepted input is the grammar of a typed literal of that type, with optional leading and trailing whitespace and an optional sign. That means numeric separators are accepted, and the radix-taking form accepts the matching prefix:
+
+```js
+uint32.parse('4_294_967_295'); // 4294967295
+uint8.parse('0b1111_1111', 2); // 255
+uint16.parse('0xFFFF', 16); // 65535
+float32.parse('1.2e3'); // 1200
+```
+
+Unlike ```parseInt``` and ```parseFloat```, no trailing garbage is consumed: the entire string must be a literal of the type. Parsing throws on any erroneous input, including a value outside the type's range, rather than returning ```NaN```. An integer type can't represent ```NaN``` at all, so throwing is forced there, and doing the same for the float types keeps a failed parse from becoming a hidden ```NaN``` that surfaces far from its cause.
+
+```js
+// uint8.parse('256'); // RangeError: 256 is out of range for uint8
+// uint8.parse('12abc'); // SyntaxError: not a uint8 literal
+// float32.parse(''); // SyntaxError
+```
+
+For code that expects failure, each type also has a non-throwing form returning a nullable union, which narrows the way any nullable does:
+
+```js
+const a: uint8 | null = uint8.tryParse(input);
+if (a != null) {
+  // a: uint8
+}
+```
+
 ### Function signatures with constraints
 
 A typed function without an explicit return type defaults to a return type of ```void```, meaning it returns no value. ```void``` can also be written explicitly. ```undefined``` is not allowed as a return type.
@@ -1752,6 +1794,91 @@ operator<(v: int32x4): boolean8 {}
 ```
 These are two of the forms a comparison overloads to; the wide ```boolean32x4``` mask is a third, treated as the default in the [SIMD](simd.md) extension.
 
+### Named Parameters
+
+Named parameters are a compact way to skip default parameters.
+
+```js
+function f(a: uint8, b: string = '', ...args: [].<string>) {}
+f(8, args: 'a', 'b');
+
+function g(option1: string, option2: string) {}
+g(option2: 'a'); // TypeError: no signature for g matches (option2: string)
+```
+
+Spread operator on an object will implement an iterable:
+```js
+function f(a: uint32, b: string) {}
+f(...{ a: 10, b: 'b' });
+```
+
+TODO: Syntax for adding parameters using spread?
+
+```js
+interface Config {
+  name: string,
+  min: uint32,
+  max: uint32
+}
+
+function f(...{ ...Config }) {
+  console.log(name, min, max);
+}
+```
+
+TODO: Does this work with intersection and union types?
+
+```js
+type FloatType = { type: 'float', min: float32, max: float32 };
+type IntType = { type: 'int', min: int32, max: int32 };
+type Shared = { label: string };
+type Mixed = (FloatType | IntType) & Shared;
+
+function f(...mixed: Mixed) {
+  // Do something with label
+  // ...
+  match (mixed) {
+    FloatType: // float handling
+    IntType: // int handling
+  }
+}
+```
+
+### Rest Parameters
+
+```js
+function f(a: string, ...args: [].<uint32>) {}
+f('a', 0, 1, 2, 3);
+```
+Rest parameters are valid for signatures. An unnamed parameter is written as its type, so an unnamed rest parameter is ```...``` followed by its type:
+```js
+let a: (...[].<uint8>) => void;
+let b: (...args: [].<uint8>) => void; // The same signature, with the parameter named
+```
+Multiple rest parameters can be used:
+```js
+function f(a: string, ...args: [].<uint32>, ...args2: [].<string>, callback: () => void) {}
+f('a', 0, 1, 2, 'a', 'b', () => {});
+```
+Dynamic types have less precedence than typed parameters:
+```js
+function f(...args1, callback1: () => void, ...args2, callback2: () => void) {}
+f('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
+```
+Rest array destructuring:
+```js
+function f(...[a: uint8, b: uint8, c: uint8]) {
+  return a + b + c;
+}
+```
+
+The behavior of rest parameters can create confusing signatures. While these are allowed, they aren't recommended. Arguments are taken by parameters greedily and given back to satisfy signatures.
+```js
+function f(...a: [].<uint32>, ...b: [].<uint32>, c: uint32): void {}
+f(0, 1, 2); // a: [0, 1], b: [], c: 2
+f(a: 0, 1, 2, b: 3, 4, 5, 6); // a: [0, 1, 2], b: [3, 4, 5], c: 6
+```
+
 ### Typed Promises
 
 Typed promises use a generic syntax where the resolve and reject type default to any.
@@ -2370,48 +2497,6 @@ Constructing arrays all of the same type:
 let t = new [5].<MyType>(1);
 ```
 
-### parseFloat and parseInt For Each New Type
-
-For integers (including ```bigint```) the parse function would have the signature ```parse(string, radix = 10)```.
-
-```js
-let a: uint8 = uint8.parse('1', 10);
-let b: uint8 = uint8.parse('1'); // Same as the above with a default 10 for radix
-// let c: uint8 = '1'; // TypeError: string is not a conversion source; call uint8.parse
-```
-
-For floats, decimals, rational, and complex the signature is just ```parse(string)```.
-
-```js
-let a: float32 = float32.parse('1.2');
-```
-
-The accepted input is the grammar of a typed literal of that type, with optional leading and trailing whitespace and an optional sign. That means numeric separators are accepted, and the radix-taking form accepts the matching prefix:
-
-```js
-uint32.parse('4_294_967_295'); // 4294967295
-uint8.parse('0b1111_1111', 2); // 255
-uint16.parse('0xFFFF', 16); // 65535
-float32.parse('1.2e3'); // 1200
-```
-
-Unlike ```parseInt``` and ```parseFloat```, no trailing garbage is consumed: the entire string must be a literal of the type. Parsing throws on any erroneous input, including a value outside the type's range, rather than returning ```NaN```. An integer type can't represent ```NaN``` at all, so throwing is forced there, and doing the same for the float types keeps a failed parse from becoming a hidden ```NaN``` that surfaces far from its cause.
-
-```js
-// uint8.parse('256'); // RangeError: 256 is out of range for uint8
-// uint8.parse('12abc'); // SyntaxError: not a uint8 literal
-// float32.parse(''); // SyntaxError
-```
-
-For code that expects failure, each type also has a non-throwing form returning a nullable union, which narrows the way any nullable does:
-
-```js
-const a: uint8 | null = uint8.tryParse(input);
-if (a != null) {
-  // a: uint8
-}
-```
-
 ### Implicit SIMD Constructors
 
 Going from a scalar to a vector:
@@ -2824,91 +2909,6 @@ function total<U: Unit>(unit: U): float64 where U <= Unit.Hour; // Fixed time un
 
 An enumeration over an unordered type, such as one of functions or symbols, supports only ```==``` and ```!=```.
 
-### Named Parameters
-
-Named parameters are a compact way to skip default parameters.
-
-```js
-function f(a: uint8, b: string = '', ...args: [].<string>) {}
-f(8, args: 'a', 'b');
-
-function g(option1: string, option2: string) {}
-g(option2: 'a'); // TypeError: no signature for g matches (option2: string)
-```
-
-Spread operator on an object will implement an iterable:
-```js
-function f(a: uint32, b: string) {}
-f(...{ a: 10, b: 'b' });
-```
-
-TODO: Syntax for adding parameters using spread?
-
-```js
-interface Config {
-  name: string,
-  min: uint32,
-  max: uint32
-}
-
-function f(...{ ...Config }) {
-  console.log(name, min, max);
-}
-```
-
-TODO: Does this work with intersection and union types?
-
-```js
-type FloatType = { type: 'float', min: float32, max: float32 };
-type IntType = { type: 'int', min: int32, max: int32 };
-type Shared = { label: string };
-type Mixed = (FloatType | IntType) & Shared;
-
-function f(...mixed: Mixed) {
-  // Do something with label
-  // ...
-  match (mixed) {
-    FloatType: // float handling
-    IntType: // int handling
-  }
-}
-```
-
-### Rest Parameters
-
-```js
-function f(a: string, ...args: [].<uint32>) {}
-f('a', 0, 1, 2, 3);
-```
-Rest parameters are valid for signatures. An unnamed parameter is written as its type, so an unnamed rest parameter is ```...``` followed by its type:
-```js
-let a: (...[].<uint8>) => void;
-let b: (...args: [].<uint8>) => void; // The same signature, with the parameter named
-```
-Multiple rest parameters can be used:
-```js
-function f(a: string, ...args: [].<uint32>, ...args2: [].<string>, callback: () => void) {}
-f('a', 0, 1, 2, 'a', 'b', () => {});
-```
-Dynamic types have less precedence than typed parameters:
-```js
-function f(...args1, callback1: () => void, ...args2, callback2: () => void) {}
-f('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
-```
-Rest array destructuring:
-```js
-function f(...[a: uint8, b: uint8, c: uint8]) {
-  return a + b + c;
-}
-```
-
-The behavior of rest parameters can create confusing signatures. While these are allowed, they aren't recommended. Arguments are taken by parameters greedily and given back to satisfy signatures.
-```js
-function f(...a: [].<uint32>, ...b: [].<uint32>, c: uint32): void {}
-f(0, 1, 2); // a: [0, 1], b: [], c: 2
-f(a: 0, 1, 2, b: 3, 4, 5, 6); // a: [0, 1, 2], b: [3, 4, 5], c: 6
-```
-
 ### Tagged Templates
 
 A tag function is typed like any other function. The strings parameter is a ```TemplateStringsArray```, and the interpolations are a rest parameter whose type constrains what a call site may interpolate, checked at compile time when the site is fully typed:
@@ -3136,7 +3136,7 @@ The SIMD types have no implicit cast to ```boolean```, so using one in a boolean
 
 #### switch
 
-The variable when typed in a switch statement must be integral, string, or symbol type. Specifically ```int8/16/32/64/128```, ```uint8/16/32/64/128```, ```number```, ```string```, and ```symbol```. Most languages do not allow floating point case statements unless they also support ranges. (This could be considered later without causing backwards compatibility issues).
+The variable when typed in a switch statement must be integral, string, or symbol type. Specifically ```int8/16/32/64/128```, ```uint8/16/32/64/128```, ```number```, ```string```, and ```symbol```. Floating-point discriminants are allowed in exactly one case: when every case label is a range. A range matches by containment, and containment needs only an ordering, so a switch whose labels are all ranges accepts any ordered discriminant, a float included. Case ranges are defined in the [ranges](ranges.md) extension; the core grammar reserves the bare-range case syntax and throws a ```TypeError``` on any other use, so the extension defines it without conflict.
 
 Enumerations can be used dependent on if their type is integral or string.
 ```js
@@ -3150,9 +3150,13 @@ switch (a) {
 ```
 
 ```js
-let a: float32 = 1.23;
-//switch (a) { // TypeError: float32 is not a valid type for switch expression
-//}
+let a: float32 = 1 / 5;   // 0.2
+//switch (a) { case 0.2: break; } // TypeError: a value-case switch needs an integral, string, or symbol type
+
+switch (a) {              // Valid: every label is a range
+  case 0..0.99:
+    break;
+}
 ```
 
 When the switch expression is enum-typed, case labels must be enumerators of that enum, and the compiler checks exhaustiveness: a switch over an enum with no ```default``` must list every enumerator or it's a compile-time TypeError. Adding an enumerator later then surfaces every switch that needs updating.
@@ -3626,6 +3630,8 @@ The following global objects could be used as types:
 
 ```AggregateError```, ```ArrayBuffer```, ```AsyncDisposableStack```, ```AsyncIterator```, ```DataView```, ```Date```, ```DisposableStack```, ```Error```, ```EvalError```, ```FinalizationRegistry```, ```Iterator```, ```Map```, ```Promise```, ```Proxy```, ```RangeError```, ```ReferenceError```, ```RegExp```, ```Set```, ```SharedArrayBuffer```, ```Symbol```, ```SyntaxError```, ```Temporal```, ```TypeError```, ```URIError```, ```WeakMap```, ```WeakRef```, ```WeakSet```
 
+## Extensions
+
 ### Standard Library
 
 This extension collects the typed signatures of the standard library's generic methods: the iterator helpers, grouping, the Set operations, the Promise statics, and ```Array.fromAsync```.
@@ -3714,6 +3720,12 @@ This extension covers typed JSON parsing and stringification, structured clone o
 
 [Serialization](serialization.md)
 
+### Threading
+
+This extension covers running typed value types across workers over shared memory: ```shared``` arrays backed by a SharedArrayBuffer, the atomics that make cross-thread updates well-defined, and the relaxed memory model that governs racing access.
+
+[Threading](threading.md)
+
 ### Composites
 
 The [Composites proposal](https://github.com/tc39/proposal-composites) adds deeply immutable, structurally-compared aggregates as ordinary frozen objects rather than as new primitives. A composite is built with ```Composite```, is frozen, and is compared by its contents through ```Composite.equal``` and the SameValueZero that ```Map```, ```Set```, and ```Array.prototype.includes``` use - not through ```===```, which stays identity.
@@ -3777,17 +3789,9 @@ Each sloppy mode behavior this removes is one that conflicts with something type
 - ```Function.prototype.caller``` and ```arguments.callee``` are absent, so a function's identity cannot be recovered from its frame.
 - A direct ```eval``` gets its own scope and cannot introduce bindings into the enclosing typed scope. The compiler's knowledge of a typed scope is therefore complete, which is what allows a typed function to be compiled without guards against injected bindings.
 
-## Undecided Topics
+## Modules
 
-### Import Types
-
-This has been brought up before, but possible solutions due to compatibility issues would be to introduce special imports. Brendan once suggested something like:
-```js
-import {int8, int16, int32, int64} from "@valueobjects";
-//import "@valueobjects";
-```
-
-Since every annotation position in this proposal is new syntax, the simplest direction, and the one the rest of this document assumes, is that the built-in value type names are contextual type names requiring no import. The remaining module surface follows from types being values:
+Since every annotation position in this proposal is new syntax, the built-in value type names are contextual type names requiring no import. The rest of the module surface follows from types being values:
 
 - ```type```, ```interface```, and ```enum``` declarations use ordinary ```export``` and ```import```. An imported type behaves like a ```const``` binding.
 - Typed function and class exports carry their full signatures in the module record, so overload resolution, cross-module inlining, and typed call sites work without re-declaration.
@@ -3805,56 +3809,6 @@ import { Point, magnitude } from './shapes.js';
 const p: Point = { x: 3, y: 4 };
 magnitude(p); // signature known across the module boundary
 ```
-
-## Overview of Future Considerations and Concerns
-
-### Switch ranges
-
-Case ranges are specified in the [ranges](ranges.md) extension, where a range case label matches by containment. Because containment needs only an ordering, a ```switch``` all of whose case labels are ranges may use any ordered discriminant, including a float - the one place the integral-or-string rule for switch types is relaxed. The core grammar reserves the bare-range case syntax, throwing a ```TypeError``` on any other use of it, so the extension can define it without conflict.
-
-```js
-let a: float32 = 1 / 5;
-switch (a) {
-  case 0..0.99:
-    break;
-}
-```
-
-### Bit-fields
-
-These are incredibly niche. That said I've had at least one person mention them to me in an issue. C itself has many rules like that property order is undefined allowing properties to be rearranged more optimally meaning the memory layout isn't defined. This would all have to be defined probably since some view this as a benefit and others view it as a design problem. Controlling options with decorators might be ideal. Packing and other rules would also need to be clearly defined.
-
-```js
-class Vector2 {
-  x: uint.<4>; // 4 bits
-  @offsetBit(4)
-  y: uint.<4>; // 4 bits
-}
-```
-
-### Automatic field layout
-
-Rust reorders struct fields by default to minimize padding, opting out with ```repr(C)``` only where layout matters. This proposal takes the opposite default, because a typed class's purpose is often a view or a wire format, both of which need the declared order. A ```@layout('auto')``` decorator could let a class that is never viewed or serialized hand its field order to the engine for tighter packing, at the cost of forfeiting layout compatibility. It is deliberately opt-in and left for later; the field-ordering guidance in the member layout section is the answer in the meantime.
-
-### Exception filters
-
-A very compact syntax can be used later for exception filters:
-
-```js
-catch (e: Error => e.message == 'a')
-```
-
-Or
-
-```js
-catch (e: Error => console.log(e.message))
-```
-
-This accomplishes exception filters without requiring a keyword like "when". That said it would probably not be a true lambda and instead be limited to only expressions.
-
-### Threading
-
-[Threading](threading.md)
 
 # Examples
 
