@@ -156,128 +156,7 @@ let c: [].<uint8> = []; // typeof c == "object"
 let d: (uint8) => uint8 = x => x * x; // typeof d == "function"
 ```
 
-#### Runtime Type Objects and Reflect.typeOf
-
-Every type is also a value. In expression position a type name evaluates to its runtime type object, the same object the object typing section passes in property descriptors (```{ type: uint8 }```) and that reflection reports in ```type``` fields. Type objects are interned by structural identity, so equivalent types are the same object:
-
-```js
-uint8 === uint8; // true
-[].<uint8> === [].<uint8>; // true, interned
-Map.<string, uint8> === Map.<string, uint8>; // true
-```
-
-A bare type name or dotted generic application is already a value, evaluating to its type object, so ```uint8```, ```[].<uint8>```, and ```Map.<string, uint8>``` may be written directly in expression position. The type literals whose syntax collides with expression grammar cannot be: a function type reads as an arrow function, an inline object interface as a block, and ```'a' | 'b'``` or ```float32 & 1``` as bitwise operations. Prefixing a type expression with ```type``` resolves the collision and yields its type object:
-
-```js
-const A = type (uint8) => uint8;           // a function type
-const B = type { x: float32, y: float32 }; // an inline object interface
-const C = type 'a' | 'b' | 'c';            // a union
-const D = type float32 & (0 | 1 | 1.5);    // an intersection
-```
-
-The operator belongs to expression position, where a value is expected. A type position - an annotation, a generic argument, or the right of ```is``` or ```as``` - is already parsing a type and takes no ```type```, so ```let f: (uint8) => uint8``` and ```x is (uint8) => uint8``` have none. The operand is a full type expression and extends as far as one reaches, so ```type A | B``` is the union of ```A``` and ```B```, not ```(type A) | B```; a bare name is a type expression too, which makes ```type uint8``` a redundant spelling of ```uint8```. The statement-position companion is the ```type NAME = ...``` declaration, which binds the same type object to a name and additionally introduces a type alias usable in type position:
-
-```js
-type F = (uint8) => uint8; // F holds the type object and is a type alias
-F; // the type object, the same value as type (uint8) => uint8
-```
-
-To obtain the type of a runtime value rather than of a type literal, use ```Reflect.typeOf(value)```, described below.
-
-The built-in type names are ordinary shadowable globals, so an existing program that declares its own ```uint8``` is unaffected, and ```typeof uint8 === 'object'``` doubles as feature detection for this proposal.
-
-```Reflect.typeOf(value)``` returns a value's runtime type object:
-
-```js
-let a: uint8 = 0;
-typeof a; // "number", unchanged
-Reflect.typeOf(a); // uint8
-Reflect.typeOf(5); // number
-Reflect.typeOf('a'); // string
-Reflect.typeOf(null); // the null type object
-Reflect.typeOf(new Map.<string, uint8>()); // Map.<string, uint8>
-```
-
-For a metadata-parameterized value it returns the full parameterization, e.g. ```float32.<{ m: 1 }>``` for a Meter from the primitive metadata document, which is how reflection obtains constraint information at runtime.
-
-A type object is opaque to property access: given ```Player | null``` nothing exposes the arms, and given ```[].<uint32>``` nothing exposes the element. To inspect a type's structure at runtime - a union's arms, an array's element and extent, an object type's properties, a function's overload signatures - reflect it with ```Reflect.getReflection.<Reflect.Type>(t)```, defined in the [decorators](decorators.md) extension. ```Reflect.typeOf(v)``` returns the type object; ```Reflect.getReflection.<Reflect.Type>``` cracks it open.
-
-#### The type Type
-
-```type``` is the type of a type object, so a function that computes a type annotates its return with it:
-
-```js
-function elementType(): type {
-  return uint8;
-}
-Reflect.typeOf(uint8); // type
-Reflect.typeOf(type); // type
-```
-
-#### Structural Identity
-
-Interning is what makes ```[].<uint8> === [].<uint8>``` true, and it is defined by structural canonicalization: two types are the same interned object when their canonical forms coincide. The canonical form is built bottom-up and is order-independent where the type constructor is - a union or intersection's members are sorted by a deterministic order and de-duplicated, and every referenced type is expanded to its own canonical form - so ```A | B``` and ```B | A``` are one object, as are two independently written object types with the same properties. Nominal types are the exception: a ```class``` or ```enum``` is identified by its declaration, so two classes with identical fields are different types and compare unequal. Everything structural - function types, unions, intersections, tuples, object and interface types, and arrays - is identified structurally.
-
-A self-referential type cannot contain itself, so a cycle is canonicalized by binding a name over the recursive body and referring back to it symbolically. The bound name is rewritten in order of first occurrence, so two structurally identical recursive types canonicalize identically regardless of the source alias name a program happened to use: ```type Tree = { value: uint32, children: [].<Tree> }``` and the same shape written as ```Branch``` are one interned object.
-
-Equality and assignability across a cycle are therefore coinductive: assume the pair under comparison is equal, then verify that no position contradicts the assumption. This terminates because a cycle is legal exactly when it passes through a reference position - an array element, a union arm with ```null```, or a class reference - so every cycle has a finite unrolling. It is the runtime counterpart of the same rule the recursive-types restriction states for declarations.
-
-#### Compile-Time Type Expressions
-
-Because a type object is a value, computing one is ordinary code. **An expression that evaluates to a type object at compile time is a valid type annotation.** A type name is the trivial case of this rule; a call whose arguments are compile-time constants is the useful one:
-
-```js
-enum Component: uint8 { Transform, Velocity, Health };
-
-function componentType(c: Component): type {
-  switch (c) {
-    case Component.Transform: return Transform;
-    case Component.Velocity: return Velocity;
-    case Component.Health: return Health;
-  } // Exhaustive over Component, so every call yields a type
-}
-
-class Store {
-  get<C: Component>(component: C): componentType(C) | null {}
-  set<C: Component>(component: C, value: componentType(C)) {}
-}
-
-const store = new Store();
-store.get(Component.Health); // Health | null
-// store.set(Component.Health, new Velocity()); // TypeError: expected Health
-```
-
-This is what replaces the mapped and indexed access types of erased type systems, and the machinery is already present. Return type annotations evaluate compile-time calls today: ```multiplyDimensions(D, D2)``` in the [primitive metadata](primitivemetadata.md) document computes the metadata an operator returns. A ```switch``` over a value generic parameter is no less evaluable than that arithmetic.
-
-The rules:
-
-- The expression is evaluated at specialization, when every value generic parameter it reads is a known constant. The same function called with a value that isn't constant is a TypeError in type position, though it remains an ordinary function in expression position, which is what a dynamic path calls.
-- Compile-time evaluability is the same notion the ```where``` clauses and metadata annotations use. A function is evaluable when its body reads only its parameters, constants, and other evaluable functions.
-- The expression must produce a type object. A function whose ```switch``` fails to cover a case would produce ```undefined``` and is a TypeError at the annotation; enum and sealed class exhaustiveness make that a compile-time guarantee rather than a runtime surprise. When the argument is narrowed by a ```where``` clause at the call - as ```unitRatio(U)``` is by ```where U <= Temporal.Unit.Hour``` in the [temporal](temporal.md) extension - exhaustiveness is checked over that narrowed domain, so the ```switch``` need only cover the cases the constraint admits.
-- Diagnostics name the expression, not just its value: an assignment failing against ```componentType(Component.Health)``` reports it that way.
-
-The built-in ```keyof``` operator is a compile-time type expression of this kind: applied to an object, interface, or class type it yields the union of that type's property keys as literal types, which is a type and so is usable anywhere a type is.
-
-```js
-type Point = { x: float32, y: float32 };
-type Axis = keyof Point; // 'x' | 'y'
-```
-
-Indexing a type by a key - the ```T[K]``` of erased type systems - is not a separate operator, because a compile-time function covers it and reads better: a map from a key to a type is written as a ```switch``` returning types, as ```componentType(c)``` above is, rather than as an indexed access into a type. For a *runtime* type value, a member's type comes from ```Reflect.getReflection.<Reflect.Type>``` rather than from a type-expression index.
-
-Generic type parameters are type objects too, so a parameter in scope evaluates to the type it was specialized with. Registries keyed on types are the common use, replacing the string keys and casts the same code needs elsewhere:
-
-```js
-class Resources {
-  #values = new Map.<type, any>();
-  set<T>(value: T) {
-    this.#values.set(T, value); // T evaluates to its type object
-  }
-  get<T>(): T | undefined {
-    return this.#values.get(T);
-  }
-}
-```
+```typeof``` reports the underlying JavaScript type of a value. To obtain a value's *type object* - a first-class, interned value you can compare, key a ```Map``` on, compute with at compile time, or reflect - use ```Reflect.typeOf```, defined with the rest of the type-object model, structural identity, and compile-time type expressions in the [type objects and reflection](typeobjects.md) extension.
 
 ### instanceof Operator
 
@@ -427,7 +306,7 @@ function area(s: Shape): float64 {
 }
 ```
 
-A union of literals is what the ```keyof``` operator of the compile-time type expressions section produces, and what the [dependent record types](dependentrecordtypes.md) document uses for its discriminant fields and its JSON-Schema ```const```/```enum``` mappings. A single literal also refines a primitive to one value; a *range* of a primitive's values is expressed with [primitive metadata](primitivemetadata.md) instead.
+A union of literals is what the ```keyof``` operator of the [type objects](typeobjects.md) extension produces, and what the [dependent record types](dependentrecordtypes.md) document uses for its discriminant fields and its JSON-Schema ```const```/```enum``` mappings. A single literal also refines a primitive to one value; a *range* of a primitive's values is expressed with [primitive metadata](primitivemetadata.md) instead.
 
 What literal types deliberately do not do is drive ```switch``` exhaustiveness. A union of literals is not a closed set for the exhaustiveness check, which stays reserved to enums and sealed classes as the exhaustiveness section explains, so a closed set of strings intended for an exhaustive ```switch``` is an ```enum``` over ```string```.
 
@@ -634,7 +513,7 @@ const b = [].<uint16>(a, 1, 3); // Offset of 1 byte into the array and 3 byte le
 b[2]; // 2
 ```
 
-The ```buffer``` argument accepts any typed array as well as existing ```TypedArray```, ```ArrayBuffer```, and ```SharedArrayBuffer``` instances, so a ```[].<uint8>``` and a ```Uint8Array``` viewing the same buffer alias the same memory. Views read and write using platform byte order, matching ```TypedArray```. Individual class members can fix their byte order for parsing wire formats with the ```@endian``` decorator described in the member memory layout section.
+The ```buffer``` argument accepts any typed array as well as existing ```TypedArray```, ```ArrayBuffer```, and ```SharedArrayBuffer``` instances, so a ```[].<uint8>``` and a ```Uint8Array``` viewing the same buffer alias the same memory. Views read and write using platform byte order, matching ```TypedArray```. Individual class members can fix their byte order for parsing wire formats with the ```@endian``` decorator described in the [memory layout](memorylayout.md) extension.
 
 Because views can overlap like this, an engine assumes by default that any two views into a buffer may alias, and it cannot use type to rule that out: a ```[].<float32>``` and a ```[].<uint32>``` over the same bytes alias legitimately, which is the point of reinterpreting a buffer. Two cases are the exception, derivable from construction rather than assumed. A fixed ```[N].<T>``` placed by ```new``` into a freshly allocated region does not alias any other view a program can name, and two ```window``` views over statically disjoint extents - ```a.window.<8>(0)``` and ```a.window.<8>(8)``` - do not alias each other, though windows at overlapping or runtime-computed offsets are assumed to alias as usual. There is deliberately no ```noalias``` annotation for the general case: without a way to verify it, such an annotation would be C's ```restrict```, an unchecked promise whose violation is undefined behavior - the one hazard this proposal removes everywhere else. Where two references genuinely do not alias and it matters for vectorization, the structure carries the guarantee, distinct ```SoA``` columns and disjoint windows, rather than a programmer's assertion.
 
@@ -676,7 +555,7 @@ rows.window(0, 8); // [].<uint32>, length 8
 
 Indexed access into a typed array is bounds-checked, as it is today. The type system elides the check wherever it can prove the index is in range, so the patterns a hot loop is written in pay nothing:
 
-- ```for (const ref p of a)``` performs no per-element check. The length is pinned for the loop's duration - changing it is a TypeError, per the value type references section - and the induction variable is the engine's own, in range by construction.
+- ```for (const ref p of a)``` performs no per-element check. The length is pinned for the loop's duration - changing it is a TypeError, per the [references and borrowing](references.md) extension - and the induction variable is the engine's own, in range by construction.
 - Indexing a fixed-length ```[N].<T>``` with an index the compiler knows is below ```N``` - a value generic, a ```where```-constrained parameter, or the counter of a ```for``` over ```0..N``` from the [ranges](ranges.md) extension - needs no runtime check, because ```N``` is a compile-time constant and the bound is proven statically.
 - ```window.<N>(start)``` checks once that ```start + N``` fits and returns a ```[N].<T>``` whose own accesses are then the case above, so a fixed-size window hoists a single check to cover ```N``` of them.
 
@@ -1924,7 +1803,7 @@ async function f(): Promise.<uint8, undefined> {
 }
 ```
 
-```await``` unwraps the resolve type: awaiting a ```Promise.<uint8, Error>``` yields a ```uint8```, and the reject type feeds the typed catch clauses described in the try catch section. The combinators infer from their inputs, so ```Promise.all``` over a tuple of typed promises resolves to a tuple of the resolve types and rejects with the union of the reject types. By convention a reject type of ```undefined``` means the promise never rejects, and a resolve type of ```void``` means it resolves with no value; both read directly off the type.
+```await``` unwraps the resolve type: awaiting a ```Promise.<uint8, Error>``` yields a ```uint8```, and the reject type feeds the typed catch clauses described in the [error handling](errorhandling.md) extension. The combinators infer from their inputs, so ```Promise.all``` over a tuple of typed promises resolves to a tuple of the resolve types and rejects with the union of the reject types. By convention a reject type of ```undefined``` means the promise never rejects, and a resolve type of ```void``` means it resolves with no value; both read directly off the type.
 
 Right now there's no check except the runtime check when a function actually throws to validate the exception types. It is feasible however that the immediate async function scope could be checked to match the type and generate a TypeError if one is found even for codepaths that can't resolve. This is stuff one's IDE might flag.
 
@@ -1940,7 +1819,7 @@ async function f(): Promise.<any, Error> {}
 await f();
 ```
 
-Refer to the try catch section on how different exception types would be explicitly captured: https://github.com/sirisian/ecmascript-types#try-catch
+Refer to the [error handling](errorhandling.md) extension on how different exception types are explicitly captured.
 
 ### Typed Iteration and Generators
 
@@ -2025,7 +1904,7 @@ for (const [a: int32, b: int32] of g) {} // [[0, 1], [1, 2], [2, 3]] overload
 
 ```[Symbol.iterator]``` remains the underlying protocol. ```*operator...()``` defines it, and untyped code iterating the object uses the first declared overload for compatibility. A class with a single ```*operator...()``` iterates everywhere without annotations.
 
-For the built-in typed arrays, ```for...of``` with the default iterator is specified to be observably equivalent to an index loop: the ```{ value, done }``` result object exists only where a program can see it, in a manual ```next()``` call or through a patched protocol, so ordinary iteration over a ```[].<float32>``` allocates nothing. A user-defined ```*operator...()``` yields values, not references - Rust's ```iter_mut``` has no counterpart here, because a reference cannot be stored in the iterator result it would pass through - so mutating in place across one array uses ```ref``` iteration and across several uses the ```ref``` callback idiom, both in the value type references section.
+For the built-in typed arrays, ```for...of``` with the default iterator is specified to be observably equivalent to an index loop: the ```{ value, done }``` result object exists only where a program can see it, in a manual ```next()``` call or through a patched protocol, so ordinary iteration over a ```[].<float32>``` allocates nothing. A user-defined ```*operator...()``` yields values, not references - Rust's ```iter_mut``` has no counterpart here, because a reference cannot be stored in the iterator result it would pass through - so mutating in place across one array uses ```ref``` iteration and across several uses the ```ref``` callback idiom, both in the [references and borrowing](references.md) extension.
 
 #### Async Iteration
 
@@ -2884,7 +2763,7 @@ Component.keys().length; // 3, at runtime
 Reflect.getReflection.<Reflect.Enum, Component>().size; // 3, compile-time evaluable
 ```
 
-Being compile-time evaluable, the reflected count is usable as an array extent or a value generic argument, per the compile-time type expressions section. The sentinel idiom that C and C++ use, a final enumerator whose value is the count, works here too, since an enumerator can reference previous values:
+Being compile-time evaluable, the reflected count is usable as an array extent or a value generic argument, per the compile-time type expressions in the [type objects](typeobjects.md) extension. The sentinel idiom that C and C++ use, a final enumerator whose value is the count, works here too, since an enumerator can reference previous values:
 
 ```js
 enum Component: uint8 {
@@ -2947,24 +2826,6 @@ sql`select * from t where id = ${id}`;
 
 Tags overload like other functions and are selected by the interpolation types, so one tag name can handle distinct interpolation vocabularies. An untyped tag continues to accept anything.
 
-### Try Catch
-
-Catch clauses can be typed allowing for minimal conditional catch clauses.
-
-```js
-try {
-  // Statement that throws
-} catch (e: TypeError) {
-  // Statements to handle TypeError exceptions
-} catch (e: RangeError) {
-  // Statements to handle RangeError exceptions
-} catch (e: EvalError) {
-  // Statements to handle EvalError exceptions
-} catch (e) {
-  // Statements to handle any unspecified exceptions
-}
-```
-
 ### Placement New
 
 Arbitrary arrays can be allocated into using the placement new syntax. This works with both a single instance and array of instances.
@@ -2984,140 +2845,6 @@ let a = new(buffer, byteOffset, byteElementLength) [10].<Type>(0);
 By default ```byteElementLength``` is the size of the type. Using a larger value than the size of the type acts as a stride adding padding between allocations in the buffer. Using a smaller length is unusual as it causes allocations to overlap.
 
 Placement ```new``` over a resizable buffer records the byte extent of the allocation. Shrinking the buffer below a live allocation's extent detaches those instances, and touching one afterward is a TypeError; growing never invalidates them.
-
-### Value Type References
-
-https://github.com/rbuckton/proposal-refs
-
-The only difference with the above is that reference objects have operator overloading so there's no exposed ```value```.
-
-A reference has no observable identity. Every operation applies to the value it refers to, so ```typeof```, ```Reflect.typeOf```, ```===```, and ```instanceof``` all see the referenced value and never the reference itself, and a reference cannot be stored in a binding that outlives it, a field, an array, or a collection. There is therefore no way to distinguish a reference from the value it refers to, which is what makes a reference a storage location and an index rather than an object. Nothing is allocated when one is created or passed.
-
-```js
-function f(ref a: int32) {
-  a++;
-}
-let a = 0;
-f(ref a);
-a; // 1
-```
-
-If a property is in an object this can also be concise:
-
-```js
-const o = { a: 0 };
-f(ref o.a);
-o.a; // 1
-```
-
-Destructuring syntax supports references as well:
-```js
-function f({ (ref a: int32) }) {
- a++;
-}
-const o = { a: 0 };
-f(ref o);
-o.a; // 1
-```
-
-A ```for...of``` binding can be a reference when iterating a typed array whose elements are value types. Each iteration binds a reference to the element rather than a copy, so the loop writes in place:
-
-```js
-const particles: [1000].<Particle>;
-for (const ref p of particles) {
-  p.velocity += gravity * dt; // Writes into the array
-}
-for (const p of particles) {
-  p.velocity = 0; // Writes into a copy, discarded each iteration
-}
-```
-
-The reference is to the array slot, so writes through other aliases are visible during the loop. Any operation that could change a variable-length array's length or move its storage - ```push```, ```pop```, ```shift```, ```unshift```, ```splice```, or assigning ```length``` - while a reference into that array is live is a TypeError, checked at compile time wherever the types are known; a ```ref``` loop is the common case, since it holds a reference across the whole iteration. A fixed-length ```[N].<T>``` and a placement-```new``` allocation never move, so references into them carry no such restriction. As everywhere else, a reference may not outlive the access that produced it:
-
-```js
-let escaped;
-// for (const ref p of particles) { escaped = ref p; } // TypeError: the reference outlives the element access
-```
-
-Reference iteration is direct, index-based element access: it does not go through ```Symbol.iterator```, so patching the iterator protocol does not affect it, and it allocates nothing, since there is no ```{ value, done }``` result object - which a reference could not be stored in anyway. It is defined for the built-in typed arrays, including ```SoA.<T>``` from the [structure of arrays](soa.md) extension, where a reference denotes a column set and an index rather than a contiguous element. A user-defined iterator yielding references is not currently supported; the ```...``` operator's yield type is a value type.
-
-#### Reference Callback Parameters
-
-```for...of``` walks one array. Iterating several in step, mutating an element of each, is what a ```ref``` callback parameter is for. A container passes references into a callback, one per array, rebound each iteration:
-
-```js
-function zip<T, U>(a: [].<T>, b: [].<U>, callback: (ref x: T, ref y: U) => void) {
-  for (let i: uint32 = 0; i < a.length; ++i) {
-    callback(ref a[i], ref b[i]);
-  }
-}
-
-zip(transforms, velocities, (ref transform, ref velocity) => {
-  transform.x += velocity.vx * dt; // Writes into transforms
-  velocity.vx *= drag; // Writes into velocities
-});
-```
-
-Nothing new is at work here: these are the ```ref``` parameters from the top of this section, applied to array elements. The idiom exists because it's what a user-defined iterator yielding references would have been for, and it composes what the language already has instead of adding to it.
-
-What the language guarantees is that nothing is allocated. A reference has no identity and cannot escape its call, so passing one is passing a storage location and an index, which is a static property of every conforming program rather than something an optimizer must prove. Whether the *call* survives is a separate question. Engines inline a small callee at a monomorphic call site today, and generic specialization helps, since ```each.<Component.Transform, Component.Velocity>``` is a distinct instantiation rather than one erased body shared by every caller. When the callback inlines, the calls disappear and the loop is the one that would have been written by hand. When it doesn't, the cost is one direct call per element with its arguments in registers, and no garbage.
-
-A program that needs the guarantee rather than the likelihood iterates the underlying arrays itself, which is what the column loops in the [entity component system](examples/ecs.md) example do where the arithmetic is dense enough to vectorize.
-
-The escape rule is the same as everywhere else, and it's what lets a reference stay a location. A reference parameter is valid for the duration of its call, so storing one outlives the element access that produced it:
-
-```js
-let saved;
-// zip(transforms, velocities, (ref t, ref v) => { saved = ref t; }); // TypeError: the reference outlives the element access
-```
-
-The container decides what a reference means. An ```SoA.<T>``` passes a column set and an index, an ordinary array passes a slot, and the callback is written once against either.
-
-References can also be used to refer to elements in value type arrays.
-
-```js
-const a: [].<int32>;
-let ref b = a[0];
-b = 10;
-a[0]; // 10
-```
-
-This works on value type classes described in another section.
-
-```js
-class A {
-  a:uint32;
-  b:uint32;
-}
-const a: [10].<A>;
-const ref b = a[0];
-b.a = 10;
-
-function f(ref c: A) {
-  c.a = 10;
-}
-f(ref a[1]);
-```
-
-Functions can return a reference to an array value as well.
-```js
-function f(a: [].<int32>): ref int32 {
-  return ref a[0];
-}
-const a: [10].<int32>;
-f(a)++; // The post-increment operates on the referenced element, mutating a[0] in place
-a[0]; // 1
-let ref b = f(a);
-b = 10;
-a[0]; // 10
-```
-
-Reassigning a reference is allowed also:
-```js
-const a: [10].<int32>;
-let ref b = a[0];
-ref b = a[1];
-```
 
 ### Guaranteed Inlining
 
@@ -3284,189 +3011,6 @@ const nanoseconds: int128 = 8640000000000000000000;
 ```
 
 Nothing in SIMD changes: the 128-bit lanes of the SIMD types are unrelated to these scalar types.
-
-### Member memory alignment and offset
-
-Every value type and value type class exposes its layout as three static properties. ```byteLength``` is the laid-out size in bytes, including any trailing padding required by the type's alignment, ```alignment``` is the byte alignment of the type, and ```bitLength``` is the size in bits, which is what an arbitrary width integer needs to describe itself. A typed array's instance ```byteLength``` is its length times its element's ```byteLength```.
-
-```js
-uint8.byteLength; // 1
-uint8.bitLength; // 8
-uint.<4>.bitLength; // 4
-uint.<4>.byteLength; // 1, the bits rounded up to a byte
-float64.byteLength; // 8
-float64.alignment; // 8
-float32x4.byteLength; // 16
-float32x4.alignment; // 16
-
-class Vertex {
-  x: float32;
-  y: float32;
-  z: float32;
-}
-Vertex.byteLength; // 12
-Vertex.alignment; // 4
-
-const mesh: [10].<Vertex>;
-mesh.byteLength; // 120
-
-// Slicing a pool's byte view for upload:
-[].<uint8>(mesh).slice(0, count * Vertex.byteLength);
-```
-
-These are properties on the type object rather than a ```sizeof``` operator, so no grammar is added, and they work wherever a type does. A generic reads its own parameter, and dynamic code reads the type of a value:
-
-```js
-function stride<T>(): uint32 {
-  return T.byteLength; // A constant once T is specialized
-}
-Reflect.typeOf(value).byteLength; // One property load on an interned type object
-```
-
-**They are compile-time constants.** For any type whose layout is known, ```byteLength```, ```bitLength```, and ```alignment``` are compile-time evaluable expressions in the sense of the compile-time type expressions section. They constant-fold, they never compute anything at runtime, and they can appear anywhere a constant can, including as an array extent or a value generic argument:
-
-```js
-const scratch: [Vertex.byteLength * 1024].<uint8>; // A 12288 byte buffer
-const header: [Header.byteLength].<uint8>;
-```
-
-Which types have a layout, and which don't:
-
-| Type | Layout |
-| --- | --- |
-| Numeric types, ```boolean```, SIMD vectors | Yes |
-| Enums | Yes, their underlying type's |
-| Value type classes | Yes |
-| ```[N].<T>``` and ```SoA.<T, N>``` | Yes |
-| ```bigint```, ```string```, ```any``` | No. Their size is a property of the value, not the type |
-| Reference types, including a nullable union of a value type class | No. A reference's width is the engine's business |
-| ```[].<T>``` without a length | No as a type. Its instances have a ```byteLength``` |
-| A class with an untyped field | No |
-| A union of value types | No. It has no single layout |
-
-Reading ```byteLength```, ```bitLength```, or ```alignment``` from a type in the second group is a TypeError, which is the point: a program that asks for the size of a ```string``` has made a mistake that a returned number would hide.
-
-The three properties reflect the declared layout, so the offset and endianness decorators below are accounted for.
-
-A field's offset within its class is reflection rather than a property of the type, since it belongs to the field. ```Reflect.getReflection.<Reflect.ClassField, T>(name)``` returns an ```offset```, and it is compile-time evaluable for the same reason the layout is:
-
-```js
-Reflect.getReflection.<Reflect.ClassField, Vertex>('y').offset; // 4
-Reflect.getReflection.<Reflect.ClassField, Vertex>('y').byteLength; // 4
-```
-
-This is the ```offsetof``` of C and C#, and it is what a serializer, a placement ```new```, or a GPU vertex attribute descriptor needs.
-
-An array stores its elements with this layout, one after another. ```SoA.<T>``` from the [structure of arrays](soa.md) extension stores the same elements as one array per field instead, with the same element API.
-
-By default the memory layout of a typed class - a class where every property is typed - simply appends to the memory of the extended class. For example:
-
-```js
-class A {
-    a: uint8;
-}
-class B extends A {
-    b: uint8;
-}
-// So the memory layout would be the same as:
-class AB {
-    a: uint8;
-    b: uint8;
-}
-```
-
-Members are naturally aligned. Each member is placed at the next offset that is a multiple of its own alignment, a class's alignment is the largest alignment among its members, and its ```byteLength``` is rounded up to that alignment so that every element of an array of the class is aligned too. This is the rule C, C++, and Rust use, which keeps a typed class layout-compatible with the same declaration in those languages.
-
-```js
-class A {
-  a: uint8; // Offset 0
-  b: uint16; // Offset 2, not 1: uint16 is 2 byte aligned
-}
-A.byteLength; // 4, padded from 3 so that b stays aligned in an array
-A.alignment; // 2
-const a: [10].<A>; // 40 bytes
-```
-
-Because layout follows declaration order, field order is a performance decision: ```{ a: uint8, b: float64, c: uint8 }``` occupies 24 bytes where ```{ b: float64, a: uint8, c: uint8 }``` occupies 16, since the second groups the small fields into one alignment gap. Ordering fields from largest alignment to smallest minimizes padding. The proposal does not reorder for you - views, serialization, and interop depend on the declared order - so this is guidance rather than a guarantee, and because ```byteLength``` is a compile-time constant a test can assert the size a class was meant to have.
-
-A ```@packed``` class decorator removes the padding, placing each member immediately after the previous one and giving the class an alignment of ```1```. Members may then be unaligned, which costs a little on every access and is exactly what a wire format wants in exchange for exact byte offsets. ```@packed``` decides member offsets; ```@alignAll``` still decides the alignment of the instance as a whole, so the two compose.
-
-```js
-@packed
-class A {
-  a: uint8; // Offset 0
-  b: uint16; // Offset 1
-}
-A.byteLength; // 3
-A.alignment; // 1
-const a: [10].<A>; // 30 bytes
-```
-
-Two new keys would be added to the property descriptor called ```align``` and ```offset```. For consistency between codebases two reserved decorators would be created called ```@align``` and ```@offset``` that would set the underlying keys with byte values. Align defines the memory address to be a multiple of a given number. (On some software architectures specialized move operations and cache boundaries can use these for small advantages). Offset is always defined as the number of bytes from the start of the class allocation in memory. (The offset starts at 0 for each class. Negative offset values can be used to overlap the memory of base classes). It's possible to create a union by defining overlapping offsets.
-
-A third reserved decorator, ```@endian('little')``` / ```@endian('big')``` with the descriptor key ```endian```, fixes the byte order of a multi-byte member for parsing wire formats. By default members use platform byte order, matching ```TypedArray```s.
-
-```@align``` and ```@offset``` override the natural alignment of the member they decorate, in either direction, so a member can be given a stricter alignment than its type requires or placed at an offset its type would not have chosen.
-
-Along with the member decorators, two object reserved descriptor keys would be created, ```alignAll``` and ```size```. These would control the allocated memory alignment of the instances and the allocated size of the instances.
-
-WIP: Need byte and bit versions of these alignment features.
-
-```js
-@alignAll(16) // Defines the class memory alignment to be 16 byte aligned
-@size(32) // Defines the class as 32 bytes. Pads with zeros when allocating
-class A {
-  @offset(2)
-  x: float32; // Aligned to 16 bytes because of the class alignment and offset by 2 bytes because of the property alignment
-  @align(4)
-  y: float32x4; // 2 (from the offset above) + 4 (for x) is 6 bytes and we said it has to be aligned to 4 bytes so 8 bytes offset from the start of the allocation. Instead of @align(4) we could have put @offset(8)
-}
-```
-
-The following is an example of overlapping properties using ```offset``` creating a union where both properties map to the same memory. Notice the use of a negative offset to reach into a base class memory.
-
-```js
-class A {
-  a: uint8;
-}
-class B extends A {
-  @offset(-1)
-  b: uint8;
-}
-// So the memory layout would be the same as:
-class AB { // size is 1 byte
-  a: uint8;
-  @offset(0)
-  b: uint8;
-}
-const ab = new AB();
-ab.a = 10;
-ab.b == 10; // true
-```
-
-These descriptor features only apply if all the properties in a class are typed along with the complete prototype chain.
-
-WIP: Adding properties later with ```Object.defineProperty``` is only allowed on dynamic class instances.
-
-```js
-class A {
-  a: uint8;
-  constructor(a: uint8) {
-    this.a = a;
-  }
-}
-const a: [].<A> = [0, 1, 2];
-
-Object.defineProperty(A, 'b', {
-  value: 0,
-  writable: true,
-  type: uint8
-});
-const b: [].<A> = [0, 1, 2];
-
-// a[0].b // TypeError: Undefined property b
-b[0].b; // 0
-```
 
 ### Proxy and Typed Objects
 
@@ -3662,11 +3206,41 @@ This extension adds ```SoA.<T>```, a typed array that stores its elements as par
 
 [Structure of Arrays](soa.md)
 
+### Memory Layout
+
+This extension defines the in-memory layout of value types: the ```byteLength```/```alignment```/```bitLength``` a type reports, natural alignment and padding, inheritance layout, and the ```@packed```/```@align```/```@offset```/```@endian``` decorators for wire formats, offset unions, and bit-fields.
+
+[Memory Layout](memorylayout.md)
+
+### References and Borrowing
+
+This extension defines ```ref```, a borrow of a storage location - a variable, property, or value-type array element - with reference parameters, reference iteration, ```ref``` callbacks and returns, and the liveness rules that keep a reference safe without a borrow checker.
+
+[References and Borrowing](references.md)
+
+### Type Objects and Reflection
+
+This extension defines type objects - types as first-class interned values - ```Reflect.typeOf```, structural identity, compile-time type expressions and ```keyof```, and how a type's structure is reflected.
+
+[Type Objects and Reflection](typeobjects.md)
+
+### Error Handling
+
+This extension defines typed ```catch``` clauses, the errors a typed program raises where the language inserts a check, custom error types, asynchronous errors, and why the proposal keeps exceptions rather than a ```Result``` type.
+
+[Error Handling](errorhandling.md)
+
 ### Ranges
 
 This extension adds range literals, ```a..b``` and ```a..=b```, as typed values that carry their endpoints and inclusivity, for iteration, slicing, bounded types, and random generation.
 
 [Ranges](ranges.md)
+
+### Math.random
+
+This extension types random generation: ```Math.random.<T>(range)``` draws a value of a numeric type from a range, with seeded generators and distribution methods.
+
+[Math.random](random.md)
 
 ### Operator Overloading
 

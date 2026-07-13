@@ -260,5 +260,5 @@ Two observations. The shading languages put component accessors in the grammar b
 
 - Component accessors for eight- and sixteen-lane vectors. There are no names, and inventing some would be worse than ```swizzle.<...>()```. Deferred permanently unless a convention appears.
 - A dynamic swizzle, where the permutation is data rather than a constant. ```pshufb``` and ```tbl``` exist, and Java's ```VectorShuffle``` is a runtime value. It is a different operation with a different cost, and it deserves its own name rather than a computed property.
-- Bit fields. ```uint.<4>``` members packing into a class, with ```@offsetBit``` and a defined bit order, are a separate feature from bit vectors, and belong with the member memory layout rules rather than here.
+- Bit fields. ```uint.<4>``` members packing into a class, with ```@offsetBit``` and a defined bit order, are a separate feature from bit vectors, defined in the [memory layout](memorylayout.md) extension rather than here.
 - Whether ```v[i] = value``` on a value type should be an error rather than an in-place mutation, given that ```withLane``` exists and is cheaper. The array section already permits it for value type elements, so consistency says keep it.

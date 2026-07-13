@@ -198,7 +198,7 @@ let particles: shared SoA.<Particle, 65536>;
 
 ## Generic Code
 
-```SoA.<T>``` composes with the compile-time type expressions in the main proposal: when the component is a compile-time constant, ```SoA.<componentType(C)>``` names that component's exact column type, which is what lets one storage abstraction hold differently typed columns behind a typed accessor. Construction, where the id is a runtime value, goes through a value-level factory instead. The [entity component system](examples/ecs.md) example is built on the combination:
+```SoA.<T>``` composes with the compile-time type expressions in the [type objects](typeobjects.md) extension: when the component is a compile-time constant, ```SoA.<componentType(C)>``` names that component's exact column type, which is what lets one storage abstraction hold differently typed columns behind a typed accessor. Construction, where the id is a runtime value, goes through a value-level factory instead. The [entity component system](examples/ecs.md) example is built on the combination:
 
 ```js
 class Archetype {
