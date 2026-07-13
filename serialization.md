@@ -183,4 +183,4 @@ The same shape applies to `structuredClone.<T>(value)`, to storage reads such as
 
 ## Open Questions
 
-- Composites: once the records and tuples section aligns with the Composites proposal, `#{}`/`#[]` need a JSON mapping here.
+- Composites: the composites section's `Composite(...)` values need a JSON mapping here.

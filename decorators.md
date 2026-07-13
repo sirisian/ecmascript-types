@@ -4,9 +4,6 @@ Very WIP: Feel free to open issues with fixes and requirements for sections.
 
 ## Introduction
 
-https://github.com/sirisian/ecmascript-types/issues/59  
-https://github.com/sirisian/ecmascript-types/issues/65
-
 Types simplify how decorators are defined. By utilizing function overloading they get rid of the requirement to return a `(value, context)` function for decorators that take arguments. This means that independent of arguments a decorator looks the same. Modifying a decorator to take arguments or take none just requires changing the parameters to the decorator. Consider these decorators that are all distinct:
 
 ```js
@@ -185,9 +182,9 @@ enum Count {
 	Two
 };
 
-const e = @f #[0]; // Reflect.Tuple
+const e = @f Composite([0]); // Reflect.Tuple
 
-const d = @f #{ a: 1 }; // Reflect.Record
+const d = @f Composite({ a: 1 }); // Reflect.Record
 
 @f // Reflect.Block
 {
@@ -1850,7 +1847,7 @@ Note: `getLabel` can be evaluated at compile time. Essentially both `getLabel` l
 
 ### Tuple
 
-WIP: Bring inline with composites proposal
+The array-backed composite shape, whose elements are reflected through `TupleReflection`.
 
 ```js
 namespace Reflect {
@@ -1861,7 +1858,7 @@ namespace Reflect {
 
 ### Record
 
-WIP: Bring inline with composites proposal
+The object-backed composite shape, whose properties are reflected through `RecordReflection`.
 
 ```js
 namespace Reflect {
@@ -2195,7 +2192,7 @@ A good test of this would be to see if a documentation JSON can be created. Say 
 
 This documentation generation is basically reflecting a class to access its full definition.
 
-I'm going to include typename from this suggestion to go from a type to a string: https://github.com/microsoft/TypeScript/issues/29944
+A ```typename``` operator goes from a type to a string, which documentation generation uses to render a type.
 
 ```js
 type NumberBounds = {

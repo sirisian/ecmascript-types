@@ -2433,7 +2433,7 @@ let d: float64x2 = float64(s); // Cast first, then broadcast
 
 A compact syntax is proposed with signatures. These can be overloaded to work with various types. Note that the unary operators have no parameters which differentiates them from the binary operators.
 
-See this for more examples: https://github.com/tc39/proposal-operator-overloading/issues/29
+See the [operator overloading proposal](https://github.com/tc39/proposal-operator-overloading) for more examples.
 
 The [operator overloading](operatoroverloading.md) extension works these rules through a math library: operand resolution, scalars on the left of a user-defined type, and the SIMD intrinsics that make a matrix multiply compile well.
 
@@ -3714,58 +3714,44 @@ This extension covers typed JSON parsing and stringification, structured clone o
 
 [Serialization](serialization.md)
 
-### Records and Tuples
+### Composites
 
-https://github.com/sirisian/ecmascript-types/issues/56
+The [Composites proposal](https://github.com/tc39/proposal-composites) adds deeply immutable, structurally-compared aggregates as ordinary frozen objects rather than as new primitives. A composite is built with ```Composite```, is frozen, and is compared by its contents through ```Composite.equal``` and the SameValueZero that ```Map```, ```Set```, and ```Array.prototype.includes``` use - not through ```===```, which stays identity.
 
-Note: The Records and Tuples proposal was withdrawn in April 2025 and subsumed by the [Composites proposal](https://github.com/tc39/proposal-composites). The examples below keep the original ```#{}```/```#[]``` syntax until this section is reworked against Composites.
+Types compose with them as with any object. An object-backed composite has ```Object.prototype```, so it is assignable to an interface, and a value-typed one carries its element types:
 
-Types would work as expected with Records and Tuples:
 ```js
 interface IPoint { x: int32, y: int32 }
-const ship1: IPoint = #{ x: 1, y: 2 };
-// ship2 is an ordinary object:
-const ship2: IPoint = { x: -1, y: 3 };
+const ship1: IPoint = Composite({ x: 1, y: 2 });   // a frozen, value-compared point
+const ship2: IPoint = { x: -1, y: 3 };             // an ordinary mutable object
 
 function move(start: IPoint, deltaX: int32, deltaY: int32): IPoint {
-  // we always return a record after moving
-  return #{
+  return Composite({
     x: start.x + deltaX,
     y: start.y + deltaY,
-  };
+  });
 }
 
-const ship1Moved = move(ship1, 1, 0);
-// passing an ordinary object to move() still works:
-const ship2Moved = move(ship2, 3, -1);
-
-console.log(ship1Moved === ship2Moved); // true
-// ship1 and ship2 have the same coordinates after moving
+const a = move(ship1, 1, 0);
+const b = move({ x: 0, y: 2 }, 1, 0);   // an ordinary object argument works too
+Composite.equal(a, b);                  // true: same contents
+a === b;                                // false: composites are objects, so === is identity
+new Set([a, b]).size;                   // 1: SameValueZero compares contents, so Map/Set keys dedupe
 ```
+
+An array-backed composite has ```Array.prototype```, so ```Array.isArray``` is true - the tuple shape - indexed and spread like an array and typed by its elements:
 
 ```js
-const measures = #[uint8(42), uint8(12), uint8(67), "measure error: foo happened"];
+const measures = Composite([uint8(42), uint8(12), uint8(67)]);
+measures[0];               // 42
+Array.isArray(measures);   // true
 
-// Accessing indices like you would with arrays!
-console.log(measures[0]); // 42
-console.log(measures[3]); // measure error: foo happened
-
-// Slice and spread like arrays!
-const correctedMeasures = #[
-  ...measures.slice(0, measures.length - 1),
-  int32(-1)
-];
-console.log(correctedMeasures[0]); // 42
-console.log(correctedMeasures[3]); // -1
-
-// or use the .with() shorthand for the same result:
-const correctedMeasures2 = measures.with(3, -1);
-console.log(correctedMeasures2[0]); // 42
-console.log(correctedMeasures2[3]); // -1
-
-// Tuples support methods similar to Arrays
-console.log(correctedMeasures2.map(x => x + 1)); // #[43, 13, 68, 0]
+const corrected = Composite([...measures, uint8(99)]);
+corrected[3];              // 99
+Composite.equal(corrected, Composite([uint8(42), uint8(12), uint8(67), uint8(99)])); // true
 ```
+
+Reflecting a composite value goes through ```Reflect.Record``` for the object-backed shape and ```Reflect.Tuple``` for the array-backed one, described in the [decorators](decorators.md) extension.
 
 ## New Syntax and Backwards Compatibility
 
@@ -3851,8 +3837,6 @@ class Vector2 {
 Rust reorders struct fields by default to minimize padding, opting out with ```repr(C)``` only where layout matters. This proposal takes the opposite default, because a typed class's purpose is often a view or a wire format, both of which need the declared order. A ```@layout('auto')``` decorator could let a class that is never viewed or serialized hand its field order to the engine for tighter packing, at the cost of forfeiting layout compatibility. It is deliberately opt-in and left for later; the field-ordering guidance in the member layout section is the answer in the meantime.
 
 ### Exception filters
-
-See https://github.com/sirisian/ecmascript-types/issues/22
 
 A very compact syntax can be used later for exception filters:
 
