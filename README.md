@@ -98,8 +98,8 @@ type float64x4 = vector.<float64, 4>;
 ```
 </details>
 
-```rational```  
-```complex```  
+```rational``` - an exact fraction of two integers; see [rational numbers](rational.md).  
+```complex``` - a real and an imaginary part; see [complex numbers](complex.md).  
 ```any```  
 
 These types behave like ```const``` declarations and cannot be reassigned.
@@ -2380,7 +2380,7 @@ let b: uint8 = uint8.parse('1'); // Same as the above with a default 10 for radi
 // let c: uint8 = '1'; // TypeError: string is not a conversion source; call uint8.parse
 ```
 
-For floats, decimals, and rational the signature is just ```parse(string)```.
+For floats, decimals, rational, and complex the signature is just ```parse(string)```.
 
 ```js
 let a: float32 = float32.parse('1.2');
@@ -3130,7 +3130,7 @@ This is the design C++, Rust, and Swift take with ```#[inline(always)]``` and ``
 
 #### if else
 
-Nothing about truthiness changes. A typed value in a boolean context follows the existing ToBoolean: numeric zero and ```NaN``` are falsy, as are ```0n```, the empty string, ```null```, and ```undefined```; every other value, including every typed object and every array regardless of length, is truthy. Zero is falsy for the new numeric types on the same rule, so a zero ```rational```, ```decimal```, or ```float128``` is falsy.
+Nothing about truthiness changes. A typed value in a boolean context follows the existing ToBoolean: numeric zero and ```NaN``` are falsy, as are ```0n```, the empty string, ```null```, and ```undefined```; every other value, including every typed object and every array regardless of length, is truthy. Zero is falsy for the new numeric types on the same rule, so a zero ```rational```, ```decimal```, or ```float128``` is falsy, as is a ```complex``` equal to ```0 + 0i```.
 
 The SIMD types have no implicit cast to ```boolean```, so using one in a boolean context is a TypeError reporting that no implicit cast is available. Comparing SIMD vectors produces a mask, which is what the program almost certainly wanted.
 
@@ -3655,6 +3655,18 @@ This extension works the operator rules through a 2D and 3D math library, coveri
 This extension covers lane access, component accessors such as ```v.xyz``` and ```v.rgba```, permutation, and masks for the ```vector.<T, N>``` types.
 
 [SIMD](simd.md)
+
+### Rational Numbers
+
+This extension defines ```rational```, an exact fraction of two integers kept in canonical form, with language-level arithmetic and comparison operators and structural equality.
+
+[Rational Numbers](rational.md)
+
+### Complex Numbers
+
+This extension defines ```complex```, a value type with a real and an imaginary part, an ```i``` suffix for imaginary literals, and language-level complex arithmetic.
+
+[Complex Numbers](complex.md)
 
 ### Regular Expressions
 
