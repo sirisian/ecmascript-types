@@ -1750,6 +1750,7 @@ For reference, the operators look like:
 operator<(v: int32x4): int32x4 {}
 operator<(v: int32x4): boolean8 {}
 ```
+These are two of the forms a comparison overloads to; the wide ```boolean32x4``` mask is a third, treated as the default in the [SIMD](simd.md) extension.
 
 ### Typed Promises
 

@@ -143,7 +143,7 @@ a.shuffle.<0, 1, 4, 5>(b); // (1, 2, 5, 6)
 
 ## Masks
 
-A comparison between vectors produces a mask: one lane per input lane, every bit set or every bit clear. The mask's element type is the boolean type of the same width as the compared element, which is why ```boolean32``` exists as ```vector.<boolean1, 32>```.
+A comparison between vectors produces a mask: one lane per input lane, every bit set or every bit clear. The mask's element type is the boolean type of the same width as the compared element, which is why ```boolean32``` exists as ```vector.<boolean1, 32>```. The comparison is return-type overloaded, so the same ```a < b``` also yields the compact one-bit-per-lane ```boolean8``` (an AVX-512 mask-register result) or the compared vector type as an all-ones value, whichever the result type requests, and the compiler selects the matching instruction. Left unannotated the result is ambiguous between these forms, so its type is written out, as ```m```'s is below.
 
 ```js
 const a = float32x4(1, 2, 3, 4);

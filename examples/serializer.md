@@ -5,7 +5,7 @@ A binary serializer whose schema is the type system itself: register a class, an
 Features exercised, and why they matter here:
 
 - ```Map.<type, Codec>``` as the codec registry: type objects compare by identity per instantiation, so ```uint32```, ```Vec2```, ```[].<uint32>```, and ```Player | null``` are each their own key, with no string mangling of type names.
-- ```Reflect.getReflection<Reflect.ClassField, T>()``` and ```<Reflect.Enum, T>()``` as the schema source - the class's own declaration is the wire contract, so there is nothing to keep in sync.
+- ```Reflect.getReflection.<Reflect.ClassField, T>()``` and ```<Reflect.Enum, T>()``` as the schema source - the class's own declaration is the wire contract, so there is nothing to keep in sync.
 - The ```type``` prefix operator building union keys at runtime: ```type E | null``` inside a generic constructs the exact nullable type value the registry needs.
 - Checked enum decoding through the reverse conversion: ```Kind(raw)``` throws on a value outside the enumeration, so wire garbage becomes a ```TypeError``` at the boundary instead of a corrupt enum inside the program.
 - Constructor-free decoding: a decoded object fills the class layout through the cast form, the same rule typed JSON parsing uses, so deserialization cannot trigger construction side effects.
@@ -151,7 +151,7 @@ set(string,  new Codec(0, (v, w) => w.str(v),  r => r.str()));
 ```js
 // codec.js
 export function deriveClass<T>(): Codec.<T> {
-	const fields = Reflect.getReflection<Reflect.ClassField, T>();
+	const fields = Reflect.getReflection.<Reflect.ClassField, T>();
 	const names: [].<string> = [];
 	const types: [].<type> = [];
 	for (const name in fields) { // Insertion order, taken here to be declaration order (see notes)
@@ -205,7 +205,7 @@ Enums derive from their reflection too. Encoding uses the one-way implicit conve
 ```js
 // codec.js
 export function deriveEnum<T extends enum>(): Codec.<T> {
-	const info = Reflect.getReflection<Reflect.Enum, T>();
+	const info = Reflect.getReflection.<Reflect.Enum, T>();
 	const underlying = codecForType(info.valueType); // The enum's underlying value type
 	const codec = new Codec.<T>(underlying.fixedSize,
 		(value, w) => underlying.encode(value, w), // enum -> underlying is the one-way implicit direction
@@ -374,7 +374,7 @@ const path2 = decodeColumn.<Vec2>(new Reader(cw.take()));
 
 The point of this example was to find out whether the reflection surface is complete enough to build against. It is close, and the two places it is not are precise enough to fix with signatures rather than redesigns.
 
-- **Reflection cannot be re-entered with a type value, which forces per-class derivation.** ```Reflect.getReflection<Reflect.ClassField, T>()``` takes its target as a *generic parameter*. The derivation walker, holding a field's type as a runtime *value* (```fields[name].type```), has no way back in: it cannot call the generic form with a value, so it cannot auto-derive a nested class it discovers. This example's answer is explicit registration per class plus lazy field resolution through the registry, which works but pushes a compiler-shaped job onto module-load ordering. The missing piece is a value-taking overload - ```Reflect.getReflection(target: type, kind)``` - and it is the same runtime-dependent-dispatch seam the entity-component example hit from the other side: type parameters and type values are two currencies, and the reflection API only accepts one.
+- **The member contexts can't be re-entered with a type value, which forces per-class derivation.** ```Reflect.Type``` takes a type value, so a type's *structure* is walkable from a value (the ```Reflect.Type``` note below), but the *member* contexts — ```Reflect.getReflection.<Reflect.ClassField, T>()``` and ```<Reflect.Enum, T>()``` — take their target as a *generic parameter*. The derivation walker, holding a field's type as a runtime *value* (```fields[name].type```), can see that a field is a nested class, since the ```Reflect.Type``` node names it, but has no way to ask for *that* class's fields: the ClassField form wants a generic argument a value can't supply. This example's answer is explicit registration per class plus lazy field resolution through the registry, which works but pushes a compiler-shaped job onto module-load ordering. The missing piece is a value-taking form of the member contexts — ```Reflect.getReflection(target: type, Reflect.ClassField)``` — the same runtime-dependent-dispatch seam the entity-component example hit from the other side: type parameters and type values are two currencies, and the member reflection API only accepts one.
 - **Type objects are now walkable through `Reflect.Type` - resolved.** Given ```[].<uint32>``` or ```Player | null```, ```Reflect.getReflection.<Reflect.Type>(t)``` exposes the element or the arms - the named retrieval this example previously lacked - and the ```array``` node carries the ```extent``` that fixed-length ```[N].<T>``` needs, so the two fixes this note once asked for are both in the [decorators](../decorators.md) extension. The combinator reconstruction below (```deriveArray.<E>``` rebuilding ```[].<E>``` from a parameter) is therefore the pre-```Reflect.Type``` workaround: with the structural nodes available a codec can walk a type directly instead of rebuilding its instantiations, and the union key it needs is the ```union``` node's arms rather than a value assembled with the ```type``` prefix operator.
 - **Live reflection and structural types are one facility - resolved.** Classes and enums are served by ```getReflection```'s declaration contexts; aliases, unions, tuples, arrays, and recursion are served by the same ```getReflection``` through ```Reflect.Type```. A serializer needs both halves and now gets them from one call, which is the merge this note previously argued for: a codec generator is precisely the consumer that wants fields *and* structure, and one entry point supplies both.
 - **There is no compile-time iteration over fields, so derived codecs are interpreters.** Rust's ```serde``` derive and Zig's ```comptime``` walk a type's fields *during compilation* and emit straight-line code per type; here the walk happens at module load and the result is a loop over name and codec arrays with dynamic property access - a shape no specialization can turn into per-type code, because the field list is data, not structure the compiler sees. The ceiling is real and the recovery lane is too: the fixed-size column path replaces the interpreter with one byte-view copy exactly where declaration-order layout makes the type its own format, and ```byteLength``` being a compile-time constant is what lets a test pin a format by asserting a size.
