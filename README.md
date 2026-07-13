@@ -54,7 +54,7 @@ type uint128 = uint.<128>;
 ```bigint```  
 ```float16```, ```float32```, ```float64```, ```float80```, ```float128```  
 ```decimal32```, ```decimal64```, ```decimal128```  
-The decimal types follow IEEE 754-2008 decimal arithmetic, so ```decimal128``` carries 34 significant digits and rounds ties to even by default. Scale and rounding mode can be fixed on a type through the ```DecimalContext``` meta type described in [primitive metadata](primitivemetadata.md), which is how money types are declared.  
+The decimal types follow IEEE 754-2008 decimal arithmetic, so ```decimal128``` carries 34 significant digits and rounds ties to even by default. Scale and rounding mode can be fixed on a type through the ```DecimalContext``` meta type described in [primitive metadata](primitivemetadata.md), which is how money types are declared. See [decimal numbers](decimal.md) for the full definition.  
 ```vector.<T, N>```
 
 <details>
@@ -3667,6 +3667,12 @@ This extension defines ```rational```, an exact fraction of two integers kept in
 This extension defines ```complex```, a value type with a real and an imaginary part, an ```i``` suffix for imaginary literals, and language-level complex arithmetic.
 
 [Complex Numbers](complex.md)
+
+### Decimal Numbers
+
+This extension defines the IEEE 754-2008 ```decimal32```/```decimal64```/```decimal128``` types: base-ten value types with exact decimal literals, language-level arithmetic, and fixed-scale money types through ```DecimalContext```.
+
+[Decimal Numbers](decimal.md)
 
 ### Regular Expressions
 
