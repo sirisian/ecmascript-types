@@ -98,8 +98,26 @@ type float64x4 = vector.<float64, 4>;
 ```
 </details>
 
-```rational``` - an exact fraction of two integers; see [rational numbers](rational.md).  
-```complex``` - a real and an imaginary part; see [complex numbers](complex.md).  
+```rational.<N>``` - an exact fraction of two ```int.<N>```; see [rational numbers](rational.md).
+<details>
+    <summary>Expand for the rational shorthand.</summary>
+
+```js
+type rational = rational.<64>;
+```
+</details>
+
+```complex.<T>``` - a real and an imaginary part of a float type ```T```; see [complex numbers](complex.md).
+<details>
+    <summary>Expand for the complex shorthands.</summary>
+
+```js
+type complex64 = complex.<float32>;
+type complex128 = complex.<float64>;
+type complex = complex.<number>;
+```
+</details>
+
 ```any```  
 
 These types behave like ```const``` declarations and cannot be reassigned.
