@@ -182,6 +182,8 @@ Reflect.typeOf(new Map.<string, uint8>()); // Map.<string, uint8>
 
 For a metadata-parameterized value it returns the full parameterization, e.g. ```float32.<{ m: 1 }>``` for a Meter from the primitive metadata document, which is how reflection obtains constraint information at runtime.
 
+A type object is opaque to property access: given ```Player | null``` nothing exposes the arms, and given ```[].<uint32>``` nothing exposes the element. To inspect a type's structure at runtime - a union's arms, an array's element and extent, an object type's properties, a function's overload signatures - reflect it with ```Reflect.getReflection.<Reflect.Type>(t)```, defined in the [decorators](decorators.md) extension. ```Reflect.typeOf(v)``` returns the type object; ```Reflect.getReflection.<Reflect.Type>``` cracks it open.
+
 #### The type Type
 
 ```type``` is the type of a type object, so a function that computes a type annotates its return with it:
@@ -193,6 +195,14 @@ function elementType(): type {
 Reflect.typeOf(uint8); // type
 Reflect.typeOf(type); // type
 ```
+
+#### Structural Identity
+
+Interning is what makes ```[].<uint8> === [].<uint8>``` true, and it is defined by structural canonicalization: two types are the same interned object when their canonical forms coincide. The canonical form is built bottom-up and is order-independent where the type constructor is - a union or intersection's members are sorted by a deterministic order and de-duplicated, and every referenced type is expanded to its own canonical form - so ```A | B``` and ```B | A``` are one object, as are two independently written object types with the same properties. Nominal types are the exception: a ```class``` or ```enum``` is identified by its declaration, so two classes with identical fields are different types and compare unequal. Everything structural - function types, unions, intersections, tuples, object and interface types, and arrays - is identified structurally.
+
+A self-referential type cannot contain itself, so a cycle is canonicalized by binding a name over the recursive body and referring back to it symbolically. The bound name is rewritten in order of first occurrence, so two structurally identical recursive types canonicalize identically regardless of the source alias name a program happened to use: ```type Tree = { value: uint32, children: [].<Tree> }``` and the same shape written as ```Branch``` are one interned object.
+
+Equality and assignability across a cycle are therefore coinductive: assume the pair under comparison is equal, then verify that no position contradicts the assumption. This terminates because a cycle is legal exactly when it passes through a reference position - an array element, a union arm with ```null```, or a class reference - so every cycle has a finite unrolling. It is the runtime counterpart of the same rule the recursive-types restriction states for declarations.
 
 #### Compile-Time Type Expressions
 
@@ -227,6 +237,15 @@ The rules:
 - Compile-time evaluability is the same notion the ```where``` clauses and metadata annotations use. A function is evaluable when its body reads only its parameters, constants, and other evaluable functions.
 - The expression must produce a type object. A function whose ```switch``` fails to cover a case would produce ```undefined``` and is a TypeError at the annotation; enum and sealed class exhaustiveness make that a compile-time guarantee rather than a runtime surprise. When the argument is narrowed by a ```where``` clause at the call - as ```unitRatio(U)``` is by ```where U <= Temporal.Unit.Hour``` in the [temporal](temporal.md) extension - exhaustiveness is checked over that narrowed domain, so the ```switch``` need only cover the cases the constraint admits.
 - Diagnostics name the expression, not just its value: an assignment failing against ```componentType(Component.Health)``` reports it that way.
+
+The built-in ```keyof``` operator is a compile-time type expression of this kind: applied to an object, interface, or class type it yields the union of that type's property keys as literal types, which is a type and so is usable anywhere a type is.
+
+```js
+type Point = { x: float32, y: float32 };
+type Axis = keyof Point; // 'x' | 'y'
+```
+
+Indexing a type by a key - the ```T[K]``` of erased type systems - is not a separate operator, because a compile-time function covers it and reads better: a map from a key to a type is written as a ```switch``` returning types, as ```componentType(c)``` above is, rather than as an indexed access into a type. For a *runtime* type value, a member's type comes from ```Reflect.getReflection.<Reflect.Type>``` rather than from a type-expression index.
 
 Generic type parameters are type objects too, so a parameter in scope evaluates to the type it was specialized with. Registries keyed on types are the common use, replacing the string keys and casts the same code needs elsewhere:
 
@@ -390,7 +409,7 @@ function area(s: Shape): float64 {
 }
 ```
 
-A union of literals is what the [type records](typerecords.md) document's ```keyof``` produces, and what the [dependent record types](dependentrecordtypes.md) document uses for its discriminant fields and its JSON-Schema ```const```/```enum``` mappings. A single literal also refines a primitive to one value; a *range* of a primitive's values is expressed with [primitive metadata](primitivemetadata.md) instead.
+A union of literals is what the ```keyof``` operator of the compile-time type expressions section produces, and what the [dependent record types](dependentrecordtypes.md) document uses for its discriminant fields and its JSON-Schema ```const```/```enum``` mappings. A single literal also refines a primitive to one value; a *range* of a primitive's values is expressed with [primitive metadata](primitivemetadata.md) instead.
 
 What literal types deliberately do not do is drive ```switch``` exhaustiveness. A union of literals is not a closed set for the exhaustiveness check, which stays reserved to enums and sealed classes as the exhaustiveness section explains, so a closed set of strings intended for an exhaustive ```switch``` is an ```enum``` over ```string```.
 
@@ -1637,7 +1656,7 @@ function f(s: [].<string>): string { return 'string'; }
 f(['test']); // "string"
 ```
 
-An overloaded name evaluates to a single function object that performs overload resolution at the call site. Its ```name``` is the shared name and its ```length``` is the smallest parameter count among the signatures. ```call```, ```apply```, and ```bind``` go through the same resolution. Individual signatures aren't addressable through property keys like ```F['(int32[])']```; they're exposed through reflection using type records.
+An overloaded name evaluates to a single function object that performs overload resolution at the call site. Its ```name``` is the shared name and its ```length``` is the smallest parameter count among the signatures. ```call```, ```apply```, and ```bind``` go through the same resolution. Individual signatures aren't addressable through property keys like ```F['(int32[])']```; they're exposed through reflection, as the ```signatures``` list on the function reflection the [decorators](decorators.md) extension defines.
 
 Signatures must match for a typed function:
 ```js
@@ -1673,7 +1692,7 @@ function f(a: float32): void {}
 // function f(...a: [].<float32>): void {} // TypeError: A function declaration with that signature already exists
 ```
 
-See the [Type Records](typerecords.md) page for more information on signatures.
+See the [decorators](decorators.md) extension's function reflection for how a name's signatures are exposed at runtime.
 
 #### Overload Resolution
 

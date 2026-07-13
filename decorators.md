@@ -244,6 +244,8 @@ Decorators that describe sub-targets (parameters, returns) or structural positio
 
 The following `<Context>Reflection` types define the data that is returned when reflecting a specific target. When reflecting a `class` one can access the `name`, `type`, and `metadata`.
 
+Every `type` field below holds a type object - interned by structural identity, the same value `Reflect.typeOf` returns for a value of that type. Those type objects are opaque to property access; to walk a type's own structure (a union's arms, an array's element and extent, an object type's properties, a function's overload signatures) reflect it with the `Reflect.Type` context defined at the end of this section. `Reflect.Type` is the one reflection target that is not also a decorator context - a bare type expression carries no decorator - so it appears in the reflection structures and `getReflection` signatures but not in the replacement, `addInitializer`, or decorator-context tables.
+
 ### Class
 
 ```js
@@ -305,6 +307,7 @@ namespace Reflect {
 		name: string | symbol;
 		static: boolean;
 		private: boolean;
+		signatures: [].<FunctionSignatureReflection>; // Length 1 when not overloaded
 		metadata: ClassMethodMetadata;
 	};
 
@@ -325,6 +328,7 @@ namespace Reflect {
 		type: T;
 		operator: Operator;
 		static: boolean;
+		signatures: [].<FunctionSignatureReflection>; // Length 1 when not overloaded; return-type overloads appear as multiple entries
 		metadata: ClassOperatorMetadata;
 	};
 
@@ -342,9 +346,18 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
+	// One entry per overload signature. The neutral Function parameter and return
+	// reflections carry each signature's shape; the context-specific flat accessors
+	// (getReflection.<Reflect.FunctionParameter>, etc.) serve the single-signature case.
+	type FunctionSignatureReflection = {
+		parameters: [].<FunctionParameterReflection>;
+		return: FunctionReturnReflection;
+	};
+
 	type FunctionReflection<T extends (...args: [].<any>) => any = (...args: [].<any>) => any> = {
 		type: T;
 		name: string | symbol | undefined;
+		signatures: [].<FunctionSignatureReflection>; // Length 1 when not overloaded
 		metadata: FunctionMetadata;
 	};
 
@@ -423,6 +436,7 @@ namespace Reflect {
 	type ObjectMethodReflection<T extends (...args: [].<any>) => any = (...args: [].<any>) => any> = {
 		type: T;
 		name: string | symbol;
+		signatures: [].<FunctionSignatureReflection>; // Length 1 when not overloaded
 		metadata: ObjectMethodMetadata;
 	};
 
@@ -534,6 +548,37 @@ namespace Reflect {
 	};
 }
 ```
+
+### Type
+
+`Reflect.Type` reflects a *type object* - as opposed to `Reflect.Tuple` and `Reflect.Record`, which reflect Composite *values*. Its reflection is discriminated by `kind` over the structural forms a type can take. Every `type`, `element`, and `arm` field is itself a type object, so a walker recurses by reflecting it again; a cycle terminates at a `reference` node, since every recursive cycle passes through a reference position.
+
+```js
+namespace Reflect {
+	type TypeReflection =
+		| { kind: 'primitive'; type: type; }                              // uint8, string, or a nominal class/enum reference
+		| { kind: 'union'; arms: [].<type>; }
+		| { kind: 'intersection'; members: [].<type>; }
+		| { kind: 'tuple'; elements: [].<TypeTupleElement>; }
+		| { kind: 'array'; element: type; extent: uint32 | undefined; }   // [].<T> => extent undefined; [N].<T> => N
+		| { kind: 'object'; properties: [].<TypePropertyReflection>; }    // object-literal or interface type
+		| { kind: 'function'; signatures: [].<FunctionSignatureReflection>; }
+		| { kind: 'reference'; name: string; };                           // recursive back-edge
+
+	type TypeTupleElement = {
+		type: type;
+		rest: boolean;                                                    // true for a spread position
+	};
+
+	type TypePropertyReflection = {
+		name: string | symbol;
+		type: type;
+		optional: boolean;
+	};
+}
+```
+
+An `enum` or `class` type surfaces as a `primitive` node whose `type` is the nominal type; its members are reached through the existing `Reflect.Enum` and `Reflect.Class` contexts, so `Reflect.Type` does not duplicate enum or class member reflection. A `function` node's `signatures` is the same overload list the function reflection carries, so a bare function *type* and a reflected function *declaration* expose their overloads through one shape.
 
 ## `Reflect.getReflection` Signatures
 
@@ -690,6 +735,18 @@ namespace Reflect {
 	getReflection<Reflect.Record>(instance: any): Reflect.RecordReflection;
 }
 ```
+
+### Type
+
+`getReflection.<Reflect.Type>` takes a type object and returns its structural node. It is the retrieval verb for walking a type - a union, alias, tuple, array, or object type - that is not a class, function, or enum declaration.
+
+```js
+namespace Reflect {
+	getReflection<Reflect.Type>(t: type): Reflect.TypeReflection;
+}
+```
+
+When a function or method is overloaded, its parameters cannot be reached through the flat accessors above, because a parameter name or index does not identify which signature it belongs to. `getReflection.<Reflect.FunctionParameter, T>('x')` and its `ClassMethodParameter`, `ClassOperatorParameter`, and `ObjectMethodParameter` counterparts throw on an overloaded target; read `signatures[i].parameters` instead. This mirrors the call-site rule that an ambiguous overloaded reference is a TypeError, and the flat accessors remain defined for the single-signature case.
 
 ## `Reflect.getMetadata` Signatures
 
