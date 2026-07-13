@@ -2179,6 +2179,30 @@ class A {
 }
 ```
 
+#### Protected Members
+
+A member marked ```protected``` is accessible within its declaring class and its subclasses, and nowhere else. Like ```readonly``` and ```static``` it is a modifier on an ordinary member, in the public layout slot, read as ```this.balance``` rather than through a ```#``` sigil.
+
+```js
+class Account {
+  protected balance: uint64 = 0;
+  protected readonly openedAt: Temporal.Instant;
+  deposit(amount: uint64) {
+    this.balance += amount; // In the declaring class
+  }
+}
+class SavingsAccount extends Account {
+  applyInterest(rate: float32) {
+    this.balance += uint64(float32(this.balance) * rate); // In a subclass
+  }
+}
+function outside(a: Account) {
+  // a.balance; // TypeError: balance is protected
+}
+```
+
+```protected``` differs from a ```#``` private member in what it guarantees and where. A ```#``` field is a runtime-hard boundary: an access off a non-instance throws, and the field is invisible to bracket access and reflection. ```protected``` is an access rule checked where the static type is known, and it is deliberately not a runtime wall — a protected field occupies the normal layout and stays reachable through reflection or an ```any```-typed reference, the erasure other languages apply to it. So ```#``` is for true encapsulation and ```protected``` for the internal surface a hierarchy shares. It combines with ```readonly```, and being an access rule rather than a layout rule it never affects whether a class qualifies as a value type: a ```protected``` field participates in the layout exactly as a public one does. Interface members cannot be ```protected```, since an interface is an external contract and protected access is meaningful only along a subclass chain, which an interface does not establish.
+
 #### Accessors
 
 A getter's return type and a setter's parameter type are annotated normally. A pair sharing a name must agree: the setter's parameter type has to accept every value the getter can return. A property with only a getter is read only, and assigning to it is a compile-time TypeError rather than a silent no-op, since typed code is strict.
@@ -2579,6 +2603,51 @@ Only subclassing is restricted. The class extension syntax above, which appends 
 A subclass of a sealed class may itself be sealed or left open. Exhaustiveness, described in the control structures section, is always over the *direct* subclasses; an open direct subclass covers all of its own descendants through the ```instanceof``` test that selects it.
 
 A sealed class is the proposal's closed hierarchy. Combined with type objects being values, it gives a sum type without a new construct: the cases are the subclasses, and their type objects are the case labels.
+
+### Abstract Classes
+
+An ```abstract``` class cannot be instantiated: ```new Shape()``` on one is a TypeError. It exists to be extended, carrying shared implementation and declaring the members its subclasses must supply. An ```abstract``` method is a signature with no body; a concrete subclass must implement every inherited abstract method, or itself be declared ```abstract```.
+
+```js
+abstract class Shape {
+  abstract area(): number;
+  abstract perimeter(): number;
+
+  // Concrete members are inherited normally.
+  describe(): string {
+    return `area ${this.area()}, perimeter ${this.perimeter()}`;
+  }
+}
+
+class Circle extends Shape {
+  radius: number;
+  constructor(radius: number) {
+    super();
+    this.radius = radius;
+  }
+  area(): number { return Math.PI * this.radius * this.radius; }
+  perimeter(): number { return 2 * Math.PI * this.radius; }
+}
+
+// new Shape(); // TypeError: Shape is abstract
+// class Square extends Shape {} // TypeError: Square must implement area and perimeter
+```
+
+An abstract class is a reference type. Its purpose is polymorphic dispatch through the hierarchy — a ```Shape```-typed binding holds any subclass and ```this.area()``` resolves at run time — which is reference-type behavior, so an abstract class is never a value type and neither is a subclass reached through it. It may declare a constructor, invoked by a subclass through ```super()```, even though it can never be the target of ```new``` directly. Abstract differs from an interface in carrying implementation: an interface is pure signature, while an abstract class combines abstract members with concrete methods, fields, and constructors, which is the tool for a partial implementation that a family of subclasses completes.
+
+```abstract``` composes with ```sealed```. A ```sealed abstract class``` can be neither instantiated nor extended outside its module, so its concrete subclasses are a fixed, known set with no base case among them — the algebraic data type in full: a closed union whose members are the subclasses, matched exhaustively by the ```switch``` the control structures section describes.
+
+```js
+sealed abstract class Json {
+  abstract render(): string;
+}
+class JsonNull extends Json { render(): string { return 'null'; } }
+class JsonBool extends Json { value: boolean; render(): string { return this.value ? 'true' : 'false'; } }
+class JsonNumber extends Json { value: float64; render(): string { return `${this.value}`; } }
+// A switch over a Json value is exhaustive exactly when every subclass is covered.
+```
+
+Reflection reports the ```abstract``` modifier on the class and on each abstract method, so a tool can distinguish a required member from an inherited concrete one.
 
 ### Class Expressions and Mixins
 

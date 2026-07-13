@@ -253,6 +253,7 @@ namespace Reflect {
 	type ClassReflection = {
 		name: string | undefined;
 		type: Function;
+		abstract: boolean;
 		metadata: ClassMetadata;
 	};
 
@@ -261,6 +262,7 @@ namespace Reflect {
 		name: string | symbol;
 		static: boolean;
 		private: boolean;
+		protected: boolean;
 		readonly: boolean;
 		initial: T | undefined;
 		// Layout, present when the declaring class has one. A static field is not part of an instance's layout, so both are undefined for it.
@@ -274,6 +276,7 @@ namespace Reflect {
 		name: string | symbol;
 		static: boolean;
 		private: boolean;
+		protected: boolean;
 		initial: T | undefined;
 		metadata: ClassAccessorMetadata;
 	};
@@ -307,6 +310,8 @@ namespace Reflect {
 		name: string | symbol;
 		static: boolean;
 		private: boolean;
+		protected: boolean;
+		abstract: boolean; // True for an abstract method: a signature with no implementation
 		signatures: [].<FunctionSignatureReflection>; // Length 1 when not overloaded
 		metadata: ClassMethodMetadata;
 	};
