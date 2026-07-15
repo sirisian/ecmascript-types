@@ -247,6 +247,10 @@ export function arrayOf(element: type, extent: uint32 | undefined = undefined): 
 And the workhorse — the builder analog of a homomorphic mapped type. It walks an object type's property records and rebuilds the type from whatever the callback returns; returning the record unchanged preserves everything (type, `optional`, `readonly`, defaults), spreading it and overriding one field edits exactly that field, and returning `null` deletes the property. Distribution over a union of object types is one visible line:
 
 ```js
+export function genericApplication(base: type, args: [].<type | any>): type {  // Promise.<T>, Map.<K, V>: the constructor that `generic` (§2) reads back
+  return Reflect.makeType({ ...reflect(base), generic: { base, arguments: args } });
+}
+
 export function mapProperties(T: type,
     f: (p: Reflect.TypePropertyReflection) => Reflect.TypePropertyReflection | null): type {
   const node = reflect(T);
@@ -393,7 +397,8 @@ type PickByValue<T, V> = { [K in keyof T as T[K] extends V ? K : never]: T[K] };
 const capitalize = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function getters(T: type): type {
-  return mapProperties(T, p => prop(`get${capitalize(p.name)}`, fn([], p.type), { readonly: true }));
+  return mapProperties(T, p => typeof p.name !== 'string' ? p
+    : prop(`get${p.name[0].toUpperCase()}${p.name.slice(1)}`, fn([], p.type), { readonly: true }));
 }
 export function removeKind(T: type): type {
   return omit(T, ['kind']);
@@ -582,7 +587,8 @@ export function uncapitalized(T: type): type {
 }
 
 export function listeners(T: type): type {
-  return mapProperties(T, p => prop(`on${capitalize(p.name)}Changed`, fn([p.type], type void)));
+  return mapProperties(T, p => typeof p.name !== 'string' ? p
+    : prop(`on${p.name[0].toUpperCase()}${p.name.slice(1)}Changed`, fn([p.type], type void)));
 }
 
 type Settings = { volume: uint8, theme: string };
@@ -1095,7 +1101,16 @@ export function stringPattern(pattern: RegExp | TemplateStringsArray, ...holes: 
   // stringPattern`${string}-${uint32}`, the analog of a template literal type. In tag form each
   // literal chunk is escaped and each hole contributes the sub-pattern its type matches
   // (a literal contributes its escaped value, string contributes [\s\S]*, a numeric primitive -?\d+(\.\d+)?).
-  const regex = pattern instanceof RegExp ? pattern : tagToRegExp(pattern, holes);
+  const holePattern = (t: type): string => {
+    const n = reflect(t);
+    if (n.kind === 'literal') return RegExp.escape(String(n.value));
+    if (t === float64 || t === uint32 || t === int32) return '-?\\d+(?:\\.\\d+)?';
+    return '[\\s\\S]*';
+  };
+  const regex = pattern instanceof RegExp
+    ? pattern
+    : new RegExp(`^${pattern.raw.map((chunk, i) =>
+        RegExp.escape(chunk) + (i < holes.length ? holePattern(holes[i]) : '')).join('')}$`);
   return Reflect.makeType({ kind: 'parameterized', base: string, metadata: { pattern: regex } });
 }
 type Px = stringPattern(/^\d+px$/);   // Px <: stringPattern(/^.*px$/) now decided exactly, not conservatively
