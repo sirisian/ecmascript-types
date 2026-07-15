@@ -2,7 +2,7 @@
 
 [type-challenges](https://github.com/type-challenges/type-challenges) is the standard obstacle course for TypeScript's type-level language: implement `Pick`, unwrap a `Promise`, take the head of a tuple, using only conditional types, mapped types, `infer`, and recursion. It is a good adversarial test of [type builders](../typeprogramming.md), because the problems were *chosen* to be natural in a type language whose only verbs are `extends` and `in`. If the builder model only won on problems selected to suit it, that would prove nothing.
 
-This document works the warm-up, all thirteen easy challenges, all one hundred and four medium ones, and the first twelve hard ones, in the order the README lists them. Every TypeScript solution shown has been checked against the repo's own test cases with TypeScript 5.9.3; where the top-voted answer no longer passes, a verified passing answer is shown instead and the note at the end says why. Each entry gives the problem, the top-voted community solution in TypeScript (linked, with its score at the time of writing), and the builder solution. The builders are written from the primitives in [type programming](../typeprogramming.md) rather than by calling the `std:types` entry that already ships the answer, since implementing the utility is the whole point of the exercise.
+This document works every challenge in the repository: the warm-up, all thirteen easy, all one hundred and four medium, all fifty-five hard, and all seventeen extreme, in the order the README lists them. One hundred and ninety in total. Every TypeScript solution shown has been checked against the repo's own test cases with TypeScript 5.9.3; where the top-voted answer no longer passes, a verified passing answer is shown instead and the note at the end says why. Each entry gives the problem, the top-voted community solution in TypeScript (linked, with its score at the time of writing), and the builder solution. The builders are written from the primitives in [type programming](../typeprogramming.md) rather than by calling the `std:types` entry that already ships the answer, since implementing the utility is the whole point of the exercise.
 
 Features exercised, and why they matter here:
 
@@ -3915,6 +3915,2322 @@ The last of the identity family, and the most elegant hack in the document. `1 &
 
 `T === any` is the same question. `any` is a type object; there is one of it; you can compare against it.
 
+## 270 · Typed Get
+
+Read a value out of an object by dotted path.
+
+```ts
+// TypeScript, issue #397 (+2). The top-voted answer (#368, +13) splits on the dot first
+// and misses the literal key; see the note.
+type Get<T, K> = K extends keyof T
+                    ? T[K]
+                    : K extends `${infer First}.${infer Rest}`
+                        ? First extends keyof T
+                                    ? Get<T[First], Rest>
+                                    : never
+                        : never
+```
+
+```js
+// Builder
+function get(T: type, path: string): type {
+  const at = (name: string): type | undefined =>
+    reflect(T).properties.find(p => p.name === name)?.type;
+  const exact = at(path);
+  if (exact !== undefined) return exact;      // a literal key beats the dotted reading
+  const dot = path.indexOf('.');
+  if (dot === -1) return never;
+  const head = at(path.slice(0, dot));
+  return head === undefined ? never : get(head, path.slice(dot + 1));
+}
+
+type Data = {
+  foo: { bar: { value: 'foobar', count: 6 }, included: true },
+  'foo.baz': false,
+  hello: 'world',
+};
+get(Data, 'hello') === type 'world';
+get(Data, 'foo.bar.count') === type 6;
+get(Data, 'foo.baz') === type false;        // the key 'foo.baz' exists
+get(Data, 'no.existed') === never;
+```
+
+The trap is in the fixture, and it is a good one: `Data` contains a key literally named `'foo.baz'`, so `Get<Data, 'foo.baz'>` must find the key rather than walk the path. The top-voted answer tests the dotted pattern first, splits into `'foo'` and `'baz'`, finds no `baz` under `foo`, and answers `never`. Order of the two branches is the entire challenge, and both solutions get it right by putting the exact-key test first.
+
+## 300 · String to Number
+
+```ts
+// TypeScript, issue #398 (+6). The top-voted answer (#499, +15) counts up from zero and
+// never terminates on the non-numeric case; see the note.
+type Num = readonly 0[]
+
+type NumToNumber<N extends Num> = N['length']
+
+type Digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
+type MultiplyToDigit<D extends Digit, N extends Num> = {
+  '0': [],
+  '1': N,
+  '2': [...N, ...N],
+  '3': [...N, ...N, ...N],
+  '4': [...N, ...N, ...N, ...N],
+  '5': [...N, ...N, ...N, ...N, ...N],
+  '6': [...N, ...N, ...N, ...N, ...N, ...N],
+  '7': [...N, ...N, ...N, ...N, ...N, ...N, ...N],
+  '8': [...N, ...N, ...N, ...N, ...N, ...N, ...N, ...N],
+  '9': [...N, ...N, ...N, ...N, ...N, ...N, ...N, ...N, ...N],
+}[D]
+
+type One = [0]
+
+type Sum<N extends Num, M extends Num> = [...N, ...M]
+
+type MultiplyTo10<N extends Num> = MultiplyToDigit<'2', MultiplyToDigit<'5', N>>
+
+type GetBase<Number extends string> = Number extends Digit
+  ? MultiplyTo10<One>
+  : (Number extends `${infer D}${infer Rest}` ? MultiplyTo10<GetBase<Rest>> : never)
+
+type StrToNum<Str extends string> = Str extends Digit
+  ? MultiplyToDigit<Str, One>
+  : (Str extends `${infer D}${infer Rest}`
+    ? (D extends Digit
+      ? Sum<MultiplyToDigit<D, GetBase<Rest>>, StrToNum<Rest>>
+      : never
+    )
+    : never
+  )
+
+type ToNumber<S extends string> = NumToNumber<StrToNum<S>>
+```
+
+```js
+// Builder
+function toNumber(s: string): type {
+  return /^\d+$/.test(s) ? literal(Number(s)) : never;
+}
+
+toNumber('0') === type 0;
+toNumber('27') === type 27;
+toNumber('18@7_$%') === never;
+```
+
+Positional decimal notation, implemented. `MultiplyToDigit` is a nine-way lookup table whose entries are the operand spread that many times; `MultiplyTo10` multiplies by ten by multiplying by five and then by two, because there is no `[...N, ...N, ...N, ...N, ...N, ...N, ...N, ...N, ...N, ...N]` entry; `GetBase` computes the place value of the leading digit by recursing down the string and multiplying by ten on the way back up; `StrToNum` is `digit * base + rest`. This is what "parse an integer" costs.
+
+The top-voted answer is the one everybody writes: count a tuple up from zero until its length stringifies to `S`. That is fine for `'27'`, and on `'18@7_$%'` it counts forever, which is why the harness includes it and why the compiler says the instantiation is excessively deep. `Number(s)` and a regex.
+
+## 399 · Tuple Filter
+
+Drop elements matching `F`.
+
+```ts
+// TypeScript, issue #456 (+9)
+type FilterOut<T extends any[], F>
+  = T extends [infer R, ...infer Rest]
+      ? [R] extends [F]
+        ? FilterOut<Rest, F>
+        : [R, ...FilterOut<Rest, F>]
+      : []
+```
+
+```js
+// Builder
+function filterOut(T: type, F: type): type {
+  const drop = new Set(arms(F));
+  return tupleOf(tupleElements(T).map(e => e.type).filter(t => arms(t).every(arm => drop.has(arm))
+    ? false : true));
+}
+
+filterOut(type [1, never, 'a'], never) === type [1, 'a'];
+filterOut(type [never, 1, 'a', undefined, false, null], type never | null | undefined) === type [1, 'a', false];
+filterOut(type [float64 | null | undefined, never], type never | null | undefined) === type [float64 | null | undefined];
+```
+
+Both wrappers in `[R] extends [F]` are load-bearing and for different reasons: the left one stops `R` distributing so that `never` is testable at all, and the right one stops the *union* `never | null | undefined` from being taken apart, so that `number | null | undefined` is not dropped just because two of its three arms match. The last test case exists to catch exactly that. The builder's `arms(t).every(arm => drop.has(arm))` says the same thing in the affirmative: drop an element when every arm of it is in the drop set.
+
+## 472 · Tuple to Enum Object
+
+```ts
+// TypeScript, issue #492 (+21)
+/**
+ * TupleKeys<[3, 4]> = 0 | 1.
+ */
+type TupleKeys<T extends readonly unknown[]> = T extends readonly [
+  infer Head,
+  ...infer Tail
+]
+  ? TupleKeys<Tail> | Tail["length"]
+  : never;
+
+type Enum<T extends readonly string[], N extends boolean = false> = {
+  readonly [K in TupleKeys<T> as Capitalize<T[K]>]: N extends true ? K : T[K]
+};
+```
+
+```js
+// Builder
+function enumObject(names: [].<string>, numeric: boolean = false): type {
+  return objectOf(names.map((name, i) =>
+    ({ ...prop(`${name[0].toUpperCase()}${name.slice(1)}`, literal(numeric ? i : name)), readonly: true })));
+}
+
+enumObject([]) === type {};
+enumObject(['macOS', 'Windows', 'Linux'])
+  === type { readonly MacOS: 'macOS', readonly Windows: 'Windows', readonly Linux: 'Linux' };
+enumObject(['macOS', 'Windows', 'Linux'], true)
+  === type { readonly MacOS: 0, readonly Windows: 1, readonly Linux: 2 };
+```
+
+`TupleKeys` exists to produce `0 | 1 | 2` from a three-element tuple, and it does it by recursing down the tuple collecting `Tail['length']` at each step, because there is no way to ask for a tuple's indices. `map` hands you `i`.
+
+## 545 · printf
+
+```ts
+// TypeScript, issue #2830 (+10)
+type MapDict = {
+  s: string
+  d: number
+}
+
+type Format<T extends string> = T extends `${string}%${infer M}${infer R}`
+  ? M extends keyof MapDict
+    ? (x: MapDict[M]) => Format<R>
+    : Format<R>
+  : string
+```
+
+```js
+// Builder
+const mapDict = { s: string, d: float64 };
+
+function format(f: string): type {
+  const specs = [...f.matchAll(/%(.)/g)].map(m => m[1]).filter(c => c in mapDict);
+  return specs.reduceRight((rest, c) => fn([mapDict[c]], rest), string);
+}
+
+format('') === string;
+format('%s') === type (x: string) => string;
+format('%d') === type (x: float64) => string;
+format('%d%s') === type (x: float64) => (x: string) => string;
+```
+
+A curried function type, built one argument at a time. The recursion in `Format` is doing the same job as `reduceRight`, and both bottom out at `string`. Close, and pleasant on both sides.
+
+## 553 · Deep object to unique
+
+Brand every nested object with its path, so that structurally identical siblings become distinguishable.
+
+```ts
+// TypeScript, issue #581 (+6)
+type Key = string | number | symbol;
+
+declare const KEY: unique symbol;
+
+type DeepObjectToUniq<
+  O extends object,
+  Parent = O,
+  Path extends readonly Key[] = []
+> = {
+  [K in keyof O]: O[K] extends object
+    ? DeepObjectToUniq<O[K], O, [...Path, K]>
+    : O[K];
+} & {
+  readonly [KEY]?: readonly [Parent, Path];
+};
+```
+
+```js
+// Builder
+const KEY = Symbol('uniq');
+
+function deepObjectToUniq(O: type, parent: type = O, path: [].<string | symbol> = []): type {
+  const node = reflect(O);
+  const branded = node.properties.map(p =>
+    reflect(p.type).kind === 'object'
+      ? { ...p, type: deepObjectToUniq(p.type, O, [...path, p.name]) }
+      : p);
+  return objectOf([...branded,
+    { ...prop(KEY, tupleOf([parent, tupleOf(path.map(literal))])), optional: true, readonly: true }]);
+}
+```
+
+The one challenge so far where a `symbol` key is the point rather than an edge case, and the node model has been carrying `name: string | symbol` on every property since the beginning for exactly this. The brand is a phantom property: optional, so no value ever has to provide it, and typed as the path, so two sibling objects with identical shapes get different types. Both sides do the same thing and the builder's is a `Symbol()` rather than a `unique symbol` declaration, which is the same idea with one fewer concept in it, since a symbol is already unique.
+
+## 651 · Length of String 2
+
+Like challenge 298, but it has to work on long strings.
+
+```ts
+// TypeScript, issue #3485 (+4)
+type LengthOfString<S extends string,C extends number[] = []> = S extends `${infer F0}${infer F1}${infer F2}${infer F3}${infer F4}${infer F5}${infer F6}${infer F7}${infer F8}${infer F9}${infer R}`? LengthOfString<R,[...C,0,1,2,3,4,5,6,7,8,9]>
+  : S extends `${infer F}${infer R}`?
+    LengthOfString<R,[...C,0]>
+    :C['length']
+```
+
+```js
+// Builder
+function lengthOfString(s: string): type {
+  return literal([...s].length);
+}
+
+lengthOfString('') === type 0;
+lengthOfString('1234567') === type 7;
+```
+
+Look at what the difficulty rating bought. Challenge 298 is the same function at medium; this is hard, and the only difference is that the input is longer. The answer is a *manual loop unroll*: match ten characters at a time, add ten to the counter, and keep the one-at-a-time version as the remainder loop. It is the exact optimization a compiler backend would do, written by hand, in a type, to buy a factor of ten against a recursion limit.
+
+`[...s].length` does not have a length limit, and it iterates code points, which is the other thing challenge 298's note said.
+
+## 730 · Union to Tuple
+
+```ts
+// TypeScript, issue #737 (+30)
+/**
+ * UnionToIntersection<{ foo: string } | { bar: string }> =
+ *  { foo: string } & { bar: string }.
+ */
+type UnionToIntersection<U> = (
+  U extends unknown ? (arg: U) => 0 : never
+) extends (arg: infer I) => 0
+  ? I
+  : never;
+
+/**
+ * LastInUnion<1 | 2> = 2.
+ */
+type LastInUnion<U> = UnionToIntersection<
+  U extends unknown ? (x: U) => 0 : never
+> extends (x: infer L) => 0
+  ? L
+  : never;
+
+/**
+ * UnionToTuple<1 | 2> = [1, 2].
+ */
+type UnionToTuple<U, Last = LastInUnion<U>> = [U] extends [never]
+  ? []
+  : [...UnionToTuple<Exclude<U, Last>>, Last];
+```
+
+```js
+// Builder
+function unionToTuple(U: type): type {
+  return tupleOf(arms(U));
+}
+
+reflect(unionToTuple(type 'a' | 'b')).elements.length === 2;
+union(tupleElements(unionToTuple(type 'a' | 'b')).map(e => e.type)) === type 'a' | 'b';
+unionToTuple(any) === type [any];
+```
+
+The most-cited construction in the whole repository, and worth reading slowly. `LastInUnion` builds on `UnionToIntersection` by wrapping each arm in a function *twice*: distribute to get `((x: 1) => 0) | ((x: 2) => 0)`, intersect that to get `((x: 1) => 0) & ((x: 2) => 0)`, and then infer `x` out of the intersection. An intersection of function types is an overload set, inference against an overload set picks the *last* signature, so you get `2`. Then `UnionToTuple` peels that arm off with `Exclude` and recurses.
+
+The tuple's order therefore comes from overload resolution order, which comes from the order the intersection's members were written, which comes from the order the union's arms were declared. None of that is specified. The harness knows: every test asserts on `['length']` or on the union of the elements, and not one of them checks the order.
+
+That is the honest reading of this challenge. It asks for a tuple from a union, which requires an ordering, and the language does not have one, so the answer extracts an ordering from a chain of three implementation details and the tests carefully do not look at what came out. `arms(U)` returns a list in the order [type programming](../typeprogramming.md) specifies for union canonicalization, and a builder that wants a different order writes `.sort()`.
+
+## 847 · String Join
+
+```ts
+// TypeScript, issue #850 (+6)
+type Tuple = readonly string[];
+
+/**
+ * Tail<['1', '2', '3']> = ['2', '3'].
+ */
+type Tail<T extends Tuple> = T extends readonly [infer Head, ...infer Rest] ? Rest : [];
+
+/**
+ * Join<['1', '2'], " - "> = '1 - 2'.
+ * Join<['1'], " - "> = '1'.
+ * Join<[], 'x'> = ''.
+ */
+type Join<T extends Tuple, Separator extends string> = T extends readonly []
+    ? ''
+    : T extends readonly [infer Head]
+    ? Head
+    : `${T[0]}${Separator}${Join<Tail<T>, Separator>}`;
+
+declare function join<D extends string>(delimiter: D): <P extends Tuple>(...parts: P) => Join<P, D>;
+```
+
+```js
+// Builder
+declare function join<D extends string>(delimiter: D):
+  <P extends [].<string>>(...parts: P) => literal(literalValues(P).join(delimiter));
+
+Reflect.typeOf(join('-')('a', 'b', 'c')) === type 'a-b-c';
+Reflect.typeOf(join('-')()) === type '';
+Reflect.typeOf(join('')('a', 'b', 'c')) === type 'abc';
+```
+
+Challenge 5310 again at the hard tier, this time as a real curried function rather than a bare alias. The interesting part is the signature: `<P extends Tuple>(...parts: P)` captures the argument tuple, and the return type is computed from it. The builder does the same thing, with `Array.prototype.join` in the return position.
+
+## 956 · DeepPick
+
+Pick a set of dotted paths, preserving structure.
+
+```ts
+// TypeScript, issue #1019 (+6)
+type TypeGet<T, Paths> = Paths extends `${infer A}.${infer B}`
+  ? A extends keyof T ? { [K in A]: TypeGet<T[A], B> } : never
+  : Paths extends keyof T ? { [K in Paths]: T[Paths] } : never
+
+type UnionToIntercetion<U> = (U extends any ? (arg: U) => any : never) extends ((arg: infer I) => any) ? I : never
+
+type DeepPick<T, PathUnion extends string> =
+  UnionToIntercetion<PathUnion extends infer Keys ? TypeGet<T, Keys> : never>
+```
+
+```js
+// Builder
+function pickPath(T: type, path: string): type {
+  const dot = path.indexOf('.');
+  const head = dot === -1 ? path : path.slice(0, dot);
+  const p = reflect(T).properties.find(x => x.name === head);
+  if (p === undefined) return never;
+  return objectOf([prop(head, dot === -1 ? p.type : pickPath(p.type, path.slice(dot + 1)))]);
+}
+
+function deepPick(T: type, paths: [].<string>): type {
+  return Reflect.makeType({ kind: 'intersection', members: paths.map(path => pickPath(T, path)) });
+}
+```
+
+Three of the batch's ten challenges reach for `UnionToIntersection`, and this is the clearest look at why: the natural way to combine several picked paths is to merge them, the type language has no merge, and an intersection is the closest available thing, so you distribute over the path union, build one object per path, and intersect the lot. The contravariance trick from challenge 55 is load-bearing infrastructure here, not a curiosity. The builder's `members` is a list, and it is a list because that is what an intersection node holds.
+
+## 1290 · Pinia
+
+Challenge 6 grown up: a store with state, getters that see readonly state, and actions that see everything.
+
+```ts
+// TypeScript, issue #27536 (+14)
+type AnyObject = Record<string, unknown>
+type BaseGetters = Record<string, Function> ;
+type BaseActions = Record<string, (...args:any[]) => any>;
+
+type ComputedGetters<G extends BaseGetters> = {
+  readonly [K in keyof G]: G[K] extends (...args:any[]) => any ? ReturnType<G[K]> : never;
+};
+
+interface StoreOptions<State extends AnyObject, Getters extends BaseGetters, Actions extends BaseActions> {
+  id: string;
+  state: () => State,
+  getters: Getters & ThisType<ComputedGetters<Getters> & Readonly<State>>,
+  actions: Actions & ThisType<Actions & State & ComputedGetters<Getters>>
+}
+
+type Store<
+  State extends AnyObject,
+  Getters extends BaseGetters,
+  Actions extends BaseActions
+>= {
+  init(): void;
+  reset(): true;
+} & Actions & State & ComputedGetters<Getters>;
+
+declare function defineStore<
+  State extends AnyObject,
+  Getters extends BaseGetters,
+  Actions extends BaseActions
+>(store: StoreOptions<State, Getters, Actions>): Store<State, Getters, Actions>;
+```
+
+```js
+// Builder
+const all = (...members: [].<type>): type => Reflect.makeType({ kind: 'intersection', members });
+
+function storeOptions(S: type, G: type, A: type): type {
+  return objectOf([
+    prop('id', string),
+    prop('state', fn([], S)),
+    prop('getters', withThisOnMethods(G, all(computedResults(G), readonly(S)))),   // helpers from challenge 6
+    prop('actions', withThisOnMethods(A, all(A, S, computedResults(G)))),
+  ]);
+}
+
+function store(S: type, G: type, A: type): type {
+  return all(type { init(): void, reset(): true }, A, S, computedResults(G));
+}
+
+declare function defineStore<S, G, A>(options: storeOptions(S, G, A)): store(S, G, A);
+```
+
+The third `ThisType` challenge and the one where the pattern has clearly become a library. Both sides say the same four things: getters see their own results plus readonly state, actions see themselves plus state plus getter results, the store is all of it merged, and `ComputedGetters` is `ReturnType` mapped over the getters. `computedResults` and `withThisOnMethods` were written back at challenge 6 and are reused here unchanged, which is the whole argument in one line: the builder's helpers compose because they are functions.
+
+## 1383 · Camelize
+
+Snake-case keys to camel case, recursively.
+
+```ts
+// TypeScript, issue #1403 (+8)
+type SnakeToCamel<S extends string, Cap extends boolean = false> =
+  S extends `${infer Head}_${infer Tail}`
+    ? `${
+        Cap extends true
+          ? Capitalize<Head>
+          : Head
+      }${SnakeToCamel<Tail, true>}`
+    : Cap extends true
+      ? Capitalize<S>
+      : S;
+
+type TerminalTypes =
+  | number
+  | boolean
+  | symbol
+  | bigint
+  | Function
+
+type Camelize<T> = {
+  default: {
+    [K in keyof T as Camelize<K>]: Camelize<T[K]>
+  },
+  array: T extends [infer Head, ...(infer Tail)]
+    ? [Camelize<Head>, ...Camelize<Tail>]
+    : [],
+  string: SnakeToCamel<T & string>
+  terminal: T,
+}[
+  T extends any[]
+  ? 'array'
+  : T extends TerminalTypes
+  ? 'terminal'
+  : T extends string
+  ? 'string'
+  /** default */
+  : 'default'
+];
+```
+
+```js
+// Builder
+const snakeToCamel = (s: string): string => s.replace(/_(\p{L})/gu, (_, c) => c.toUpperCase());
+
+function camelize(T: type): type {
+  const node = reflect(T);
+  switch (node.kind) {
+    case 'object': return objectOf(node.properties.map(p => ({
+      ...p,
+      name: typeof p.name === 'string' ? snakeToCamel(p.name) : p.name,
+      type: camelize(p.type),
+    })));
+    case 'tuple': return tupleOf(node.elements.map(e => camelize(e.type)));
+    default: return T;
+  }
+}
+
+camelize(type {
+  some_prop: string,
+  prop: { another_prop: string },
+  array: [{ snake_case: string }, { another_element: { yet_another_prop: string } }],
+}) === type {
+  someProp: string,
+  prop: { anotherProp: string },
+  array: [{ snakeCase: string }, { anotherElement: { yetAnotherProp: string } }],
+};
+```
+
+The dispatch is the thing to look at: an object literal with four entries, indexed by a conditional that computes which entry to take. That is a `switch`, spelled as a dictionary lookup, because the type language has no `switch` and a mapped type is the only dictionary it has. Fourth sighting of the mapped-type-as-lookup idiom and the first where it is doing genuine control flow rather than data. The builder's `switch (node.kind)` is the same shape, and `kind` is a string that already exists.
+
+`snakeToCamel` is challenge 114's `camelCase` without the `.toLowerCase()`, which is exactly the difference between the two challenges.
+
+## 2059 · Drop String
+
+Drop every character that appears in `R`.
+
+```ts
+// TypeScript, issue #3308 (+7)
+type DropOne<S extends string,R extends string> = S extends `${infer A}${R}${infer B}`?
+  DropOne<`${A}${B}`,R>
+  :S
+
+type DropString<S extends string, R extends string> = R extends `${infer F}${infer L}`?
+  DropString<DropOne<S,F>,L>
+  :S
+```
+
+```js
+// Builder
+function dropString(s: string, drop: string): type {
+  return literal([...s].filter(c => !drop.includes(c)).join(''));
+}
+
+dropString('butter fly!', '') === type 'butter fly!';
+dropString('butter fly!', ' ') === type 'butterfly!';
+dropString('butter fly!', 'but') === type 'er fly!';
+dropString(' b u t t e r f l y ! ', 'tub') === type '     e r f l y ! ';
+```
+
+Two nested loops, because there is one loop construct and it needs two: `DropString` walks the characters of `R`, and `DropOne` walks `S` removing one of them at a time. `filter` runs one loop and asks `includes` per character. The `'but'` and `'tub'` cases are the same answer in both languages, and the harness includes both to say that the drop set is a set.
+
+## 2822 · Split
+
+```ts
+// TypeScript, issue #30920 (+6). The top-voted answer (#3721, +7) has no default separator;
+// see the note, which is about the template rather than the answer.
+type Split<T extends string, SEP extends string = never> = T extends `${infer P}${SEP}${infer L}`
+ ? [P , ...Split<L, SEP>]
+ : T extends `${infer _}`
+   ? T extends SEP ? [] : [T]
+   : string []
+```
+
+```js
+// Builder
+function split(S: type, separator: string = undefined): type {
+  const node = reflect(S);
+  if (node.kind !== 'literal') return [].<string>;      // Split<string, 'whatever'> is string[]
+  const parts = separator === undefined ? [node.value] : node.value.split(separator);
+  return tupleOf(parts.map(literal));
+}
+
+split(type 'Hi! How are you?') === type ['Hi! How are you?'];
+split(type 'Hi! How are you?', ' ') === type ['Hi!', 'How', 'are', 'you?'];
+split(type 'The sine in cosine', 'in') === type ['The s', 'e ', ' cos', 'e'];
+split(type '', '') === type [];
+split(type '', 'z') === type [''];
+split(string, 'whatever') === [].<string>;
+```
+
+`String.prototype.split` is the challenge, including both empty-string cases: `''.split('')` is `[]` and `''.split('z')` is `['']`, which are exactly the two the harness asks about. Twenty-five years of that method being specified is why nobody has to think about it.
+
+The interesting failure here is not the answer's. The challenge's own template declares
+
+```ts
+type Split<S extends string, SEP extends string> = any
+```
+
+with two required parameters, and its own test file calls `Split<'Hi! How are you?'>` and `Split<''>` with one. The template does not typecheck against the tests it ships with, and every passing answer has to add a default that the template does not have. The top-voted answer copied the template's signature.
+
+## 2828 · ClassPublicKeys
+
+```ts
+// TypeScript, issue #2843 (+19)
+// :D
+type ClassPublicKeys<A> = keyof A
+```
+
+```js
+// Builder
+function classPublicKeys(A: type): type {
+  return keysOf(A);
+}
+
+class A {
+  str = 'naive';
+  #bool = true;
+  getNum() { return Math.random(); }
+}
+classPublicKeys(A) === type 'str' | 'getNum';
+```
+
+A draw, and the funniest answer in the repository: nineteen votes and a smiley, because `keyof` already excludes private members and there is nothing to do. Worth including precisely because it is a challenge where the language's built-in is right.
+
+One honest note. The harness's class has a `protected num` and expects it excluded, and JavaScript has no `protected`: `#bool` is genuinely private and never appears in reflection, but a field that TypeScript would mark `protected` is just a field, and `keysOf` would return it. The challenge tests an access modifier that exists only in TypeScript's static layer, so the builder above uses `#bool` and answers the same question honestly rather than pretending the third case exists.
+
+## 2857 · IsRequiredKey
+
+```ts
+// TypeScript, issue #3732 (+9)
+type IsRequiredKey<
+  Type,
+  Keys extends keyof Type
+> = Pick<Type, Keys> extends Required<Pick<Type, Keys>>
+  ? true
+  : false
+```
+
+```js
+// Builder
+function isRequiredKey(T: type, keys: type): type {
+  const names = new Set(arms(keys).map(k => literalValues(k)[0]));
+  return reflect(T).properties.filter(p => names.has(p.name)).every(p => !p.optional)
+    ? type true : type false;
+}
+
+isRequiredKey(type { a: uint32, b?: string }, type 'a') === type true;
+isRequiredKey(type { a: uint32, b?: string }, type 'b') === type false;
+isRequiredKey(type { a: uint32, b?: string }, type 'b' | 'a') === type false;
+isRequiredKey(type { a: undefined, b: undefined }, type 'b' | 'a') === type true;
+```
+
+The fifth challenge asking whether a property is optional and the third distinct workaround: pick the keys, require the picked object, and ask whether the original still fits. `.every(p => !p.optional)` is what "are all of these required" says.
+
+## 2949 · ObjectFromEntries
+
+```ts
+// TypeScript, issue #3382 (+15)
+type ObjectFromEntries<T extends [string, any]> = {
+  [K in T[0]]: T extends [ K, any ] ? T[1] : never
+}
+```
+
+```js
+// Builder
+function objectFromEntries(T: type): type {
+  return objectOf(arms(T).map(entry => {
+    const [key, value] = tupleElements(entry).map(e => e.type);
+    return prop(literalValues(key)[0], value);
+  }));
+}
+
+type ModelEntries = ['name', string] | ['age', float64] | ['locations', [].<string> | null];
+objectFromEntries(ModelEntries) === type { name: string, age: float64, locations: [].<string> | null };
+```
+
+The mirror of ObjectEntries at challenge 2946, and much shorter than it, because going this direction does not need the `undefined` handling that one did. `T extends [K, any] ? T[1] : never` inside the mapped type is a filter over the union: for each key, find the arm whose first element is that key and take its second. It reads as a lookup and it is a scan. `Object.fromEntries` is right there in the name of the challenge, and the builder is the loop that method already is.
+
+## 4037 · IsPalindrome
+
+```ts
+// TypeScript, issue #4093 (+14)
+type IsPalindrome<T extends string | number, K = `${T}`> =
+  K extends `${infer L}${infer R}` ?
+  R extends '' ? true :
+  K extends `${L}${infer S}${L}` ? IsPalindrome<S> : false
+  : true
+```
+
+```js
+// Builder
+function isPalindrome(v: string | float64): type {
+  const s = `${v}`;
+  return s === [...s].reverse().join('') ? type true : type false;
+}
+
+isPalindrome('abc') === type false;
+isPalindrome('abcba') === type true;
+isPalindrome(121) === type true;
+isPalindrome(19260817) === type false;
+```
+
+A nice one. `` K extends `${L}${infer S}${L}` `` uses the *same* binding twice in one pattern, so the match succeeds only when the first and last characters are equal, and `S` comes back as the middle. That is a backreference, and pattern matching against a template literal type is the one place the type language has them. The builder reverses the string and compares.
+
+## 5181 · Mutable Keys
+
+```ts
+// TypeScript, issue #5221 (+9)
+type MyEqual<X, Y> = (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false
+
+type MutableKeys<T> = keyof {
+  [Key in keyof T as MyEqual<Pick<T, Key>, Readonly<Pick<T, Key>>> extends true ? never : Key ]: any
+}
+```
+
+```js
+// Builder
+function mutableKeys(T: type): type {
+  return union(reflect(T).properties.filter(p => !p.readonly).map(p => literal(p.name)));
+}
+
+mutableKeys(type { a: uint32, readonly b: string }) === type 'a';
+mutableKeys(type { a: undefined, readonly b?: undefined, c: string, d: null }) === type 'a' | 'c' | 'd';
+mutableKeys(type {}) === never;
+```
+
+The `readonly` version of challenges 89 and 90, and it needs the identity incantation to do it: pick one key, make the picked object readonly, and ask whether that changed anything. If `Readonly<Pick<T, K>>` is *identical* to `Pick<T, K>` then the key was already readonly. Eighth challenge in this document to reach for `Equal`, and the reason is the same as it was for `optional`: the flag is right there on the property and there is no way to read it.
+
+`TypePropertyReflection` has `readonly`. It is a boolean.
+
+## 5423 · Intersection
+
+Intersect a list of tuples and unions.
+
+```ts
+// TypeScript, issue #11756 (+12)
+type Intersection<T>
+  = {[I in keyof T]: T[I] extends any[] ? T[I] : [T[I]]} extends {fill: ($: infer I) => any}[]
+  ? I : never;
+```
+
+```js
+// Builder
+function intersection(T: type): type {
+  const sets = tupleElements(T).map(e => {
+    const node = reflect(e.type);
+    return new Set(node.kind === 'tuple' ? node.elements.map(x => x.type) : arms(e.type));
+  });
+  if (sets.length === 0) return never;
+  return union([...sets[0]].filter(t => sets.every(set => set.has(t))));
+}
+
+intersection(type [[1, 2], [2, 3], [2, 2]]) === type 2;
+intersection(type [[1, 2, 3], [2, 3, 4], [2, 2, 3]]) === type 2 | 3;
+intersection(type [[1, 2], [3, 4], [5, 6]]) === never;
+intersection(type [[1, 2, 3], 2 | 3 | 4, 2 | 3]) === type 2 | 3;
+intersection(type [[1, 2, 3], 2, 3]) === never;
+```
+
+Two lines, and the second one is the most audacious thing in the document. It normalizes every element to an array, then matches the whole tuple of arrays against `{fill: ($: infer I) => any}[]`, and reads out `I`.
+
+Why that works: `Array.prototype.fill` takes a parameter of the array's element type. Matching a tuple of arrays against an array of `{fill: ($: infer I) => any}` infers `$` from every element's `fill` at once, and a parameter is a contravariant position, so the inferences are *intersected*. `(1 | 2) & (2 | 3) & 2` reduces to `2`, and that is the answer. It is challenge 55's contravariance trick again, except the function whose parameter is being abused is not one the author wrote. It is a method on the standard library's array interface, chosen because its signature happens to mention the element type in the right position.
+
+Nothing about `fill` has anything to do with intersecting sets. `sets.every(set => set.has(t))` is the same computation, and a reader who has never seen it before will still know what it does.
+
+## 6141 · Binary to Decimal
+
+```ts
+// TypeScript, issue #6349 (+21)
+type BinaryToDecimal<
+  S extends string,
+  R extends any[] = []
+> =
+  S extends `${infer F}${infer L}`?
+    F extends '0'? BinaryToDecimal<L,[...R,...R]>:BinaryToDecimal<L,[...R,...R,1]>
+    :R['length']
+```
+
+```js
+// Builder
+function binaryToDecimal(s: string): type {
+  return literal(Number.parseInt(s, 2));
+}
+
+binaryToDecimal('0011') === type 3;
+binaryToDecimal('11111111') === type 255;
+binaryToDecimal('10101010') === type 170;
+```
+
+Horner's method, in tuples. `[...R, ...R]` doubles the accumulator, `[...R, ...R, 1]` doubles and adds one, and the digits are consumed left to right, which is the standard way to read a binary numeral and is genuinely the right algorithm. It is also `parseInt(s, 2)`, and the accumulator for `'11111111'` is a 255-element tuple.
+
+## 7258 · Object Key Paths
+
+Every path into an object, including array-index syntax.
+
+```ts
+// TypeScript, issue #7939 (+9)
+type GenNode<K extends string | number,IsRoot extends boolean> = IsRoot extends true? `${K}`: `.${K}` | (K extends number? `[${K}]` | `.[${K}]`:never)
+
+type ObjectKeyPaths<
+  T extends object,
+  IsRoot extends boolean = true,
+  K extends keyof T = keyof T
+> =
+K extends string | number ?
+  GenNode<K,IsRoot> | (T[K] extends object? `${GenNode<K,IsRoot>}${ObjectKeyPaths<T[K],false>}`:never)
+  : never
+```
+
+```js
+// Builder
+function objectKeyPaths(T: type, isRoot: boolean = true): type {
+  const node = reflect(T);
+  const entries = node.kind === 'tuple'
+    ? node.elements.map((e, i) => [i, e.type])
+    : node.properties.filter(p => typeof p.name === 'string').map(p => [p.name, p.type]);
+
+  return union(entries.flatMap(([key, type]) => {
+    const heads = isRoot ? [`${key}`]
+      : typeof key === 'number' ? [`.${key}`, `[${key}]`, `.[${key}]`]
+      : [`.${key}`];
+    const nested = reflect(type).kind === 'object' || reflect(type).kind === 'tuple'
+      ? arms(objectKeyPaths(type, false)).map(a => literalValues(a)[0])
+      : [];
+    return heads.flatMap(h => [literal(h), ...nested.map(n => literal(`${h}${n}`))]);
+  }));
+}
+```
+
+`GenNode` produces three spellings for a numeric key, because `a[0]`, `a.0`, and `a.[0]` are all things people write. Both sides enumerate the same cross product; the difference is that the builder's `heads` is an array of strings and TypeScript's is a union that has to be built with a conditional inside a template literal so that it distributes. The recursion is the same shape in both.
+
+## 8804 · Two Sum
+
+Do any two elements sum to the target?
+
+```ts
+// TypeScript, issue #9119 (+4)
+// 1. get permutations from an array
+type Permutation<T> = T extends [infer One, ...infer Rest]
+  ? [One, ...Permutation<Rest>] | [...Permutation<Rest>, One]
+  : []
+
+// 3. get first two elems from an array
+type GetFirstTwo<T> = T extends T ? T extends [infer One, infer Two, ...infer Rest] ? [One, Two] : never : never
+
+// 4. combine GetFirstTwo and Permutations then we get
+//    all posibles of number addition in an array
+type GetAllPosibles<T> = GetFirstTwo<Permutation<T>>
+
+// 6. get result of add two number
+type CreateTupple<S extends number, Res extends 1[] = []> = Res['length'] extends S ? Res : CreateTupple<S, [...Res, 1]>
+type Add<A extends number, B extends number> = [...CreateTupple<A>, ...CreateTupple<B>]['length']
+
+// 8. GetAllPosibles as a union R,
+//    expand union R then find if Add<One, Two> extends target number,
+//    then we got result like: true | never | never | never
+type FindPosible<T, U, R = GetAllPosibles<T>> = R extends R
+  ? R extends [infer One, infer Two]
+    ? Add<One & number, Two & number> extends U ? true : never
+    : never
+  : never
+
+// 9. if result contains not never, then it contains a true
+type TwoSum<T extends number[], U extends number> = [FindPosible<T, U>] extends [never] ? false : FindPosible<T, U>
+```
+
+```js
+// Builder
+function twoSum(T: type, target: float64): type {
+  const values = tupleElements(T).map(e => literalValues(e.type)[0]);
+  return values.some((a, i) => values.slice(i + 1).some(b => a + b === target))
+    ? type true : type false;
+}
+
+twoSum(type [3, 3], 6) === type true;
+twoSum(type [3, 2, 4], 6) === type true;
+twoSum(type [2, 7, 11, 15], 15) === type false;
+twoSum(type [1, 2, 3], 0) === type false;
+```
+
+The published answer generates *every permutation of the whole array*, takes the first two elements of each, and checks those pairs, which is a factorial amount of work to enumerate the quadratically many pairs. It is not incompetence; it is that the two loop constructs available are "peel a tuple" and "distribute a union", and permuting is how you turn the first into the second. Note `Add`: build a tuple of length `A`, build a tuple of length `B`, concatenate, take the `length`. That is addition, and this document has now seen the same three lines in nine different challenges.
+
+The nested `some` is the two loops, written as two loops.
+
+## 9155 · ValidDate
+
+Is `MMDD` a real date?
+
+```ts
+// TypeScript, issue #9174 (+15)
+type Num = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+
+type MM = `0${Num}` | `1${0 | 1 | 2}`
+
+type AllDate =
+  | `${MM}${`${0}${Num}` | `${1}${0 | Num}` | `2${0 | Exclude<Num, 9>}`}`
+  | `${Exclude<MM, '02'>}${29 | 30}`
+  | `${Exclude<MM, '02' | '04' | '06' | '09' | '11'>}${31}`
+
+type ValidDate<T extends string> = T extends AllDate ? true : false
+```
+
+```js
+// Builder
+const monthLengths = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];   // February without a leap year
+
+function validDate(s: string): type {
+  if (!/^\d{4}$/.test(s)) return type false;
+  const [month, day] = [Number(s.slice(0, 2)), Number(s.slice(2))];
+  return month >= 1 && month <= 12 && day >= 1 && day <= monthLengths[month - 1] - (month === 2 ? 1 : 0)
+    ? type true : type false;
+}
+
+validDate('0102') === type true;
+validDate('1231') === type true;
+validDate('0229') === type false;      // no leap years here
+validDate('0100') === type false;
+validDate('0132') === type false;
+```
+
+This one is genuinely clever and I want to be fair to it: rather than compute, it *enumerates every valid date as a type*. `MM` is the twelve months as a union of literals; the first arm of `AllDate` is days 01 through 28 for any month; the second adds 29 and 30 for every month except February; the third adds 31 for the seven long months, spelled as `Exclude<MM, '02' | '04' | '06' | '09' | '11'>`. Then the test is a single `extends` against a union of three hundred and thirty-seven strings, which the compiler checks instantly.
+
+That is a real technique and in a language with no arithmetic it is the right call. It is also why the challenge quietly has no leap years: `'0229'` is `false`, not because February 29th does not exist but because the year is not in the input and the union has to commit. The builder has the same constraint and says so in a comment on the table.
+
+## 9160 · Assign
+
+`Object.assign` for types.
+
+```ts
+// TypeScript, issue #36059 (+5)
+type Assign<T extends Record<string, unknown>, U extends unknown[]> =
+  U extends [infer F, ...infer R extends Record<string, unknown>[]]
+    ? Assign<Omit<T, keyof F> & F, R>
+    : Omit<T, never>
+```
+
+```js
+// Builder
+function assign(T: type, sources: [].<type>): type {
+  const byName = new Map(reflect(T).properties.map(p => [p.name, p]));
+  for (const source of sources)
+    for (const p of reflect(source).properties) byName.set(p.name, p);
+  return objectOf([...byName.values()]);
+}
+
+assign(type {}, [type { a: 'a' }]) === type { a: 'a' };
+assign(type { a: 'a', b: 'b' }, [type { a: 1 }, type { c: 'c' }]) === type { a: 1, b: 'b', c: 'c' };
+```
+
+`Omit<T, keyof F> & F` is last-wins assignment: remove the keys the new object defines, then intersect it in. The trailing `Omit<T, never>` is the flattening no-op, fifth sighting, and here it is load-bearing rather than cosmetic, because without it the result is a chain of intersections and `Equal` would say no. `Map.set` overwrites, which is what assignment is.
+
+## 9384 · Maximum
+
+```ts
+// TypeScript, issue #21928 (+8)
+// " 1|20|200|150 extends 20 ? never : U " ==>> " 1|200|150 "
+type Maximum<T extends any[], U = T[number], N extends any[] = []>
+    = T extends [] ? never
+    : Equal<U, N['length']> extends true ? U
+    : Maximum<T, (U extends N['length'] ? never : U), [...N, unknown]>
+```
+
+```js
+// Builder
+function maximum(T: type): type {
+  const values = tupleElements(T).map(e => literalValues(e.type)[0]);
+  return values.length === 0 ? never : literal(Math.max(...values));
+}
+
+maximum(type []) === never;
+maximum(type [0, 2, 1]) === type 2;
+maximum(type [1, 20, 200, 150]) === type 200;
+```
+
+Read the algorithm. It counts `N` up from zero, one element at a time, and at each step removes that number from the union; the last number standing when the union has one member left is the maximum. To find the largest of `[1, 20, 200, 150]` it counts to two hundred. It needs `Equal` to know when the union is down to a single member, which is the ninth appearance of the incantation.
+
+`Math.max` exists. This is the arithmetic column's fifteenth entry and its plainest: the challenge is not hard, the language cannot compare two numbers.
+
+## 9775 · Capitalize Nest Object Keys
+
+```ts
+// TypeScript, issue #16801 (+7)
+type CapitalizeNestObjectKeys<T> = T extends readonly any[]
+  ? {
+      [K in keyof T]: CapitalizeNestObjectKeys<T[K]>;
+    }
+  : T extends Record<keyof any, any>
+  ? {
+      [K in keyof T as Capitalize<K & string>]: CapitalizeNestObjectKeys<T[K]>;
+    }
+  : T;
+```
+
+```js
+// Builder
+function capitalizeNestObjectKeys(T: type): type {
+  const node = reflect(T);
+  switch (node.kind) {
+    case 'object': return objectOf(node.properties.map(p => ({
+      ...p,
+      name: typeof p.name === 'string' ? `${p.name[0].toUpperCase()}${p.name.slice(1)}` : p.name,
+      type: capitalizeNestObjectKeys(p.type),
+    })));
+    case 'tuple': return tupleOf(node.elements.map(e => capitalizeNestObjectKeys(e.type)));
+    default: return T;
+  }
+}
+```
+
+Challenge 1383 with `Capitalize` instead of `SnakeToCamel`, and the same two-branch recursion. `Capitalize<K & string>` needs the `& string` because `keyof T` can include symbols and `Capitalize` cannot take one; the builder's `typeof p.name === 'string'` is that guard, said in the affirmative and leaving symbol keys alone rather than intersecting them away.
+
+## 13580 · Replace Union
+
+```ts
+// TypeScript, issue #28560 (+2). The top-voted answer (#20711, +2) returns `never` when a
+// replacement pair does not match; see the note.
+type UnionReplace<T, U extends [any, any][]> = U extends [
+  infer F extends [any, any],
+  ...infer R extends [any, any][]
+]
+  ? UnionReplace<T extends F[0] ? F[1] : T, R>
+  : T;
+```
+
+```js
+// Builder
+function unionReplace(T: type, pairs: [].<[type, type]>): type {
+  return union(arms(T).map(arm => pairs.find(([from]) => from === arm)?.[1] ?? arm));
+}
+
+unionReplace(type float64 | string, [[string, type null]]) === type float64 | null;
+unionReplace(type float64 | string, [[string, type null], [Date, Function]]) === type float64 | null;
+unionReplace(type Function | Date | object, [[Date, string], [Function, undefined]])
+  === type undefined | string | object;
+```
+
+`T extends F[0] ? F[1] : T` distributes over the union and swaps the matching arm, and the pairs are consumed one at a time by the outer recursion. The top-voted answer instead pattern-matches `F extends [T, infer Replace]` and answers `never` for any pair whose source is not in the union, which the second test case catches: `[Date, Function]` is a pair that simply does not apply.
+
+`find` returns `undefined` when nothing matches, and `?? arm` is "leave it alone".
+
+## 14080 · FizzBuzz
+
+```ts
+// TypeScript, issue #24661 (+5)
+type IsDivByThree<T extends unknown[]> = T extends [...infer Start, unknown, unknown, unknown]
+? Start extends []
+  ? 'Fizz'
+  : IsDivByThree<Start>
+: false
+
+type IsDivByFive<T extends unknown[]> = T extends [...infer Start, unknown, unknown, unknown, unknown, unknown]
+? Start extends []
+  ? 'Buzz'
+  : IsDivByFive<Start>
+: false
+
+type FizzBuzz<N extends number, Acc extends unknown[] = []> = N extends Acc['length']
+? Acc
+: FizzBuzz<N, [...Acc,
+    `${
+        ( IsDivByThree<[...Acc, '']> | IsDivByFive<[...Acc, '']> ) extends false
+          ? [...Acc, '']['length'] extends number ? [...Acc, '']['length'] : never
+          : ''
+      }${
+        IsDivByThree<[...Acc, '']> extends string ? 'Fizz' : ''
+      }${
+        IsDivByFive<[...Acc, '']> extends string ? 'Buzz' : ''
+      }`
+  ]>
+```
+
+```js
+// Builder
+function fizzBuzz(n: uint32): type {
+  return tupleOf(Array.from({ length: n }, (_, i) => {
+    const v = i + 1;
+    const word = `${v % 3 === 0 ? 'Fizz' : ''}${v % 5 === 0 ? 'Buzz' : ''}`;
+    return literal(word === '' ? `${v}` : word);
+  }));
+}
+
+fizzBuzz(1) === type ['1'];
+fizzBuzz(5) === type ['1', '2', 'Fizz', '4', 'Buzz'];
+```
+
+FizzBuzz is the canonical example of a problem that is trivial in every language. Here, divisibility by three is a recursive type that removes three elements from the end of a tuple until it either empties or does not, and divisibility by five is the same type written again with five `unknown`s, because you cannot pass the three. Then `IsDivByThree<[...Acc, '']>` is evaluated three separate times in the body, because there is nowhere to put the result.
+
+`v % 3 === 0`. It is worth sitting with the fact that this challenge is rated hard.
+
+## 14188 · Run-length encoding
+
+```ts
+// TypeScript, issue #14254 (+3)
+namespace RLE {
+  type EncodeHelper<S extends string, P extends string = '', L extends 1[] = []> = S extends `${infer F}${infer R}`
+    ? F extends P
+      ? EncodeHelper<R, P, [1, ...L]>
+      : P extends ''
+        ? EncodeHelper<R, F, [1]>
+        : L['length'] extends 1
+          ? `${P}${EncodeHelper<R, F, [1]>}`
+          : `${L['length']}${P}${EncodeHelper<R, F, [1]>}`
+    : P extends ''
+      ? ''
+      : L['length'] extends 1
+        ? P
+        : `${L['length']}${P}`
+  export type Encode<S extends string> = EncodeHelper<S>
+
+  type DecodeHelper<S extends string, L extends string = ''> = S extends `${infer F}${infer R}`
+    ? F extends `${number}`
+      ? DecodeHelper<R, `${L}${F}`>
+      : `${Repeat<F, L extends '' ? '1' : L>}${DecodeHelper<R, ''>}`
+    : ''
+  type Repeat<S extends string, L extends string, C extends 1[] = []> = `${C['length']}` extends L ? '' : `${S}${Repeat<S, L, [1, ...C]>}`
+  export type Decode<S extends string> = DecodeHelper<S>
+}
+```
+
+```js
+// Builder
+const RLE = {
+  encode(s: string): type {
+    return literal([...s.matchAll(/(.)\1*/gsu)]
+      .map(([run, ch]) => `${run.length === 1 ? '' : run.length}${ch}`).join(''));
+  },
+  decode(s: string): type {
+    return literal([...s.matchAll(/(\d*)(\D)/gu)]
+      .map(([, n, ch]) => ch.repeat(n === '' ? 1 : Number(n))).join(''));
+  },
+};
+
+RLE.encode('AAABCCXXXXXXY') === type '3AB2C6XY';
+RLE.decode('3AB2C6XY') === type 'AAABCCXXXXXXY';
+```
+
+Both directions, and the encoder is the interesting half. `L extends 1[]` is the run-length counter, `L['length'] extends 1` is the "omit the count when it is one" rule, and `Repeat` on the decode side counts a second tuple up to the parsed number because there is no `repeat`.
+
+The builder's encoder is a regex with a backreference: `(.)\1*` matches a character followed by more of itself, which *is* a run. `String.prototype.repeat` is the decoder. Two lines against a namespace, and the honest note is that the regex is doing real work here, not just standing in for a loop.
+
+## 15260 · Tree path array
+
+Every path into a nested object, as a tuple.
+
+```ts
+// TypeScript, issue #18292 (+5)
+type Path<T> = T extends Record<PropertyKey, unknown>
+  ? {
+      [P in keyof T]: [P, ...Path<T[P]>] | [P];
+    }[keyof T]
+  : never;
+```
+
+```js
+// Builder
+function paths(T: type): type {
+  const node = reflect(T);
+  if (node.kind !== 'object') return never;
+  return union(node.properties.flatMap(p => {
+    const key = literal(p.name);
+    return [tupleOf([key]), ...arms(paths(p.type)).map(a =>
+      tupleOf([key, ...tupleElements(a).map(e => e.type)]))];
+  }));
+}
+```
+
+Six lines against six lines, and a good example of a leaf case falling out rather than being written: `Path<string>` is `never`, so `[P, ...Path<string>]` is `never` too and only `[P]` survives that union arm. The builder gets the same thing from `arms(never)` being the empty list, so the `flatMap` contributes only `[key]`. The `{...}[keyof T]` is challenge 90's map-then-index idiom again: build a mapped type purely to index it away, because collapsing keys to a union has no other spelling.
+
+## 19458 · SnakeCase
+
+```ts
+// TypeScript, issue #20928 (+8)
+type SnakeCase<T> = T extends `${infer A}${infer R}`
+  ? Uppercase<A> extends A
+    ? `_${Lowercase<A>}${SnakeCase<R>}`
+    : `${A}${SnakeCase<R>}`
+  : '';
+```
+
+```js
+// Builder
+function snakeCase(T: type): type {
+  return union(arms(T).map(a =>
+    literal(literalValues(a)[0].replace(/\p{Lu}/gu, c => `_${c.toLowerCase()}`))));
+}
+
+snakeCase(type 'hello') === type 'hello';
+snakeCase(type 'userName') === type 'user_name';
+snakeCase(type 'getElementById') === type 'get_element_by_id';
+snakeCase(type 'getElementById' | 'getElementByClassNames')
+  === type 'get_element_by_id' | 'get_element_by_class_names';
+```
+
+`Uppercase<A> extends A` is the letter test from challenge 35252 for the fourth time, now asking "is this an uppercase letter" rather than "is this a letter". `\p{Lu}` is that character class by name. The union case works on the TypeScript side because the conditional distributes, and on the builder side because `arms` returned a list and `map` is a loop.
+
+## 25747 · IsNegativeNumber
+
+```ts
+// TypeScript, issue #27809 (+5)
+type IsNegativeNumber<T extends number, U extends T = T> =
+  number extends T
+    ? never
+    : T extends U
+      ? [U] extends [T]
+        ? `${T}` extends `-${infer _}`
+          ? true
+          : false
+        : never
+      : never
+```
+
+```js
+// Builder
+function isNegativeNumber(T: type): type {
+  const node = reflect(T);
+  if (node.kind !== 'literal') return never;   // float64 and unions are not one literal
+  return node.value < 0 ? type true : type false;
+}
+
+isNegativeNumber(type 0) === type false;
+isNegativeNumber(float64) === never;
+isNegativeNumber(type -1 | -2) === never;
+isNegativeNumber(type -1.9) === true;
+isNegativeNumber(type -100_000_000) === type true;
+```
+
+The actual test is the last line: stringify the number and look for a minus sign. Everything above it is scaffolding to reject the two non-answers: `number extends T` catches the wide type, and `T extends U ? [U] extends [T] : never` is the is-this-one-literal check from challenge 30970 inlined, spending a distribution and a tuple-wrap to find out whether the union has one member. `node.kind !== 'literal'` is both of those, and `< 0` beats reading the sign out of a string.
+
+## 28143 · OptionalUndefined
+
+Make properties whose type includes `undefined` optional.
+
+```ts
+// TypeScript, issue #28200 (+8)
+type Merge<T> = {
+  [K in keyof T]:T[K]
+}
+
+type OptionalUndefined<
+  T,
+  Props extends keyof T = keyof T,
+  OptionsProps extends keyof T =
+    Props extends keyof T?
+      undefined extends T[Props]?
+        Props:never
+      :never
+> =
+  Merge<{
+    [K in OptionsProps]?:T[K]
+  } & {
+    [K in Exclude<keyof T,OptionsProps>    ]:T[K]
+  }>
+```
+
+```js
+// Builder
+function optionalUndefined(T: type, keys: type = keysOf(T)): type {
+  const names = new Set(arms(keys).map(k => literalValues(k)[0]));
+  return mapProperties(T, p =>
+    names.has(p.name) && arms(p.type).includes(undefined) ? { ...p, optional: true } : p);
+}
+
+optionalUndefined(type { value: string | undefined, desc: string }, type 'value')
+  === type { value?: string, desc: string };
+optionalUndefined(type { value: string | undefined, desc: string | undefined })
+  === type { value?: string, desc?: string };
+optionalUndefined(type { value: string, desc: string }, type 'value')
+  === type { value: string, desc: string };
+```
+
+Three type parameters, two of which are computed defaults, and `Merge` at the top is the flattening no-op wearing its own name (sixth sighting). The shape of the thing is: split the keys into two groups, build one object with `?` and one without, intersect them, and flatten. `mapProperties` with `optional: true` sets the flag on the properties that need it and leaves the rest alone, because a property is a record and the flag is a field.
+
+`undefined extends T[Props]` is `arms(p.type).includes(undefined)`, and it is worth noticing that TypeScript has to phrase a membership test as an assignability test one more time.
+
+## 30178 · Unique Items
+
+A function that only accepts tuples with no duplicates.
+
+```ts
+// TypeScript, issue #33600 (+2)
+type Ensure<T,  _P extends unknown[] = []> =
+  T extends [ infer F, ...infer R ]
+    ? Ensure<R, [ ..._P, F extends _P[number] ? never : F ]>
+    : _P extends T ? _P : _P
+
+function uniqueItems<const T>(items: Ensure<T>) {
+  return items
+}
+```
+
+```js
+// Builder
+function ensureUnique(T: type): type {
+  const types = tupleElements(T).map(e => e.type);
+  return tupleOf(types.map((t, i) => types.indexOf(t) === i ? t : never));
+}
+
+function uniqueItems<const T>(items: ensureUnique(T)) {
+  return items;
+}
+
+uniqueItems([1, 2, 3]);
+uniqueItems([1, 2, 2, 3]);   // error: parameter type is [1, 2, never, 3]
+```
+
+A different shape from everything else in this document: the type is not computed for its own sake, it is computed to make a *call* fail. `Ensure` rebuilds the tuple with `never` in the position of any repeat, and since nothing is assignable to `never`, the argument no longer matches and the call errors. Both versions work the same way and both rely on `const` type parameters to get literal types out of an array argument.
+
+The builder's `types.indexOf(t) === i` is the classic "keep first occurrence" test, and the only reason it can be written that way is that interned type objects compare with `===`. Compare the top-voted answer's `F extends _P[number]`, which is the assignability-as-membership problem from challenge 9898 all over again; it survives here because the harness's inputs happen not to contain a literal and its supertype.
+
+## 30575 · BitwiseXOR
+
+```ts
+// TypeScript, issue #32992 (+4)
+type BitwiseXOR<A extends string, B extends string, X extends string = ''>
+  = `${A}^${B}` extends `${infer C}1^${infer D}0` | `${infer C}0^${infer D}1` ? BitwiseXOR<C, D, `1${X}`>
+  : `${A}^${B}` extends `${infer C}1^${infer D}1` | `${infer C}0^${infer D}0` ? BitwiseXOR<C, D, `0${X}`>
+  : `${A}${B}${X}`
+```
+
+```js
+// Builder
+function bitwiseXOR(a: string, b: string): type {
+  const width = Math.max(a.length, b.length);
+  const [x, y] = [a.padStart(width, '0'), b.padStart(width, '0')];
+  return literal([...x].map((c, i) => c === y[i] ? '0' : '1').join(''));
+}
+
+bitwiseXOR('0', '1') === type '1';
+bitwiseXOR('1', '1') === type '0';
+bitwiseXOR('10', '1') === type '11';
+bitwiseXOR('101', '11') === type '110';
+```
+
+A lovely trick. To walk two strings in step you need to match them in one pattern, and the way to do that is to *glue them together with a separator that cannot appear in either*: `` `${A}^${B}` `` against `` `${infer C}1^${infer D}0` ``. The `^` is a fencepost, and matching the last bit of each side at once is what the challenge needs. Four cases become two patterns by unioning them, since `1^0` and `0^1` both give a `1`.
+
+The unequal-length case falls out because the shorter string runs out and stops matching, leaving `` `${A}${B}${X}` `` to concatenate the remainder onto the front, which works because one of `A` and `B` is empty by then. That is clever and it is also why `padStart` exists.
+
+## 31797 · Sudoku
+
+Is a solved Sudoku grid valid?
+
+```ts
+// TypeScript, issue #35572 (+1)
+type RN = [number];
+type R1 = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+type R3 = [0 | 1 | 2, 3 | 4 | 5, 6 | 7 | 8];
+type Values = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+type MapBool = { [N: number]: true; x: false };
+type MapX = { [N: number]: "x" } & Record<Values, never>;
+type NotAllX<V extends number, D extends number = Values> = {
+  [K in D]: MapX[K & V];
+}[D];
+
+type Check<M extends number[][], RI extends number[], RJ extends number[]> = {
+  [I in keyof RI]: { [J in keyof RJ]: NotAllX<M[RI[I]][RJ[J]]> }[number];
+}[number];
+
+type ValidSudoku1<M extends number[][]> = MapBool[
+  | Check<M, R1, RN>
+  | Check<M, RN, R1>
+  | Check<M, R3, R3>];
+
+type Flatten<T extends number[][]> = T extends [
+  infer L extends number[],
+  ...infer R extends number[][]
+]
+  ? [...L, ...Flatten<R>]
+  : [];
+type Get<M extends number[][][], K extends number[][] = []> = M extends [
+  infer L extends number[][],
+  ...infer R extends number[][][]
+]
+  ? Get<R, [...K, Flatten<L>]>
+  : K;
+type SudokuSolved<
+  M extends number[][][],
+  K extends number[][] = Get<M>
+> = ValidSudoku1<K>;
+```
+
+```js
+// Builder
+function sudokuSolved(M: type): type {
+  const rows = tupleElements(M).map(band =>
+    tupleElements(band.type).flatMap(cell => tupleElements(cell.type).map(v => literalValues(v.type)[0])));
+
+  const complete = (cells: [].<uint32>): boolean => new Set(cells).size === 9;
+  const at = (i: uint32, j: uint32): uint32 => rows[i][j];
+  const indices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+  const ok = indices.every(i => complete(indices.map(j => at(i, j))))
+          && indices.every(j => complete(indices.map(i => at(i, j))))
+          && indices.every(b => complete(indices.map(k =>
+               at(Math.floor(b / 3) * 3 + Math.floor(k / 3), (b % 3) * 3 + k % 3))));
+  return ok ? type true : type false;
+}
+```
+
+The hardest thing in the document to read, and the author's own comment on it is *"method 2: more ingenious"*.
+
+Work out `NotAllX`. `MapX` is an index signature saying every number maps to `'x'`, intersected with `Record<1|2|...|9, never>` saying the nine digits map to `never`. So `MapX[K & V]` is `never` when `K` and `V` are the same digit, and `'x'` otherwise. The mapped type runs that over all nine digits and indexes the result out, so `NotAllX<V>` is `'x'` if `V` is not one of the nine and `never` if it is: the whole thing is a *set-membership test built out of an index signature being shadowed by a Record*. Then `Check` maps that over a row and a column selector, `[number]` collapses each to a union, and `MapBool[...]` turns the presence of any `'x'` back into a boolean. `R3` is three groups of three, so `Check<M, R3, R3>` checks the boxes. `RN` is `[number]`, used as a wildcard selector meaning "all of them".
+
+There is a real algorithm in there and it is correct. It is also nine helper types, three of which exist to do a set lookup, and the fact that the box check works at all depends on `R3`'s arms being unions in exactly the right groups.
+
+`new Set(cells).size === 9`.
+
+## 31824 · Length of String 3
+
+The same challenge a third time, now for very long strings.
+
+```ts
+// TypeScript, issue #33269 (+5)
+type ToInt<S> = S extends `0${infer X}` ? ToInt<X> : S extends `${infer N extends number}` ? N : 0;
+
+type Q1 = string;
+type Q10 = `${Q1}${Q1}${Q1}${Q1}${Q1}${Q1}${Q1}${Q1}${Q1}${Q1 & {}}`;
+type Q100 = `${Q10}${Q10}${Q10}${Q10}${Q10}${Q10}${Q10}${Q10}${Q10}${Q10}`;
+type Q1000 = `${Q100}${Q100}${Q100}${Q100}${Q100}${Q100}${Q100}${Q100}${Q100}${Q100}`;
+type Q10k = `${Q1000}${Q1000}${Q1000}${Q1000}${Q1000}${Q1000}${Q1000}${Q1000}${Q1000}${Q1000}`;
+type Q100k = `${Q10k}${Q10k}${Q10k}${Q10k}${Q10k}${Q10k}${Q10k}${Q10k}${Q10k}${Q10k}`;
+
+type Len<S, Q extends string, R extends 1[] = []> = S extends `${Q}${infer T}`
+  ? Len<T, Q, [...R, 1]>
+  : [R['length'], S];
+
+type LengthOfString<S extends string> = Len<S, Q100k> extends [infer A extends number, infer S1]
+  ? Len<S1, Q10k> extends [infer B extends number, infer S2]
+    ? Len<S2, Q1000> extends [infer C extends number, infer S3]
+      ? Len<S3, Q100> extends [infer D extends number, infer S4]
+        ? Len<S4, Q10> extends [infer E extends number, infer S5]
+          ? Len<S5, Q1> extends [infer F extends number, string]
+            ? ToInt<`${A}${B}${C}${D}${E}${F}`>
+            : 0
+          : 0
+        : 0
+      : 0
+    : 0
+  : 0;
+```
+
+```js
+// Builder
+function lengthOfString(s: string): type {
+  return literal([...s].length);
+}
+```
+
+Third time. Challenge 298 counts one character at a time. Challenge 651 unrolls ten at a time. This one builds *patterns*: `Q10` is a template type of ten `string`s in a row, `Q100` is ten of those, up to `Q100k`, and then it strips off as many hundred-thousands as it can, then as many ten-thousands, then thousands, hundreds, tens, ones. That is long division in base ten, performed by pattern matching, and the six remainders `A` through `F` are literally the six decimal digits of the answer, which the last line concatenates into a string and parses. It measures a string up to a million characters long by decomposing it positionally.
+
+The `Q1 & {}` in `Q10` is load-bearing: without it `` `${string}${string}` `` collapses to `string` and the whole edifice evaporates. It is a no-op intersection whose only purpose is to stop a simplification.
+
+This is an extremely good answer and it is worth being clear about that. It is also the only challenge in this document whose test cases cannot be checked with a stock compiler. The harness builds a one-million-character string literal type to test against, and `tsc` dies with `JavaScript heap out of memory` and exit code 134; it passes cleanly with `--max-old-space-size=8192`. `[...s].length` runs in microseconds and iterates code points, which is the thing all three challenges are actually about.
+
+## 32427 · Unbox
+
+Unwrap functions, arrays, and promises, to a given depth.
+
+```ts
+// TypeScript, issue #32469 (+6)
+type Unbox<T, Depth = 0, Count extends any[] = [1]> = T extends ((...args: any[]) => infer R) | (infer R)[] | Promise<infer R>
+  ? Count['length'] extends Depth ? R : Unbox<R, Depth, [...Count, 1]>
+  : T
+```
+
+```js
+// Builder
+function unbox(T: type, depth: uint32 = 0): type {
+  const peel = (t: type): type | undefined => {
+    const node = reflect(t);
+    if (node.kind === 'function') return node.signatures[0].return.type;
+    if (node.kind === 'array' || node.kind === 'tuple') return node.element ?? union(node.elements.map(e => e.type));
+    if (node.generic?.base === Promise) return node.generic.arguments[0];
+    return undefined;
+  };
+  let out = T;
+  for (let i = 1; ; i++) {
+    const next = peel(out);
+    if (next === undefined || (depth !== 0 && i > depth)) return out;
+    out = next;
+    if (i === depth) return out;
+  }
+}
+
+unbox(type () => Promise.<() => [].<Promise.<boolean>>>) === boolean;
+unbox(type () => () => () => () => float64, 2) === type () => () => float64;
+unbox(type () => () => () => () => float64, 4) === float64;
+```
+
+`((...args: any[]) => infer R) | (infer R)[] | Promise<infer R>` is three patterns in one, with the same `infer R` in all three, so whichever matches binds `R` and the other two are ignored. That is a genuinely elegant use of union patterns and there is nothing clumsy about it. The builder's `peel` is a three-branch `if`, which is the same three cases with the shared variable made explicit rather than implicit.
+
+`Count extends any[] = [1]` is the depth counter, tuple-length again, and `Depth = 0` doubles as "all the way down" because the counter starts at one and never equals zero.
+
+## 32532 · Binary Addition
+
+```ts
+// TypeScript, issue #33275 (+0)
+type Bit = 1 | 0
+
+type LastBit<T extends Bit[]> = T extends [...Bit[], infer B extends Bit] ? B : never
+type PoppedBits<T extends Bit[]> = T extends [...infer Rest extends Bit[], Bit] ? Rest : never
+type FilterOne<T extends Bit[]> = T extends [] ? [] : [...(LastBit<T> extends 0 ? [] : [1]), ...FilterOne<PoppedBits<T>>]
+type NumOfOne<T extends Bit[]> = FilterOne<T>['length']
+
+type BinaryAdd<
+  A extends Bit[],
+  B extends Bit[],
+  Carry extends Bit = 0,
+  Result extends Bit[] = [],
+  // Internals
+  CurrentBitA extends Bit = LastBit<A>,
+  CurrentBitB extends Bit = LastBit<B>,
+  CurrentBitResult extends Bit = NumOfOne<[CurrentBitA, CurrentBitB, Carry]> extends (0 | 2) ? 0 : 1,
+  NextA extends Bit[] = PoppedBits<A> extends [] ? [0] : PoppedBits<A>,
+  NextB extends Bit[] = PoppedBits<B> extends [] ? [0] : PoppedBits<B>,
+  NextCarry extends Bit = NumOfOne<[CurrentBitA, CurrentBitB, Carry]> extends (2 | 3) ? 1 : 0,
+> = [A, B, Carry] extends [[0], [0], 0]
+  ? Result
+  : BinaryAdd<
+      NextA,
+      NextB,
+      NextCarry,
+      [CurrentBitResult, ...Result]
+    >
+```
+
+```js
+// Builder
+function binaryAdd(A: type, B: type): type {
+  const bits = (T: type): [].<uint32> => tupleElements(T).map(e => literalValues(e.type)[0]);
+  const [a, b] = [bits(A), bits(B)];
+  const out = [];
+  let carry = 0;
+  for (let i = 1; i <= Math.max(a.length, b.length) || carry; i++) {
+    const sum = (a.at(-i) ?? 0) + (b.at(-i) ?? 0) + carry;
+    out.unshift(literal(sum % 2));
+    carry = sum >> 1;
+  }
+  return tupleOf(out);
+}
+
+binaryAdd(type [1], type [1]) === type [1, 0];
+binaryAdd(type [0], type [1]) === type [1];
+```
+
+Eight type parameters, five of them marked `// Internals` by the author, which is a comment saying "these are locals and I have nowhere else to put them". `NumOfOne<[A, B, Carry]>` counts the set bits of a three-element tuple by *filtering it and taking the length*, and it is called twice, once for the sum bit and once for the carry, because the result of the first call cannot be reused. `extends (0 | 2)` and `extends (2 | 3)` are the truth table, spelled as membership in a union of counts, and they are correct and quite pretty.
+
+The builder is the addition loop from any textbook. `carry = sum >> 1`.
+
+## 33763 · Union to Object from key
+
+Keep the arms of a union that have a given key.
+
+```ts
+// TypeScript, issue #35025 (+4)
+type UnionToObjectFromKey<Union, Key> = Union extends Union
+  ? Key extends keyof Union
+    ? Union
+    : never
+  : never
+```
+
+```js
+// Builder
+function unionToObjectFromKey(U: type, key: type): type {
+  const name = literalValues(key)[0];
+  return union(arms(U).filter(a => reflect(a).properties.some(p => p.name === name)));
+}
+
+type Foo = { foo: string, common: boolean };
+type Bar = { bar: float64, common: boolean };
+unionToObjectFromKey(type Foo | Bar, type 'foo') === Foo;
+unionToObjectFromKey(type Foo | Bar, type 'common') === type Foo | Bar;
+```
+
+`Union extends Union` one more time, and by now it needs no explanation: a `filter` over a union is spelled as a tautology plus a conditional, because distribution is the only iteration a union has. The dropped arms become `never` and vanish when the results are re-unioned, which is why the filter works at all.
+
+## 34286 · Take Elements
+
+Take `n` from the front, or from the back if `n` is negative.
+
+```ts
+// TypeScript, issue #37396 (+3)
+type Take<
+  N extends number,
+  Arr extends any[],
+  Abs = `${N}` extends `-${infer NN extends number}` ? NN : N,
+  Res extends any[] = []
+> = Res["length"] extends Abs
+  ? Res
+  : Arr extends (N extends Abs ? [infer First, ...infer Rest] : [...infer Rest, infer Last])
+  ? Take<N, Rest, Abs, N extends Abs ? [...Res, First] : [Last, ...Res]>
+  : Res;
+```
+
+```js
+// Builder
+function take(n: int32, T: type): type {
+  const types = tupleElements(T).map(e => e.type);
+  return tupleOf(n >= 0 ? types.slice(0, n) : types.slice(n));
+}
+
+take(2, type [1, 2, 3]) === type [1, 2];
+take(-2, type [1, 2, 3]) === type [2, 3];
+take(0, type [1, 2, 3]) === type [];
+take(5, type [1, 2, 3]) === type [1, 2, 3];
+```
+
+`N extends Abs` is the sign test, and it appears three times in five lines: once to choose which end to destructure, once to choose which end to accumulate, and it is recomputed each time because there is nowhere to keep it. `Abs` is a computed type parameter, which is this language's `const`. `slice` takes negative indices, so `n >= 0` is the only branch the builder needs and the clamping cases fall out.
+
+## 35314 · Valid Sudoku
+
+The last hard challenge, and a repeat of 31797 with a flat grid.
+
+```ts
+// TypeScript, issue #35322 (+5)
+type RN = [number];
+type R1 = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+type R3 = [0 | 1 | 2,  3 | 4 | 5,  6 | 7 | 8];
+type Values = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+type MapBool = {[N: number]: true; x: false};
+type MapX = {[N: number]: 'x'} & Record<Values, never>;
+type NotAllX<V extends number, D extends number = Values> = {[K in D]: MapX[K & V]}[D];
+
+type Check<M extends number[][], RI extends number[], RJ extends number[]> = {
+  [I in keyof RI]: {[J in keyof RJ]: NotAllX<M[RI[I]][RJ[J]]>}[number];
+}[number];
+
+type ValidSudoku<M extends number[][]> = MapBool[
+  | Check<M, R1, RN>
+  | Check<M, RN, R1>
+  | Check<M, R3, R3>];
+```
+
+```js
+// Builder
+function validSudoku(M: type): type {
+  const grid = tupleElements(M).map(row => tupleElements(row.type).map(c => literalValues(c.type)[0]));
+  const complete = (cells: [].<uint32>): boolean => new Set(cells).size === 9;
+  const i9 = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+  return i9.every(i => complete(grid[i]))
+      && i9.every(j => complete(i9.map(i => grid[i][j])))
+      && i9.every(b => complete(i9.map(k =>
+           grid[Math.floor(b / 3) * 3 + Math.floor(k / 3)][(b % 3) * 3 + k % 3])))
+    ? type true : type false;
+}
+```
+
+The same nine helper types as challenge 31797, verbatim, because it is the same problem with the input reshaped: 31797 takes a 9x3x3 nesting and flattens it first, this one takes the 9x9 directly. The set-membership test built out of an index signature shadowed by a `Record` is unchanged, and so is the builder: `new Set(cells).size === 9` for rows, columns, and boxes.
+
+That completes the hard tier: fifty-five challenges.
+
+## 5 · Get Readonly Keys
+
+The first extreme challenge.
+
+```ts
+// TypeScript, issue #139 (+21)
+type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
+
+type GetReadonlyKeys<
+  T,
+  U extends Readonly<T> = Readonly<T>,
+  K extends keyof T = keyof T
+> = K extends keyof T ? Equal<Pick<T, K>, Pick<U, K>> extends true ? K : never : never;
+```
+
+```js
+// Builder
+function getReadonlyKeys(T: type): type {
+  return union(reflect(T).properties.filter(p => p.readonly).map(p => literal(p.name)));
+}
+
+interface Todo { readonly title: string, description: string, completed: boolean }
+getReadonlyKeys(Todo) === type 'title';
+```
+
+This is rated **extreme**. It is the hardest tier the repository has, above the fifty-five hard challenges and the hundred and four medium ones, and the task is to find out which properties are `readonly`.
+
+It is extreme because there is no way to ask. The answer imports the identity incantation, builds `Readonly<T>` for the whole object, picks each key from both versions, and compares the two one-key objects for identity: if making it readonly changed nothing, it was already readonly. That is challenge 5181's technique, and 5181 is rated hard, and the only difference between the two challenges is which half of the answer you keep.
+
+`p.readonly` is a boolean on a property record. The builder is a `filter`, and it is the same `filter` as challenges 57, 59, 89, 90, 2857, and 5181, with a different field name.
+
+## 151 · Query String Parser
+
+```ts
+// TypeScript, issue #21419 (+9)
+type ParseQueryString<S extends string> = S extends '' ? {} : MergeParams<SplitParams<S>>;
+
+// e.g. 'k1=v1&k2=v2&k2=v3&k1' => ['k1=v1', 'k2=v2', 'k2=v3', 'k1']
+type SplitParams<S extends string> =
+  S extends `${infer E}&${infer Rest}`
+    ? [E, ...SplitParams<Rest>]
+    : [S]
+;
+
+// e.g. ['k1=v1', 'k2=v2', 'k2=v3', 'k1']
+// => { k1: 'v1' } => { k1: 'v1', k2: ['v2', 'v3'] } => { k1: ['v1', true], k2: ['v2', 'v3'] }
+type MergeParams<T extends string[], M = {}> =
+  T extends [infer E, ...infer Rest extends string[]]
+    ? E extends `${infer K}=${infer V}`
+      ? MergeParams<Rest, SetProperty<M, K, V>>
+      : E extends `${infer K}`
+        ? MergeParams<Rest, SetProperty<M, K>>
+        : never
+    : M
+;
+```
+
+```js
+// Builder
+function parseQueryString(s: string): type {
+  const groups = new Map();
+  for (const part of s.split('&').filter(x => x !== '')) {
+    const eq = part.indexOf('=');
+    const [key, value] = eq === -1 ? [part, true] : [part.slice(0, eq), part.slice(eq + 1)];
+    const seen = groups.get(key) ?? [];
+    if (!seen.includes(value)) groups.set(key, [...seen, value]);
+  }
+  return objectOf([...groups].map(([key, values]) =>
+    prop(key, values.length === 1 ? literal(values[0]) : tupleOf(values.map(literal)))));
+}
+
+parseQueryString('') === type {};
+parseQueryString('k1') === type { k1: true };
+parseQueryString('k1&k1') === type { k1: true };
+parseQueryString('k1=v1&k1=v2') === type { k1: ['v1', 'v2'] };
+parseQueryString('k1=v1&k2=v2&k1=v2') === type { k1: ['v1', 'v2'], k2: 'v2' };
+```
+
+`SplitParams` is `String.prototype.split`, `MergeParams` is the `for` loop, and `SetProperty` (omitted above, another dozen lines) is the `Map` with its dedupe and its one-value-versus-list rule. This is a real parser and it is a fair fight in structure, but count the pieces: four type aliases and about thirty lines, against a `split`, a `Map`, and an `indexOf`.
+
+## 216 · Slice
+
+```ts
+// TypeScript, issue #22110 (+18)
+// if N is negative, convert it to its positive counterpart by the Arr
+type ToPositive<N extends number, Arr extends unknown[]> =
+  `${N}` extends `-${infer P extends number}`
+  ? Slice<Arr, P>['length']
+  : N
+
+// get the initial N items of Arr
+type InitialN<Arr extends unknown[], N extends number, _Acc extends unknown[] = []> =
+  _Acc['length'] extends N | Arr['length']
+  ? _Acc
+  : InitialN<Arr, N, [..._Acc, Arr[_Acc['length']]]>
+
+// remove the initial N items of Arr
+type RemoveInitialN<Arr extends unknown[], N extends number> =
+  N extends 0
+  ? Arr
+  : Arr extends [unknown, ...infer Rest]
+    ? RemoveInitialN<Rest, [...InitialN<Arr, N>] extends [unknown, ...infer R] ? R['length'] : never>
+    : []
+
+type Slice<
+  Arr extends unknown[],
+  Start extends number = 0,
+  End extends number = Arr['length'],
+> = RemoveInitialN<InitialN<Arr, ToPositive<End, Arr>>, ToPositive<Start, Arr>>
+```
+
+```js
+// Builder
+function slice(T: type, start: int32 = 0, end: int32 = tupleElements(T).length): type {
+  return tupleOf(tupleElements(T).map(e => e.type).slice(start, end));
+}
+
+slice(type [1, 2, 3, 4, 5], 2, 4) === type [3, 4];
+slice(type [1, 2, 3, 4, 5], 0, -1) === type [1, 2, 3, 4];
+slice(type [1, 2, 3, 4, 5], -3, -1) === type [3, 4];
+slice(type [1, 2, 3, 4, 5], 10) === type [];
+slice(type [1, 2, 3, 4, 5], 1, 0) === type [];
+slice(type [1, 2, 3, 4, 5]) === type [1, 2, 3, 4, 5];
+```
+
+Rated extreme. `Array.prototype.slice` has taken negative indices and clamped out-of-range ones since 1997, and the entire difficulty of this challenge is reimplementing that: `ToPositive` turns `-3` into `2` by *slicing the array by three and taking its length*, which is a recursive call to the thing being defined. Every one of the harness's "invalid" cases is a line in ECMA-262 that `slice` already handles.
+
+## 274 · Integers Comparator
+
+```ts
+// TypeScript, issue #11444 (+13)
+type Comparator<A extends number | string, B extends number | string>
+  = `${A}` extends `-${infer AbsA}`
+    ? `${B}` extends `-${infer AbsB}`
+      ? ComparePositives<AbsB, AbsA>
+      : Comparison.Lower
+    : `${B}` extends `-${number}`
+      ? Comparison.Greater
+      : ComparePositives<`${A}`, `${B}`>
+```
+
+```js
+// Builder
+function comparator(a: float64 | string, b: float64 | string): type {
+  const [x, y] = [BigInt(a), BigInt(b)];
+  return x < y ? Comparison.Lower : x > y ? Comparison.Greater : Comparison.Equal;
+}
+
+comparator(5, 5) === Comparison.Equal;
+comparator(-5, 0) === Comparison.Lower;
+comparator(0, -5) === Comparison.Greater;
+```
+
+The sign handling is the readable part and it is correct: negative beats nothing, and two negatives compare by their absolute values reversed. `ComparePositives` underneath is challenge 4425's digit-wise decimal comparison again, because the challenge takes strings so it can exceed float64 and the tuple encodings are hopeless past ten thousand anyway. `BigInt` is the answer to "numbers larger than a float64", and it has been in the language since 2020.
+
+## 462 · Currying 2
+
+Curry with any argument split.
+
+```ts
+// TypeScript, issue #3697 (+16)
+type Curry<A, R, D extends unknown[] = []> =
+    A extends [infer H, ...infer T]
+      ? T extends []
+        ? (...args: [...D, H]) => R
+        : ((...args: [...D, H]) => Curry<T, R>) & Curry<T, R, [...D, H]>
+      : () => R
+
+declare function DynamicParamsCurrying<A extends unknown[], R>(fn: (...args: A) => R): Curry<A, R>
+```
+
+```js
+// Builder
+function curry(parameters: [].<Reflect.TypeParameter>, R: type): type {
+  if (parameters.length === 0) return fn([], R);
+  return Reflect.makeType({ kind: 'intersection', members: parameters.map((_, i) => {
+    const [head, tail] = [parameters.slice(0, i + 1), parameters.slice(i + 1)];
+    return fn(head.map(p => p.type), tail.length === 0 ? R : curry(tail, R));
+  })});
+}
+
+declare function dynamicParamsCurrying<A, R>(f: (...args: A) => R): curry(A, R);
+
+const curried = dynamicParamsCurrying((a: string, b: number, c: boolean) => true);
+curried('a')(1)(true) === true;
+curried('a', 1)(true) === true;
+curried('a')(1, true) === true;
+```
+
+An overload set covering every way to split the arguments, and the recursion produces it by intersecting "take the first `k`" with "take one more". Both versions are the same idea. The builder's `members` is a list produced by a `map` over the split points, which makes the structure visible: there are exactly `n` ways to make the first call, and each leaves a smaller curry behind.
+
+This is one of the better challenges in the repository and one of the closer results in this document. `ThisType`, overload sets, and variadic tuples are real features doing real work, and the difference is only that one side can name the split point.
+
+## 476 · Sum
+
+```ts
+// TypeScript, issue #506 (+6). Eighty-six lines; the first twenty are shown.
+type Or<left extends boolean, right extends boolean> =
+  left extends true ? true : right extends true ? true : false;
+
+type CoalesceToString<n extends string | number | bigint> = n extends string ? n : `${n}`;
+
+type Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+
+type SubOneFromDigit<digit extends Digit> =
+  digit extends "1" ? "0"
+  : digit extends "2" ? "1"
+  : digit extends "3" ? "2"
+  : digit extends "4" ? "3"
+  : digit extends "5" ? "4"
+  : digit extends "6" ? "5"
+  : digit extends "7" ? "6"
+  : digit extends "8" ? "7"
+  : digit extends "9" ? "8"
+  : digit extends "10" ? "9"
+  : never;
+
+// ... AddOneToDigit, AddDigits, PadWithZeroes, AddSameLengthNumbers, and Sum follow
+```
+
+```js
+// Builder
+function sum(a: string | float64 | bigint, b: string | float64 | bigint): type {
+  return literal(String(BigInt(a) + BigInt(b)));
+}
+
+sum(2, 3) === type '5';
+sum('13', '21') === type '34';
+sum(9999, 1) === type '10000';
+sum(1_000_000_000_000n, '123') === type '1000000000123';
+sum(4325234, '39532') === type '4364766';
+```
+
+## 517 · Multiply
+
+```ts
+// TypeScript, issue #11580 (+1). Seventy-one lines; the head is shown. The top-voted answer
+// (#5814, +13) does not compile: its `Reverse<A>` interpolates an unconstrained `A`.
+type Multiply<
+  A extends number | string | bigint, B extends number | string | bigint,
+  ATuple extends number[] = ToTuple<A>, BTuple extends number[] = ToTuple<B>,
+> = ToString<TrimZeros<Sum<MultiplyToSum<ATuple, BTuple>>>>;
+
+type MultiplyToSum<
+  A extends number[],
+  B extends number[],
+  Result extends number[][] = [],
+  FullB extends number[] = B,
+  ABTrailingZeros extends 0[] = [],
+  ATrailingZeros extends 0[] = ABTrailingZeros
+> =
+  A extends [...infer AS extends number[], infer AL extends number]
+  ? B extends [...infer BS extends number[], infer BL extends number]
+    ? MultiplyToSum<A, BS, [...Result, [...MultTable[AL][BL], ...ABTrailingZeros]], FullB, [0, ...ABTrailingZeros]>
+    : MultiplyToSum<AS, FullB, Result, FullB, [0, ...ATrailingZeros], [0, ...ATrailingZeros]>
+  : Result;
+
+// ... MultTable, ToTuple, ToString, TrimZeros, Sum follow
+```
+
+```js
+// Builder
+function multiply(a: string | float64 | bigint, b: string | float64 | bigint): type {
+  return literal(String(BigInt(a) * BigInt(b)));
+}
+
+multiply(2, 3) === type '6';
+multiply(0, 16) === type '0';
+multiply('13', '21') === type '273';
+multiply('43423', 321543n) === type '13962361689';
+multiply(9999, 1) === type '9999';
+```
+
+These two are the end of the road the whole arithmetic column has been on, and the repository is honest about where it leads: they are rated extreme, they are eighty-six and seventy-one lines, and they are `+` and `*`.
+
+Every technique this document has catalogued is in them. Digit lookup tables, per-digit carry propagation, `PadWithZeroes` to align operands, `TrimZeros` to clean up after, a nine-by-nine multiplication table, and long multiplication accumulating partial products with trailing zeros for place value. The work is good. The authors of these answers implemented decimal arithmetic correctly, from nothing, in a language with no numbers, and got it right.
+
+The signatures take `string | number | bigint` and return a string, which is the tell: the challenges are about arithmetic on values too large to be a `number`, and every answer's real subject is the representation, not the operation. JavaScript shipped `BigInt` in 2020, so `BigInt(a) * BigInt(b)` is exact at any size, and `String()` puts it back. One line each.
+
+## 697 · Tag
+
+Nominal tags that are order-insensitive and idempotent.
+
+```ts
+// TypeScript, issue #1947 (+5). One hundred and nine lines; the head is shown.
+type IsNever<T> = [T] extends [never] ? true : false
+type IsAny<T> = 0 extends (1 & T) ? true : false
+type Is<T, K> = [T] extends [K] ? [K] extends [T] ? true : false : false
+
+type StartsWith<T extends any[], K extends any[]> =
+  T extends [infer T0, ...infer Tr]
+  ? K extends [infer K0, ...infer Kr]
+    ? Is<T0, K0> extends true ? StartsWith<Tr, Kr> : false
+    : true
+  : IsNever<K[0]>
+
+// ... Insert, Sorted, TagList, Tagged, Tag, UnTag follow
+```
+
+```js
+// Builder
+const TAGS = Symbol('tags');
+
+function tag(T: type, name: string): type {
+  const existing = reflect(T).properties.find(p => p.name === TAGS);
+  const names = existing === undefined ? [] : literalValues(existing.type).map(String);
+  const merged = [...new Set([...names, name])].sort();
+  return objectOf([
+    ...reflect(T).properties.filter(p => p.name !== TAGS),
+    { ...prop(TAGS, union(merged.map(literal))), optional: true, readonly: true },
+  ]);
+}
+
+function unTag(T: type): type {
+  return objectOf(reflect(T).properties.filter(p => p.name !== TAGS));
+}
+
+interface I { foo: string }
+tag(tag(I, 'a'), 'b') === tag(tag(I, 'b'), 'a');   // order does not matter
+tag(tag(I, 'a'), 'a') === tag(I, 'a');             // tagging twice does not
+unTag(tag(tag(I, 'c'), 'b')) === I;
+```
+
+The requirement is that `Tag<Tag<I, 'a'>, 'b'>` and `Tag<Tag<I, 'b'>, 'a'>` be the *same type*, which means the tags have to be canonicalized. TypeScript has no set and no sort, so the answer builds both: `Insert` puts a tag into a sorted list by walking it and comparing, `Sorted` checks the invariant, `StartsWith` compares two lists element by element with `Is` (the double-tuple-wrapped identity test), and `IsNever` and `IsAny` guard the edges. One hundred and nine lines to keep a set of strings in order.
+
+`[...new Set(names)].sort()` is a set and a sort. The builder puts them behind a symbol key, which is what challenge 553 established: a phantom property nobody has to provide, carrying data the type system compares structurally. Interning does the rest, since two objects built from the same sorted list are the same object.
+
+## 734 · Inclusive Range
+
+```ts
+// TypeScript, issue #6111 (+5)
+type InclusiveRange<Lower extends number,Higher extends number, C extends any[] = [], I = false, R extends number[] = []> =
+  I extends true ?
+    C["length"] extends Higher ?
+      [...R, Higher] :
+    InclusiveRange<Lower, Higher, [...C, 1], true, [...R, C["length"]]> :
+  C["length"] extends Lower ?
+    InclusiveRange<Lower, Higher, C, true, R> :
+  C["length"] extends Higher ?
+    [] :
+  InclusiveRange<Lower, Higher, [...C, 1], I, R>
+```
+
+```js
+// Builder
+function inclusiveRange(low: int32, high: int32): type {
+  return tupleOf(Array.from({ length: Math.max(0, high - low + 1) }, (_, i) => literal(low + i)));
+}
+
+inclusiveRange(200, 1) === type [];
+inclusiveRange(5, 5) === type [5];
+inclusiveRange(0, 10) === type [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+```
+
+Five type parameters, of which `I` is a boolean flag meaning "we have reached the lower bound and are now collecting", threaded through every call because there is nowhere else to keep it. The counter walks from zero to `Higher` regardless of where `Lower` is, so `InclusiveRange<1, 200>` counts to two hundred twice over: once in `C` and once in `R`. `Math.max(0, high - low + 1)` is the length, and the `[]` case for an inverted range falls out of it.
+
+## 741 · Sort
+
+```ts
+// TypeScript, issue #856 (+9). Forty-seven lines; the head is shown.
+type Iterator<n, iterator extends any[] = []> =
+  iterator['length'] extends n
+    ? iterator
+    : Iterator<n, [any, ...iterator]>
+
+type LessThanOrEqual<a extends any[], b extends any[]> =
+  [a, b] extends [[], [any, ...any]]
+    ? true
+    : [a, b] extends [[any, ...any], []]
+      ? false
+      : [a, b] extends [[any, ...infer as], [any, ...infer bs]]
+        ? LessThanOrEqual<as, bs>
+        : true
+
+// ... Insert, Sort follow
+```
+
+```js
+// Builder
+function sort(T: type, descending: boolean = false): type {
+  const values = tupleElements(T).map(e => literalValues(e.type)[0]);
+  return tupleOf([...values].sort((a, b) => descending ? b - a : a - b).map(literal));
+}
+
+sort(type []) === type [];
+sort(type [3, 2, 1]) === type [1, 2, 3];
+sort(type [2, 4, 7, 6, 6, 6, 5, 8, 9], true) === type [9, 8, 7, 6, 6, 6, 5, 4, 2];
+```
+
+An insertion sort, and the comparison at the bottom of it is the thing to look at: `LessThanOrEqual` converts both numbers to tuples of that length and then removes one element from each until one of them runs out. To decide `7 <= 9` it builds a seven-element tuple and a nine-element tuple and peels them in lockstep. Every comparison in the sort does this again, from scratch.
+
+`Array.prototype.sort` takes a comparator. `descending ? b - a : a - b` is the whole difference between the two halves of the test suite.
+
+## 869 · DistributeUnions
+
+Turn a structure containing unions into a union of structures.
+
+```ts
+// TypeScript, issue #11761 (+9)
+type DistributeUnions<T>
+  = T extends unknown[] ? DistributeArray<T>
+  : T extends object ? Merge<DistributeObject<T>>
+  : T
+
+type DistributeArray<A extends unknown[]>
+  = A extends [infer H, ...infer T]
+  ? ArrHelper<DistributeUnions<H>, T>
+  : []
+type ArrHelper<H, T extends unknown[]> = H extends H ? [H, ...DistributeArray<T>] : never
+
+type DistributeObject<O, K extends keyof O = keyof O>
+  = K extends keyof O
+  ? ObjHelper<O, K, DistributeUnions<O[K]>>
+  : never
+type ObjHelper<O, K extends keyof O, V> = V extends V
+  ? { [P in K]: V } & DistributeObject<Omit<O, K>>
+  : never
+
+type Merge<T> = T extends unknown ? { [K in keyof T]: T[K] } : never
+```
+
+```js
+// Builder
+function distributeUnions(T: type): type {
+  const cross = (columns: [].<[].<type>>): [].<[].<type>> =>
+    columns.length === 0 ? [[]]
+      : cross(columns.slice(1)).flatMap(rest => columns[0].map(head => [head, ...rest]));
+
+  const node = reflect(T);
+  if (node.kind === 'tuple')
+    return union(cross(node.elements.map(e => arms(distributeUnions(e.type)))).map(tupleOf));
+  if (node.kind === 'object')
+    return union(cross(node.properties.map(p => arms(distributeUnions(p.type))))
+      .map(row => objectOf(node.properties.map((p, i) => ({ ...p, type: row[i] })))));
+  return T;
+}
+
+distributeUnions(type [1 | 2, 'a' | 'b'])
+  === type [1, 'a'] | [1, 'b'] | [2, 'a'] | [2, 'b'];
+distributeUnions(type { a: 1 | 2, b: 'x' }) === type { a: 1, b: 'x' } | { a: 2, b: 'x' };
+```
+
+A cross product over every field, which is the same shape as challenge 27862 and challenge 8767, and here it needs two helper types (`ArrHelper`, `ObjHelper`) whose entire job is to be a place where `H extends H` and `V extends V` can be written, because distribution only happens on a naked type parameter and the value being distributed arrives as the result of a call. `Merge` at the end is the flattening no-op, seventh sighting.
+
+`cross` is the cross product, and it is the same six lines as `perms` in the preamble.
+
+## 925 · Assert Array Index
+
+An index type that lets you read an array without `| undefined`.
+
+```ts
+// TypeScript, issue #7058 (+4). Sixty-eight lines; the head is shown.
+type HashMapHelper<T extends number, R extends unknown[] = []> = R['length'] extends T
+  ? R
+  : HashMapHelper<T, [...R, unknown]>
+
+type HashMap = {
+  '0': HashMapHelper<0>
+  '1': HashMapHelper<1>
+  '2': HashMapHelper<2>
+  // ... through '9'
+}
+
+// ... StringToTuple, Add, Index, assertArrayIndex follow
+```
+
+```js
+// Builder
+declare function assertArrayIndex<T extends [].<any>, K extends string>(
+  array: T, key: K): asserts array is T & { [INDEX]?: K };
+
+type Index<T> = /* the branded index type for T */;
+```
+
+The one challenge in the repository that needs a compiler option changed: its test cases only typecheck with `noUncheckedIndexedAccess` on, which `tsconfig.base.json` does not set. The README says so, so this is a documented requirement rather than a bug, but it does mean the challenge cannot be checked by the repo's own configuration.
+
+The answer's `HashMap` is a lookup table from each digit character to a tuple of that length, and `StringToTuple` and `Add` build on it, because the index type has to do arithmetic to stay in bounds and the arithmetic has to be built first. Sixteen challenges in this document build a tuple purely to count with it, and this is one more.
+
+## 6228 · JSON Parser
+
+```ts
+// TypeScript, issue #6329 (+16)
+//My answer is only for the test cases
+type Parse<T extends string> = Eval<T> extends [infer V, infer U] ? V : never
+
+type Eval<T>
+  = T extends `${' '|'\n'}${infer U}` ? Eval<U>
+  : T extends `true${infer U}` ? [true, U]
+  : T extends `false${infer U}` ? [false, U]
+  : T extends `null${infer U}` ? [null, U]
+  : T extends `"${infer V}"${infer U}` ? [V, U]
+  : T extends `[${infer U}` ? EvalArray<U>
+  : T extends `{${infer U}` ? EvalObject<U>
+  : never
+
+// ... EvalArray, EvalObject follow
+```
+
+```js
+// Builder
+function parse(source: string): type {
+  const build = (v): type =>
+    v === null ? type null
+    : Array.isArray(v) ? tupleOf(v.map(build))
+    : typeof v === 'object' ? objectOf(Object.entries(v).map(([k, x]) => prop(k, build(x))))
+    : literal(v);
+  return build(JSON.parse(source));
+}
+
+parse('{"a": "b", "b": false, "c": [true, false, "hello"], "nil": null}')
+  === type { a: 'b', b: false, c: [true, false, 'hello'], nil: null };
+```
+
+A recursive-descent parser, written as conditional types, and it is legitimately impressive: whitespace skipping, three literal keywords, quoted strings, arrays, objects, and a `[value, rest]` pair threaded through every production to carry the remaining input, which is exactly how you write a parser combinator by hand in any language. The author's first line is `//My answer is only for the test cases`, which is a fair warning: it does not handle numbers, escapes, or nesting depth beyond what the harness asks.
+
+`JSON.parse` has been in the language since 2009 and handles all of it. The builder's remaining work is turning the parsed value into a type, which is the recursion `build` does in four lines, and the fact that `parse` runs at compile time is the entire point of the proposal: the compiler runs your JavaScript.
+
+## 7561 · Subtract
+
+The last arithmetic challenge in the repository.
+
+```ts
+// TypeScript, issue #11216 (+8)
+type Tuple<T, Res extends 1[] = []> = 0 extends 1 ? never : Res['length'] extends T ? Res : Tuple<T, [...Res, 1]>;
+
+type Subtract<M extends number, S extends number> = Tuple<M> extends [...Tuple<S>, ...infer Rest] ? Rest['length'] : never
+```
+
+```js
+// Builder
+function subtract(m: uint32, s: uint32): type {
+  return m >= s ? literal(m - s) : never;
+}
+
+subtract(1, 1) === type 0;
+subtract(2, 1) === type 1;
+subtract(1, 2) === never;
+subtract(1000, 999) === type 1;
+```
+
+Three lines, and the best thing in the document, for two reasons.
+
+The first is `0 extends 1 ? never : ...`. That condition is always false, so the branch is dead and the type means exactly what it would without it. Its only purpose is to defer instantiation, and it works: I checked. With the guard, `Subtract<1000, 999>` evaluates to `1`. Remove it, change nothing else, and the compiler answers `error TS2589: Type instantiation is excessively deep and possibly infinite`. A no-op conditional is the difference between the answer working and not working.
+
+The second is the harness:
+
+```ts
+Expect<Equal<Subtract<1, 1>, 0>>,
+Expect<Equal<Subtract<2, 1>, 1>>,
+Expect<Equal<Subtract<1, 2>, never>>,
+// @ts-expect-error
+Expect<Equal<Subtract<1000, 999>, 1>>,
+```
+
+The last line says that `1000 - 999` must **fail**. Not "may be slow", not "is left as an exercise": the test asserts an error, so the exercise formally specifies that subtracting nine hundred and ninety-nine from a thousand does not work. And because this answer's guard beats the ceiling and computes `1`, the directive goes unused and `tsc` reports `error TS2578: Unused '@ts-expect-error' directive`. **The top-voted answer fails the test suite because it is correct.**
+
+The challenge is `-`. It is rated extreme. `m - s`.
+
+## 31447 · CountReversePairs
+
+Count the inversions: pairs where an earlier element is greater than a later one.
+
+```ts
+// TypeScript, issue #31605 (+2)
+type SimpleGreaterThan<A extends number, B extends number, _StackA extends 1[] = [], _StackB extends 1[] = []> =
+  `${A}${B}` extends `-${infer NA extends number}-${infer NB extends number}` ?
+  SimpleGreaterThan<NB, NA> : //Negative
+  `${A}` extends `-${number}` ? false : //only A Negative
+  `${B}` extends `-${number}` ? true : //only B Negative
+  _StackA['length'] extends A ? false :
+  _StackB['length'] extends B ? true :
+  SimpleGreaterThan<A, B, [..._StackA, 1], [..._StackB, 1]>
+
+// ... CountReversePairs follows
+```
+
+```js
+// Builder
+function countReversePairs(T: type): type {
+  const values = tupleElements(T).map(e => literalValues(e.type)[0]);
+  return literal(values.reduce((n, a, i) => n + values.slice(i + 1).filter(b => a > b).length, 0));
+}
+
+countReversePairs(type [5, 2, 6, 1]) === type 4;
+countReversePairs(type [1, 2, 3, 4]) === type 0;
+countReversePairs(type [-1, -1]) === type 0;
+```
+
+`SimpleGreaterThan` counts two tuples up in parallel and reports whichever runs out first, with the sign cases peeled off in front by string matching, and note the third one: `` `${A}${B}` extends `-${infer NA}-${infer NB}` `` concatenates the two numbers to test both signs in a single pattern, which is challenge 30575's fencepost trick without a fencepost, and works here because a minus sign can only appear at the start.
+
+`a > b`.
+
+## 31997 · Parameter Intersection
+
+Merge two parameter lists, intersecting positionally and handling rest elements.
+
+```ts
+// TypeScript, issue #33210 (+3)
+type Arr = readonly unknown[];
+
+type Intr<A, B> = [A, B] extends [object, object] ? {[K in keyof (A & B)]: (A & B)[K]} : A & B;
+
+type IntersectParameters<X extends Arr, Y extends Arr, R extends Arr = []> = X extends readonly []
+  ? [...R, ...Y]
+  : Y extends readonly []
+    ? [...R, ...X]
+    : [X, Y] extends [readonly [infer XH, ...infer XR], readonly [infer YH, ...infer YR]]
+      ? IntersectParameters<XR, YR, [...R, Intr<XH, YH>]>
+      : [X, Y] extends [readonly [(infer XH)?, ...infer XR], readonly [(infer YH)?, ...infer YR]]
+        ? IntersectParameters<XR, YR, [...R, Intr<XH, YH>?]>
+        : [...R, ...{[K in keyof X]: Intr<X[K], Y[number]>}];
+```
+
+```js
+// Builder
+function intersectParameters(X: [].<Reflect.TypeParameter>, Y: [].<Reflect.TypeParameter>):
+    [].<Reflect.TypeParameter> {
+  const both = (a, b) => Reflect.makeType({ kind: 'intersection', members: [a.type, b.type] });
+  const out = [];
+  for (let i = 0; i < Math.max(X.length, Y.length); i++) {
+    const [x, y] = [X[i], Y[i]];
+    if (x === undefined || y === undefined) out.push({ ...(x ?? y), index: i });
+    else out.push({ ...x, index: i, type: both(x, y), optional: x.optional && y.optional });
+  }
+  return out;
+}
+```
+
+The last extreme challenge and one of the most honest ones: parameter lists have positions, optionality, and rest elements, and merging two of them means handling all three. The TypeScript version needs four branches, two of which differ only in whether the destructured element is `(infer XH)?` or `infer XH`, because optionality cannot be read and has to be matched. `Intr` is the flattening no-op again (eighth sighting), applied per position.
+
+The builder walks two lists with an index, and this is the one place in the document where the parameter records' `index` field earns its keep rather than costing: the loop assigns positions because positions are what it is computing. Challenge 3196 charged the builder a renumbering tax for the same field, and this is the refund.
+
+## 33345 · Dynamic Route
+
+Next.js route parameters.
+
+```ts
+// TypeScript, issue #33631 (+5). Thirty-six lines; the head is shown.
+type SlashSplit<T extends string> =
+  T extends `` ? [] :
+  T extends `/${infer TSingle}` ? [...SlashSplit<TSingle>] :
+  T extends `${infer TDouble1}/${infer TDouble2}` ? [TDouble1, ...SlashSplit<TDouble2>] :
+  [T];
+
+type PartialRoute<S extends string> = S extends `[[...]]` ? { [K in `...`]?: string } :
+  // ... catch-all, optional catch-all, and plain segments follow
+```
+
+```js
+// Builder
+function dynamicRoute(path: string): type {
+  const properties = path.split('/').filter(Boolean).flatMap(segment => {
+    const inner = /^\[(.+)\]$/.exec(segment)?.[1];
+    if (inner === undefined) return [];
+    const optional = /^\[(.+)\]$/.exec(inner);
+    const name = optional?.[1] ?? inner;
+    const rest = name.startsWith('...');
+    const key = rest ? name.slice(3) : name;
+    if (key === '') return [];
+    return [{ ...prop(key, rest ? [].<string> : string), optional: optional !== null }];
+  });
+  return objectOf(properties);
+}
+
+dynamicRoute('/shop') === type {};
+dynamicRoute('/shop/[]') === type {};
+dynamicRoute('/shop/[slug]') === type { slug: string };
+dynamicRoute('/shop/[slug]/[foo]') === type { slug: string, foo: string };
+```
+
+The last challenge in the repository, and a good one to end on because it is a real thing people actually want: Next.js has this exact feature and the types for it are written this way in production. `SlashSplit` is `split('/')`, the bracket cases are a regex, and `[[...slug]]` being optional is a flag on a property record.
+
+Both solutions are the same program. One is thirty-six lines of pattern matching and the other is nine lines of string handling, and the honest summary of the whole document is in that ratio: not that TypeScript's authors are doing it wrong, but that they are doing it without `split`, without `Set`, without `===`, without `+`, and without anywhere to put a variable.
+
 ## Notes
 
 **Identity was the whole game, and the harness proves it.** Challenge 898 is the clearest result across all twenty. Its expected values are chosen precisely to break assignability-based answers (`boolean` excludes `false`, `{ a }` excludes `{ readonly a }`, `[1]` excludes `1 | 2`), so every passing TypeScript solution carries the `IsEqual` incantation: two generic function signatures whose relation the checker happens to decide the right way, found in a 2018 issue comment and never blessed as a feature. With interned type objects it is `===`, and the challenge collapses to `.some`. The same incantation is what the harness's own `Expect<Equal<X, Y>>` is built from, which is why every case in this document is written as a plain assertion instead: the challenges' tooling is the first thing the builder model deletes, and each of those assertions is also a line that runs. Challenge 898 additionally settles a claim [type programming](../typeprogramming.md) only asserts in the abstract, that `readonly` is where identity and inter-assignability come apart. The harness agrees.
@@ -3939,7 +6255,7 @@ The next batch supplies the rest of the family. `IsNever` wraps its operand in a
 
 Both answers are defensible and the choice is not local. Reducing is what a reader expects from interning, since `string | 'a'` and `string` are inhabited by exactly the same values and the promise of `===` is that structurally identical types are one object; declining to reduce means two type objects with identical value sets are different types, which weakens `===` from "same type" to "same spelling". But reducing means canonicalization must run assignability, and assignability is defined coinductively over interned types, so the two become mutually recursive at the exact point where the fixpoint machinery already lives. It also spreads: does `float32.<{ nonZero: true }> | float32` reduce to `float32`, and does a metadata `subtype` hook get consulted during interning? The recommendation is to reduce, and to specify the recursion, because `arms` is the foundation of every union builder in the catalog and its behavior on `string | 'a'` should not be an accident of the order the arms were written in. What matters most is that the document say which, since forty of these fifty challenges lean on `arms` or `union` somewhere.
 
-**Seventeen of these hundred and thirty top-voted answers no longer pass.** The full list is challenges 15, 16, 949, 2946, 3062, 4425, 4484, 5140, 5310, 5317, 9898, 27133, 27958, 30301, 6, 112, and 213, checked against the repo's current test cases with TypeScript 5.9.3. That is one in eight, on a corpus whose whole purpose is to be checked, with hundreds of votes between them.
+**Twenty-three of these hundred and ninety top-voted answers no longer pass.** The full list is challenges 15, 16, 949, 2946, 3062, 4425, 4484, 5140, 5310, 5317, 9898, 27133, 27958, 30301, 6, 112, 213, 270, 300, 2822, 13580, 517, and 7561, checked against the repo's current test cases with TypeScript 5.9.3. That is one in eight, on a corpus whose whole purpose is to be checked, with hundreds of votes between them. The last of them fails for a reason worth its own paragraph, below.
 
 **The ceiling has a number, and it is 10,000.** Challenge 27133 asks for `n` squared, and it is the sharpest thing in the document about what the tuple encodings actually cost. The obvious answer builds an `n * n`-element tuple and reads its length. The top-voted answer is a genuinely clever refinement of that: `SplitZeroes` factors trailing zeros out of the input, so `Square<100>` becomes `Square<1>` with `'0000'` glued on the end, and every round number stays small. The harness includes `Square<101>`, and the refinement dies:
 
@@ -3949,13 +6265,35 @@ error TS2799: Type produces a tuple type that is too large to represent.
 
 10,201 is over TypeScript's tuple ceiling of 10,000, and `101` has no trailing zeros to factor. So the passing answer implements decimal long multiplication instead: sixteen helper types for digit splitting, digit addition via tuple concatenation, carry extraction, operand padding, right-to-left digit walking, and reassembly through a string. It is excellent work and it exists entirely to get out from under a limit that exists entirely because the language counts with lists. `Square<101>` sits in the harness beside `GreaterThan<1234567891011, 1234567891010>` and `ConstructTuple<1000>`, three cases in three unrelated challenges, all placed to force the same admission. The builder writes `n * n`.
 
+The hard tier has the other kind of ceiling, on recursion depth rather than tuple size, and two challenges are shaped entirely by it. Capitalize Words (112) recurses once per character, and its top-voted answer dies on the harness's fifty-character string with "type instantiation is excessively deep": the recursive call sits inside a template literal, so it is not a tail call, and TypeScript's tail-recursion elimination does not apply. The passing answer threads an accumulator for no reason other than to make the common branch a tail call. Length of String 2 (651) is the same limit met head-on: it is challenge 298 with a longer input and a harder difficulty rating, and the answer is a **manual loop unroll**, matching ten characters at a time and adding ten to the counter, with the one-at-a-time version kept as the remainder loop. That is the optimization a compiler backend performs, written out by hand, in a type, to buy a factor of ten against a limit. `[...s].length` has no limit and iterates code points.
+
+The whole arc is visible in one function asked three times. **Length of String** is challenge 298 at medium, 651 at hard, and 31824 at hard again, and the only thing that changes between them is how long the input is. 298 counts one character at a time. 651 unrolls the loop ten-fold by hand. 31824 gives up on counting entirely and does long division in base ten *by pattern matching*: `Q10` is a template type of ten `string`s in a row, `Q100` is ten of those, up to `Q100k`, and the answer strips off as many hundred-thousands as it can, then ten-thousands, then thousands, hundreds, tens, ones, so that the six remainders are literally the six decimal digits, which the last line concatenates and parses. The `Q1 & {}` in its definition is load-bearing: without the no-op intersection, `` `${string}${string}` `` collapses to `string` and the edifice evaporates. It is an extremely good answer. It is also the only challenge in this document whose tests cannot be checked with a stock compiler: the harness builds a one-million-character string literal type, and `tsc` exits 134 with `JavaScript heap out of memory` unless given `--max-old-space-size=8192`. `[...s].length` is the same three times, runs in microseconds, and iterates code points.
+
+**And one answer fails because it is correct.** Challenge 7561 is subtraction, rated extreme, and its top-voted answer is three lines. The harness reads:
+
+```ts
+Expect<Equal<Subtract<1, 1>, 0>>,
+Expect<Equal<Subtract<2, 1>, 1>>,
+Expect<Equal<Subtract<1, 2>, never>>,
+// @ts-expect-error
+Expect<Equal<Subtract<1000, 999>, 1>>,
+```
+
+The last line asserts an *error*. Not that it is slow, not that it is out of scope: the exercise formally specifies that subtracting nine hundred and ninety-nine from one thousand does not work. That is the same admission as `ConstructTuple<1000>` and `Square<101>`, except this time the answer beats it. Its `Tuple` opens with `0 extends 1 ? never : ...`, a condition that is always false, so the branch is dead and the type means exactly what it would without it. Its only function is to defer instantiation, and I checked what it buys: with the guard, `Subtract<1000, 999>` evaluates to `1`; delete it and change nothing else, and the compiler answers `error TS2589: Type instantiation is excessively deep and possibly infinite`. A no-op conditional is the difference between the answer working and not.
+
+So the answer computes `1`, the `@ts-expect-error` goes unused, `tsc` reports `error TS2578: Unused '@ts-expect-error' directive`, and the top-voted answer fails the test suite. The challenge is `-`. The builder is `m - s`.
+
 **Two of them are traps the harness set on purpose.** Challenge 4425's `GreaterThan` is the sharpest case in the document. The obvious answer builds a tuple of length `N` and compares lengths, and both published tuple answers do exactly that, including the top-voted one. The harness kills them with `GreaterThan<1234567891011, 1234567891010>`, which asks for a tuple of 1.2 trillion elements and gets "type instantiation is excessively deep" instead. That case was added to force a real algorithm, and the only answers that survive it compare decimal digits by substring search. Challenge 4484's `IsTuple` fails on `never` for the reason `IsNever` exists: the top-voted answer omits the `[T] extends [never]` wrapper, so the conditional distributes over the empty union and returns `never` rather than `false`. Both are the same story as `Pop` and `Shift`: the failing answers are the ones a competent person writes first, and the language gives no signal that the case they miss exists.
 
-**The harness's own hack is load-bearing inside the answers.** Seven challenges (898 Includes, 5153 IndexOf, 5317 LastIndexOf, 5360 Unique, 9898 Appear only once, 27958 CheckRepeatedTuple, 30970 IsFixedStringLiteralType) cannot be solved without type equality, and TypeScript has none, so each published answer imports `Equal` from `@type-challenges/utils`, restates it inline, or reinvents it: challenge 9898's passing answer builds `[U] extends [T]` with both operands tuple-wrapped to suppress distribution, which is a third spelling of the same missing operator.
+**The harness's own hack is load-bearing inside the answers.** Ten challenges (898 Includes, 5153 IndexOf, 5317 LastIndexOf, 5360 Unique, 9898 Appear only once, 27958 CheckRepeatedTuple, 30970 IsFixedStringLiteralType, 5181 Mutable Keys, 9384 Maximum, 5 Get Readonly Keys) cannot be solved without type equality, and TypeScript has none, so each published answer imports `Equal` from `@type-challenges/utils`, restates it inline, or reinvents it: challenge 9898's passing answer builds `[U] extends [T]` with both operands tuple-wrapped to suppress distribution, which is a third spelling of the same missing operator.
 
 And then there is challenge 19749, which asks you to implement `Equal` itself, and is the quiet centre of this whole document. Its answer already ships in the repository, in `utils/index.d.ts`, because the harness needs it to grade the other ninety-nine. It has **zero** posted solutions: every other challenge here has answers running from single digits into the hundreds, and this one has none, which makes sense for a puzzle whose answer is quotable from the framework's own source and originates in a 2018 comment about checker internals rather than in anything a person could derive. The mechanism is worth stating once, plainly: `(<T>() => T extends X ? 1 : 2)` is a generic function type nobody will call, two of them are compared for assignability, and the checker settles that comparison by structurally comparing the deferred conditionals inside, which it can only do by comparing `X` and `Y` for identity. The identity relation exists. It is reachable only as an observable side effect of how function assignability happens to be implemented, and it is not specified to work this way. Interned type objects have identity because that is what interning means, and `A === B` is not a solution to a puzzle. It is the operator.
 
-The hard tier adds two more of the same shape, and both are famous. Challenge 223 asks whether a type is `any`, and the answer is `0 extends (1 & T)`: `1 & T` is `1` for nearly everything and `0 extends 1` is false, but `1 & any` is `any` and `0 extends any` is true, so the test is whether a literal survives being intersected. It works because of a special case in intersection reduction that exists for other reasons entirely. Challenge 55 turns a union into an intersection by distributing it into function types, one per arm, and inferring the parameter back out of the whole union at once: the answer is an intersection because parameters are contravariant, so inference in that position collects constraints by intersecting them. Nothing in that chain is about unions or intersections. It is a variance rule, observed indirectly, through a function type nobody calls, to compute a set operation. The builders are `T === any` and a node with `kind: 'intersection'`. That is the `(<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2)` construction: a pair of generic function signatures whose assignability the checker happens to decide by comparing `X` and `Y` for identity, found in a 2018 issue comment, never specified, and now a dependency of both the test framework and the solutions it grades. The failures follow from the same gap, and there are three of them. LastIndexOf's top-voted answer used `L extends U` and answers `5` instead of `4` on `[string, 2, number, 'a', number, 1]`, because `1 extends number`. Appear-only-once's top-voted answer used `F extends R[number]` as a membership test and drops `1` and `2` from `[1, 2, number]` for the same reason. CheckRepeatedTuple's reports a repeat in `[number, 1, string, '1', boolean, true, false, unknown, any]` because `number extends any`. All three read like membership tests and are subtype tests, and CheckRepeatedTuple's passing answer ends up restating the incantation and rebuilding challenge 898's `Includes` on top of it, inside challenge 27958. The builder writes `===` and `findLastIndex`, and gets `-1` for free because that is what `findLastIndex` returns.
+The hard tier adds two more of the same shape, and both are famous. Challenge 223 asks whether a type is `any`, and the answer is `0 extends (1 & T)`: `1 & T` is `1` for nearly everything and `0 extends 1` is false, but `1 & any` is `any` and `0 extends any` is true, so the test is whether a literal survives being intersected. It works because of a special case in intersection reduction that exists for other reasons entirely. Challenge 55 turns a union into an intersection by distributing it into function types, one per arm, and inferring the parameter back out of the whole union at once: the answer is an intersection because parameters are contravariant, so inference in that position collects constraints by intersecting them. Nothing in that chain is about unions or intersections. It is a variance rule, observed indirectly, through a function type nobody calls, to compute a set operation. The builders are `T === any` and a node with `kind: 'intersection'`.
+
+And challenge 55 is not a curiosity: it is infrastructure. Three challenges in the hard tier's second ten depend on it. DeepPick (956) needs to merge several picked paths, the language has no merge, so it distributes over the path union, builds one object per path, and intersects the lot. Union to Tuple (730) builds on it twice over, and is the sharpest case in the document of a challenge asking for something the language does not have. To get a tuple from a union you need an ordering. `LastInUnion` obtains one by wrapping each arm in a function, intersecting the results into an overload set, and inferring the parameter back out, because inference against an overload set picks the *last* signature. The order of the tuple therefore comes from overload resolution order, which comes from the order the intersection's members were written, which comes from the order the union's arms were declared, and none of those three steps is specified. The harness knows: every one of its tests asserts on `['length']` or on the union of the elements, and not one looks at the order. `arms(U)` returns a list, in the order [type programming](../typeprogramming.md) specifies for union canonicalization, and a builder that wants a different order calls `.sort()`.
+
+The fourth use is the one to end on. Challenge 5423 intersects a list of tuples in two lines: normalize each element to an array, then match the whole thing against `{fill: ($: infer I) => any}[]` and read out `I`. It works because `Array.prototype.fill` takes a parameter of the array's element type, and inferring that parameter from every element at once intersects the results, because parameters are contravariant. The function whose signature is being abused is not one the author wrote. It is a method on the standard library's array interface, picked because it happens to mention the element type in the right position. Nothing about `fill` has anything to do with intersecting sets. `sets.every(set => set.has(t))` is the same computation and a reader who has never seen it will still know what it does. That is the `(<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2)` construction: a pair of generic function signatures whose assignability the checker happens to decide by comparing `X` and `Y` for identity, found in a 2018 issue comment, never specified, and now a dependency of both the test framework and the solutions it grades. The failures follow from the same gap, and there are three of them. LastIndexOf's top-voted answer used `L extends U` and answers `5` instead of `4` on `[string, 2, number, 'a', number, 1]`, because `1 extends number`. Appear-only-once's top-voted answer used `F extends R[number]` as a membership test and drops `1` and `2` from `[1, 2, number]` for the same reason. CheckRepeatedTuple's reports a repeat in `[number, 1, string, '1', boolean, true, false, unknown, any]` because `number extends any`. All three read like membership tests and are subtype tests, and CheckRepeatedTuple's passing answer ends up restating the incantation and rebuilding challenge 898's `Includes` on top of it, inside challenge 27958. The builder writes `===` and `findLastIndex`, and gets `-1` for free because that is what `findLastIndex` returns.
 
 The flip side is worth stating in the same breath, since it is the same fact. `new Set` and `Map` work on type objects, because interning makes identity a pointer comparison and type objects hash like strings. `unique` is `[...new Set(elements)]`, `without` is a `Set` and a `filter`, and both keep insertion order because `Set` does. TypeScript's `Unique` needs four workarounds in five lines: a union standing in for a set, distribution standing in for membership, `Equal` standing in for `===`, and `[F]` wrapping each element so the union does not deduplicate the very thing being tested.
 
@@ -3980,7 +6318,15 @@ T extends Required<Pick<T, K>>     // 89: pick one key, require it, re-test the 
 {} extends Pick<T, P>              // 90: pick one key and see if the empty object satisfies it
 ```
 
-Every one of them constructs a whole new object type to inspect one flag on one property, and the first only works because optionality and `| undefined` are entangled in what an optional property *means*, which is why `GetRequired<{ foo: undefined, bar?: undefined }>` is a test case rather than a curiosity. `TypePropertyReflection` has a field named `optional` and it holds a boolean. All four builders are a `filter`.
+IsRequiredKey (2857) later adds a fourth: `Pick<Type, Keys> extends Required<Pick<Type, Keys>>`. Every one of them constructs a whole new object type to inspect one flag on one property, and the first only works because optionality and `| undefined` are entangled in what an optional property *means*, which is why `GetRequired<{ foo: undefined, bar?: undefined }>` is a test case rather than a curiosity. `TypePropertyReflection` has a field named `optional` and it holds a boolean. All five builders are a `filter`.
+
+The same story runs again for `readonly`. Mutable Keys (5181) has to reach past assignability entirely and use the identity incantation: pick one key, make the picked object `Readonly`, and ask whether that changed anything, because if `Readonly<Pick<T, K>>` is identical to `Pick<T, K>` the key was already readonly. That is the eighth challenge in this document to need `Equal`, and it needs it to read a boolean that is sitting on the property. `TypePropertyReflection` has `readonly` too.
+
+And then there is challenge 5, which is the same question inverted and is rated **extreme**. It sits above the fifty-five hard challenges and the hundred and four medium ones, in the hardest tier the repository has, and it asks which properties are `readonly`. It is extreme because there is no way to ask: the answer imports the identity incantation, builds `Readonly<T>`, picks each key from both versions, and compares the one-key objects for identity, so that "making it readonly changed nothing" stands in for "it was already readonly". Seven challenges across three difficulty tiers (57, 59, 89, 90, 2857, 5181, and 5) are the same `filter` over the same two boolean fields, and the tier they land in is decided entirely by how far the language makes you go to read a flag that is already there.
+
+**One challenge needs a compiler option the repository does not set.** Assert Array Index (925) is built entirely around `noUncheckedIndexedAccess`, and its test cases only typecheck when that flag is on. `tsconfig.base.json` does not turn it on. The challenge's README says to enable it, so this is a documented requirement rather than a bug, but it does mean the challenge cannot be checked by the repository's own configuration, and the answer's sixty-eight lines include yet another digit-to-tuple lookup table, because an index type that stays in bounds has to do arithmetic and the arithmetic has to be built first.
+
+**One challenge does not typecheck against its own tests.** Split (2822) ships a template that declares `type Split<S extends string, SEP extends string> = any`, with two required parameters, and a test file that calls `Split<'Hi! How are you?'>` and `Split<''>` with one. Compiling the template against the tests it comes with produces `error TS2314: Generic type 'Split' requires 2 type argument(s)`. Every passing answer quietly adds a default the template does not have, and the top-voted one copied the template's signature and fails. This is a different failure from the stale answers above: nothing rotted, the two files never agreed.
 
 **Not all rot is the language's fault.** Challenge 2946 broke differently and it is worth separating out, because the previous note would otherwise take credit it has not earned. Nine of `ObjectEntries`' top ten answers fail, including all four highest, and the cause is that the challenge changed its mind: it used to strip `undefined` from an optional property's value type and now preserves it, so every answer carrying a `RemoveUndefined` helper is answering the old question correctly. That is ordinary specification drift. A builder would have rotted identically, since `p.optional ? union([p.type, undefined]) : p.type` is a policy line and the policy flipped. The distinction matters: the `never` family fails because the language forced an unreachable branch that silently answered a real case, and no amount of care avoids it; `ObjectEntries` fails because the goalposts moved, which is a thing that happens to code. Only the first is evidence about type languages.
 
@@ -3992,8 +6338,8 @@ Every one of them constructs a whole new object type to inspect one flag on one 
 
 **Constraints versus checks.** These challenges are stated as generic *aliases* with constraints (`MyPick<T, K extends keyof T>`), and the builders are *functions*, so a bad argument is a thrown `TypeError` at the call rather than a constraint violation at the declaration. The two are not far apart: when a builder appears in a signature, the computed constraint form (`<T, K: keysOf(T)>`) restores the declaration-site check, and the thrown message is available in both cases. What the builder gives up is being checkable before its arguments are known; what it gains is saying which property was missing.
 
-**Where TypeScript wins, or draws.** Concat, Push, and Unshift: three of a hundred and thirty, and all three the same win. Variadic tuple spread is purpose-built syntax, `[U, ...T]` says it in six characters, and no reflection call will be shorter. Two more are honest draws. Absolute (529) stringifies and strips a minus in both languages, because the challenge specifies a string result and neither is doing arithmetic. AnyOf (949) is the more interesting one: truthiness is a property of values, but the challenge has no values, so the falsy set is enumerated by hand either way and all that differs is `.some` against recursion. When a problem is genuinely about types rather than about values wearing types, the two models converge, and that is worth knowing about the ones where they do not. The far end of the same scale is MinusOne (2257), where the encoding costs five helper types, a digit lookup table, and three passes over a reversed string to compute `n - 1`, and buys no range for the trouble, since the input literal is a float64 in both languages before either solution starts.
+**Where TypeScript wins, or draws.** Concat, Push, and Unshift: three of a hundred and ninety, and all three the same win. Variadic tuple spread is purpose-built syntax, `[U, ...T]` says it in six characters, and no reflection call will be shorter. Two more are honest draws. Absolute (529) stringifies and strips a minus in both languages, because the challenge specifies a string result and neither is doing arithmetic. AnyOf (949) is the more interesting one: truthiness is a property of values, but the challenge has no values, so the falsy set is enumerated by hand either way and all that differs is `.some` against recursion. When a problem is genuinely about types rather than about values wearing types, the two models converge, and that is worth knowing about the ones where they do not. The far end of the same scale is MinusOne (2257), where the encoding costs five helper types, a digit lookup table, and three passes over a reversed string to compute `n - 1`, and buys no range for the trouble, since the input literal is a float64 in both languages before either solution starts.
 
-Arithmetic is now the document's largest single theme, and it is worth collecting: MinusOne subtracts one with a digit table and three string passes; FlattenDepth (3243) counts depth with a tuple whose length is the counter; Fibonacci (4182) carries three tuple accumulators and performs addition by concatenating lists whose lengths are the operands; Chunk (4499) and Fill (4518) each keep a tuple counter as private loop state, and Fill additionally threads a boolean latch because there is nowhere to put a local; GreaterThan (4425) compares two numbers by searching for their digits inside `'0123456789'`. Construct Tuple (7544) builds a tuple by recursing once per element, Number Range (8640) produces a range by counting a tuple to `H`, counting another to `L`, and subtracting the two sets, and Count Element Number To Object (9989) stores every count as a tuple in a `Record`, increments with `[...R[F], 0]`, and converts back with `R[K]['length']` at the end. Nine challenges, one cause. Triangular number (27152) sums one to `n` by concatenating the running total onto itself as a list, so `Triangular<100>` builds a five-thousand-element tuple to hold `5050`. Tower of Hanoi (30430) counts its rings with `Acc extends '🇺🇦'[]`, one Ukrainian flag per level, which is both the friendliest thing in the repository and the clearest statement of the problem: when the element type of your counter can be a flag emoji, the counter is not a number. And Pascal's triangle (30958) represents every number in the triangle as a tuple of that many `unknown`s, sums them with `[...H, ...H2]`, and converts the whole triangle back with a `Lengths` pass at the end; the author's own comment says it plainly: *"I use tuples so I can easily sum them."* Twelve challenges, one cause. The builder answers are `n - 1`, `d - 1`, a `for` loop, `slice`, `i >= start && i < end`, `a > b`, `Array.from({ length: n })`, `Array.from({ length: high - low + 1 })`, a `Map` with `+ 1`, `n * n`, `n * (n + 1) / 2`, and `prev[j - 1] + prev[j]`. This proposal's value generics make the arithmetic that the tuple encodings simulate available directly, and the encodings are not a failure of the people writing them; they are what a type language without numbers requires.
+Arithmetic is now the document's largest single theme, and it is worth collecting: MinusOne subtracts one with a digit table and three string passes; FlattenDepth (3243) counts depth with a tuple whose length is the counter; Fibonacci (4182) carries three tuple accumulators and performs addition by concatenating lists whose lengths are the operands; Chunk (4499) and Fill (4518) each keep a tuple counter as private loop state, and Fill additionally threads a boolean latch because there is nowhere to put a local; GreaterThan (4425) compares two numbers by searching for their digits inside `'0123456789'`. Construct Tuple (7544) builds a tuple by recursing once per element, Number Range (8640) produces a range by counting a tuple to `H`, counting another to `L`, and subtracting the two sets, and Count Element Number To Object (9989) stores every count as a tuple in a `Record`, increments with `[...R[F], 0]`, and converts back with `R[K]['length']` at the end. Triangular number (27152) sums one to `n` by concatenating the running total onto itself as a list, so `Triangular<100>` builds a five-thousand-element tuple to hold `5050`. Tower of Hanoi (30430) counts its rings with `Acc extends '🇺🇦'[]`, one Ukrainian flag per level, which is both the friendliest thing in the repository and the clearest statement of the problem: when the element type of your counter can be a flag emoji, the counter is not a number. And Pascal's triangle (30958) represents every number in the triangle as a tuple of that many `unknown`s, sums them with `[...H, ...H2]`, and converts the whole triangle back with a `Lengths` pass at the end; the author's own comment says it plainly: *"I use tuples so I can easily sum them."* And String to Number (300) is the one that says it out loud: to parse `'27'` you implement positional decimal notation, with a nine-entry lookup table whose entries spread the operand that many times, a multiply-by-ten built out of a multiply-by-five and a multiply-by-two because there is no ten-entry row, and a place-value recursion down the string. The hard tier adds four more and does not soften them. Binary to Decimal (6141) is Horner's method with `[...R, ...R]` for the doubling, so `'11111111'` builds a 255-element tuple. Two Sum (8804) enumerates every permutation of the array to reach the quadratically many pairs, because the two loop constructs available are "peel a tuple" and "distribute a union", and permuting is how you turn the first into the second. FizzBuzz (14080) writes divisibility-by-three as a type that removes three elements from a tuple's end until it empties, then writes it again with five `unknown`s, because you cannot pass the three. And Maximum (9384) is the plainest of all: to find the largest of `[1, 20, 200, 150]` it counts a tuple up from zero to two hundred, deleting each number from the union as it passes, and needs `Equal` to notice when one member is left. BitwiseXOR (30575) and Binary Addition (32532) close the column out at the bit level, the latter with eight type parameters, five of which its author marked `// Internals` because they are locals with nowhere to live, and a `NumOfOne` that counts set bits by filtering a tuple and taking its length, called twice because the first result cannot be reused. And then the extreme tier states the conclusion outright. **Sum (476) and Multiply (517) are `+` and `*`**, they are rated extreme, and they are eighty-six and seventy-one lines. Every technique this document has catalogued is in them: digit tables, per-digit carry propagation, `PadWithZeroes` to align the operands, `TrimZeros` to clean up after, a nine-by-nine multiplication table, long multiplication accumulating partial products with trailing zeros for place value. The work is good and correct. Both signatures take `string | number | bigint` and return a string, which is the tell: the subject is the representation, not the operation, because the answers are for numbers too large to be a `number`. JavaScript shipped `BigInt` in 2020. Twenty-three challenges, one cause, and the last two are the ones to remember. Sort (741) decides `7 <= 9` by building a seven-element tuple and a nine-element tuple and peeling them in lockstep, once per comparison, from scratch. And Subtract (7561) is `-`, rated extreme, three lines. The builder answers are `n - 1`, `d - 1`, a `for` loop, `slice`, `i >= start && i < end`, `a > b`, `Array.from({ length: n })`, `Array.from({ length: high - low + 1 })`, a `Map` with `+ 1`, `n * n`, `n * (n + 1) / 2`, `prev[j - 1] + prev[j]`, `Number(s)`, `parseInt(s, 2)`, `a + b === target`, `v % 3 === 0`, `Math.max`, `[...x].map((c, i) => c === y[i] ? '0' : '1')`, `carry = sum >> 1`, `BigInt(a) + BigInt(b)`, `BigInt(a) * BigInt(b)`, `.sort((a, b) => a - b)`, and `m - s`. This proposal's value generics make the arithmetic that the tuple encodings simulate available directly, and the encodings are not a failure of the people writing them; they are what a type language without numbers requires.
 
 Two genuine taxes on the builder are worth recording against all this. FlipArguments (3196) reverses a parameter list, and parameter records carry an `index`, so the builder must renumber them; TypeScript's `Reverse<P>` over a tuple has no such field to keep consistent. Richer reflection means more invariants to maintain, and that bill will arrive in larger amounts than this one. Trunc (5140) is the other: `Trunc<'-.3'>` is `'-0'`, and the obvious builder returns `'0'`, because `Math.trunc(-0.3)` is negative zero and `String(-0)` drops the sign. `Object.is` fixes it in one call, but the TypeScript answer never had the problem, since it does string surgery and never touches a number. JavaScript's semantics arrive with JavaScript's expressiveness, and negative zero is in the box. The pattern across the set is consistent. Where TypeScript has syntax for an operation on types, it beats a builder; where it must *encode* a computation (identity as a signature relation, iteration as recursive peeling, a duplicate-key check as a parameter that becomes `never`, a base case as `keyof T extends never`, whitespace as a hand-enumerated union of three characters), the encoding is precisely what the builder deletes.
