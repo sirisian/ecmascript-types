@@ -116,8 +116,8 @@ The spread is the modifier arithmetic: `readonly` is set, everything else on the
 Turn a tuple of literals into an object type mapping each value to itself. Keys may be strings, numbers, or symbols; anything else is an error.
 
 ```ts
-// TypeScript, issue #2737 (+178)
-type TupleToObject<T extends readonly string[]> = {
+// TypeScript, issue #5896 (+34)
+type TupleToObject<T extends readonly (string | symbol | number)[]> = {
   [P in T[number]]: P
 }
 ```
@@ -143,7 +143,7 @@ Syms === type { [sym1]: sym1, [sym2]: sym2 };      // symbol literal types, no `
 tupleToObject(type [[1, 2], {}]);                  // TypeError: tupleToObject: [1, 2] is not a valid property key
 ```
 
-The symbol case is the interesting one. The published TypeScript solution constrains `T extends readonly string[]` and therefore fails the harness's own symbol and number cases; the answers that pass widen the constraint to `readonly (string | number | symbol)[]`. Here the key check is a line of code that names what a property key is, and symbol literal types make the symbol case fall out rather than need a workaround. On numbers, see the note below.
+The symbol case is the interesting one. The most-copied TypeScript solutions constrain `T extends readonly string[]` and fail the harness's own symbol and number cases; the answer shown widens the constraint to `readonly (string | number | symbol)[]`, and that widening is the entire fix. Here the key check is a line of code that names what a property key is, and symbol literal types make the symbol case fall out rather than need a workaround. On numbers, see the note below.
 
 ## 14 · First of Array
 
@@ -313,19 +313,12 @@ This is the first of three challenges where TypeScript's answer is shorter, and 
 Does tuple `T` contain `U`? Equality is *exact*: `boolean` does not contain `false`, and `{ a: 'A' }` is not `{ readonly a: 'A' }`.
 
 ```ts
-// TypeScript, issue #1568 (+150)
-type IsEqual<T, U> =
-  (<G>() => G extends T ? 1 : 2) extends
-  (<G>() => G extends U ? 1 : 2)
-    ? true
-    : false;
+// TypeScript, issue #2066 (+19)
+type MyEqual<X, Y> = (<T>() => T extends X ? 1 : 2 ) extends (<T>() => T extends Y ? 1 : 2) ? true : false
 
-type Includes<Value extends any[], Item> =
-  IsEqual<Value[0], Item> extends true
-    ? true
-    : Value extends [Value[0], ...infer rest]
-      ? Includes<rest, Item>
-      : false;
+type Includes<T extends readonly any[], U> = true extends {
+  [I in keyof T]: MyEqual<T[I], U>
+}[number] ? true : false
 ```
 
 ```js
@@ -343,7 +336,7 @@ includes(type [1], type 1 | 2) === type false;
 includes(type [null], type undefined) === type false;
 ```
 
-This is the single clearest case in the whole set. The challenge needs **identity**, and TypeScript's only relation is assignability (`extends`), so every passing solution imports or restates the `IsEqual` incantation: two generic function signatures whose relation the checker happens to decide the right way, discovered in a 2018 issue thread and never blessed as a feature. The recursion in `Includes` then exists only because there is no way to iterate a tuple except by peeling it.
+This is the single clearest case in the whole set. The challenge needs **identity**, and TypeScript's only relation is assignability (`extends`), so every passing solution imports or restates the `IsEqual` incantation: two generic function signatures whose relation the checker happens to decide the right way, discovered in a 2018 issue thread and never blessed as a feature. The mapped type in `Includes` then exists only because there is no way to ask a tuple a question directly: turn every element into a verdict, index by `number`, and let `true extends` scan the union.
 
 The builder is `.some(e => e.type === U)`. Interning *is* identity, so the hack has nothing to do; `.some` is the iteration. Both halves of the challenge evaporate at once, and the `readonly` case is a live demonstration of the point that [type programming](../typeprogramming.md) makes in the abstract: identity and inter-assignability genuinely differ, `===` and `Reflect.isAssignable` are two spellings, and code picks the one it means.
 
@@ -504,10 +497,14 @@ Two things worth noticing. The generic default `K = keyof T` becomes a JavaScrip
 Make `T` readonly recursively.
 
 ```ts
-// TypeScript, issue #187 (+159)
-type DeepReadonly<T> = keyof T extends never
-  ? T
-  : { readonly [k in keyof T]: DeepReadonly<T[k]> };
+// TypeScript, issue #52 (+37)
+type DeepReadonly<T> = {
+  readonly [k in keyof T]: T[k] extends Record<any, any>
+    ? T[k] extends Function
+      ? T[k]
+      : DeepReadonly<T[k]>
+    : T[k]
+}
 ```
 
 ```js
@@ -535,7 +532,7 @@ deepReadonly(X) === type {
 deepReadonly(type { a: string } | { b: uint32 }) === type { readonly a: string } | { readonly b: uint32 };
 ```
 
-`keyof T extends never ? T : ...` is a load-bearing hack rather than a base case: it is how the TypeScript solution stops at a function property (`a: () => 22`), because `keyof (() => 22)` happens to be `never`. It works, and it is not what it says. The builder's `switch` states its domain, and the `default` arm is the base case that a reader can check against the list of type kinds.
+The TypeScript answer stops at a function property (`a: () => 22`) by saying so twice: `T[k] extends Record<any, any>` is how the language asks whether something is an object, a question it has no word for, and `T[k] extends Function` walks that back for the callables the first test also catches. The builder's `switch` states its domain, and the `default` arm is the base case that a reader can check against the list of type kinds.
 
 The recursion into cycles needs no code in either solution, but for different reasons: TypeScript defers instantiation lazily and hits its depth limit when that fails, while the builder's in-flight fixpoint ties the knot, so `deepReadonly` on a self-referential type terminates with the cyclic type rather than an error. See the note on readonly arrays for where this solution genuinely diverges.
 
@@ -569,13 +566,11 @@ TypeScript's `T[number]` and `T extends Array<infer I> ? I : never` are two spel
 Type a fluent builder: `option(key, value)` accumulates a config type, `get()` returns it. The same key must not be set twice.
 
 ```ts
-// TypeScript, issue #13951 (+85)
+// TypeScript, issue #598 (+19)
 type Chainable<T = {}> = {
-  option: <K extends string, V>(key: K extends keyof T ?
-    V extends T[K] ? never : K
-    : K, value: V) => Chainable<Omit<T, K> & Record<K, V>>
-  get: () => T
-}
+  option<K extends string, V>(key: Exclude<K, keyof T>, value: V): Chainable<Omit<T,K> & Record<K, V>>;
+  get(): T;
+};
 ```
 
 ```js
@@ -602,7 +597,7 @@ const result = a
 a.option('name', 'x').option('name', 'y');   // TypeError: option: 'name' is already set on { name: string }
 ```
 
-The last challenge in this batch is the one that most resembles a real API, and it separates the two models cleanly. `K` is an argument-bound value generic, so the *string* `'foo'` is available to `withKey` as a string, and the accumulation is `[...properties, prop(key, V)]`. TypeScript cannot pass a key to a function, so it encodes the duplicate check into the parameter's own type: `K extends keyof T ? V extends T[K] ? never : K : K` makes the parameter `never` when the key is a duplicate, so the *argument* fails to be assignable and the call errors. It works, and the error it produces is that `'name'` is not assignable to `never`.
+The last challenge in this batch is the one that most resembles a real API, and it separates the two models cleanly. `K` is an argument-bound value generic, so the *string* `'foo'` is available to `withKey` as a string, and the accumulation is `[...properties, prop(key, V)]`. TypeScript cannot pass a key to a function, so it encodes the duplicate check into the parameter's own type: `Exclude<K, keyof T>` makes the parameter `never` when the key is already present, so the *argument* fails to be assignable and the call errors. It works, and the error it produces is that `'name'` is not assignable to `never`.
 
 Note what the builder did **not** need to do: it never constructs a generic function type. `option` is declared with its type parameters in ordinary syntax, and the builder only computes the return type's argument. That division is worth stating, because the node model could not have done otherwise, and the note below records why that is fine.
 
@@ -655,9 +650,12 @@ pop(uint32);   // TypeError: expected a tuple type, got uint32
 Type `PromiseAll`, which takes a list of values or promises and resolves to the list of their settled types.
 
 ```ts
-// TypeScript, issue #211 (+62)
-declare function PromiseAll<T extends any[]>(values: readonly [...T]):
-  Promise<{ [K in keyof T]: T[K] extends Promise<infer R> ? R : T[K] }>;
+// TypeScript, issue #508 (+27)
+type Awaited<T> = T extends Promise<infer R> ? Awaited<R> : T
+
+declare function PromiseAll<T extends any[]>(values: readonly [...T]): Promise<{
+  [P in keyof T]: Awaited<T[P]>
+}>
 ```
 
 ```js
@@ -678,7 +676,7 @@ promiseAll.<type [1, 2, Promise.<uint32>]>;         // returns Promise.<[1, 2, u
 promiseAll.<[].<uint32 | Promise.<string>>>;        // returns Promise.<[].<uint32 | string>>
 ```
 
-`{ [K in keyof T]: ... }` over a tuple is TypeScript's most surprising rule: a mapped type over an array or tuple is special-cased to produce an array or tuple rather than an object with numeric keys, which is why this signature works at all and why nothing in the syntax says so. The builder's `switch` says so. Note also that `awaited` already means "unwrap if thenable, else pass through", so `T[K] extends Promise<infer R> ? R : T[K]` is a call rather than a conditional.
+`{ [K in keyof T]: ... }` over a tuple is TypeScript's most surprising rule: a mapped type over an array or tuple is special-cased to produce an array or tuple rather than an object with numeric keys, which is why this signature works at all and why nothing in the syntax says so. The builder's `switch` says so. Note also that `awaited` already means "unwrap if thenable, else pass through", so the answer's recursive helper `Awaited<T> = T extends Promise<infer R> ? Awaited<R> : T` is a call rather than a declaration.
 
 The harness's first and third cases differ only by `as const`, checking that a widened `[1, 2, Promise<3>]` still maps element-wise. This proposal marks `as const` obviated, since literals keep their literal types and value types are immutable by layout, so the two cases collapse into one and there is nothing left to test.
 
@@ -831,8 +829,8 @@ The `Space` alias in 106 and 108 is worth a second look. It is `' ' | '\n' | '\t
 Add a parameter to the end of a function type.
 
 ```ts
-// TypeScript, issue #222 (+67)
-type AppendArgument<Fn, A> = Fn extends (...args: infer R) => infer T ? (...args: [...R, A]) => T : never
+// TypeScript, issue #3553 (+2)
+type AppendArgument<Fn extends (...args:any) => void, A> = (...args:[...Parameters<Fn>,A]) => ReturnType<Fn>
 ```
 
 ```js
@@ -852,7 +850,7 @@ appendArgument(type () => void, type undefined) === type (x: undefined) => void;
 appendArgument(uint32, boolean);   // TypeError: appendArgument: uint32 is not a function type
 ```
 
-Read the first assertion again: the builder names its new parameter `appended`, the expected type names it `x`, and they are equal. That is only true if parameter names are not part of a function type's identity, which the note below takes up. Note also that the builder appends to *every* overload, which the `infer R` form cannot express at all: on an overloaded function it silently picks the last signature and discards the rest.
+Read the first assertion again: the builder names its new parameter `appended`, the expected type names it `x`, and they are equal. That is only true if parameter names are not part of a function type's identity, which the note below takes up. Note also that the builder appends to *every* overload, which the `Parameters`/`ReturnType` form cannot express at all: on an overloaded function those utilities silently pick the last signature and discard the rest.
 
 ## 296 · Permutation
 
@@ -1378,15 +1376,16 @@ The pair is worth showing together for one detail: `StartsWith` can be written w
 Make only the named keys optional, defaulting to all of them.
 
 ```ts
-// TypeScript, issue #2814 (+15)
-type IntersectionToObj<T> = {
-  [K in keyof T]: T[K]
-}
-type PartialByKeys<T , K = any> = IntersectionToObj<{
-  [P in keyof T as P extends K ? P : never]?: T[P]
-} & {
-  [P in Exclude<keyof T, K>]: T[P]
-}>
+// TypeScript, issue #20885 (+1)
+type Flatten<T> = {
+  [key in keyof T]: T[key];
+};
+
+type PartialByKeys<T, K extends keyof T = keyof T> = Flatten<
+  Omit<T, K> & {
+    [P in K]?: T[P];
+  }
+>;
 ```
 
 ```js
@@ -1402,7 +1401,7 @@ partialByKeys(User, type 'name' | 'age') === type { name?: string, age?: uint32,
 partialByKeys(User) === partial(User);
 ```
 
-`IntersectionToObj` is a no-op that exists to be a no-op: mapping an intersection over its own keys forces the checker to flatten `A & B` into a single object type, because the challenge's expected value is flat and `A & B` is not identical to it. That is the same fact challenge 8 hit, met here with a helper instead of a weakened assertion. The builder never forms the intersection, so there is nothing to flatten.
+`Flatten` is a no-op that exists to be a no-op: mapping an intersection over its own keys forces the checker to flatten `A & B` into a single object type, because the challenge's expected value is flat and `A & B` is not identical to it. That is the same fact challenge 8 hit, met here with a helper instead of a weakened assertion. The builder never forms the intersection, so there is nothing to flatten.
 
 ## 2759 · RequiredByKeys
 
@@ -1436,9 +1435,9 @@ The two challenges are one function with `optional` set to `true` or `false`, wh
 Strip `readonly`.
 
 ```ts
-// TypeScript, issue #2795 (+11)
-type Mutable<T> = {
-  -readonly [K in keyof T]:T[K]
+// TypeScript, issue #27920 (+2)
+type Mutable<T extends object> = {
+  -readonly[K in keyof T]: T[K]
 }
 ```
 
@@ -1696,8 +1695,8 @@ function inorderTraversal(T: type): type {
   return tupleOf(walk(T));
 }
 
-const tree = { val: 1, left: null, right: { val: 2, left: { val: 3, left: null, right: null }, right: null } };
-inorderTraversal(Reflect.typeOf(tree)) === type [1, 3, 2];
+type Tree = { val: 1, left: null, right: { val: 2, left: { val: 3, left: null, right: null }, right: null } };
+inorderTraversal(Tree) === type [1, 3, 2];
 inorderTraversal(type null) === type [];
 ```
 
@@ -2597,23 +2596,26 @@ The mirror of challenge 9, and worth putting beside it. `DeepReadonly`'s top-vot
 Are all elements assignable to `N`?
 
 ```ts
-// TypeScript, issue #20895 (+4)
-type All<T extends any[], N> = T[number] extends N ? true : false;
+// TypeScript, issue #33471 (+3)
+type All<A extends unknown[], Elt> =
+  Equal<Equal<A[number], A[0]> & Equal<A[0], Elt>, true>
 ```
 
 ```js
 // Builder
 function all(T: type, N: type): type {
-  return tupleElements(T).every(e => Reflect.isAssignable(e.type, N)) ? type true : type false;
+  return tupleElements(T).every(e => e.type === N) ? type true : type false;
 }
 
 all(type [1, 1, 1], type 1) === type true;
 all(type [1, 1, 2], type 1) === type false;
 all(type ['1', '1', '1'], type 1) === type false;
 all(type [never], never) === type true;
+all(type [any], unknown) === type false;   // assignable both ways, identical neither
+all(type [1, 1, 2], type 1 | 2) === type false;
 ```
 
-A neat one on both sides. `T[number] extends N` widens the tuple to a union and asks once, which is `.every` done in a single assignability test, and it works because a union is assignable to `N` exactly when all its arms are. Note this is not the `T[number]` distribution problem from earlier challenges: `T[number]` is not a naked type parameter, so the conditional does not distribute, which is why `All<[never], never>` correctly answers `true` here while `IsNever` needed a tuple wrapper to get the same thing.
+A neat one on both sides, and the harness makes the theme explicit: `All<[any], unknown>` and `All<[unknown], any>` must both be `false`, so assignability in either direction is the wrong relation and the answer reaches for `Equal`. `Equal<A[number], A[0]>` asks whether the union of all elements is *identical* to the first, which is true exactly when the tuple is uniform, and `Equal<A[0], Elt>` pins that representative to the target; intersecting the two verdicts and testing against `true` folds the pair of questions into one. The builder is `.every(e => e.type === N)`. Interned types make identity a language operator, so the challenge's hard case costs nothing: `any` and `unknown` are simply different objects.
 
 ## 18220 · Filter
 
@@ -3262,17 +3264,20 @@ type Lengths<Counters extends any[][]> = Counters extends [
   infer H extends any[],
   ...infer R extends any[][],
 ]
-  ? [H['length'], ...Lengths<R>]
+  ? [H["length"], ...Lengths<R>]
   : [];
 
-type Rows<N extends number, PrevRow extends any[][] = [[unknown]], Acc extends any[][][] = [[[unknown]]]> =
-  Acc['length'] extends N
-    ? Acc
-    : Rows<N, [[unknown], ...RowMiddle<PrevRow>, [unknown]], [...Acc, [[unknown], ...RowMiddle<PrevRow>, [unknown]]]>;
-
-type Pascal<N extends number> = N extends 0 ? [] : {
-  [K in keyof Rows<N>]: Lengths<Rows<N>[K]>
-};
+type Pascal<
+  N extends number,
+  Result extends number[][] = [],
+  PrevRow extends any[][] = [],
+> = Result["length"] extends N
+  ? Result
+  : Result extends []
+    ? Pascal<N, [[1]], [[any]]>
+    : [[any], ...RowMiddle<PrevRow>, [any]] extends infer newRow extends any[][]
+      ? Pascal<N, [...Result, Lengths<newRow>], newRow>
+      : never;
 ```
 
 ```js
@@ -3291,7 +3296,7 @@ pascal(3) === type [[1], [1, 1], [1, 2, 1]];
 pascal(5) === type [[1], [1, 1], [1, 2, 1], [1, 3, 3, 1], [1, 4, 6, 4, 1]];
 ```
 
-Read the author's comment: *"I use tuples so I can easily sum them."* Every number in the triangle is a tuple of that many `unknown`s, addition is `[...H, ...H2]`, and `Lengths` is the pass at the end that converts a triangle of lists back into a triangle of numbers. Twelfth entry in the arithmetic column, and the most literal one: the encoding is stated in a comment, cheerfully, as a technique. `prev[j - 1] + prev[j]` is `+`.
+Read the author's comment: *"I use tuples so I can easily sum them like `[...t1, ...t2]`."* Every number in the triangle is a tuple of that many `unknown`s, addition is `[...H, ...H2]`, and `Lengths` is the pass at the end that converts a triangle of lists back into a triangle of numbers. Twelfth entry in the arithmetic column, and the most literal one: the encoding is stated in a comment, cheerfully, as a technique. `prev[j - 1] + prev[j]` is `+`.
 
 ## 30970 · IsFixedStringLiteralType
 
@@ -3314,7 +3319,7 @@ isFixedStringLiteralType(string) === type false;              // not a literal
 isFixedStringLiteralType(type 'ABC' | 'DEF') === type false;  // not one literal
 isFixedStringLiteralType(never) === type false;               // the empty union
 isFixedStringLiteralType(stringPattern`${string}`) === type false;
-isFixedStringLiteralType(type `${true}`) === type true;       // that is the literal 'true'
+isFixedStringLiteralType(literal(`${true}`)) === type true;   // that is the literal 'true'
 ```
 
 Two separate hacks in one line, because the question is really two questions. `{} extends Record<S, 1>` filters out the wide types: a `Record` keyed by `string` or by a template pattern has no required keys, so `{}` satisfies it, while a `Record<'ABC', 1>` does not. Then `Equal<[S], S extends unknown ? [S] : never>` filters out unions, by distributing `S` and checking whether the result is still the same single thing. Seventh challenge to need the identity incantation. The reflection node answers both parts with `kind` and a `typeof`, because "is it one literal" is a question about the type's shape and the shape is right there.
@@ -3357,7 +3362,7 @@ type DefinedPartial<T, K extends keyof T = keyof T> = K extends unknown
 function definedPartial(T: type): type {
   const properties = reflect(T).properties;
   const subsets = properties.reduce((acc, p) => [...acc, ...acc.map(set => [...set, p])], [[]]);
-  return union(subsets.filter(set => set.length > 0).map(objectOf));
+  return union(subsets.filter(set => set.length > 0).map(set => objectOf(set)));
 }
 
 definedPartial(type Record.<'a' | 'b', string>)
@@ -3529,7 +3534,7 @@ function withThisOnMethods(O: type, Self: type): type {
 function vueOptions(D: type, C: type, M: type): type {
   const self = Reflect.makeType({ kind: 'intersection', members: [D, computedResults(C), M] });
   return objectOf([
-    prop('data', withThisType(fn([], D), void)),
+    prop('data', withThisType(fn([], D), type void)),
     prop('computed', withThisOnMethods(C, D)),
     prop('methods', withThisOnMethods(M, self)),
   ]);
@@ -3545,7 +3550,7 @@ simpleVue({
   methods: {
     getRandom() { return Math.random(); },
     hi() { return this.fullname.toLowerCase(); },                  // this: D & computed results & M
-    test() { const fullname = this.fullname; const cases: [Equal<typeof fullname, string>] = [true]; },
+    test() { const fullname: string = this.fullname; },           // this.fullname checks as string
   },
 });
 ```
@@ -3594,8 +3599,8 @@ function curried(F: type): type {
 
 declare function currying<T>(f: T): curried(T);
 
-const curried1 = currying((a: string, b: number, c: boolean) => true);
-Reflect.typeOf(curried1) === type (a: string) => (b: number) => (c: boolean) => true;
+const curried1 = currying((a: string, b: float64, c: boolean) => true);
+Reflect.typeOf(curried1) === type (a: string) => (b: float64) => (c: boolean) => true;
 
 const curried3 = currying(() => true);
 Reflect.typeOf(curried3) === type () => true;
@@ -3855,9 +3860,11 @@ function inferPropType(P: type): type {
   const declared = node.kind === 'object'
     ? node.properties.find(p => p.name === 'type')?.type ?? any
     : P;
-  const each = (C: type): type => reflect(C).kind === 'tuple'
-    ? union(tupleElements(C).map(e => each(e.type)))
-    : returnType(C);
+  const each = (C: type): type => {
+    const node = reflect(C);
+    if (node.kind === 'tuple') return union(tupleElements(C).map(e => each(e.type)));
+    return node.kind === 'function' ? returnType(C) : C;   // String's call signature says string; a class's type object already denotes its instances
+  };
   return each(declared);
 }
 
@@ -3888,7 +3895,7 @@ vueBasicProps({
 });
 ```
 
-Challenge 6 with a second layer: the props are declared as *constructors*, and the type of `propB: { type: String }` is whatever `new String()` produces. `MyReturnType` handles that by asking for the return type of the call signature first and the construct signature second, `Union` spreads an array of constructors into a union, and `InferProps` maps the whole thing. The builder's `each` and `returnType` are those two, and `reflect(C).kind === 'tuple'` is `Union`.
+Challenge 6 with a second layer: the props are declared as *constructors*, and the type of `propB: { type: String }` is whatever `new String()` produces. `MyReturnType` handles that by asking for the return type of the call signature first and the construct signature second, `Union` spreads an array of constructors into a union, and `InferProps` maps the whole thing. The builder's `each` is those two in three lines: a constructor function's call signature answers for the wrapped primitives, a class's type object already denotes its instances and passes through unchanged, and the tuple branch is `Union`.
 
 This is a big program in both languages and neither is embarrassed. What separates them is that `inferPropType` can be read, tested, and stepped through, and `InferProps` can only be run.
 
@@ -4152,6 +4159,12 @@ function deepObjectToUniq(O: type, parent: type = O, path: [].<string | symbol> 
   return objectOf([...branded,
     { ...prop(KEY, tupleOf([parent, tupleOf(path.map(literal))])), optional: true, readonly: true }]);
 }
+
+type O = { foo: { bar: 1 }, baz: { bar: 1 } };
+deepObjectToUniq(O) === deepObjectToUniq(O);   // deterministic, so interned equality still works
+deepObjectToUniq(O) !== O;                     // but the branded type is not the raw one
+reflect(deepObjectToUniq(O)).properties.find(p => p.name === 'foo').type
+  !== reflect(deepObjectToUniq(O)).properties.find(p => p.name === 'baz').type;  // same shape, distinct paths
 ```
 
 The one challenge so far where a `symbol` key is the point rather than an edge case, and the node model has been carrying `name: string | symbol` on every property since the beginning for exactly this. The brand is a phantom property: optional, so no value ever has to provide it, and typed as the path, so two sibling objects with identical shapes get different types. Both sides do the same thing and the builder's is a `Symbol()` rather than a `unique symbol` declaration, which is the same idea with one fewer concept in it, since a symbol is already unique.
@@ -4258,7 +4271,7 @@ declare function join<D extends string>(delimiter: D): <P extends Tuple>(...part
 ```js
 // Builder
 declare function join<D extends string>(delimiter: D):
-  <P extends [].<string>>(...parts: P) => literal(literalValues(P).join(delimiter));
+  <P extends [].<string>>(...parts: P) => literal(tupleElements(P).map(e => literalValues(e.type)[0]).join(delimiter));
 
 Reflect.typeOf(join('-')('a', 'b', 'c')) === type 'a-b-c';
 Reflect.typeOf(join('-')()) === type '';
@@ -4296,6 +4309,10 @@ function pickPath(T: type, path: string): type {
 function deepPick(T: type, paths: [].<string>): type {
   return Reflect.makeType({ kind: 'intersection', members: paths.map(path => pickPath(T, path)) });
 }
+
+type O = { user: { name: 'ann', age: 30 }, active: true };
+deepPick(O, ['active']) === type { active: true };
+deepPick(O, ['user.name', 'active']) === type { user: { name: 'ann' } } & { active: true };
 ```
 
 Three of the batch's ten challenges reach for `UnionToIntersection`, and this is the clearest look at why: the natural way to combine several picked paths is to merge them, the type language has no merge, and an intersection is the closest available thing, so you distribute over the path union, build one object per path, and intersect the lot. The contravariance trick from challenge 55 is load-bearing infrastructure here, not a curiosity. The builder's `members` is a list, and it is a list because that is what an intersection node holds.
@@ -4346,18 +4363,18 @@ function storeOptions(S: type, G: type, A: type): type {
     prop('id', string),
     prop('state', fn([], S)),
     prop('getters', withThisOnMethods(G, all(computedResults(G), readonly(S)))),   // helpers from challenge 6
-    prop('actions', withThisOnMethods(A, all(A, S, computedResults(G)))),
+    prop('actions', withThisOnMethods(A, all(A, S, readonly(computedResults(G))))),
   ]);
 }
 
 function store(S: type, G: type, A: type): type {
-  return all(type { init(): void, reset(): true }, A, S, computedResults(G));
+  return all(A, S, computedResults(G));
 }
 
 declare function defineStore<S, G, A>(options: storeOptions(S, G, A)): store(S, G, A);
 ```
 
-The third `ThisType` challenge and the one where the pattern has clearly become a library. Both sides say the same four things: getters see their own results plus readonly state, actions see themselves plus state plus getter results, the store is all of it merged, and `ComputedGetters` is `ReturnType` mapped over the getters. `computedResults` and `withThisOnMethods` were written back at challenge 6 and are reused here unchanged, which is the whole argument in one line: the builder's helpers compose because they are functions.
+The third `ThisType` challenge and the one where the pattern has clearly become a library. Both sides say the same four things: getters see their own results plus readonly state, actions see themselves plus state plus readonly getter results, the store is all of it merged, and `ComputedGetters` is `ReturnType` mapped over the getters. `computedResults` and `withThisOnMethods` were written back at challenge 6 and are reused here unchanged, which is the whole argument in one line: the builder's helpers compose because they are functions.
 
 ## 1383 · Camelize
 
@@ -4731,6 +4748,11 @@ function objectKeyPaths(T: type, isRoot: boolean = true): type {
     return heads.flatMap(h => [literal(h), ...nested.map(n => literal(`${h}${n}`))]);
   }));
 }
+
+type T = { a: { b: 1 }, list: [{ c: 2 }] };
+objectKeyPaths(T) === type 'a' | 'a.b' | 'list'
+  | 'list.0' | 'list[0]' | 'list.[0]'
+  | 'list.0.c' | 'list[0].c' | 'list.[0].c';
 ```
 
 `GenNode` produces three spellings for a numeric key, because `a[0]`, `a.0`, and `a.[0]` are all things people write. Both sides enumerate the same cross product; the difference is that the builder's `heads` is an array of strings and TypeScript's is a union that has to be built with a conditional inside a template literal so that it distributes. The recursion is the same shape in both.
@@ -4911,6 +4933,9 @@ function capitalizeNestObjectKeys(T: type): type {
     default: return T;
   }
 }
+
+type T = { foo: 1, bar: { baz: [{ deep: 2 }] } };
+capitalizeNestObjectKeys(T) === type { Foo: 1, Bar: { Baz: [{ Deep: 2 }] } };
 ```
 
 Challenge 1383 with `Capitalize` instead of `SnakeToCamel`, and the same two-branch recursion. `Capitalize<K & string>` needs the `& string` because `keyof T` can include symbols and `Capitalize` cannot take one; the builder's `typeof p.name === 'string'` is that guard, said in the affirmative and leaving symbol keys alone rather than intersecting them away.
@@ -4936,7 +4961,7 @@ function unionReplace(T: type, pairs: [].<[type, type]>): type {
 
 unionReplace(type float64 | string, [[string, type null]]) === type float64 | null;
 unionReplace(type float64 | string, [[string, type null], [Date, Function]]) === type float64 | null;
-unionReplace(type Function | Date | object, [[Date, string], [Function, undefined]])
+unionReplace(type Function | Date | object, [[Date, string], [Function, type undefined]])
   === type undefined | string | object;
 ```
 
@@ -5068,6 +5093,9 @@ function paths(T: type): type {
       tupleOf([key, ...tupleElements(a).map(e => e.type)]))];
   }));
 }
+
+type T = { a: { b: 1, c: 2 }, d: 3 };
+paths(T) === type ['a'] | ['a', 'b'] | ['a', 'c'] | ['d'];
 ```
 
 Six lines against six lines, and a good example of a leaf case falling out rather than being written: `Path<string>` is `never`, so `[P, ...Path<string>]` is `never` too and only `[P]` survives that union arm. The builder gets the same thing from `arms(never)` being the empty list, so the `flatMap` contributes only `[key]`. The `{...}[keyof T]` is challenge 90's map-then-index idiom again: build a mapped type purely to index it away, because collapsing keys to a union has no other spelling.
@@ -5126,7 +5154,7 @@ function isNegativeNumber(T: type): type {
 isNegativeNumber(type 0) === type false;
 isNegativeNumber(float64) === never;
 isNegativeNumber(type -1 | -2) === never;
-isNegativeNumber(type -1.9) === true;
+isNegativeNumber(type -1.9) === type true;
 isNegativeNumber(type -100_000_000) === type true;
 ```
 
@@ -5162,8 +5190,11 @@ type OptionalUndefined<
 // Builder
 function optionalUndefined(T: type, keys: type = keysOf(T)): type {
   const names = new Set(arms(keys).map(k => literalValues(k)[0]));
-  return mapProperties(T, p =>
-    names.has(p.name) && arms(p.type).includes(undefined) ? { ...p, optional: true } : p);
+  return mapProperties(T, p => {
+    if (!names.has(p.name) || !arms(p.type).includes(type undefined)) return p;
+    const rest = arms(p.type).filter(arm => arm !== type undefined);
+    return { ...p, optional: true, type: rest.length > 0 ? union(rest) : type undefined };
+  });
 }
 
 optionalUndefined(type { value: string | undefined, desc: string }, type 'value')
@@ -5174,9 +5205,9 @@ optionalUndefined(type { value: string, desc: string }, type 'value')
   === type { value: string, desc: string };
 ```
 
-Three type parameters, two of which are computed defaults, and `Merge` at the top is the flattening no-op wearing its own name (sixth sighting). The shape of the thing is: split the keys into two groups, build one object with `?` and one without, intersect them, and flatten. `mapProperties` with `optional: true` sets the flag on the properties that need it and leaves the rest alone, because a property is a record and the flag is a field.
+Three type parameters, two of which are computed defaults, and `Merge` at the top is the flattening no-op wearing its own name (sixth sighting). The shape of the thing is: split the keys into two groups, build one object with `?` and one without, intersect them, and flatten. `mapProperties` sets the flag on the properties that need it and folds the `undefined` arm into the optionality it now expresses, leaving the rest alone, because a property is a record and both the flag and the type are fields of it.
 
-`undefined extends T[Props]` is `arms(p.type).includes(undefined)`, and it is worth noticing that TypeScript has to phrase a membership test as an assignability test one more time.
+`undefined extends T[Props]` is `arms(p.type).includes(type undefined)`, and it is worth noticing that TypeScript has to phrase a membership test as an assignability test one more time.
 
 ## 30178 · Unique Items
 
@@ -5301,6 +5332,21 @@ function sudokuSolved(M: type): type {
                at(Math.floor(b / 3) * 3 + Math.floor(k / 3), (b % 3) * 3 + k % 3))));
   return ok ? type true : type false;
 }
+
+type Solved = [
+  [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+  [[4, 5, 6], [7, 8, 9], [1, 2, 3]],
+  [[7, 8, 9], [1, 2, 3], [4, 5, 6]],
+  [[2, 3, 1], [5, 6, 4], [8, 9, 7]],
+  [[5, 6, 4], [8, 9, 7], [2, 3, 1]],
+  [[8, 9, 7], [2, 3, 1], [5, 6, 4]],
+  [[3, 1, 2], [6, 4, 5], [9, 7, 8]],
+  [[6, 4, 5], [9, 7, 8], [3, 1, 2]],
+  [[9, 7, 8], [3, 1, 2], [6, 4, 5]],
+];
+sudokuSolved(Solved) === type true;
+const rows = tupleElements(Solved).map(band => band.type);
+sudokuSolved(tupleOf([rows[0], rows[0], ...rows.slice(2)])) === type false;   // a duplicated row fails the columns
 ```
 
 The hardest thing in the document to read, and the author's own comment on it is *"method 2: more ingenious"*.
@@ -5350,6 +5396,11 @@ type LengthOfString<S extends string> = Len<S, Q100k> extends [infer A extends n
 function lengthOfString(s: string): type {
   return literal([...s].length);
 }
+
+lengthOfString('foo') === type 3;
+lengthOfString('') === type 0;
+lengthOfString('\u{1F603}\u{1F603}') === type 2;      // code points, not UTF-16 units
+lengthOfString('x'.repeat(5000)) === type 5000;    // the whole point: no recursion budget to blow
 ```
 
 Third time. Challenge 298 counts one character at a time. Challenge 651 unrolls ten at a time. This one builds *patterns*: `Q10` is a template type of ten `string`s in a row, `Q100` is ten of those, up to `Q100k`, and then it strips off as many hundred-thousands as it can, then as many ten-thousands, then thousands, hundreds, tens, ones. That is long division in base ten, performed by pattern matching, and the six remainders `A` through `F` are literally the six decimal digits of the answer, which the last line concatenates into a string and parses. It measures a string up to a million characters long by decomposing it positionally.
@@ -5551,6 +5602,21 @@ function validSudoku(M: type): type {
            grid[Math.floor(b / 3) * 3 + Math.floor(k / 3)][(b % 3) * 3 + k % 3])))
     ? type true : type false;
 }
+
+type Grid = [
+  [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  [4, 5, 6, 7, 8, 9, 1, 2, 3],
+  [7, 8, 9, 1, 2, 3, 4, 5, 6],
+  [2, 3, 1, 5, 6, 4, 8, 9, 7],
+  [5, 6, 4, 8, 9, 7, 2, 3, 1],
+  [8, 9, 7, 2, 3, 1, 5, 6, 4],
+  [3, 1, 2, 6, 4, 5, 9, 7, 8],
+  [6, 4, 5, 9, 7, 8, 3, 1, 2],
+  [9, 7, 8, 3, 1, 2, 6, 4, 5],
+];
+validSudoku(Grid) === type true;
+const gridRows = tupleElements(Grid).map(r => r.type);
+validSudoku(tupleOf([gridRows[0], gridRows[0], ...gridRows.slice(2)])) === type false;
 ```
 
 The same nine helper types as challenge 31797, verbatim, because it is the same problem with the input reshaped: 31797 takes a 9x3x3 nesting and flattens it first, this one takes the 9x9 directly. The set-membership test built out of an index signature shadowed by a `Record` is unchanged, and so is the builder: `new Set(cells).size === 9` for rows, columns, and boxes.
@@ -5591,7 +5657,7 @@ It is extreme because there is no way to ask. The answer imports the identity in
 ## 151 · Query String Parser
 
 ```ts
-// TypeScript, issue #21419 (+9)
+// TypeScript, issue #21419 (+9). Thirty lines; the head is shown.
 type ParseQueryString<S extends string> = S extends '' ? {} : MergeParams<SplitParams<S>>;
 
 // e.g. 'k1=v1&k2=v2&k2=v3&k1' => ['k1=v1', 'k2=v2', 'k2=v3', 'k1']
@@ -5612,6 +5678,8 @@ type MergeParams<T extends string[], M = {}> =
         : never
     : M
 ;
+
+// ... SetProperty, which folds each parsed pair into the result object, follows
 ```
 
 ```js
@@ -5641,31 +5709,21 @@ parseQueryString('k1=v1&k2=v2&k1=v2') === type { k1: ['v1', 'v2'], k2: 'v2' };
 
 ```ts
 // TypeScript, issue #22110 (+18)
-// if N is negative, convert it to its positive counterpart by the Arr
 type ToPositive<N extends number, Arr extends unknown[]> =
   `${N}` extends `-${infer P extends number}`
   ? Slice<Arr, P>['length']
   : N
 
 // get the initial N items of Arr
-type InitialN<Arr extends unknown[], N extends number, _Acc extends unknown[] = []> =
+type InitialN<Arr extends unknown[], N extends number, _Acc extends unknown[] = []> = 
   _Acc['length'] extends N | Arr['length']
   ? _Acc
   : InitialN<Arr, N, [..._Acc, Arr[_Acc['length']]]>
 
-// remove the initial N items of Arr
-type RemoveInitialN<Arr extends unknown[], N extends number> =
-  N extends 0
-  ? Arr
-  : Arr extends [unknown, ...infer Rest]
-    ? RemoveInitialN<Rest, [...InitialN<Arr, N>] extends [unknown, ...infer R] ? R['length'] : never>
-    : []
-
-type Slice<
-  Arr extends unknown[],
-  Start extends number = 0,
-  End extends number = Arr['length'],
-> = RemoveInitialN<InitialN<Arr, ToPositive<End, Arr>>, ToPositive<Start, Arr>>
+type Slice<Arr extends unknown[], Start extends number = 0, End extends number = Arr['length']> = 
+  InitialN<Arr, ToPositive<End, Arr>> extends [...InitialN<Arr, ToPositive<Start, Arr>>, ...infer Rest]
+  ? Rest
+  : []
 ```
 
 ```js
@@ -5687,7 +5745,7 @@ Rated extreme. `Array.prototype.slice` has taken negative indices and clamped ou
 ## 274 · Integers Comparator
 
 ```ts
-// TypeScript, issue #11444 (+13)
+// TypeScript, issue #11444 (+13). Thirty-six lines; the head is shown.
 type Comparator<A extends number | string, B extends number | string>
   = `${A}` extends `-${infer AbsA}`
     ? `${B}` extends `-${infer AbsB}`
@@ -5696,6 +5754,8 @@ type Comparator<A extends number | string, B extends number | string>
     : `${B}` extends `-${number}`
       ? Comparison.Greater
       : ComparePositives<`${A}`, `${B}`>
+
+// ... ComparePositives, CompareByLength, and CompareByDigits follow
 ```
 
 ```js
@@ -5730,11 +5790,12 @@ declare function DynamicParamsCurrying<A extends unknown[], R>(fn: (...args: A) 
 
 ```js
 // Builder
-function curry(parameters: [].<Reflect.TypeParameter>, R: type): type {
-  if (parameters.length === 0) return fn([], R);
-  return Reflect.makeType({ kind: 'intersection', members: parameters.map((_, i) => {
-    const [head, tail] = [parameters.slice(0, i + 1), parameters.slice(i + 1)];
-    return fn(head.map(p => p.type), tail.length === 0 ? R : curry(tail, R));
+function curry(Params: type, R: type): type {
+  const elements = tupleElements(Params);
+  if (elements.length === 0) return fn([], R);
+  return Reflect.makeType({ kind: 'intersection', members: elements.map((_, i) => {
+    const [head, tail] = [elements.slice(0, i + 1), elements.slice(i + 1)];
+    return fn(head.map(e => e.type), tail.length === 0 ? R : curry(tupleOf(tail.map(e => e.type)), R));
   })});
 }
 
@@ -5967,15 +6028,13 @@ type DistributeArray<A extends unknown[]>
   : []
 type ArrHelper<H, T extends unknown[]> = H extends H ? [H, ...DistributeArray<T>] : never
 
-type DistributeObject<O, K extends keyof O = keyof O>
-  = K extends keyof O
-  ? ObjHelper<O, K, DistributeUnions<O[K]>>
+type DistributeObject<O extends object, K extends keyof O = keyof O>
+  = [K] extends [never] ? {}
+  : K extends K ? ObjHelper<K, DistributeUnions<O[K]>> & DistributeObject<Omit<O, K>>
   : never
-type ObjHelper<O, K extends keyof O, V> = V extends V
-  ? { [P in K]: V } & DistributeObject<Omit<O, K>>
-  : never
+type ObjHelper<K, V> = V extends V ? { [k in K & string]: V } : never
 
-type Merge<T> = T extends unknown ? { [K in keyof T]: T[K] } : never
+type Merge<O> = { [K in keyof O]: O[K] }
 ```
 
 ```js
@@ -6025,15 +6084,23 @@ type HashMap = {
 
 ```js
 // Builder
-declare function assertArrayIndex<T extends [].<any>, K extends string>(
-  array: T, key: K): asserts array is T & { [INDEX]?: K };
+function at(A: type, index: uint32): type {
+  const node = reflect(A);
+  if (node.kind !== 'tuple') throw new TypeError(`at: ${String(A)} is not a tuple type`);
+  if (index >= node.elements.length)
+    throw new TypeError(`at: index ${index} is out of bounds for ${String(A)}`);
+  return node.elements[index].type;   // never `| undefined`: out of bounds is an error, not a value
+}
 
-type Index<T> = /* the branded index type for T */;
+type Matrix = [[1, 2], [3, 4], [5, 6]];
+at(Matrix, 1) === type [3, 4];
+at(at(Matrix, 1), 0) === type 3;
+at(Matrix, 9);   // TypeError: at: index 9 is out of bounds for [[1, 2], [3, 4], [5, 6]]
 ```
 
 The one challenge in the repository that needs a compiler option changed: its test cases only typecheck with `noUncheckedIndexedAccess` on, which `tsconfig.base.json` does not set. The README says so, so this is a documented requirement rather than a bug, but it does mean the challenge cannot be checked by the repo's own configuration.
 
-The answer's `HashMap` is a lookup table from each digit character to a tuple of that length, and `StringToTuple` and `Add` build on it, because the index type has to do arithmetic to stay in bounds and the arithmetic has to be built first. Sixteen challenges in this document build a tuple purely to count with it, and this is one more.
+The answer's `HashMap` is a lookup table from each digit character to a tuple of that length, and `StringToTuple` and `Add` build on it, because the index type has to do arithmetic to stay in bounds and the arithmetic has to be built first. Sixteen challenges in this document build a tuple purely to count with it, and this is one more. The builder does not need any of it: `at` evaluates the comparison the checker cannot, so out of bounds is an error at build time and an in-bounds read never carries `| undefined`. The `asserts` brand and the digit table were never the point; `i < length` was.
 
 ## 6228 · JSON Parser
 
@@ -6163,17 +6230,17 @@ type IntersectParameters<X extends Arr, Y extends Arr, R extends Arr = []> = X e
   ? [...R, ...Y]
   : Y extends readonly []
     ? [...R, ...X]
-    : [X, Y] extends [readonly [infer XH, ...infer XR], readonly [infer YH, ...infer YR]]
-      ? IntersectParameters<XR, YR, [...R, Intr<XH, YH>]>
-      : [X, Y] extends [readonly [(infer XH)?, ...infer XR], readonly [(infer YH)?, ...infer YR]]
-        ? IntersectParameters<XR, YR, [...R, Intr<XH, YH>?]>
-        : [...R, ...{[K in keyof X]: Intr<X[K], Y[number]>}];
+    : [X, Y] extends [readonly [(infer A)?, ...infer XT], readonly [(infer B)?, ...infer YT]]
+      ? '0' extends (keyof X) | (keyof Y) 
+        ? IntersectParameters<XT, YT, [[], []] extends [X, Y] ? [...R, Intr<A, B>?] : [...R, Intr<A, B>]>
+        : [...R, ...Intr<A, B>[]]
+      : never;
 ```
 
 ```js
 // Builder
-function intersectParameters(X: [].<Reflect.TypeParameter>, Y: [].<Reflect.TypeParameter>):
-    [].<Reflect.TypeParameter> {
+function intersectParameters(X: [].<Reflect.FunctionParameterReflection>, Y: [].<Reflect.FunctionParameterReflection>):
+    [].<Reflect.FunctionParameterReflection> {
   const both = (a, b) => Reflect.makeType({ kind: 'intersection', members: [a.type, b.type] });
   const out = [];
   for (let i = 0; i < Math.max(X.length, Y.length); i++) {
@@ -6183,9 +6250,16 @@ function intersectParameters(X: [].<Reflect.TypeParameter>, Y: [].<Reflect.TypeP
   }
   return out;
 }
+
+type F = (a: { x: 1 }, b: string) => void;
+type G = (a: { y: 2 }) => void;
+const merged = intersectParameters(reflect(F).signatures[0].parameters, reflect(G).signatures[0].parameters);
+merged.length === 2;
+merged[0].type === type { x: 1 } & { y: 2 };
+merged[1].type === string;
 ```
 
-The last extreme challenge and one of the most honest ones: parameter lists have positions, optionality, and rest elements, and merging two of them means handling all three. The TypeScript version needs four branches, two of which differ only in whether the destructured element is `(infer XH)?` or `infer XH`, because optionality cannot be read and has to be matched. `Intr` is the flattening no-op again (eighth sighting), applied per position.
+The last extreme challenge and one of the most honest ones: parameter lists have positions, optionality, and rest elements, and merging two of them means handling all three. The TypeScript version reads optionality by three tricks stacked: `(infer A)?` matches a head whether it is required or optional, `'0' extends (keyof X) | (keyof Y)` distinguishes real heads from a bare rest element, and `[[], []] extends [X, Y]` decides whether the merged position keeps its question mark, because a tuple accepts the empty tuple exactly when everything in it is optional. Optionality cannot be read, so it is triangulated. `Intr` is the flattening no-op again (eighth sighting), applied per position.
 
 The builder walks two lists with an index, and this is the one place in the document where the parameter records' `index` field earns its keep rather than costing: the loop assigns positions because positions are what it is computing. Challenge 3196 charged the builder a renumbering tax for the same field, and this is the refund.
 
@@ -6255,7 +6329,7 @@ The next batch supplies the rest of the family. `IsNever` wraps its operand in a
 
 Both answers are defensible and the choice is not local. Reducing is what a reader expects from interning, since `string | 'a'` and `string` are inhabited by exactly the same values and the promise of `===` is that structurally identical types are one object; declining to reduce means two type objects with identical value sets are different types, which weakens `===` from "same type" to "same spelling". But reducing means canonicalization must run assignability, and assignability is defined coinductively over interned types, so the two become mutually recursive at the exact point where the fixpoint machinery already lives. It also spreads: does `float32.<{ nonZero: true }> | float32` reduce to `float32`, and does a metadata `subtype` hook get consulted during interning? The recommendation is to reduce, and to specify the recursion, because `arms` is the foundation of every union builder in the catalog and its behavior on `string | 'a'` should not be an accident of the order the arms were written in. What matters most is that the document say which, since forty of these fifty challenges lean on `arms` or `union` somewhere.
 
-**Twenty-three of these hundred and ninety top-voted answers no longer pass.** The full list is challenges 15, 16, 949, 2946, 3062, 4425, 4484, 5140, 5310, 5317, 9898, 27133, 27958, 30301, 6, 112, 213, 270, 300, 2822, 13580, 517, and 7561, checked against the repo's current test cases with TypeScript 5.9.3. That is one in eight, on a corpus whose whole purpose is to be checked, with hundreds of votes between them. The last of them fails for a reason worth its own paragraph, below.
+**Thirty-one of these hundred and ninety top-voted answers no longer pass.** The full list is challenges 9, 12, 15, 16, 20, 191, 898, 949, 2757, 2793, 2946, 3062, 4425, 4484, 5140, 5310, 5317, 9898, 18142, 27133, 27958, 30301, 6, 112, 213, 270, 300, 2822, 13580, 517, and 7561, checked against the repo's current test cases with TypeScript 5.9.3. That is one in six, on a corpus whose whole purpose is to be checked, with hundreds of votes between them. Challenge 2757 is the extreme case: twelve posted answers, eleven of which fail the same `@ts-expect-error` line, because exactly one of the twelve constrains `K extends keyof T`. The last of them fails for a reason worth its own paragraph, below.
 
 **The ceiling has a number, and it is 10,000.** Challenge 27133 asks for `n` squared, and it is the sharpest thing in the document about what the tuple encodings actually cost. The obvious answer builds an `n * n`-element tuple and reads its length. The top-voted answer is a genuinely clever refinement of that: `SplitZeroes` factors trailing zeros out of the input, so `Square<100>` becomes `Square<1>` with `'0000'` glued on the end, and every round number stays small. The harness includes `Square<101>`, and the refinement dies:
 
