@@ -2,7 +2,7 @@
 
 [type-challenges](https://github.com/type-challenges/type-challenges) is the standard obstacle course for TypeScript's type-level language: implement `Pick`, unwrap a `Promise`, take the head of a tuple, using only conditional types, mapped types, `infer`, and recursion. It is a good adversarial test of [type builders](../typeprogramming.md), because the problems were *chosen* to be natural in a type language whose only verbs are `extends` and `in`. If the builder model only won on problems selected to suit it, that would prove nothing.
 
-This document works the warm-up, all thirteen easy challenges, and the first six medium ones, in the order the README lists them. Each entry gives the problem, the top-voted community solution in TypeScript (linked, with its score at the time of writing), and the builder solution. The builders are written from the primitives in [type programming](../typeprogramming.md) rather than by calling the `std:types` entry that already ships the answer, since implementing the utility is the whole point of the exercise.
+This document works the warm-up, all thirteen easy challenges, and the first twenty-six medium ones, in the order the README lists them. Every TypeScript solution shown has been checked against the repo's own test cases with TypeScript 5.9.3; where the top-voted answer no longer passes, a verified passing answer is shown instead and the note at the end says why. Each entry gives the problem, the top-voted community solution in TypeScript (linked, with its score at the time of writing), and the builder solution. The builders are written from the primitives in [type programming](../typeprogramming.md) rather than by calling the `std:types` entry that already ships the answer, since implementing the utility is the whole point of the exercise.
 
 Features exercised, and why they matter here:
 
@@ -11,7 +11,7 @@ Features exercised, and why they matter here:
 - Literal types with values readable back out, including **symbol literal types**, which challenge 11 requires and which no TypeScript solution can express without `unique symbol` gymnastics.
 - `never` as the empty union, which challenge 14 returns for an empty tuple.
 - Authored `TypeError` diagnostics where the challenges write `@ts-expect-error`, so a wrong argument reports what was wrong rather than that something was.
-- Argument-bound value generics, which give challenge 12 the key *as a string* and turn a fluent builder's accumulating type into `[...properties, prop(key, V)]`.
+- Argument-bound value generics, which give challenge 12 the key *as a string*, turn a fluent builder's accumulating type into `[...properties, prop(key, V)]`, and reduce the five string challenges to `trimStart`, `trim`, `toUpperCase`, `replace`, and `replaceAll`.
 - The proposal's fixed arrays `[N].<T>`, which give challenge 18 an answer TypeScript cannot state.
 - Type objects usable at runtime, so every "test case" below is also an ordinary unit test.
 
@@ -20,8 +20,8 @@ Several challenges surfaced questions the type programming document implies but 
 ## Preamble
 
 ```js
-import { arms, arrayOf, firstParameter, keysOf, literal, literalValues, mapProperties,
-         never, objectOf, prop, reflect, union } from 'std:types';
+import { arms, arrayOf, awaited, firstParameter, keysOf, literal, literalValues, mapProperties,
+         never, objectOf, prop, reflect, tupleOf, union } from 'std:types';
 
 // One local helper the tuple challenges share.
 function tupleElements(T: type): [].<Reflect.TypeTupleElement> {
@@ -601,6 +601,527 @@ The last challenge in this batch is the one that most resembles a real API, and 
 
 Note what the builder did **not** need to do: it never constructs a generic function type. `option` is declared with its type parameters in ordinary syntax, and the builder only computes the return type's argument. That division is worth stating, because the node model could not have done otherwise, and the note below records why that is fine.
 
+## 15 · Last of Array
+
+The last element's type, or `never` for an empty tuple.
+
+```ts
+// TypeScript, issue #38 (+54). The top-voted answer no longer passes; see the note.
+type Last<T extends any[]> = T extends [...infer _, infer L] ? L : never
+```
+
+```js
+// Builder
+function last(T: type): type {
+  return tupleElements(T).at(-1)?.type ?? never;
+}
+
+last(type [3, 2, 1]) === type 1;
+last(type [2]) === type 2;
+last(type []) === never;
+last(uint32);   // TypeError: expected a tuple type, got uint32
+```
+
+## 16 · Pop
+
+The tuple without its last element. `Pop<[]>` is `[]`.
+
+```ts
+// TypeScript, issue #8622 (+2). The top-voted answer no longer passes; see the note.
+type Pop<T extends unknown[]> = T extends [ ...infer O, infer L ] ? O : []
+```
+
+```js
+// Builder
+function pop(T: type): type {
+  return Reflect.makeType({ kind: 'tuple', elements: tupleElements(T).slice(0, -1) });
+}
+
+pop(type [3, 2, 1]) === type [3, 2];
+pop(type ['a', 'b', 'c', 'd']) === type ['a', 'b', 'c'];
+pop(type []) === type [];
+pop(uint32);   // TypeError: expected a tuple type, got uint32
+```
+
+`slice(0, -1)` on an empty list is empty, and a non-tuple never reaches the slice. The note below is about why that sentence is the whole finding.
+
+## 20 · Promise.all
+
+Type `PromiseAll`, which takes a list of values or promises and resolves to the list of their settled types.
+
+```ts
+// TypeScript, issue #211 (+62)
+declare function PromiseAll<T extends any[]>(values: readonly [...T]):
+  Promise<{ [K in keyof T]: T[K] extends Promise<infer R> ? R : T[K] }>;
+```
+
+```js
+// Builder
+function settled(T: type): type {
+  const node = reflect(T);
+  switch (node.kind) {
+    case 'tuple': return Reflect.makeType({ ...node, elements: node.elements.map(e => ({ ...e, type: awaited(e.type) })) });
+    case 'array': return arrayOf(awaited(node.element), node.extent);
+    default: throw new TypeError(`promiseAll: ${String(T)} is not an array or tuple type`);
+  }
+}
+
+declare function promiseAll<T>(values: T): Promise.<settled(T)>;
+
+promiseAll.<type [1, 2, 3]>;                        // returns Promise.<[1, 2, 3]>
+promiseAll.<type [1, 2, Promise.<uint32>]>;         // returns Promise.<[1, 2, uint32]>
+promiseAll.<[].<uint32 | Promise.<string>>>;        // returns Promise.<[].<uint32 | string>>
+```
+
+`{ [K in keyof T]: ... }` over a tuple is TypeScript's most surprising rule: a mapped type over an array or tuple is special-cased to produce an array or tuple rather than an object with numeric keys, which is why this signature works at all and why nothing in the syntax says so. The builder's `switch` says so. Note also that `awaited` already means "unwrap if thenable, else pass through", so `T[K] extends Promise<infer R> ? R : T[K]` is a call rather than a conditional.
+
+The harness's first and third cases differ only by `as const`, checking that a widened `[1, 2, Promise<3>]` still maps element-wise. This proposal marks `as const` obviated, since literals keep their literal types and value types are immutable by layout, so the two cases collapse into one and there is nothing left to test.
+
+## 62 · Type Lookup
+
+Select the member of a tagged union whose `type` field matches.
+
+```ts
+// TypeScript, issue #149 (+104)
+type LookUp<U, T> = U extends {type: T} ? U : never;
+```
+
+```js
+// Builder
+function lookUp(U: type, T: type): type {
+  return union(arms(U).filter(arm => Reflect.isAssignable(arm, objectOf([prop('type', T)]))));
+}
+
+interface Cat { type: 'cat'; breeds: 'Abyssinian' | 'Shorthair' }
+interface Dog { type: 'dog'; breeds: 'Hound' | 'Boxer'; color: 'brown' | 'white' }
+type Animal = Cat | Dog;
+
+lookUp(Animal, type 'dog') === Dog;
+lookUp(Animal, type 'cat') === Cat;
+lookUp(Animal, type 'bird') === never;
+```
+
+A one-line translation, and the closest correspondence in the whole set: `extends` becomes `Reflect.isAssignable`, distribution becomes `.filter`, and the `never` branch becomes the empty union. `std:types` ships this as `byKind(T, k, tag)`, with the tag a parameter rather than hardcoded to `'type'`.
+
+## 106 · Trim Left
+
+Strip leading whitespace from a string literal type.
+
+```ts
+// TypeScript, issue #346 (+90)
+type Space = ' ' | '\n' | '\t'
+type TrimLeft<S extends string> = S extends `${Space}${infer R}` ? TrimLeft<R> : S
+```
+
+```js
+// Builder
+function trimLeft(s: string): type {
+  return literal(s.trimStart());
+}
+
+trimLeft('     str     ') === type 'str     ';
+trimLeft('   \n\t foo bar ') === type 'foo bar ';
+trimLeft(' \n\t') === type '';
+```
+
+## 108 · Trim
+
+Strip whitespace from both ends.
+
+```ts
+// TypeScript, issue #481 (+107)
+type Space = ' ' | '\t' | '\n';
+type Trim<S extends string> = S extends `${Space}${infer T}` | `${infer T}${Space}` ? Trim<T> : S;
+```
+
+```js
+// Builder
+function trim(s: string): type {
+  return literal(s.trim());
+}
+
+trim('     str     ') === type 'str';
+trim('   \n\t foo bar \t') === type 'foo bar';
+trim(' \n\t ') === type '';
+```
+
+## 110 · Capitalize
+
+Uppercase the first character.
+
+```ts
+// TypeScript, issue #759 (+32)
+type MyCapitalize<S extends string> = S extends `${infer x}${infer tail}` ? `${Uppercase<x>}${tail}` : S;
+```
+
+```js
+// Builder
+function myCapitalize(s: string): type {
+  return literal(s.charAt(0).toUpperCase() + s.slice(1));
+}
+
+myCapitalize('foo bar') === type 'Foo bar';
+myCapitalize('FOOBAR') === type 'FOOBAR';
+myCapitalize('') === type '';
+```
+
+## 116 · Replace
+
+Replace the first occurrence of `From` in `S` with `To`. An empty `From` changes nothing.
+
+```ts
+// TypeScript, issue #407 (+40)
+type Replace<S extends string, From extends string, To extends string> =
+      From extends ''
+      ? S
+      : S extends `${infer V}${From}${infer R}`
+        ? `${V}${To}${R}`
+        : S
+```
+
+```js
+// Builder
+function replace(s: string, from: string, to: string): type {
+  return literal(from === '' ? s : s.replace(from, () => to));
+}
+
+replace('foobarbar', 'bar', 'foo') === type 'foofoobar';
+replace('foobarbar', 'bar', '') === type 'foobar';
+replace('foobarbar', 'bra', 'foo') === type 'foobarbar';
+replace('foobarbar', '', 'foo') === type 'foobarbar';
+```
+
+## 119 · ReplaceAll
+
+Replace every occurrence.
+
+```ts
+// TypeScript, issue #367 (+56)
+type ReplaceAll<S extends string, From extends string, To extends string> = From extends ''
+  ? S
+  : S extends `${infer R1}${From}${infer R2}`
+  ? `${R1}${To}${ReplaceAll<R2, From, To>}`
+  : S
+```
+
+```js
+// Builder
+function replaceAll(s: string, from: string, to: string): type {
+  return literal(from === '' ? s : s.replaceAll(from, () => to));
+}
+
+replaceAll('foobarbar', 'bar', 'foo') === type 'foofoofoo';
+replaceAll('t y p e s', ' ', '') === type 'types';
+replaceAll('foobarfoobar', 'ob', 'b') === type 'fobarfobar';
+replaceAll('foboorfoboar', 'bo', 'b') === type 'foborfobar';
+replaceAll('foobarbar', '', 'foo') === type 'foobarbar';
+```
+
+Five string challenges in a row, and the builder answers are `trimStart`, `trim`, `toUpperCase`, `replace`, and `replaceAll`. There is nothing to explain, which is the finding. Two details are worth pointing at anyway. The replacement is passed as `() => to` rather than `to`, because `String.prototype.replace` gives `$&` and `$1` special meaning in a replacement *string*, and a type-level `Replace<S, 'a', '$&'>` must insert the two characters `$&`; the function form is the one that means what the challenge means. And the empty-`From` guard is needed because `'abc'.replaceAll('', 'x')` interpolates, where the challenge wants identity. Both are cases where the builder author has to know JavaScript's string semantics, which is a real cost, and both are one conditional.
+
+The `Space` alias in 106 and 108 is worth a second look. It is `' ' | '\n' | '\t'`, three characters, because in TypeScript every whitespace character to be trimmed has to be enumerated into a union and matched by a template pattern, so the definition is bounded by the author's patience. `trimStart` is defined against Unicode's `White_Space` property. The builder is not just shorter here; it is the only one of the two that is *correct* for `'\r\n str'`.
+
+## 191 · Append Argument
+
+Add a parameter to the end of a function type.
+
+```ts
+// TypeScript, issue #222 (+67)
+type AppendArgument<Fn, A> = Fn extends (...args: infer R) => infer T ? (...args: [...R, A]) => T : never
+```
+
+```js
+// Builder
+function appendArgument(F: type, A: type): type {
+  const node = reflect(F);
+  if (node.kind !== 'function') throw new TypeError(`appendArgument: ${String(F)} is not a function type`);
+  return Reflect.makeType({ ...node, signatures: node.signatures.map(sig => ({
+    ...sig,
+    parameters: [...sig.parameters,
+      { type: A, name: 'appended', index: sig.parameters.length, rest: false, initial: undefined, metadata: {} }],
+  })) });
+}
+
+appendArgument(type (a: uint32, b: string) => uint32, boolean) === type (a: uint32, b: string, x: boolean) => uint32;
+appendArgument(type () => void, type undefined) === type (x: undefined) => void;
+appendArgument(uint32, boolean);   // TypeError: appendArgument: uint32 is not a function type
+```
+
+Read the first assertion again: the builder names its new parameter `appended`, the expected type names it `x`, and they are equal. That is only true if parameter names are not part of a function type's identity, which the note below takes up. Note also that the builder appends to *every* overload, which the `infer R` form cannot express at all: on an overloaded function it silently picks the last signature and discards the rest.
+
+## 296 · Permutation
+
+Every ordering of a union, as a union of tuples.
+
+```ts
+// TypeScript, issue #614 (+379)
+type Permutation<T, K=T> =
+    [T] extends [never]
+      ? []
+      : K extends K
+        ? [K, ...Permutation<Exclude<T, K>>]
+        : never
+```
+
+```js
+// Builder
+function permutation(T: type): type {
+  const perms = (xs: [].<type>): [].<[].<type>> =>
+    xs.length === 0 ? [[]] : xs.flatMap((x, i) => perms(xs.toSpliced(i, 1)).map(rest => [x, ...rest]));
+  return union(perms(arms(T)).map(tupleOf));
+}
+
+permutation(type 'A') === type ['A'];
+permutation(type 'A' | 'B' | 'C')
+  === type ['A','B','C'] | ['A','C','B'] | ['B','A','C'] | ['B','C','A'] | ['C','A','B'] | ['C','B','A'];
+permutation(boolean) === type [false, true] | [true, false];
+permutation(never) === type [];
+```
+
+The most-upvoted answer in the whole repository, and it deserves the votes: it is genuinely clever. Look at what the cleverness is *for*, though. `K extends K` is a conditional that is always true. It computes nothing. It exists solely because a conditional type over a naked parameter distributes, so writing a tautology is the only way to say "iterate the arms of this union", and the `: never` branch is unreachable filler needed to complete a syntax form. `[T] extends [never]` is the tuple-wrapping idiom, present because the author needs the *opposite* of distribution for the base case. Two idioms, both about controlling a behavior nobody asked for, wrapped around the actual algorithm.
+
+The builder's `perms` is the permutation function anyone would write, and `.flatMap` is the iteration. `permutation(never)` needs no base case at all: `arms(never)` is the empty list, `perms([])` is `[[]]`, and the union of one tuple is that tuple.
+
+## 298 · Length of String
+
+The length of a string literal type, as a number.
+
+```ts
+// TypeScript, issue #359 (+34)
+type LengthOfString<
+  S extends string,
+  T extends string[] = []
+> = S extends `${infer F}${infer R}`
+  ? LengthOfString<R, [...T, F]>
+  : T['length'];
+```
+
+```js
+// Builder
+function lengthOfString(s: string): type {
+  return literal(s.length);
+}
+
+lengthOfString('Sound! Euphonium') === type 16;
+lengthOfString('') === type 0;
+```
+
+TypeScript has no way to count, so it peels the string one character at a time into an accumulator tuple and reads the tuple's `length`, which is the only length that exists at the type level. This is also why the challenge has a practical ceiling around a thousand characters. `s.length` has no ceiling and no accumulator.
+
+## 459 · Flatten
+
+Flatten a nested tuple type, to any depth.
+
+```ts
+// TypeScript, issue #1314 (+28)
+type Flatten<S extends any[], T extends any[] = []> =  S extends [infer X, ...infer Y] ?
+  X extends any[] ?
+   Flatten<[...X, ...Y], T> : Flatten<[...Y], [...T, X]>
+  : T
+```
+
+```js
+// Builder
+function flatten(T: type): type {
+  const flat = (elements: [].<Reflect.TypeTupleElement>): [].<Reflect.TypeTupleElement> =>
+    elements.flatMap(e => reflect(e.type).kind === 'tuple' ? flat(reflect(e.type).elements) : [e]);
+  return Reflect.makeType({ kind: 'tuple', elements: flat(tupleElements(T)) });
+}
+
+flatten(type [1, 2, [3, 4], [[[5]]]]) === type [1, 2, 3, 4, 5];
+flatten(type [{ foo: 'bar' }, 'foobar']) === type [{ foo: 'bar' }, 'foobar'];
+flatten(type []) === type [];
+flatten(type '1');   // TypeError: expected a tuple type, got '1'
+```
+
+The accumulator in the TypeScript version is not incidental: with no `flatMap` and no local variables, the only way to build a result is to thread it through the recursion as a second type parameter with a default. The builder's `flat` is the same recursion without the plumbing. (`std:types` also exports a `flatten`, which is the unrelated shallow `[].<U>` unwrap; this one is the challenge's deep tuple flatten.)
+
+## 527 · Append to object
+
+Add a key and value type to an object type.
+
+```ts
+// TypeScript, issue #536 (+49)
+type AppendToObject<T, U extends keyof any, V> = {
+  [K in keyof T | U]: K extends keyof T ? T[K] : V;
+};
+```
+
+```js
+// Builder
+function appendToObject(T: type, key: string | symbol, V: type): type {
+  return objectOf([...reflect(T).properties, prop(key, V)]);
+}
+
+type Test = { key: 'cat', value: 'green' };
+appendToObject(Test, 'home', boolean) === type { key: 'cat', value: 'green', home: boolean };
+```
+
+A mapped type over `keyof T | U` has to re-derive, for every key, which of the two sources it came from, because the mapped form is the only way to build an object type and it must produce all keys in one pass. Appending to a list is appending to a list.
+
+## 529 · Absolute
+
+The absolute value of a number, string, or bigint literal, as a string.
+
+```ts
+// TypeScript, issue #10386 (+47)
+type Absolute<T extends number | string | bigint> = `${T}` extends `-${infer U}` ? U : `${T}`
+```
+
+```js
+// Builder
+function absolute(v: number | string | bigint): type {
+  return literal(String(v).replace(/^-/, ''));
+}
+
+absolute(-5) === type '5';
+absolute(-0) === type '0';
+absolute(-1_000_000n) === type '1000000';
+absolute('-5') === type '5';
+```
+
+An honest near-draw, and worth including for that. Both solutions do the same thing for the same reason: the result is specified as a *string*, so both stringify and strip a leading minus rather than doing arithmetic. TypeScript's `` `${T}` `` is its stringify, and the pattern match is its strip. The builder is not cleverer here; it is the same idea with `String` and a regex instead of a template pattern.
+
+## 531 · String to Union
+
+The union of a string's characters.
+
+```ts
+// TypeScript, issue #537 (+41)
+type StringToUnion<T extends string> = T extends `${infer Letter}${infer Rest}`
+  ? Letter | StringToUnion<Rest>
+  : never;
+```
+
+```js
+// Builder
+function stringToUnion(s: string): type {
+  return union([...s].map(literal));
+}
+
+stringToUnion('hello') === type 'h' | 'e' | 'l' | 'o';
+stringToUnion('t') === type 't';
+stringToUnion('') === never;
+```
+
+The empty case falls out twice over: `[...'']` is empty and the union of no arms is `never`, which is the answer the challenge wants. Note the harness writes the `'hello'` case as `'h' | 'e' | 'l' | 'l' | 'o'` with `'l'` twice, which is the same type as the deduplicated one in both systems.
+
+## 599 · Merge
+
+Merge two object types; the second wins on conflicts.
+
+```ts
+// TypeScript, issue #608 (+25)
+type Merge<F, S> = {
+  [K in keyof F | keyof S]: K extends keyof S
+    ? S[K]
+    : K extends keyof F
+    ? F[K]
+    : never;
+};
+```
+
+```js
+// Builder
+function merge(F: type, S: type): type {
+  const second = reflect(S).properties;
+  const overridden = new Set(second.map(p => p.name));
+  return objectOf([...reflect(F).properties.filter(p => !overridden.has(p.name)), ...second]);
+}
+
+type Foo = { a: uint32, b: string };
+type Bar = { b: uint32, c: boolean };
+merge(Foo, Bar) === type { a: uint32, b: uint32, c: boolean };
+```
+
+The `: never` branch in the TypeScript version is unreachable, since `K` came from `keyof F | keyof S` and cannot be outside both. It is there because a conditional needs an else. That is the third unreachable `never` in this batch alone, and the note below is about what they have in common.
+
+## 612 · KebabCase
+
+`FooBarBaz` becomes `foo-bar-baz`.
+
+```ts
+// TypeScript, issue #664 (+64)
+type KebabCase<S extends string> = S extends `${infer S1}${infer S2}`
+  ? S2 extends Uncapitalize<S2>
+  ? `${Uncapitalize<S1>}${KebabCase<S2>}`
+  : `${Uncapitalize<S1>}-${KebabCase<S2>}`
+  : S;
+```
+
+```js
+// Builder
+function kebabCase(s: string): type {
+  return literal([...s].map((c, i) => {
+    const lower = c.toLowerCase();
+    return lower !== c && i > 0 ? `-${lower}` : lower;
+  }).join(''));
+}
+
+kebabCase('FooBarBaz') === type 'foo-bar-baz';
+kebabCase('fooBarBaz') === type 'foo-bar-baz';
+kebabCase('Foo-Bar') === type 'foo--bar';
+kebabCase('ABC') === type 'a-b-c';
+kebabCase('😎') === type '😎';
+```
+
+Both solutions test "is this character uppercase" the same way, by asking whether lowercasing changes it, because that is the definition that works for every alphabet rather than for `A` through `Z`. TypeScript spells it `S2 extends Uncapitalize<S2>` and the builder spells it `lower !== c`. The builder iterates with `[...s]`, which yields code points, so the `'😎'` case is handled by the iteration rather than in spite of it.
+
+## 645 · Diff
+
+The symmetric difference of two object types.
+
+```ts
+// TypeScript, issue #3014 (+95)
+type Diff<O, O1> = Omit<O & O1, keyof (O | O1)>
+```
+
+```js
+// Builder
+function diff(A: type, B: type): type {
+  const inA = new Set(reflect(A).properties.map(p => p.name));
+  const inB = new Set(reflect(B).properties.map(p => p.name));
+  return objectOf([
+    ...reflect(A).properties.filter(p => !inB.has(p.name)),
+    ...reflect(B).properties.filter(p => !inA.has(p.name)),
+  ]);
+}
+
+type Foo = { name: string, age: string };
+type Coo = { name: string, gender: uint32 };
+diff(Foo, Coo) === type { age: string, gender: uint32 };
+```
+
+`Omit<O & O1, keyof (O | O1)>` is the sharpest one-liner in the set, and it is worth understanding rather than dismissing: `O & O1` has every key, `keyof (O | O1)` is the *common* keys because a union's keys are the ones every arm has, and omitting the second from the first leaves the symmetric difference. It is exact, it is four tokens, and it relies on the reader knowing that `keyof` inverts across union and intersection. The builder is longer and says what it does.
+
+## 949 · AnyOf
+
+True if any element of the tuple is truthy. Falsy means `0`, `''`, `false`, `[]`, `{}`, `null`, or `undefined`.
+
+```ts
+// TypeScript, issue #15212 (+1). The top-voted answer (#954, +83) is this without
+// `null | undefined` in Falsy and no longer passes; see the note.
+type EmptyObject = { [i in string]: never };
+type Falsy = 0 | '' | false | null | undefined | [] | EmptyObject
+type AnyOf<T extends readonly any[]> = T[number] extends Falsy ? false : true;
+```
+
+```js
+// Builder
+const falsy = type 0 | '' | false | null | undefined | [] | { [key: string]: never };
+
+function anyOf(T: type): type {
+  return tupleElements(T).some(e => !Reflect.isAssignable(e.type, falsy)) ? type true : type false;
+}
+
+anyOf(type [1, 'test', true, [1], { name: 'test' }]) === type true;
+anyOf(type [0, '', false, [], { name: 'test' }]) === type true;
+anyOf(type [0, '', false, [], {}, undefined, null]) === type false;
+anyOf(type []) === type false;
+```
+
+The fairest challenge in the batch, and the builder wins almost nothing. Truthiness is a property of *values*, but this challenge has no values: it asks whether a list of **types** contains one that is not in a falsy set, so the falsy set has to be enumerated by hand in both languages and the answer is an assignability question either way. What is left is `.some` against recursion, and `Reflect.isAssignable` against `extends`. Worth including precisely because the pattern of the previous thirty-nine does not hold here: when a problem is genuinely about types rather than about values wearing types, the two models converge.
+
 ## Notes
 
 **Identity was the whole game, and the harness proves it.** Challenge 898 is the clearest result across all twenty. Its expected values are chosen precisely to break assignability-based answers (`boolean` excludes `false`, `{ a }` excludes `{ readonly a }`, `[1]` excludes `1 | 2`), so every passing TypeScript solution carries the `IsEqual` incantation: two generic function signatures whose relation the checker happens to decide the right way, found in a 2018 issue comment and never blessed as a feature. With interned type objects it is `===`, and the challenge collapses to `.some`. The same incantation is what the harness's own `Expect<Equal<X, Y>>` is built from, which is why every case in this document is written as a plain assertion instead: the challenges' tooling is the first thing the builder model deletes, and each of those assertions is also a line that runs. Challenge 898 additionally settles a claim [type programming](../typeprogramming.md) only asserts in the abstract, that `readonly` is where identity and inter-assignability come apart. The harness agrees.
@@ -613,8 +1134,16 @@ Note what the builder did **not** need to do: it never constructs a generic func
 
 **The node model has no generic signatures.** `FunctionSignatureReflection` carries parameters and a return, but no type parameters, so a builder cannot *construct* `<K, V>(key: K, value: V) => R` with `makeType`, and a generic function type cannot round-trip through reflection. Challenge 12 shows why this has not bitten: generic methods are declared in ordinary syntax and builders compute their *arguments*, which is the natural division of labor. Recording it as a known limit rather than an oversight, the open question being whether reflection should carry type parameters for completeness. Nothing in twenty challenges has needed it.
 
+**The published answers rot, and the rot is the finding.** Two of this batch's top-voted solutions fail the repo's current tests, which I checked with TypeScript 5.9.3 against its own `Equal`. Challenge 15's `[any, ...T][T['length']]` (+149) evaluates to `any` for `Last<[]>` where the test wants `never`; challenge 16's `T extends [...infer I, infer _] ? I : never` (+20) gives `never` for `Pop<[]>` where the test wants `[]`. These are not careless answers, and the authors are not the story: the test cases were tightened *after* the answers were posted, and the answers were correct when written. The story is why the empty tuple is where they broke. In a conditional type, the else-branch is doing double duty: it means both "`T` is not a tuple with a last element" and "`T` is the empty tuple", because pattern matching against `[...infer I, infer _]` is the only iteration primitive available and a failed match is the only way to notice either fact. Writing `: never` there looks like marking an impossible branch; it is silently also answering the empty case. Of the nineteen distinct `Pop` answers I tested, twelve return `never` and fail, and the passing ones differ only in writing `: []`. The builder cannot make this mistake, and not because its author is more careful: `tupleElements` throws for a non-tuple and `slice(0, -1)` returns `[]` for the empty one, so the two facts are two code paths and neither can stand in for the other.
+
+A third answer has since rotted the same way. Challenge 949's top-voted `AnyOf` (+83) tests `T[number] extends 0 | '' | false | [] | {[key: string]: never}`, and fails now that the harness added `undefined` and `null` to its all-falsy case. The builder is not immune to *that* one, since the falsy set must be enumerated by hand in both languages, and the passing answer is the same union plus two members. But it belongs to the same family: a `never` or a falsy list standing in for a case nobody enumerated, invisible until a test names it. Which points at the shape underneath. Across this batch, `Permutation` ends in `: never` on a branch that cannot be reached, `Merge` ends in `: never` on a branch that cannot be reached, and `Permutation` opens with `K extends K`, a tautology whose only job is to trigger distribution. None of those tokens mean anything; they are there because a conditional type needs an else and a distribution needs a naked parameter. Unreachable code that the language forces you to write is unreachable code nobody checks, and it is exactly where these answers rot.
+
+**Parameter names cannot be part of a function type's identity.** Challenge 191 requires `appendArgument((a: uint32, b: string) => uint32, boolean)` to equal `(a: uint32, b: string, x: boolean) => uint32`. The builder appends a parameter and has no way to know it should be called `x`; under an identity that included parameter names, the challenge would be unpassable by any builder, and TypeScript passes it because function type identity ignores names. So `makeType` must canonicalize parameter names away, while `FunctionParameterReflection` must keep them, since diagnostics, hovers, and `parameters` all want them. That is exactly the shape of the provenance problem [type programming](../typeprogramming.md) already solves for documentation: information that reflection carries and identity ignores. Parameter names belong in the same non-canonical class as `origin`, and the same question follows them, namely what reflection reports after two differently-named signatures intern to one object. The provenance rule (union on merge, construction order for display) is the available answer and should be stated for names too.
+
+**Mapped types over tuples are a special case, and the special case is invisible.** Challenge 20's entire solution rests on `{ [K in keyof T]: ... }` producing a *tuple* when `T` is a tuple, rather than an object with keys `'0' | '1' | '2' | 'length' | 'map' | ...`. Nothing in that syntax says so; it is a rule in the checker that mapped types over array and tuple types are rewritten element-wise. The builder's `switch` on `node.kind` states the same rule in the place where it applies, which is the difference between a language feature you must know and a line you can read.
+
 **Intersections versus flat objects.** Challenge 8 weakens its assertions from `Equal` to `Alike` because `Omit<T, K> & Readonly<Pick<T, K>>` is inter-assignable with the intended object but not identical to it. The builder edits records in place, returns the flat object, and passes the stronger assertion. That the harness had to weaken a test to accommodate the idiomatic TypeScript answer is small but telling: the type language's shape leaks into what the test is allowed to say.
 
 **Constraints versus checks.** These challenges are stated as generic *aliases* with constraints (`MyPick<T, K extends keyof T>`), and the builders are *functions*, so a bad argument is a thrown `TypeError` at the call rather than a constraint violation at the declaration. The two are not far apart: when a builder appears in a signature, the computed constraint form (`<T, K: keysOf(T)>`) restores the declaration-site check, and the thrown message is available in both cases. What the builder gives up is being checkable before its arguments are known; what it gains is saying which property was missing.
 
-**Where TypeScript wins.** Concat, Push, and Unshift: three of twenty, and all three the same win. Variadic tuple spread is purpose-built syntax, `[U, ...T]` says it in six characters, and no reflection call will be shorter. The pattern across the set is consistent. Where TypeScript has syntax for an operation on types, it beats a builder; where it must *encode* a computation (identity as a signature relation, iteration as recursive peeling, a duplicate-key check as a parameter that becomes `never`, a base case as `keyof T extends never`), the encoding is precisely what the builder deletes.
+**Where TypeScript wins, or draws.** Concat, Push, and Unshift: three of forty, and all three the same win. Variadic tuple spread is purpose-built syntax, `[U, ...T]` says it in six characters, and no reflection call will be shorter. Two more are honest draws. Absolute (529) stringifies and strips a minus in both languages, because the challenge specifies a string result and neither is doing arithmetic. AnyOf (949) is the more interesting one: truthiness is a property of values, but the challenge has no values, so the falsy set is enumerated by hand either way and all that differs is `.some` against recursion. When a problem is genuinely about types rather than about values wearing types, the two models converge, and that is worth knowing about the ones where they do not. The pattern across the set is consistent. Where TypeScript has syntax for an operation on types, it beats a builder; where it must *encode* a computation (identity as a signature relation, iteration as recursive peeling, a duplicate-key check as a parameter that becomes `never`, a base case as `keyof T extends never`, whitespace as a hand-enumerated union of three characters), the encoding is precisely what the builder deletes.
