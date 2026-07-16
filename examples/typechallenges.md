@@ -31,7 +31,7 @@ function perms(xs: [].<type>): [].<[].<type>> {
 }
 ```
 
-The named imports are the primitives the builders are written from. The namespace import is the same module under one name, for the `With std:types` blocks, and the reason it has to be a namespace is worth stating: eight challenges are *named after* the library function that answers them, so `concat`, `merge`, `reverse`, `zip`, `mutable`, `flatten`, `paths`, and `intersection` are all taken here as local declarations. Writing `std.merge(Foo, Bar) === merge(Foo, Bar)` puts the shipped one against the exercise's one, and the prefix is what keeps them apart. `tupleElements` used to be defined right here; §4.0 of the type programming document now ships it, found by counting how often this document reached for it, so it is an import like the rest.
+The named imports are the primitives the builders are written from. The namespace import is the same module under one name, for the `With std:types` blocks, and the reason it has to be a namespace is worth stating: eight challenges are *named after* the library function that answers them, so `concat`, `merge`, `reverse`, `zip`, `mutable`, `flatten`, `paths`, and `intersection` are all taken here as local declarations. Writing `std.merge(Foo, Bar) === merge(Foo, Bar)` puts the shipped one against the exercise's one, and the prefix is what keeps them apart. `tupleElements` is imported rather than defined because §4.0 ships it, and ships it for the reason this corpus makes visible: builder code reaches for a tuple's elements more often than for anything else.
 
 The harness's `Expect<Equal<X, Y>>` becomes `===`, so the cases are written as plain assertions.
 
@@ -133,7 +133,7 @@ type TupleToObject<T extends readonly (string | symbol | number)[]> = {
 ```js
 // Builder
 function tupleToObject(T: type): type {
-  return objectOf(reflect(T).elements.map(e => {
+  return objectOf(tupleElements(T).map(e => {
     const node = reflect(e.type);
     if (node.kind !== 'literal' || typeof node.value === 'boolean' || typeof node.value === 'bigint')
       throw new TypeError(`tupleToObject: ${String(e.type)} is not a valid property key`);
@@ -4790,7 +4790,7 @@ type IsRequiredKey<
 ```js
 // Builder
 function isRequiredKey(T: type, keys: type): type {
-  const names = new Set(arms(keys).map(k => literalValues(k)[0]));
+  const names = new Set(literalValues(keys));
   return reflect(T).properties.filter(p => names.has(p.name)).every(p => !p.optional)
     ? type true : type false;
 }
@@ -5442,7 +5442,7 @@ type OptionalUndefined<
 ```js
 // Builder
 function optionalUndefined(T: type, keys: type = keysOf(T)): type {
-  const names = new Set(arms(keys).map(k => literalValues(k)[0]));
+  const names = new Set(literalValues(keys));
   return mapProperties(T, p => {
     if (!names.has(p.name) || !arms(p.type).includes(type undefined)) return p;
     const rest = arms(p.type).filter(arm => arm !== type undefined);
