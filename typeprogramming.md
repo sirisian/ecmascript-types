@@ -247,10 +247,6 @@ export function arrayOf(element: type, extent: uint32 | undefined = undefined): 
 And the workhorse — the builder analog of a homomorphic mapped type. It walks an object type's property records and rebuilds the type from whatever the callback returns; returning the record unchanged preserves everything (type, `optional`, `readonly`, defaults), spreading it and overriding one field edits exactly that field, and returning `null` deletes the property. Distribution over a union of object types is one visible line:
 
 ```js
-export function genericApplication(base: type, args: [].<type | any>): type {  // Promise.<T>, Map.<K, V>: the constructor that `generic` (§2) reads back
-  return Reflect.makeType({ ...reflect(base), generic: { base, arguments: args } });
-}
-
 export function mapProperties(T: type,
     f: (p: Reflect.TypePropertyReflection) => Reflect.TypePropertyReflection | null): type {
   const node = reflect(T);
@@ -263,6 +259,55 @@ export function mapProperties(T: type,
 ```
 
 Where TypeScript makes homomorphism a special status a mapped type earns by iterating `keyof T` in the right syntactic form, here it is just the default behavior of copying a record: you cannot accidentally strip `readonly` from properties you never mentioned, because you would have to write the code that strips it.
+
+Eight more prelude functions were found rather than designed. [typechallenges.md](typechallenges.md) is now a corpus of 190 machine-checked builder programs, and counting its idioms — the method and full numbers are in [typehelpers-plan.md](typehelpers-plan.md) — showed the same few compositions written over and over. The strongest signal was internal: `elementTypes` below was being defined privately both by that corpus's preamble and by §4.5 of this document, and when a library and its users independently reinvent a function, the function is naming its own home.
+
+```js
+// Builder — corpus-driven additions
+export function tupleElements(T: type): [].<Reflect.TypeTupleElement> {
+  const node = reflect(T);
+  if (node.kind !== 'tuple') throw new TypeError(`expected a tuple type, got ${String(T)}`);
+  return node.elements.slice();
+}
+export function elementTypes(T: type): [].<type> {   // the corpus's most-used operation: 66 uses across 52 challenges before it had a name
+  return tupleElements(T).map(e => e.type);
+}
+
+export function intersection(members: [].<type>): type {   // union has been a function since this section's first lines; its dual joins it
+  return Reflect.makeType({ kind: 'intersection', members });
+}
+export function genericApplication(base: type, args: [].<type | any>): type {   // Promise.<T>, Map.<K, V>: the constructor that `generic` (§2) reads back
+  return Reflect.makeType({ ...reflect(base), generic: { base, arguments: args } });
+}
+
+export function propertyType(T: type, name: string | symbol): type | undefined {
+  // Policy: a missing property is `undefined`, the JavaScript answer — never `never`, the type-level one.
+  // The caller must be able to tell "absent" from "present with type never"; challenge 270's `get` hangs on it.
+  const node = reflect(T);
+  if (node.kind === 'object') return node.properties.find(p => p.name === name)?.type;
+  if (node.kind === 'intersection') {
+    for (const m of node.members) { const t = propertyType(m, name); if (t !== undefined) return t; }
+    return undefined;
+  }
+  throw new TypeError(`propertyType expects an object type, got ${String(T)}`);
+}
+export function literalValue(T: type): any {   // the singular form asserts what `literalValues(K)[0]` merely hopes
+  const values = literalValues(T);
+  if (values.length !== 1) throw new TypeError(`literalValue expects a single literal type, got ${String(T)}`);
+  return values[0];
+}
+
+export function mapPropertyTypes(T: type, f: (type) => type): type {   // `getters` (§4.2) and the ThisType helpers (§6.3) are one-liners over it
+  return mapProperties(T, p => ({ ...p, type: f(p.type) }));
+}
+export function mapElements(T: type, f: (type) => type): type {        // the homomorphic sibling for the sequence kinds
+  const node = reflect(T);
+  if (node.kind === 'tuple')
+    return Reflect.makeType({ ...node, elements: node.elements.map(e => ({ ...e, type: f(e.type) })) });
+  if (node.kind === 'array') return arrayOf(f(node.element), node.extent);
+  throw new TypeError(`mapElements expects a tuple or array type, got ${String(T)}`);
+}
+```
 
 ### 4.1 The operators: `keyof`, `typeof`, indexed access
 
@@ -398,7 +443,7 @@ const capitalize = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1)
 
 export function getters(T: type): type {
   return mapProperties(T, p => typeof p.name !== 'string' ? p
-    : prop(`get${p.name[0].toUpperCase()}${p.name.slice(1)}`, fn([], p.type), { readonly: true }));
+    : prop(`get${capitalize(p.name)}`, fn([], p.type), { readonly: true }));
 }
 export function removeKind(T: type): type {
   return omit(T, ['kind']);
@@ -412,6 +457,26 @@ type Strings = pickByValue(User, string);                     // only the string
 ```
 
 The comparison is stark in a way worth stating plainly: `as T[K] extends V ? K : never` is a conditional type, an indexed access, distribution, and the never-deletes-a-key rule composed inside a remap clause — four mechanisms to express "keep the property if its type fits." The builder is `filter` by another name. This is the recurring pattern of the whole catalog: TypeScript's mechanisms are ingenious encodings forced by having no functions; given functions, the encodings dissolve into the standard library of a normal language.
+
+**Merging and renaming.** Two more remappers the corpus asked for. `Merge`, the flattening no-op, appears eight times across the challenge answers, and under interning the flattening half of its job does not exist — there is no display type to tidy. What the no-op was smuggling is the real operation, later-wins key override, which is what config layering, defaults application, and the Merge challenge itself actually want. `renameProperties` is the general form of `getters`' rename half, and the request the challenge corpus underrepresents while working code makes it constantly: snake_case wire formats to camelCase application types and back.
+
+```js
+// Builder
+export function merge(A: type, B: type): type {
+  const a = reflect(A), b = reflect(B);
+  if (a.kind !== 'object' || b.kind !== 'object') throw new TypeError('merge expects object types');
+  return objectOf(
+    [...a.properties.filter(p => !b.properties.some(q => q.name === p.name)), ...b.properties],
+    [...a.indexSignatures.filter(s => !b.indexSignatures.some(h => h.key === s.key)), ...b.indexSignatures]);
+}
+export function renameProperties(T: type, f: (string) => string): type {
+  return mapProperties(T, p => ({ ...p, name: typeof p.name === 'string' ? f(p.name) : p.name }));
+}
+
+type Wire = { user_name: string, user_id: uint32 };
+type App  = renameProperties(Wire, n => n.replace(/_([a-z])/g, (m, c) => c.toUpperCase()));   // { userName: string, userId: uint32 }
+type Config = merge(Defaults, Overrides);                                                     // later wins, per key
+```
 
 ### 4.3 Conditional types, distribution, and `infer`
 
@@ -549,7 +614,17 @@ function build<C>(...args: constructorParameters(C)): C {
   return new C(...args); // a class's type object is its constructor, so a specialized C constructs
 }
 const p = build.<Player>(10, 20);
+
+export function instanceType(C: type): type {
+  const node = reflect(C);
+  if (node.kind === 'function' && node.signatures.length > 0)
+    return returnType(C);                                          // String, Number: the call signature names the primitive
+  const { signatures } = Reflect.getReflection.<Reflect.ClassConstructor, C>();
+  return signatures[0].return.type;                                // a class constructs its own type object: identity, made derivable
+}
 ```
+
+`instanceType` completes the pairing the TypeScript block promised. For a class it returns what the caller already holds, because the construct signature's return *is* the class's type object; its work is the other half of the constructible world — constructor functions like `String`, whose call signature names the primitive. That call-signature-first policy is exactly the `props: { type: String }` inference of challenge 213 in [typechallenges.md](typechallenges.md), which had to inline it.
 
 **The residual `infer`: pattern matching as an API, not a keyword.** After reflection and `generic` access, what is left of `infer` is matching an *abstract pattern* against an unknown structure — rare in practice, but for completeness a library-level unifier covers it (recommendation R8):
 
@@ -588,7 +663,7 @@ export function uncapitalized(T: type): type {
 
 export function listeners(T: type): type {
   return mapProperties(T, p => typeof p.name !== 'string' ? p
-    : prop(`on${p.name[0].toUpperCase()}${p.name.slice(1)}Changed`, fn([p.type], type void)));
+    : prop(`on${capitalize(p.name)}Changed`, fn([p.type], type void)));
 }
 
 type Settings = { volume: uint8, theme: string };
@@ -641,7 +716,7 @@ let margin: suffixed('px') = '12px';
 
 ### 4.5 Tuples, variadics, and type-level arithmetic
 
-Tuple surgery in TypeScript is variadic spreads plus recursive conditionals; on reflection nodes it is array methods:
+Tuple surgery in TypeScript is variadic spreads plus recursive conditionals; on reflection nodes it is array methods over the prelude's `elementTypes` (§4.0):
 
 ```ts
 // TypeScript
@@ -656,8 +731,6 @@ type Zip<A extends any[], B extends any[]> =
 
 ```js
 // Builder
-const elementTypes = (T: type): [].<type> => reflect(T).elements.map(e => e.type);
-
 export function head(T: type): type    { return elementTypes(T)[0] ?? never; }
 export function tail(T: type): type    { return tupleOf(elementTypes(T).slice(1)); }
 export function concat(A: type, B: type): type { return tupleOf([...elementTypes(A), ...elementTypes(B)]); }
@@ -723,7 +796,7 @@ type Category = { name: string, parent: Category | null };
 type Draft = deepPartial(Category);
 ```
 
-Evaluation, step by step under §3.4: `deepPartial(Category)` begins and its key is marked in-flight. Walking `parent`'s type `Category | null` distributes into `deepPartial(Category)` — the identical key — which returns a placeholder instead of recursing. The outer call finishes building `{ name?: string, parent?: ⟨placeholder⟩ | null }`, the placeholder is resolved to the canonicalized result, and the outcome is precisely the type that `type Draft = { name?: string, parent?: Draft | null }` declares by hand: a legal cycle through a nullable-union reference position, interned by the same named-back-edge canonicalization. TypeScript, for comparison, handles this by lazily deferring instantiation — and when a recursive type manages to defeat that laziness, answers with its depth-limit error. Both systems lean on a fixpoint; this one is specified rather than emergent.
+Evaluation, step by step under §3.4: `deepPartial(Category)` begins and its key is marked in-flight. Walking `parent`'s type `Category | null` distributes into `deepPartial(Category)` — the identical key — which returns a placeholder instead of recursing. The outer call finishes building `{ name?: string, parent?: ⟨placeholder⟩ | null }`, the placeholder is resolved to the canonicalized result, and the outcome is precisely the type that `type Draft = { name?: string, parent?: Draft | null }` declares by hand: a legal cycle through a nullable-union reference position, interned by the same named-back-edge canonicalization. TypeScript, for comparison, handles this by lazily deferring instantiation — and when a recursive type manages to defeat that laziness, answers with its depth-limit error. Both systems lean on a fixpoint; this one is specified rather than emergent. The switch itself is `traverse(T, { property: p => ({ ...p, optional: true }) })` once §4.9's traversal driver exists; it stays spelled out here because this walkthrough steps through the recursion, and the recursion is what the fixpoint machinery sees.
 
 **`Paths` — recursion that grows.** Dot-notation key paths, a staple of typed `get(obj, 'a.b.c')` APIs:
 
@@ -844,19 +917,27 @@ const looseDraft = compose(partial, mutable);   // a stored, first-class type fu
 type Editable = looseDraft(User);
 type AllDrafts = mapUnion(Shape, deepPartial);
 
-export function deepMap(T: type, leaf: (type) => type): type { // HKT-flavored: parameterize the traversal by a type function
+export function traverse(T: type, { leaf = t => t, property = p => p, element = e => e } = {}): type {
+  const rec = (t: type): type => traverse(t, { leaf, property, element });
   const node = reflect(T);
   switch (node.kind) {
-    case 'object': return objectOf(node.properties.map(p => ({ ...p, type: deepMap(p.type, leaf) })), node.indexSignatures);
-    case 'array':  return arrayOf(deepMap(node.element, leaf), node.extent);
-    case 'union':  return union(node.arms.map(arm => deepMap(arm, leaf)));
-    default:       return leaf(T);
+    case 'object': return objectOf(
+      node.properties.map(p => property({ ...p, type: rec(p.type) })).filter(p => p !== null),
+      node.indexSignatures.map(s => ({ ...s, value: rec(s.value) })));
+    case 'tuple': return Reflect.makeType({ ...node, elements: node.elements.map(e => element({ ...e, type: rec(e.type) })) });
+    case 'array': return arrayOf(rec(node.element), node.extent);
+    case 'union': return union(node.arms.map(rec));
+    case 'intersection': return intersection(node.members.map(rec));
+    default: return leaf(T);
   }
 }
-type Stringly = deepMap(Config, () => string); // every leaf becomes string
+export function deepMap(T: type, leaf: (type) => type): type { return traverse(T, { leaf }); }
+
+type Stringly = deepMap(Config, () => string);                                     // every leaf becomes string
+type Frozen   = traverse(State, { property: p => ({ ...p, readonly: true }) });    // challenge 9's deepReadonly, as a hook
 ```
 
-Closures qualify as evaluable when everything they capture is (parameters, constants, evaluable functions), so `compose(partial, mutable)` is itself a compile-time value usable in type position. This is a capability class TypeScript does not have at all, and it changes how a type library is *organized*: instead of one bespoke mapped type per transformation, a handful of traversals parameterized by functions.
+Closures qualify as evaluable when everything they capture is (parameters, constants, evaluable functions), so `compose(partial, mutable)` is itself a compile-time value usable in type position. This is a capability class TypeScript does not have at all, and it changes how a type library is *organized*: instead of one bespoke mapped type per transformation, a handful of traversals parameterized by functions. `traverse` is that handful reduced to one — the structural recursion written once, with `leaf`, `property`, and `element` hooks for the three places a transformation can act (a `property` hook returning `null` deletes, matching `mapProperties`) — and `deepMap` stays as its most common special case. Six challenges in the corpus hand-rolled this switch, and §4.6's `deepPartial`, which the old `deepMap` could not express for want of a tuple case and any reach into property records, is the `property` hook with `optional: true`.
 
 ### 4.10 The obviated set, confirmed
 
@@ -874,6 +955,7 @@ The comparison table marks several TypeScript constructs **obviated**; the build
 | Homomorphic modifier preservation | default (records are copied) | §4.0, §4.2 |
 | `Partial`/`Required`/`Readonly`/(`Mutable`) | one line each | §4.2 |
 | `Pick`/`Omit`/`Record` | `pick`/`omit`/`record` (+ authored errors) | §4.2 |
+| `Merge` (the flattening idiom) | `merge`: the override half; flattening is free under interning | §4.2 |
 | Conditional `T extends U ? X : Y` | `Reflect.isAssignable(T, U) ? X : Y` | §4.3 |
 | Distribution (and suppressing it) | explicit `arms().map`/`filter` | §4.3 |
 | `Exclude`/`Extract`/`NonNullable` | `exclude`/`extract`/`nonNullable` | §4.3 |
@@ -882,7 +964,7 @@ The comparison table marks several TypeScript constructs **obviated**; the build
 | `infer` (abstract patterns) | optional `Reflect.matchType` | §4.3 |
 | `ReturnType`/`Parameters`/`FirstParameter` | reflection | §4.3 |
 | `ConstructorParameters` | constructor reflection | §4.3 |
-| `InstanceType` | obviated (class *is* the instance type) | §4.3 |
+| `InstanceType` | `instanceType`: call signature first, construct signature second; a class is its own | §4.3 |
 | `Awaited` | `awaited` via `generic` + thenable reflection | §4.3 |
 | Template literals over literal unions | string code | §4.4 |
 | `Uppercase`/`Lowercase`/`Capitalize`/`Uncapitalize` | `mapLiterals` one-liners | §4.4 |
@@ -900,6 +982,31 @@ The comparison table marks several TypeScript constructs **obviated**; the build
 | Inference *through* a utility (`f<T>(p: Partial<T>)`) | inherent as stated; closed by §6.1's ladder | §5.1, §6.1 |
 | Definition-site generic body checking | recovered in bounded form via checked contracts | §5.2, §6.2 |
 | Checker-participating types | re-drawn: declarative facts + verified proposals | §5.3, §6.3 |
+
+### 4.12 Measured and deferred
+
+The corpus-driven additions above were chosen by frequency and hazard from the 190 machine-checked programs in [typechallenges.md](typechallenges.md); the same measurement produced a second tier that did not clear the bar, and its analysis is preserved here so a future revision starts from evidence instead of taste. The bar, restated: a helper ships when it retires a hazard class, or recurs at high frequency with a footgun in the composed form. These recur without the footgun.
+
+**`partialBy`, `requiredBy`, `readonlyBy`.** Ten `new Set(literalValues(K))` membership gates across nine challenges (2757, 2759, and challenge 8's readonly-by-keys are the archetypes) all instantiate the same recipe:
+
+```js
+function partialBy(T: type, K: type): type {
+  const keys = new Set(literalValues(K));
+  return mapProperties(T, p => keys.has(p.name) ? { ...p, optional: true } : p);
+}
+```
+
+Deferred because the recipe is four readable lines that keep the key-validation policy visible at the call site — throw on an unknown key, as challenge 8 does, or ignore it, as 2757's tests demand — and the trio would have to pick that policy once for everyone. Ship them if TypeScript-utility parity comes to matter more than a small surface.
+
+**`filterArms(T, pred)`.** Six challenges write `union(arms(T)...)`, but `mapUnion` (§4.9) covers the mapping cases and `extract`/`exclude` (§4.3) cover the assignability filters; the residue, a genuine predicate filter, appeared too rarely to name. The spelling `union(arms(T).filter(pred))` is the definition and reads as one.
+
+**`hasProperty(T, name)`.** `propertyType(T, name) !== undefined` is the helper, already shipped in parts.
+
+**`fn` with records and options.** Challenges 17 and 462 rebuilt function nodes through `Reflect.makeType` spreads because `fn` cannot carry `rest`, `optional`, `initial`, parameter names, or `thisType`. The fix is an extension rather than a new name — `fn(parameters, returnType, options)` accepting full parameter records alongside bare types — and it sits in the improvement backlog of [typehelpers-plan.md](typehelpers-plan.md) rather than here.
+
+**`perms` and combinatorics.** Seven permutation-family challenges share the corpus's six-line `perms`; combinatorics is a domain, not a type operation, and stays userland.
+
+Declined outright, for the record: arithmetic helpers (sixteen challenges build tuples purely to count with them, and every one dissolves into a JavaScript number, so the absence *is* the feature), an `isEqual` function (`===` is the operator, and a function form would imply it is not), and framework bundles like Vue's `computedResults` (one line over `mapPropertyTypes` and `returnType`, which is the argument for the primitives, not the bundle).
 
 ## 5. What JavaScript alone cannot do
 
@@ -1166,7 +1273,7 @@ The design that threads the needle is **provenance, not payload**: property reco
 
 **R5 — Computed constraints, and literal inference through them.** A generic constraint may be a compile-time expression over earlier parameters in its list (`<T, K: keysOf(T)>`), and a value or type parameter constrained to a union of literal types infers *literally* from its argument. This is the only inference rule builders request and it mirrors the cue `K extends keyof T` gives TypeScript.
 
-**R6 — Ship the kit as a standard module of plain evaluable JavaScript.** The §4 definitions — `keysOf`, `indexed`, `mapProperties`, `partial`, `required`, `readonly`, `mutable`, `pick`, `omit`, `record`, `exclude`, `extract`, `nonNullable`, `returnType`, `parameters`, `constructorParameters`, `awaited`, `flatten`, the tuple set, `mapLiterals` and the four case functions, `listeners`-style helpers, `deepPartial`, `paths`, `discriminants`/`byKind`/`handlers`, `mapUnion`, `compose`, and §6's `noInfer`, `brand`, `stringPattern`, `options`, `thisParameterType`, and `omitThisParameter` — under a `std:types`-style specifier reconciled with [standardlibrary.md](standardlibrary.md). Shipping it *as source* is the dogfood proof that no construct is engine magic, gives the ecosystem one interned vocabulary, and doubles as the reference documentation for R1's API.
+**R6 — Ship the kit as a standard module of plain evaluable JavaScript.** The §4 definitions — `keysOf`, `indexed`, `mapProperties`, `partial`, `required`, `readonly`, `mutable`, `pick`, `omit`, `record`, `exclude`, `extract`, `nonNullable`, `returnType`, `parameters`, `constructorParameters`, `awaited`, `flatten`, the tuple set, `mapLiterals` and the four case functions, `listeners`-style helpers, `deepPartial`, `paths`, `discriminants`/`byKind`/`handlers`, `mapUnion`, `compose`, `traverse`, the corpus-driven prelude of `tupleElements`/`elementTypes`/`intersection`/`genericApplication`/`propertyType`/`literalValue`/`mapPropertyTypes`/`mapElements` with `merge`, `renameProperties`, and `instanceType` (§4.0–§4.3), and §6's `noInfer`, `brand`, `stringPattern`, `options`, `thisParameterType`, and `omitThisParameter` — under a `std:types`-style specifier reconciled with [standardlibrary.md](standardlibrary.md). Shipping it *as source* is the dogfood proof that no construct is engine magic, gives the ecosystem one interned vocabulary, and doubles as the reference documentation for R1's API.
 
 **R7 — Route infinite string types to pattern metadata.** Specify a `StringPattern` meta type over the [regexp](regexp.md) extension: `validate` by matching; `subtype` conservative (syntactic containment for literal/class concatenations, reflexive otherwise), with the conservatism documented as intentional. Provide `suffixed`/`prefixed`-style kit builders. Do not add a structural template-literal type kind.
 
