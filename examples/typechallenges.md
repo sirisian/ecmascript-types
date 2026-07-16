@@ -419,6 +419,11 @@ unshift(type [1, 2], type 0) === type [0, 1, 2];
 unshift(type ['1', 2, '3'], boolean) === type [boolean, '1', 2, '3'];
 ```
 
+```js
+// With std:types
+std.concat(type [0], type [1, 2]) === unshift(type [1, 2], type 0);   // Unshift is `concat` with the singleton first
+```
+
 Push and Unshift are the pair where TypeScript's answer is plainly better, for the same reason Concat was: variadic spread is purpose-built syntax, and `[U, ...T]` says it in six characters. The builder is doing something more general than it needs to.
 
 ## 3312 · Parameters
@@ -787,6 +792,7 @@ lookUp(Animal, type 'bird') === never;
 ```js
 // With std:types
 std.extract(Animal, std.objectOf([std.prop('type', type 'dog')])) === Dog;
+std.byKind(Animal, 'dog', 'type') === Dog;   // the same probe with a name on it; byKind's tag defaults to 'kind'
 ```
 
 A one-line translation, and the closest correspondence in the whole set: `extends` becomes `Reflect.isAssignable`, distribution becomes `.filter`, and the `never` branch becomes the empty union. `std:types` ships this as `byKind(T, k, tag)`, with the tag a parameter rather than hardcoded to `'type'`.
@@ -2537,6 +2543,12 @@ parseUrlParams('posts/:id') === type 'id';
 parseUrlParams('posts/:id/:user/like') === type 'id' | 'user';
 ```
 
+```js
+// With std:types
+std.keysOf(std.routeParams('posts/:id/:user/like')) === type 'id' | 'user';   // routeParams builds { id: string, user: string }; this challenge wants its keys
+std.keysOf(std.routeParams('')) === never;
+```
+
 `split`, `filter`, `map`. The empty case is `never` because the union of no arms is `never`, which is what the challenge asks for and what the TypeScript version needs an explicit branch to say.
 
 ## 9896 · GetMiddleElement
@@ -3332,6 +3344,13 @@ extractToObject(type { id: '1', prop1: { zoo: '2' }, prop2: { foo: '4' } }, type
   === type { id: '1', prop1: { zoo: '2' }, foo: '4' };
 ```
 
+```js
+// With std:types
+const Nested = type { id: '1', myProp: { foo: '2' } };
+std.merge(std.omit(Nested, type 'myProp'), std.indexed(Nested, type 'myProp'))
+  === extractToObject(Nested, type 'myProp');   // drop the key, read the key, put the halves together
+```
+
 The outer `Omit<..., never>` omits nothing. It is the intersection-flattening no-op again, fourth sighting in this document, and by now it reads as punctuation: the way you write "and please make this an object" in a language where `A & B` is not one.
 
 ## 29785 · Deep Omit
@@ -3669,6 +3688,12 @@ myUppercase('Z') === type 'Z';
 myUppercase('A z h yy 😃cda\n\t  a   ') === type 'A Z H YY 😃CDA\n\t  A   ';
 ```
 
+```js
+// With std:types
+std.uppercase(type 'a') === type 'A';
+std.uppercase(type 'a' | 'z') === type 'A' | 'Z';   // the library maps literal types; the exercise takes the string itself
+```
+
 Twenty-six lines of table, one per letter, written out by hand, because there is no operation that maps a character to another character. It is the right answer to the question asked, and the question is only askable in a language where `Uppercase` is a compiler intrinsic rather than a function.
 
 The two are not equivalent, and the difference favors neither side automatically. `toUpperCase` is Unicode-correct: `myUppercase('ß')` is `'SS'` and `myUppercase('i')` in a Turkish locale is a discussion. The table is ASCII by construction, which is wrong for most of the world's alphabets and exactly right for this test. But the builder's version is *the same function the runtime already has*, and if it is wrong for a caller's purposes they can pass their own. The table cannot be fixed; it can only be extended, letter by letter, forever.
@@ -3726,6 +3751,12 @@ simpleVue({
     test() { const fullname: string = this.fullname; },           // this.fullname checks as string
   },
 });
+```
+
+```js
+// With std:types
+std.mapPropertyTypes(type { fullname(): string, amount(): uint32 }, std.returnType)
+  === type { fullname: string, amount: uint32 };   // computedResults is this call
 ```
 
 A near-draw, and the closest thing to a real API in the document. Both sides need the same three facts and state them in the same order. `ThisType<T>` is a marker interface the checker recognizes by name and erases; `withThisType` writes the `thisType` field the signature already has. The intersection is an intersection in both.
@@ -4073,6 +4104,12 @@ vueBasicProps({
 });
 ```
 
+```js
+// With std:types
+std.instanceType(type (v: any) => string) === string;
+   // `each`, in one call: a constructor's call signature names the primitive, which is what makes `type: String` infer `string`
+```
+
 Challenge 6 with a second layer: the props are declared as *constructors*, and the type of `propB: { type: String }` is whatever `new String()` produces. `MyReturnType` handles that by asking for the return type of the call signature first and the construct signature second, `Union` spreads an array of constructors into a union, and `InferProps` maps the whole thing. The builder's `each` is those two in three lines: a constructor function's call signature answers for the wrapped primitives, a class's type object already denotes its instances and passes through unchanged, and the tuple branch is `Union`.
 
 This is a big program in both languages and neither is embarrassed. What separates them is that `inferPropType` can be read, tested, and stepped through, and `InferProps` can only be run.
@@ -4138,6 +4175,12 @@ get(Data, 'hello') === type 'world';
 get(Data, 'foo.bar.count') === type 6;
 get(Data, 'foo.baz') === type false;        // the key 'foo.baz' exists
 get(Data, 'no.existed') === never;
+```
+
+```js
+// With std:types
+std.propertyType(Data, 'foo.baz') === type false;   // the exact-key lookup `at` performs, policy included
+std.propertyType(Data, 'no') === undefined;        // absent is `undefined`, not `never`, which is the distinction the walk needs
 ```
 
 The trap is in the fixture, and it is a good one: `Data` contains a key literally named `'foo.baz'`, so `Get<Data, 'foo.baz'>` must find the key rather than walk the path. The top-voted answer tests the dotted pattern first, splits into `'foo'` and `'baz'`, finds no `baz` under `foo`, and answers `never`. Order of the two branches is the entire challenge, and both solutions get it right by putting the exact-key test first.
@@ -5163,6 +5206,11 @@ unionReplace(type Function | Date | object, [[Date, string], [Function, type und
   === type undefined | string | object;
 ```
 
+```js
+// With std:types
+std.mapUnion(type float64 | string, arm => arm === string ? type null : arm) === type float64 | null;
+```
+
 `T extends F[0] ? F[1] : T` distributes over the union and swaps the matching arm, and the pairs are consumed one at a time by the outer recursion. The top-voted answer instead pattern-matches `F extends [T, infer Replace]` and answers `never` for any pair whose source is not in the union, which the second test case catches: `[Date, Function]` is a pair that simply does not apply.
 
 `find` returns `undefined` when nothing matches, and `?? arm` is "leave it alone".
@@ -5321,6 +5369,13 @@ snakeCase(type 'userName') === type 'user_name';
 snakeCase(type 'getElementById') === type 'get_element_by_id';
 snakeCase(type 'getElementById' | 'getElementByClassNames')
   === type 'get_element_by_id' | 'get_element_by_class_names';
+```
+
+```js
+// With std:types
+std.mapLiterals(type 'getElementById' | 'getElementByClassNames',
+  s => s.replace(/\p{Lu}/gu, c => `_${c.toLowerCase()}`)) === type 'get_element_by_id' | 'get_element_by_class_names';
+   // mapLiterals is the union-of-literals traversal; the challenge supplies the string function, exactly as §4.4's case intrinsics do
 ```
 
 `Uppercase<A> extends A` is the letter test from challenge 35252 for the fourth time, now asking "is this an uppercase letter" rather than "is this a letter". `\p{Lu}` is that character class by name. The union case works on the TypeScript side because the conditional distributes, and on the builder side because `arms` returned a list and `map` is a loop.
@@ -5726,6 +5781,12 @@ type Foo = { foo: string, common: boolean };
 type Bar = { bar: float64, common: boolean };
 unionToObjectFromKey(type Foo | Bar, type 'foo') === Foo;
 unionToObjectFromKey(type Foo | Bar, type 'common') === type Foo | Bar;
+```
+
+```js
+// With std:types
+std.extract(type Foo | Bar, type { foo: unknown }) === Foo;              // the same probe-object trick as challenge 62, without a discriminant
+std.extract(type Foo | Bar, type { common: unknown }) === type Foo | Bar;
 ```
 
 `Union extends Union` one more time, and by now it needs no explanation: a `filter` over a union is spelled as a tautology plus a conditional, because distribution is the only iteration a union has. The dropped arms become `never` and vanish when the results are re-unioned, which is why the filter works at all.
@@ -6505,36 +6566,48 @@ Both solutions are the same program. One is thirty-six lines of pattern matching
 
 ## Library index
 
-The `With std:types` blocks above are the answer to a question the exercises deliberately dodge: which helper do I reach for? Thirty-six challenges carry one, demonstrating thirty-three of the library's exports. Every line in them is an assertion that ran.
+The `With std:types` blocks above are the answer to a question the exercises deliberately dodge: which helper do I reach for? A block appears wherever a shipped helper *is* the answer, or composes it in a line. Forty-six challenges carry one, demonstrating forty-two of the library's exports, and every line in them is an assertion that ran.
 
 | Helper | What it does | Shown at |
 |---|---|---|
-| `std.pick` / `std.omit` | keep or drop named properties, throwing on a key the type lacks | 4, 3, 8, 645, 2757, 2759, 2852 |
-| `std.merge` | later-wins key override, the half of TypeScript's `Merge` idiom that is not the flattening no-op | 8, 527, 599, 645, 2757, 2759, 9160 |
+| `std.pick` / `std.omit` | keep or drop named properties, throwing on a key the type lacks | 4, 3, 8, 645, 2757, 2759, 2852, 29650 |
+| `std.merge` | later-wins key override, the half of TypeScript's `Merge` idiom that is not the flattening no-op | 8, 527, 599, 645, 2757, 2759, 9160, 29650 |
 | `std.record` | a key union or `string` against one value type | 527 |
+| `std.indexed` | TypeScript's `T[K]` | 29650 |
+| `std.propertyType` | one property's type by name, `undefined` when absent | 270 |
 | `std.partial` / `std.required` | set or clear `optional` on every property | 2757, 2759 |
 | `std.readonly` / `std.mutable` | set or clear `readonly` on every property | 7, 8, 2793 |
 | `std.pickByValue` | keep the properties whose type fits, the `filter` behind `as T[K] extends V ? K : never` | 2595, 2852 |
-| `std.keysOf` | the key union, union and intersection safe | 645, 2852 |
+| `std.keysOf` | the key union, union and intersection safe | 645, 2852, 9616 |
 | `std.objectOf` / `std.prop` | build an object type from property records | 62 |
+| `std.mapPropertyTypes` | map a function over every property's type | 6 |
 | `std.traverse` | one structural recursion with `leaf`, `property`, and `element` hooks | 9, 1383, 9775, 16259, 17973 |
 | `std.elementTypes` | a tuple's element types, after which the answer is usually an array method | 10, 15, 191, 3196 |
 | `std.head` / `std.tail` | first element, and everything after it | 14, 3062 |
-| `std.concat` / `std.reverse` / `std.zip` | tuple surgery without variadic conditionals | 533, 3057, 3192, 4471 |
+| `std.concat` / `std.reverse` / `std.zip` | tuple surgery without variadic conditionals | 533, 3057, 3060, 3192, 4471 |
 | `std.mapElements` | map a function over a tuple's or array's element types | 20 |
 | `std.flatten` | an array's element type | 10 |
 | `std.union` / `std.arms` | build a union, or take one apart | 10, 55 |
 | `std.intersection` | build an intersection, the dual that had been missing | 55 |
-| `std.exclude` / `std.extract` | drop or keep the arms that fit a type | 43, 62 |
+| `std.mapUnion` | map a function over a union's arms | 13580 |
+| `std.exclude` / `std.extract` | drop or keep the arms that fit a type | 43, 62, 33763 |
+| `std.byKind` | the arm of a tagged union with a given tag value | 62 |
 | `std.fn` / `std.parameters` / `std.returnType` | build a function type, or read its two halves back | 2, 191, 3196, 3312 |
+| `std.instanceType` | what a constructor constructs | 213 |
 | `std.awaited` | unwrap a promise or a thenable, recursively | 20, 189 |
 | `std.genericApplication` | build `Promise.<T>`, the write half of the `generic` field | 20 |
-| `std.capitalized` | `Capitalize` over literal types, via `mapLiterals` | 110 |
+| `std.mapLiterals` | map a string function over a union of literal types | 19458 |
+| `std.uppercase` / `std.capitalized` | the case intrinsics, one line each over `mapLiterals` | 110, 35991 |
+| `std.routeParams` | a path's `:param` segments as an object type | 9616 |
 | `std.reflect` | the node behind a type object, for the cases the helpers do not cover | 16259 |
 
 Reading the table the other way is the more useful direction. Four rows account for over half the entries, and they are the four operations this corpus does constantly: split a type apart (`arms`, `elementTypes`, `keysOf`), edit its records (`mapProperties`, `traverse`), put it back together (`objectOf`, `tupleOf`, `union`, `intersection`), and, when someone else already wrote that loop, call it (`pick`, `merge`, `partial`).
 
-The library ships forty-two more exports that no challenge here needed to name. Some are the primitives these blocks are built from (`literal`, `tupleOf`, `mapProperties`, `reflect`); some answer problems the corpus never poses but working code does (`renameProperties` for wire formats, `deepPartial` and `deepMap` for configuration, `listeners`, `routeParams`, and `suffixed` for framework surfaces, `discriminants`, `byKind`, and `handlers` for tagged unions, `brand` and `stringPattern` for validation, `compose` for storing a transformation as a value); and a few, like `noInfer` and `options`, exist for the checker rather than the reader. §4 of [type programming](../typeprogramming.md) is the catalog; this table is the map from the exercises to it.
+The other hundred and forty-four challenges were checked against the library too, and the reasons they carry no block are worth stating, because they are the same reasons the library stops where it does. Most of the tuple challenges are `elementTypes` and then an ordinary array method: Includes (898) is `.includes`, All (18142) is `.every`, IndexOf and LastIndexOf (5153, 5317) are `.indexOf` and `.lastIndexOf`, Slice (216) and Take (34286) are `.slice`, Unique (5360) is `new Set`, and a dozen more are the same shape. Nothing ships for them because nothing should: the array methods already work on types, since interning makes `===` the identity test they need. Challenge 15 shows the shape once and says so. The arithmetic challenges, all twenty-three of them, dissolve into a JavaScript number and want no library at all; the combinatorial ones share the preamble's `perms`, which stays userland because combinatorics is a domain rather than a type operation; the string challenges operate on string *values*, where JavaScript's own standard library is the answer and `mapLiterals` (19458) is only for the union-of-literal-types case; and the property-flag filters (57, 59, 89, 90, 2857, 5181, and 5) are `mapProperties` and a predicate, which is the primitive doing exactly its job.
+
+Three near-misses are worth naming, since a reader scanning for a helper could be caught by them. MergeAll (27932) looks like a fold of `merge` and is not: its collision rule unions where `merge` overrides, which is the difference its own note draws. Flatten (459) is not `flatten`: the library's takes an array's element type, while the challenge flattens nested tuples. Tree path array (15260) is not `paths`: the library's produces dotted strings, the challenge wants tuples of keys. Sharing a name with a library function is not the same as being it, which is the other half of the argument for the `std.` prefix.
+
+The library ships thirty-three more exports that no challenge here needed to name. Some are the primitives the builders above are written from (`literal`, `tupleOf`, `arrayOf`, `mapProperties`); some answer problems the corpus never poses but working code does (`renameProperties` for wire formats, `deepPartial` and `deepMap` for configuration, `listeners` and `suffixed` for framework surfaces, `discriminants` and `handlers` for tagged unions, `brand` and `stringPattern` for validation, `compose` for storing a transformation as a value); and a few, like `noInfer` and `options`, exist for the checker rather than the reader. §4 of [type programming](../typeprogramming.md) is the catalog; this table is the map from the exercises to it.
 
 ## Notes
 
