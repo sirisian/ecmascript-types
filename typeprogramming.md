@@ -260,7 +260,7 @@ export function mapProperties(T: type,
 
 Where TypeScript makes homomorphism a special status a mapped type earns by iterating `keyof T` in the right syntactic form, here it is just the default behavior of copying a record: you cannot accidentally strip `readonly` from properties you never mentioned, because you would have to write the code that strips it.
 
-Eight more prelude functions were found rather than designed. [typechallenges.md](typechallenges.md) is now a corpus of 190 machine-checked builder programs, and counting its idioms — the method and full numbers are in [typehelpers-plan.md](typehelpers-plan.md) — showed the same few compositions written over and over. The strongest signal was internal: `elementTypes` below was being defined privately both by that corpus's preamble and by §4.5 of this document, and when a library and its users independently reinvent a function, the function is naming its own home.
+Eight more prelude functions were found rather than designed. [typechallenges.md](typechallenges.md) is a corpus of 190 machine-checked builder programs, and counting the idioms in its builders shows the same few compositions written over and over: they reach for a tuple's elements 66 times across 52 of those programs, write `literalValues(K)[0]` 21 times, and open-code the find-a-property-by-name loop 11 times. The strongest signal was internal: `elementTypes` below was being defined privately both by that corpus's preamble and by §4.5 of this document, and when a library and its users independently reinvent a function, the function is naming its own home.
 
 ```js
 // Builder — corpus-driven additions
@@ -983,9 +983,9 @@ The comparison table marks several TypeScript constructs **obviated**; the build
 | Definition-site generic body checking | recovered in bounded form via checked contracts | §5.2, §6.2 |
 | Checker-participating types | re-drawn: declarative facts + verified proposals | §5.3, §6.3 |
 
-### 4.12 Measured and deferred
+### 4.12 The declined set
 
-The corpus-driven additions above were chosen by frequency and hazard from the 190 machine-checked programs in [typechallenges.md](typechallenges.md); the same measurement produced a second tier that did not clear the bar, and its analysis is preserved here so a future revision starts from evidence instead of taste. The bar, restated: a helper ships when it retires a hazard class, or recurs at high frequency with a footgun in the composed form. These recur without the footgun.
+The corpus-driven additions above were chosen by frequency and hazard from the 190 machine-checked programs in [typechallenges.md](typechallenges.md), against a deliberately high bar: a helper joins the kit when it retires a hazard class, or when it recurs at high frequency *and* the composition it would replace has a footgun. The same measurement turned up operations that recur without the footgun. A standard library should say what it declines as plainly as what it ships, so those are recorded here with the evidence on both sides; each is one line of user code away, and none is out of reach.
 
 **`partialBy`, `requiredBy`, `readonlyBy`.** Ten `new Set(literalValues(K))` membership gates across nine challenges (2757, 2759, and challenge 8's readonly-by-keys are the archetypes) all instantiate the same recipe:
 
@@ -996,13 +996,13 @@ function partialBy(T: type, K: type): type {
 }
 ```
 
-Deferred because the recipe is four readable lines that keep the key-validation policy visible at the call site — throw on an unknown key, as challenge 8 does, or ignore it, as 2757's tests demand — and the trio would have to pick that policy once for everyone. Tier 1 made the deferral easier to live with: `merge(omit(T, K), partial(pick(T, K)))` is the whole of `partialByKeys` in shipped helpers, with `required` and `readonly` substituting for `partial` to give the other two, and [typechallenges.md](typechallenges.md) shows exactly that at challenges 2757, 2759, and 8. Ship them if TypeScript-utility parity comes to matter more than a small surface.
+Left out because the recipe is four readable lines that keep the key-validation policy visible at the call site — throw on an unknown key, as challenge 8 does, or ignore it, as 2757's tests demand — and the trio would have to pick that policy once for everyone. The kit as it stands also composes the same answer without new API: `merge(omit(T, K), partial(pick(T, K)))` is the whole of `partialByKeys`, with `required` and `readonly` substituting for `partial` to give the other two, which is what [typechallenges.md](typechallenges.md) shows at challenges 2757, 2759, and 8. Add the trio only if parity with TypeScript's utility names comes to matter more than a small surface.
 
 **`filterArms(T, pred)`.** Six challenges write `union(arms(T)...)`, but `mapUnion` (§4.9) covers the mapping cases and `extract`/`exclude` (§4.3) cover the assignability filters; the residue, a genuine predicate filter, appeared too rarely to name. The spelling `union(arms(T).filter(pred))` is the definition and reads as one.
 
 **`hasProperty(T, name)`.** `propertyType(T, name) !== undefined` is the helper, already shipped in parts.
 
-**`fn` with records and options.** Challenges 17 and 462 rebuilt function nodes through `Reflect.makeType` spreads because `fn` cannot carry `rest`, `optional`, `initial`, parameter names, or `thisType`. The fix is an extension rather than a new name — `fn(parameters, returnType, options)` accepting full parameter records alongside bare types — and it sits in the improvement backlog of [typehelpers-plan.md](typehelpers-plan.md) rather than here.
+**A richer `fn`.** Challenges 17 and 462 rebuild function nodes through `Reflect.makeType` spreads, because `fn` takes bare parameter types and so cannot carry `rest`, `optional`, `initial`, parameter names, or a signature's `thisType`. Nothing is unreachable: `makeType` is the general constructor and `fn` is the common case's sugar, the same relationship `deepMap` has to `traverse`. Whether the sugar should widen to `fn(parameters, returnType, options)`, taking full parameter records alongside bare types, is a surface question rather than a capability one, and §8 leaves it open.
 
 **`perms` and combinatorics.** Seven permutation-family challenges share the corpus's six-line `perms`; combinatorics is a domain, not a type operation, and stays userland.
 
@@ -1322,6 +1322,8 @@ The design that threads the needle is **provenance, not payload**: property reco
 **Property order.** Canonicalization must fix a deterministic property order for interning; source order is meaningful to humans and reflection. Proposal: intern on sorted order, *display and reflect* in construction order — needs a line of spec either way.
 
 **Cross-realm and serialized types.** Interning is per-agent today; computed types that flow through [serialization](serialization.md) or workers need the canonical form to be the wire format, with re-interning on arrival. The named-back-edge canonical form appears sufficient; confirm against the threading extension.
+
+**`fn`'s parameter records.** §4.12 leaves the kit's function constructor taking bare parameter types, so the record fields (`rest`, `optional`, `initial`, names) and a signature's `thisType` are reachable only through `Reflect.makeType`. Widening `fn` to accept records and an options object is compatible and would retire the last common reason to hand-build a function node; the argument against is that two entry points for one node kind is exactly the kind of surface the catalog otherwise avoids. Decide with usage.
 
 **`keyof` in expression position.** `type keyof Point` works; should `keysOf` be spelled `keyof` uniformly (operator accepting a type-object operand) instead of shipping a kit function? Pure surface decision.
 
