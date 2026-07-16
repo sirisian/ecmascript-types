@@ -2,7 +2,7 @@
 
 [type-challenges](https://github.com/type-challenges/type-challenges) is the standard obstacle course for TypeScript's type-level language: implement `Pick`, unwrap a `Promise`, take the head of a tuple, using only conditional types, mapped types, `infer`, and recursion. It is a good adversarial test of [type builders](../typeprogramming.md), because the problems were *chosen* to be natural in a type language whose only verbs are `extends` and `in`. If the builder model only won on problems selected to suit it, that would prove nothing.
 
-This document works every challenge in the repository: the warm-up, all thirteen easy, all one hundred and four medium, all fifty-five hard, and all seventeen extreme, in the order the README lists them. One hundred and ninety in total. Every TypeScript solution shown has been checked against the repo's own test cases with TypeScript 5.9.3; where the top-voted answer no longer passes, a verified passing answer is shown instead and the note at the end says why. Each entry gives the problem, the top-voted community solution in TypeScript (linked, with its score at the time of writing), and the builder solution. The builders are written from the primitives in [type programming](../typeprogramming.md) rather than by calling the `std:types` entry that already ships the answer, since implementing the utility is the whole point of the exercise.
+This document works every challenge in the repository: the warm-up, all thirteen easy, all one hundred and four medium, all fifty-five hard, and all seventeen extreme, in the order the README lists them. One hundred and ninety in total. Every TypeScript solution shown has been checked against the repo's own test cases with TypeScript 5.9.3; where the top-voted answer no longer passes, a verified passing answer is shown instead and the note at the end says why. Each entry gives the problem, the top-voted community solution in TypeScript (linked, with its score at the time of writing), and the builder solution. The builders are written from the primitives in [type programming](../typeprogramming.md) rather than by calling the `std:types` entry that already ships the answer, since implementing the utility is the whole point of the exercise. That is the right rule for an exercise and the wrong one for the working programmer the exercise is training, who mostly wants to know which helper to reach for. So where the library does ship the answer, or composes it in a line, a second block shows that form too, under `std.`. Those blocks are assertions like every other line here, usually against the exercise's own answer, so `std.pick(Todo, type 'title' | 'completed') === TodoPreview` names the helper and checks that the two agree in the same breath. Where they *disagree*, which happens, the block says so. [The library index](#library-index) collects them all.
 
 Features exercised, and why they matter here:
 
@@ -22,19 +22,16 @@ Several challenges surfaced questions the type programming document implies but 
 ```js
 import { arms, arrayOf, awaited, firstParameter, fn, keysOf, literal, literalValues, mapProperties,
          never, objectOf, partial, prop, readonly, reflect, required, returnType, stringPattern,
-         tupleOf, union, withThisType } from 'std:types';
+         tupleElements, tupleOf, union, withThisType } from 'std:types';
+import * as std from 'std:types';
 
-// Two local helpers the challenges below share.
-function tupleElements(T: type): [].<Reflect.TypeTupleElement> {
-  const node = reflect(T);
-  if (node.kind !== 'tuple') throw new TypeError(`expected a tuple type, got ${String(T)}`);
-  return node.elements;
-}
-
+// The one local helper the challenges below share.
 function perms(xs: [].<type>): [].<[].<type>> {
   return xs.length === 0 ? [[]] : xs.flatMap((x, i) => perms(xs.toSpliced(i, 1)).map(rest => [x, ...rest]));
 }
 ```
+
+The named imports are the primitives the builders are written from. The namespace import is the same module under one name, for the `With std:types` blocks, and the reason it has to be a namespace is worth stating: eight challenges are *named after* the library function that answers them, so `concat`, `merge`, `reverse`, `zip`, `mutable`, `flatten`, `paths`, and `intersection` are all taken here as local declarations. Writing `std.merge(Foo, Bar) === merge(Foo, Bar)` puts the shipped one against the exercise's one, and the prefix is what keeps them apart. `tupleElements` used to be defined right here; §4.0 of the type programming document now ships it, found by counting how often this document reached for it, so it is an import like the rest.
 
 The harness's `Expect<Equal<X, Y>>` becomes `===`, so the cases are written as plain assertions.
 
@@ -85,6 +82,12 @@ TodoPreview === type { title: string, completed: boolean };
 myPick(Todo, type 'title' | 'invalid');  // TypeError: myPick: Todo has no property 'invalid'
 ```
 
+```js
+// With std:types
+std.pick(Todo, type 'title' | 'completed') === TodoPreview;
+std.pick(Todo, type 'title' | 'invalid');   // TypeError: pick: Todo has no property 'invalid'
+```
+
 Keeping the property *records* rather than rebuilding from key and type is what makes this preserve `readonly`, defaults, and provenance for free. The `K extends keyof T` constraint has two counterparts: the thrown error above at the call, or, when `myPick` appears in a signature, the computed constraint `<T, K: keysOf(T)>` which checks at the declaration.
 
 ## 7 · Readonly
@@ -107,6 +110,11 @@ function myReadonly(T: type): type {
 type Todo = { title: string, description: string, meta: { author: string } };
 type Frozen = myReadonly(Todo);
 Frozen === type { readonly title: string, readonly description: string, readonly meta: { author: string } };
+```
+
+```js
+// With std:types
+std.readonly(Todo) === Frozen;
 ```
 
 The spread is the modifier arithmetic: `readonly` is set, everything else on the record is copied, and the nested `meta` is untouched because nothing recursed into it. TypeScript's `-readonly` is `false` in the same slot.
@@ -170,6 +178,13 @@ first([].<string>) === string;
 first(type 'notArray');                       // TypeError: first: 'notArray' is not an array or tuple type
 ```
 
+```js
+// With std:types
+std.head(type [3, 2, 1]) === type 3;
+std.head(type []) === never;
+std.head([].<string>);   // TypeError: expected a tuple type: head is tuple-only, where first also takes arrays
+```
+
 `infer A` here is destructuring, and reflection is the accessor, so the conditional evaporates into an array index. The `[undefined]` case is the one that catches naive solutions in both languages, and `?.` plus `??` says exactly what is meant: the element record is missing, not the element's type.
 
 ## 18 · Length of Tuple
@@ -219,6 +234,11 @@ myExclude(type string | uint32 | (() => void), Function) === type string | uint3
 myExclude(type 'a', type 'a') === never;
 ```
 
+```js
+// With std:types
+std.exclude(type string | uint32 | (() => void), Function) === type string | uint32;
+```
+
 The whole challenge is distribution, which is TypeScript's implicit behavior when `T` is a naked type parameter and its best-known foot-gun when it isn't. Here the distribution is the `.filter`, and `never` is what a union with no arms interns to, so the last case needs no rule of its own.
 
 ## 189 · Awaited
@@ -254,6 +274,12 @@ myAwaited(Promise.<Promise.<string | uint32>>) === type string | uint32;
 myAwaited(Promise.<Promise.<Promise.<string | boolean>>>) === type string | boolean;
 myAwaited(type { then: (onfulfilled: (arg: uint32) => any) => any }) === uint32;
 myAwaited(uint32);                        // TypeError: myAwaited: uint32 is not a thenable
+```
+
+```js
+// With std:types
+std.awaited(Promise.<Promise.<string | uint32>>) === type string | uint32;
+std.awaited(uint32) === uint32;   // a policy difference worth knowing: the library passes a non-thenable through, where the exercise throws
 ```
 
 Both solutions have the same shape, which is the point worth noticing: the recursion is genuine and neither language avoids it. What differs is the reach. `T extends PromiseLike<infer U>` is TypeScript's only way inside `Promise<T>`, and the nested `F extends (value: infer V, ...) => any` in the real `lib.d.ts` definition is how it gets at a thenable's callback parameter. The `generic` field and `firstParameter` are those two moves as accessors.
@@ -304,6 +330,11 @@ concat(type [], type [1]) === type [1];
 concat(type [1, 2], type [3, 4]) === type [1, 2, 3, 4];
 concat(type ['1', 2, '3'], type [false, boolean, '4']) === type ['1', 2, '3', false, boolean, '4'];
 concat(type null, type undefined);   // TypeError: expected a tuple type, got null
+```
+
+```js
+// With std:types
+std.concat(type ['1', 2, '3'], type [false, boolean, '4']) === type ['1', 2, '3', false, boolean, '4'];
 ```
 
 This is the first of three challenges where TypeScript's answer is shorter, and it is worth conceding plainly: variadic tuple spread is good syntax for exactly this, and `[...T, ...U]` reads better than rebuilding a node. The builder earns its extra lines only at the error case and at anything the spread cannot say.
@@ -362,6 +393,11 @@ push(type ['1', 2, '3'], boolean) === type ['1', 2, '3', boolean];
 push(uint32, type 1);   // TypeError: expected a tuple type, got uint32
 ```
 
+```js
+// With std:types
+std.concat(type [1, 2], type [3]) === push(type [1, 2], type 3);   // Push is `concat` with a singleton
+```
+
 ## 3060 · Unshift
 
 Prepend `U` to tuple `T`.
@@ -410,6 +446,11 @@ myParameters(Reflect.typeOf(baz)) === type [];
 myParameters(string);   // TypeError: myParameters: string is not a function type
 ```
 
+```js
+// With std:types
+std.parameters(Reflect.typeOf(foo)) === type [string, uint32];
+```
+
 `infer S` in a rest position is TypeScript reaching for the parameter list because it has no accessor for it; `signatures[0].parameters` is the accessor. The builder also carries `rest` and `initial` across, which the spread form gets for free and a naive reflection would drop.
 
 ## 2 · Get Return Type
@@ -438,6 +479,11 @@ myReturnType(type () => Promise.<boolean>) === Promise.<boolean>;
 myReturnType(type () => () => 'foo') === type () => 'foo';
 ```
 
+```js
+// With std:types
+std.returnType(type () => Promise.<boolean>) === Promise.<boolean>;
+```
+
 A field read. Note what the `signatures[0]` is quietly deciding: on an overloaded function, this takes the *first* overload, where TypeScript's `infer R` takes the last. Neither is obviously right, but only one of them is written down where a reader can see it. The `std:types` `returnType` takes the union of all overloads instead, which is a third answer, and the fact that all three are one line apart is the point.
 
 ## 3 · Omit
@@ -459,6 +505,11 @@ function myOmit(T: type, K: type): type {
 type Todo = { readonly title: string, description: string, completed: boolean };
 myOmit(Todo, type 'description') === type { readonly title: string, completed: boolean };
 myOmit(Todo, type 'description' | 'completed') === type { readonly title: string };
+```
+
+```js
+// With std:types
+std.omit(Todo, type 'description' | 'completed') === type { readonly title: string };
 ```
 
 TypeScript's key-remapping `as` clause with a conditional that maps to `never` to delete a key is three mechanisms cooperating to express "drop these". Returning `null` from the callback is the same instruction. Both preserve `readonly` on `title`, but for different reasons: TypeScript's because a mapped type over `keyof T` earns homomorphic status and its modifier-copying rule applies, and the builder's because nobody wrote code to remove it.
@@ -488,6 +539,12 @@ myReadonly2(Todo, type 'title' | 'description')
   === type { readonly title: string, readonly description?: string, completed: boolean };
 myReadonly2(Todo) === myReadonly(Todo);           // the default parameter is an ordinary default parameter
 myReadonly2(Todo, type 'title' | 'invalid');      // TypeError: myReadonly2: Todo has no property 'invalid'
+```
+
+```js
+// With std:types
+std.merge(Todo, std.readonly(std.pick(Todo, type 'title' | 'description')))
+  === myReadonly2(Todo, type 'title' | 'description');
 ```
 
 Two things worth noticing. The generic default `K = keyof T` becomes a JavaScript default parameter, computed from an earlier parameter, which is a thing default parameters already do. And the results differ in kind: TypeScript produces the *intersection* `Omit<T, K> & Readonly<Pick<T, K>>`, which is inter-assignable with the flat object but not identical to it, which is exactly why the harness has to weaken this challenge's assertions from `Equal` to `Alike`. The builder edits the records in place and returns the flat object, so `===` holds and no weakening is needed.
@@ -532,6 +589,11 @@ deepReadonly(X) === type {
 deepReadonly(type { a: string } | { b: uint32 }) === type { readonly a: string } | { readonly b: uint32 };
 ```
 
+```js
+// With std:types
+std.traverse(X, { property: p => ({ ...p, readonly: true }) }) === deepReadonly(X);
+```
+
 The TypeScript answer stops at a function property (`a: () => 22`) by saying so twice: `T[k] extends Record<any, any>` is how the language asks whether something is an object, a question it has no word for, and `T[k] extends Function` walks that back for the callables the first test also catches. The builder's `switch` states its domain, and the `default` arm is the base case that a reader can check against the list of type kinds.
 
 The recursion into cycles needs no code in either solution, but for different reasons: TypeScript defers instantiation lazily and hits its depth limit when that fails, while the builder's in-flight fixpoint ties the knot, so `deepReadonly` on a self-referential type terminates with the cyclic type rather than an error. See the note on readonly arrays for where this solution genuinely diverges.
@@ -557,6 +619,12 @@ function tupleToUnion(T: type): type {
 tupleToUnion(type [123, '456', true]) === type 123 | '456' | true;
 tupleToUnion(type [123]) === type 123;                 // union of one arm is that arm
 tupleToUnion([].<string | uint32>) === type string | uint32;
+```
+
+```js
+// With std:types
+std.union(std.elementTypes(type [123, '456', true])) === type 123 | '456' | true;
+std.flatten([].<string | uint32>) === type string | uint32;   // the array branch ships under its own name
 ```
 
 TypeScript's `T[number]` and `T extends Array<infer I> ? I : never` are two spellings of "widen the positional element types into a union", and both are indirections around a list the checker already has. `union(elements.map(...))` is that list. The one-element case needs no special handling because canonicalization already collapses a single-arm union.
@@ -622,6 +690,11 @@ last(type []) === never;
 last(uint32);   // TypeError: expected a tuple type, got uint32
 ```
 
+```js
+// With std:types
+std.elementTypes(type [3, 2, 1]).at(-1) === type 1;   // no `last` ships, because at(-1) is already the answer
+```
+
 ## 16 · Pop
 
 The tuple without its last element. `Pop<[]>` is `[]`.
@@ -676,6 +749,13 @@ promiseAll.<type [1, 2, Promise.<uint32>]>;         // returns Promise.<[1, 2, u
 promiseAll.<[].<uint32 | Promise.<string>>>;        // returns Promise.<[].<uint32 | string>>
 ```
 
+```js
+// With std:types
+std.genericApplication(Promise, [std.mapElements(type [1, 2, Promise.<uint32>], std.awaited)])
+  === type Promise.<[1, 2, uint32]>;
+std.mapElements([].<uint32 | Promise.<string>>, std.awaited) === [].<uint32 | string>;
+```
+
 `{ [K in keyof T]: ... }` over a tuple is TypeScript's most surprising rule: a mapped type over an array or tuple is special-cased to produce an array or tuple rather than an object with numeric keys, which is why this signature works at all and why nothing in the syntax says so. The builder's `switch` says so. Note also that `awaited` already means "unwrap if thenable, else pass through", so the answer's recursive helper `Awaited<T> = T extends Promise<infer R> ? Awaited<R> : T` is a call rather than a declaration.
 
 The harness's first and third cases differ only by `as const`, checking that a widened `[1, 2, Promise<3>]` still maps element-wise. This proposal marks `as const` obviated, since literals keep their literal types and value types are immutable by layout, so the two cases collapse into one and there is nothing left to test.
@@ -702,6 +782,11 @@ type Animal = Cat | Dog;
 lookUp(Animal, type 'dog') === Dog;
 lookUp(Animal, type 'cat') === Cat;
 lookUp(Animal, type 'bird') === never;
+```
+
+```js
+// With std:types
+std.extract(Animal, std.objectOf([std.prop('type', type 'dog')])) === Dog;
 ```
 
 A one-line translation, and the closest correspondence in the whole set: `extends` becomes `Reflect.isAssignable`, distribution becomes `.filter`, and the `never` branch becomes the empty union. `std:types` ships this as `byKind(T, k, tag)`, with the tag a parameter rather than hardcoded to `'type'`.
@@ -766,6 +851,11 @@ function myCapitalize(s: string): type {
 myCapitalize('foo bar') === type 'Foo bar';
 myCapitalize('FOOBAR') === type 'FOOBAR';
 myCapitalize('') === type '';
+```
+
+```js
+// With std:types
+std.capitalized(type 'foo bar') === type 'Foo bar';   // the library maps literal types; the exercise takes the string itself
 ```
 
 ## 116 · Replace
@@ -848,6 +938,13 @@ function appendArgument(F: type, A: type): type {
 appendArgument(type (a: uint32, b: string) => uint32, boolean) === type (a: uint32, b: string, x: boolean) => uint32;
 appendArgument(type () => void, type undefined) === type (x: undefined) => void;
 appendArgument(uint32, boolean);   // TypeError: appendArgument: uint32 is not a function type
+```
+
+```js
+// With std:types
+const Fn = type (a: uint32, b: string) => uint32;
+std.fn([...std.elementTypes(std.parameters(Fn)), boolean], std.returnType(Fn)) === appendArgument(Fn, boolean);
+   // the two disagree on the appended parameter's name and agree anyway: names are not part of identity (§3.1)
 ```
 
 Read the first assertion again: the builder names its new parameter `appended`, the expected type names it `x`, and they are equal. That is only true if parameter names are not part of a function type's identity, which the note below takes up. Note also that the builder appends to *every* overload, which the `Parameters`/`ReturnType` form cannot express at all: on an overloaded function those utilities silently pick the last signature and discard the rest.
@@ -958,6 +1055,11 @@ type Test = { key: 'cat', value: 'green' };
 appendToObject(Test, 'home', boolean) === type { key: 'cat', value: 'green', home: boolean };
 ```
 
+```js
+// With std:types
+std.merge(Test, std.record(type 'home', boolean)) === type { key: 'cat', value: 'green', home: boolean };
+```
+
 A mapped type over `keyof T | U` has to re-derive, for every key, which of the two sources it came from, because the mapped form is the only way to build an object type and it must produce all keys in one pass. Appending to a list is appending to a list.
 
 ## 529 · Absolute
@@ -1035,6 +1137,11 @@ type Bar = { b: uint32, c: boolean };
 merge(Foo, Bar) === type { a: uint32, b: uint32, c: boolean };
 ```
 
+```js
+// With std:types
+std.merge(Foo, Bar) === merge(Foo, Bar);   // the shipped one against the exercise's one, which is what the prefix is for
+```
+
 The `: never` branch in the TypeScript version is unreachable, since `K` came from `keyof F | keyof S` and cannot be outside both. It is there because a conditional needs an else. That is the third unreachable `never` in this batch alone, and the note below is about what they have in common.
 
 ## 612 · KebabCase
@@ -1091,6 +1198,11 @@ function diff(A: type, B: type): type {
 type Foo = { name: string, age: string };
 type Coo = { name: string, gender: uint32 };
 diff(Foo, Coo) === type { age: string, gender: uint32 };
+```
+
+```js
+// With std:types
+std.merge(std.omit(Foo, std.keysOf(Coo)), std.omit(Coo, std.keysOf(Foo))) === type { age: string, gender: uint32 };
 ```
 
 `Omit<O & O1, keyof (O | O1)>` is the sharpest one-liner in the set, and it is worth understanding rather than dismissing: `O & O1` has every key, `keyof (O | O1)` is the *common* keys because a union's keys are the ones every arm has, and omitting the second from the first leaves the symmetric difference. It is exact, it is four tokens, and it relies on the reader knowing that `keyof` inverts across union and intersection. The builder is longer and says what it does.
@@ -1331,6 +1443,11 @@ pickByType(Model, boolean) === type { isReadonly: boolean, isEnable: boolean };
 pickByType(Model, string) === type { name: string };
 ```
 
+```js
+// With std:types
+std.pickByValue(Model, boolean) === type { isReadonly: boolean, isEnable: boolean };
+```
+
 `std:types` ships this as `pickByValue`. Filtering a list is filtering a list.
 
 ## 2688 · StartsWith
@@ -1401,6 +1518,12 @@ partialByKeys(User, type 'name' | 'age') === type { name?: string, age?: uint32,
 partialByKeys(User) === partial(User);
 ```
 
+```js
+// With std:types
+std.merge(std.omit(User, type 'name'), std.partial(std.pick(User, type 'name')))
+  === partialByKeys(User, type 'name');
+```
+
 `Flatten` is a no-op that exists to be a no-op: mapping an intersection over its own keys forces the checker to flatten `A & B` into a single object type, because the challenge's expected value is flat and `A & B` is not identical to it. That is the same fact challenge 8 hit, met here with a helper instead of a weakened assertion. The builder never forms the intersection, so there is nothing to flatten.
 
 ## 2759 · RequiredByKeys
@@ -1428,6 +1551,12 @@ requiredByKeys(User, type 'name') === type { name: string, age?: uint32, address
 requiredByKeys(User) === required(User);
 ```
 
+```js
+// With std:types
+std.merge(std.omit(User, type 'name'), std.required(std.pick(User, type 'name')))
+  === requiredByKeys(User, type 'name');
+```
+
 The two challenges are one function with `optional` set to `true` or `false`, which is what a modifier being a field on a record means. TypeScript needs `Omit`, an intersection, `-?`, and a third type parameter defaulted to the intermediate result so the final mapped type can flatten it.
 
 ## 2793 · Mutable
@@ -1451,6 +1580,11 @@ interface Todo { title: string; description: string; completed: boolean }
 mutable(readonly(Todo)) === Todo;
 ```
 
+```js
+// With std:types
+std.mutable(std.readonly(Todo)) === Todo;
+```
+
 The fourth member of the modifier family, and the fourth one-liner. `std:types` ships it, and the challenge exists because `lib.d.ts` does not.
 
 ## 2852 · OmitByType
@@ -1472,6 +1606,11 @@ function omitByType(T: type, U: type): type {
 
 interface Model { name: string; count: uint32; isReadonly: boolean; isEnable: boolean }
 omitByType(Model, boolean) === type { name: string, count: uint32 };
+```
+
+```js
+// With std:types
+std.omit(Model, std.keysOf(std.pickByValue(Model, boolean))) === type { name: string, count: uint32 };
 ```
 
 `pickByType` with the branches swapped, in both languages.
@@ -1527,6 +1666,11 @@ shift(type []) === type [];
 shift(uint32);   // TypeError: expected a tuple type, got uint32
 ```
 
+```js
+// With std:types
+std.tail(type [3, 2, 1]) === type [2, 1];   // Shift is `tail` under another name
+```
+
 ## 3188 · Tuple to Nested Object
 
 `['a', 'b']` and `number` become `{ a: { b: number } }`.
@@ -1570,6 +1714,11 @@ reverse(type ['a', 'b', 'c']) === type ['c', 'b', 'a'];
 reverse(type []) === type [];
 ```
 
+```js
+// With std:types
+std.reverse(type ['a', 'b', 'c']) === type ['c', 'b', 'a'];
+```
+
 ## 3196 · Flip Arguments
 
 Reverse a function's parameters.
@@ -1597,6 +1746,12 @@ flipArguments(type (arg0: string, arg1: uint32, arg2: boolean) => void)
   === type (arg0: boolean, arg1: uint32, arg2: string) => void;
 flipArguments(type () => boolean) === type () => boolean;
 flipArguments(type 'string');   // TypeError: flipArguments: 'string' is not a function type
+```
+
+```js
+// With std:types
+const Flip = type (arg0: string, arg1: uint32, arg2: boolean) => void;
+std.fn(std.elementTypes(std.parameters(Flip)).toReversed(), std.returnType(Flip)) === flipArguments(Flip);
 ```
 
 An honest tax on the builder: parameter records carry an `index`, so reversing them means renumbering, and forgetting the `.map((p, index) => ({ ...p, index }))` would produce a signature whose parameters disagree with their own positions. TypeScript's `Reverse<P>` on a tuple has no such field to keep consistent. Richer reflection means more invariants to maintain, and this is the smallest possible example of that bill arriving.
@@ -1843,6 +1998,11 @@ function zip(A: type, B: type): type {
 zip(type [], type []) === type [];
 zip(type [1, 2], type [true, false]) === type [[1, true], [2, false]];
 zip(type [1, 2, 3], type ['1', '2']) === type [[1, '1'], [2, '2']];
+```
+
+```js
+// With std:types
+std.zip(type [1, 2, 3], type ['1', '2']) === type [[1, '1'], [2, '2']];
 ```
 
 `[T, U] extends [[...], [...]]` wraps both operands in a tuple so they can be destructured in one pattern, which is the type-level equivalent of destructuring two arrays in a single statement, and the shorter-list case falls out of the match failing. `Math.min` says it directly.
@@ -2551,6 +2711,14 @@ toPrimitive(PersonInfo) === type {
 };
 ```
 
+```js
+// With std:types
+std.traverse(PersonInfo, { leaf: t => {
+  const node = std.reflect(t);
+  return node.kind === 'literal' ? node.base : node.kind === 'function' ? Function : t;
+} }) === toPrimitive(PersonInfo);
+```
+
 The last line of the TypeScript solution is the one to look at: `T extends { valueOf: () => infer P } ? P : T`. To get from the literal `'Tom'` to `string`, it asks what `valueOf` returns *on the boxed wrapper*, because `String.prototype.valueOf(): string` is the only place in the type system where the relationship between a string literal and `string` is written down in a readable form. It is a genuinely inspired route to the answer, and it is a route because the direct road does not exist.
 
 The reflection node for a literal carries `base`. That is the same fact, stated once, where the literal is.
@@ -2587,6 +2755,11 @@ function deepMutable(T: type): type {
 
 type X = { readonly a: () => 22, readonly b: string, readonly c: { readonly d: boolean } };
 deepMutable(X) === type { a: () => 22, b: string, c: { d: boolean } };
+```
+
+```js
+// With std:types
+std.traverse(X, { property: p => ({ ...p, readonly: false }) }) === deepMutable(X);
 ```
 
 The mirror of challenge 9, and worth putting beside it. `DeepReadonly`'s top-voted answer stops at functions with `keyof T extends never`, which works by accident; this author writes `T extends (...args: any[]) => any ? T` and says what is meant. The builder's `switch` is the same statement in both directions, and `readonly: false` against `readonly: true` is the whole diff.
@@ -3629,6 +3802,11 @@ unionToIntersection(type 'foo' | 42 | true) === type 'foo' & 42 & true;
 unionToIntersection(type (() => 'foo') | ((i: 42) => true)) === type (() => 'foo') & ((i: 42) => true);
 ```
 
+```js
+// With std:types
+std.intersection(std.arms(type 'foo' | 42 | true)) === type 'foo' & 42 & true;
+```
+
 One of the two or three most-cited incantations in TypeScript, and it earns its reputation. Read what it does: distribute the union into a union of *function types taking each arm as a parameter*, then infer that parameter back out of the whole union at once. The answer is an intersection because function parameters are contravariant, so a value assignable to all of `(arg: 'foo') => any`, `(arg: 42) => any`, and `(arg: true) => any` must accept all three, and inference in that position collects the constraints by intersecting them.
 
 Nothing in that chain is about unions or intersections. It is a variance rule, observed indirectly, through a function type nobody calls, to compute a set operation. `arms` and a node with `kind: 'intersection'` is the same operation named.
@@ -4449,6 +4627,13 @@ camelize(type {
 };
 ```
 
+```js
+// With std:types
+const Wire = type { some_prop: string, prop: { another_prop: string } };
+std.traverse(Wire, { property: p => ({ ...p, name: typeof p.name === 'string' ? snakeToCamel(p.name) : p.name }) })
+  === camelize(Wire);
+```
+
 The dispatch is the thing to look at: an object literal with four entries, indexed by a conditional that computes which entry to take. That is a `switch`, spelled as a dictionary lookup, because the type language has no `switch` and a mapped type is the only dictionary it has. Fourth sighting of the mapped-type-as-lookup idiom and the first where it is doing genuine control flow rather than data. The builder's `switch (node.kind)` is the same shape, and `kind` is a string that already exists.
 
 `snakeToCamel` is challenge 114's `camelCase` without the `.toLowerCase()`, which is exactly the difference between the two challenges.
@@ -4875,6 +5060,12 @@ assign(type {}, [type { a: 'a' }]) === type { a: 'a' };
 assign(type { a: 'a', b: 'b' }, [type { a: 1 }, type { c: 'c' }]) === type { a: 1, b: 'b', c: 'c' };
 ```
 
+```js
+// With std:types
+[type { a: 1 }, type { c: 'c' }].reduce((acc, source) => std.merge(acc, source), type { a: 'a', b: 'b' })
+  === type { a: 1, b: 'b', c: 'c' };
+```
+
 `Omit<T, keyof F> & F` is last-wins assignment: remove the keys the new object defines, then intersect it in. The trailing `Omit<T, never>` is the flattening no-op, fifth sighting, and here it is load-bearing rather than cosmetic, because without it the result is a chain of intersections and `Equal` would say no. `Map.set` overwrites, which is what assignment is.
 
 ## 9384 · Maximum
@@ -4936,6 +5127,13 @@ function capitalizeNestObjectKeys(T: type): type {
 
 type T = { foo: 1, bar: { baz: [{ deep: 2 }] } };
 capitalizeNestObjectKeys(T) === type { Foo: 1, Bar: { Baz: [{ Deep: 2 }] } };
+```
+
+```js
+// With std:types
+std.traverse(T, { property: p => ({ ...p,
+  name: typeof p.name === 'string' ? `${p.name[0].toUpperCase()}${p.name.slice(1)}` : p.name }) })
+  === capitalizeNestObjectKeys(T);
 ```
 
 Challenge 1383 with `Capitalize` instead of `SnakeToCamel`, and the same two-branch recursion. `Capitalize<K & string>` needs the `& string` because `keyof T` can include symbols and `Capitalize` cannot take one; the builder's `typeof p.name === 'string'` is that guard, said in the affirmative and leaving symbol keys alone rather than intersecting them away.
@@ -6304,6 +6502,39 @@ dynamicRoute('/shop/[slug]/[foo]') === type { slug: string, foo: string };
 The last challenge in the repository, and a good one to end on because it is a real thing people actually want: Next.js has this exact feature and the types for it are written this way in production. `SlashSplit` is `split('/')`, the bracket cases are a regex, and `[[...slug]]` being optional is a flag on a property record.
 
 Both solutions are the same program. One is thirty-six lines of pattern matching and the other is nine lines of string handling, and the honest summary of the whole document is in that ratio: not that TypeScript's authors are doing it wrong, but that they are doing it without `split`, without `Set`, without `===`, without `+`, and without anywhere to put a variable.
+
+## Library index
+
+The `With std:types` blocks above are the answer to a question the exercises deliberately dodge: which helper do I reach for? Thirty-six challenges carry one, demonstrating thirty-three of the library's exports. Every line in them is an assertion that ran.
+
+| Helper | What it does | Shown at |
+|---|---|---|
+| `std.pick` / `std.omit` | keep or drop named properties, throwing on a key the type lacks | 4, 3, 8, 645, 2757, 2759, 2852 |
+| `std.merge` | later-wins key override, the half of TypeScript's `Merge` idiom that is not the flattening no-op | 8, 527, 599, 645, 2757, 2759, 9160 |
+| `std.record` | a key union or `string` against one value type | 527 |
+| `std.partial` / `std.required` | set or clear `optional` on every property | 2757, 2759 |
+| `std.readonly` / `std.mutable` | set or clear `readonly` on every property | 7, 8, 2793 |
+| `std.pickByValue` | keep the properties whose type fits, the `filter` behind `as T[K] extends V ? K : never` | 2595, 2852 |
+| `std.keysOf` | the key union, union and intersection safe | 645, 2852 |
+| `std.objectOf` / `std.prop` | build an object type from property records | 62 |
+| `std.traverse` | one structural recursion with `leaf`, `property`, and `element` hooks | 9, 1383, 9775, 16259, 17973 |
+| `std.elementTypes` | a tuple's element types, after which the answer is usually an array method | 10, 15, 191, 3196 |
+| `std.head` / `std.tail` | first element, and everything after it | 14, 3062 |
+| `std.concat` / `std.reverse` / `std.zip` | tuple surgery without variadic conditionals | 533, 3057, 3192, 4471 |
+| `std.mapElements` | map a function over a tuple's or array's element types | 20 |
+| `std.flatten` | an array's element type | 10 |
+| `std.union` / `std.arms` | build a union, or take one apart | 10, 55 |
+| `std.intersection` | build an intersection, the dual that had been missing | 55 |
+| `std.exclude` / `std.extract` | drop or keep the arms that fit a type | 43, 62 |
+| `std.fn` / `std.parameters` / `std.returnType` | build a function type, or read its two halves back | 2, 191, 3196, 3312 |
+| `std.awaited` | unwrap a promise or a thenable, recursively | 20, 189 |
+| `std.genericApplication` | build `Promise.<T>`, the write half of the `generic` field | 20 |
+| `std.capitalized` | `Capitalize` over literal types, via `mapLiterals` | 110 |
+| `std.reflect` | the node behind a type object, for the cases the helpers do not cover | 16259 |
+
+Reading the table the other way is the more useful direction. Four rows account for over half the entries, and they are the four operations this corpus does constantly: split a type apart (`arms`, `elementTypes`, `keysOf`), edit its records (`mapProperties`, `traverse`), put it back together (`objectOf`, `tupleOf`, `union`, `intersection`), and, when someone else already wrote that loop, call it (`pick`, `merge`, `partial`).
+
+The library ships forty-two more exports that no challenge here needed to name. Some are the primitives these blocks are built from (`literal`, `tupleOf`, `mapProperties`, `reflect`); some answer problems the corpus never poses but working code does (`renameProperties` for wire formats, `deepPartial` and `deepMap` for configuration, `listeners`, `routeParams`, and `suffixed` for framework surfaces, `discriminants`, `byKind`, and `handlers` for tagged unions, `brand` and `stringPattern` for validation, `compose` for storing a transformation as a value); and a few, like `noInfer` and `options`, exist for the checker rather than the reader. §4 of [type programming](../typeprogramming.md) is the catalog; this table is the map from the exercises to it.
 
 ## Notes
 
