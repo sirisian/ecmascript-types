@@ -39,6 +39,9 @@ The alternative that other languages reach for, and this one shouldn't, is the *
 class SoA<T, Length: uint32 = 0> {
 	constructor();
 	constructor(length: uint32); // Growable arrays only
+	// A call on the type is a view over existing bytes, as [N].<T>(buffer) is, and takes the
+	// same arguments. Fixed Length only:
+	//   SoA.<T, Length>(buffer: ArrayBuffer | SharedArrayBuffer | [].<any>, byteOffset: uint32 = 0)
 
 	get length(): uint32;
 	get capacity(): uint32; // Growable arrays; the allocation backing every column
@@ -158,6 +161,40 @@ Making the two silently interchangeable, as Julia's ```StructArrays``` does, rea
 
 A byte view over an ```SoA``` sees the columns in declaration order, one after another. That is also its serialization order, and it's why ```byteLength``` is a sum of column lengths.
 
+## Views
+
+Everything the sections above fix about an ```SoA```'s bytes - one allocation, columns in declaration order, each padded and aligned on its own, a ```byteLength``` that is their sum - determines the layout completely. A layout that is fully determined can be laid over memory that already exists, which is what the array types do and what an ```SoA``` needs no further machinery to do:
+
+```js
+const particles = SoA.<Particle, 65536>(buffer, byteOffset);
+particles.fields.x; // [65536].<float32> over the caller's bytes
+const ref p = particles[10]; // A column set and an index, as always
+```
+
+The form is the array view's. It is a call on the type rather than a ```new```, because nothing is constructed, and the buffer argument accepts what ```[].<T>```'s does - an ```ArrayBuffer```, a ```SharedArrayBuffer```, or any typed array - so an ```SoA``` view and a ```[].<uint8>``` over the same bytes alias the same memory. This is the form an embedding needs: a host that lays out columns by the rule above hands over one buffer, and the script iterates the host's storage with no copy, no marshaling, and no per-field binding code.
+
+Only the fixed form is viewable, and the reason is the layout rather than caution. A ```[].<T>``` view can track a resizable buffer because growth appends past the end. An ```SoA```'s capacity is baked into every column's offset, so growth moves every column after the first, and a length-tracking ```SoA``` view would be describing a layout that is no longer there. The fixed form is exactly the subset with nothing to reallocate: ```push```, ```pop```, and ```reserve``` are already absent from an ```SoA.<T, N>``` as they are from a ```[N].<T>```, so viewing gives up nothing that was on offer.
+
+Three rules, each the one the array views already follow:
+
+- ```byteOffset``` must be a multiple of ```SoA.<T, Length>.alignment```, or it's a TypeError. Columns are placed relative to the base, so a misaligned base misaligns every column and there would be nothing left of the aligned-lane-load guarantee.
+- The buffer must hold ```SoA.<T, Length>.byteLength``` bytes past ```byteOffset```, or it's a TypeError. Both are compile-time constants, so the check costs nothing at run time and the same two constants are what a host sizes its allocation with.
+- Detachment follows the fixed array view: shrinking a resizable buffer below the view's extent detaches it and any access afterward is a TypeError, while growth never invalidates it. A view over a ```SharedArrayBuffer``` can never detach, since shared buffers never shrink.
+
+A viewed ```SoA``` is the same object an allocated one is. Both are a base and the column offsets the layout rule computes from it, so ```fields``` is the same constant-folded projection, a ```ref``` binding compiles to the same indexed loads, and everything in the next section applies unchanged. The only difference is where the base came from.
+
+Aliasing keeps its guarantee and its limit. Within one ```SoA``` the columns are disjoint extents at compile-time offsets, so a pass that reads one and writes another still needs no runtime overlap check, and constant offsets prove that more cheaply than distinct allocations would. Between views it is the main proposal's ordinary assumption: two ```SoA``` views over overlapping bytes may alias, exactly as two array views may.
+
+That limit is why there is no constructor that assembles an ```SoA``` from columns a caller supplies. Such a form would read well - it is how a host holding one allocation per column would want to hand its data over - and it would end the guarantee, because two ```SoA```s could then share a column and every column pass would need its overlap check back. The layout is a promise the type keeps; assembled columns would be a promise the caller makes, and the main proposal declines those wherever it can't check them. A host that wants its columns viewed lays them out by the rule, which is one allocation and the offset arithmetic ```byteLength``` already implies.
+
+Placement ```new``` covers the other direction, where the memory is provided but the contents are not:
+
+```js
+const spawned = new(buffer, byteOffset) SoA.<Particle, 1024>(); // Zero-filled, as any allocation is
+```
+
+The division is the one the main proposal already draws for arrays: a view aliases bytes that are already there, and placement ```new``` constructs into bytes it is handed.
+
 ## SIMD and Optimization
 
 Nothing about an ```SoA``` is dynamic once the type is specialized. ```SoA.<Transform>``` fixes the column set, each column's element type, and each field's column offset at compile time. A field access through a reference is one indexed load with a constant base: no hashing, no traps, no shape guard, no branch.
@@ -186,7 +223,7 @@ for (let i: uint32 = whole; i < xs.length; ++i) {
 
 The interleaved equivalent can do neither: a stride of ```Transform.byteLength``` defeats the vector unit and pulls two unused fields into every cache line.
 
-A pass that reads one column and writes another - ```position``` from ```velocity```, the shape of every integrator - needs no runtime overlap check to vectorize, because distinct fields are distinct allocations and so provably cannot alias. This is the single-threaded counterpart of the cache-line fact below: the same premise, that each field is its own column, lets a vector unit load and store two columns without proving at run time that they do not overlap. An engine cannot make that assumption about two arbitrary ```[].<T>``` arguments, since they might be the same array, nor about two ```ref``` parameters, since ```zip(a, a, ...)``` aliases them deliberately; the columns of one ```SoA``` are the case where the guarantee holds by construction rather than by analysis.
+A pass that reads one column and writes another - ```position``` from ```velocity```, the shape of every integrator - needs no runtime overlap check to vectorize, because distinct fields occupy disjoint columns and so provably cannot alias. This is the single-threaded counterpart of the cache-line fact below: the same premise, that each field is its own column, lets a vector unit load and store two columns without proving at run time that they do not overlap. An engine cannot make that assumption about two arbitrary ```[].<T>``` arguments, since they might be the same array, nor about two ```ref``` parameters, since ```zip(a, a, ...)``` aliases them deliberately; the columns of one ```SoA``` are the case where the guarantee holds by construction rather than by analysis.
 
 Growth reallocates all columns together under one capacity, amortized as ```[].<T>``` is.
 
