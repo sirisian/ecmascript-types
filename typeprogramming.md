@@ -996,7 +996,7 @@ function partialBy(T: type, K: type): type {
 }
 ```
 
-Deferred because the recipe is four readable lines that keep the key-validation policy visible at the call site — throw on an unknown key, as challenge 8 does, or ignore it, as 2757's tests demand — and the trio would have to pick that policy once for everyone. Ship them if TypeScript-utility parity comes to matter more than a small surface.
+Deferred because the recipe is four readable lines that keep the key-validation policy visible at the call site — throw on an unknown key, as challenge 8 does, or ignore it, as 2757's tests demand — and the trio would have to pick that policy once for everyone. Tier 1 made the deferral easier to live with: `merge(omit(T, K), partial(pick(T, K)))` is the whole of `partialByKeys` in shipped helpers, with `required` and `readonly` substituting for `partial` to give the other two, and [typechallenges.md](typechallenges.md) shows exactly that at challenges 2757, 2759, and 8. Ship them if TypeScript-utility parity comes to matter more than a small surface.
 
 **`filterArms(T, pred)`.** Six challenges write `union(arms(T)...)`, but `mapUnion` (§4.9) covers the mapping cases and `extract`/`exclude` (§4.3) cover the assignability filters; the residue, a genuine predicate filter, appeared too rarely to name. The spelling `union(arms(T).filter(pred))` is the definition and reads as one.
 
