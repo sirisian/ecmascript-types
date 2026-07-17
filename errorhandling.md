@@ -4,7 +4,7 @@ This proposal handles failure the way JavaScript already does — with exception
 
 ## Typed catch clauses
 
-A `catch` clause may name the error type it handles. Clauses are tried in order, and the first whose type the thrown value satisfies runs; an untyped clause at the end catches whatever remains.
+A `catch` clause may name the error type it handles. Clauses are tried in order, and the first whose type the thrown value satisfies runs; an untyped clause at the end catches whatever remains. An untyped clause may only be the last: a typed clause after it could never run, so a `catch` that is not last must name a type.
 
 ```js
 try {

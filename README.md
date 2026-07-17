@@ -1320,6 +1320,8 @@ function f(): IExample {
 }
 ```
 
+A default requires the ```?```: an initializer on a required member is an error, since a required member is never absent for the default to fill. Where an object lacking the member is checked against the type, the default supplies its value.
+
 Interface and type-literal members may be separated by ```;``` or ```,```, as in an object literal; both appear in this document and mean the same thing.
 
 An interface may also declare operator members, as in ```interface Ordered<T> { operator<(other: T): boolean; }```. A type satisfies such an interface by defining those operators, which is how a generic constrains its parameter to carry an operation - the [operator overloading](operatoroverloading.md) and [ranges](ranges.md) extensions use this for scalar multiplication and ordering.
@@ -2592,7 +2594,7 @@ A sealed class is the proposal's closed hierarchy. Combined with type objects be
 
 ### Abstract Classes
 
-An ```abstract``` class cannot be instantiated: ```new Shape()``` on one is a TypeError. It exists to be extended, carrying shared implementation and declaring the members its subclasses must supply. An ```abstract``` method is a signature with no body; a concrete subclass must implement every inherited abstract method, or itself be declared ```abstract```.
+An ```abstract``` class cannot be instantiated: ```new Shape()``` on one is a TypeError. It exists to be extended, carrying shared implementation and declaring the members its subclasses must supply. An ```abstract``` method is a signature with no body; a concrete subclass must implement every inherited abstract method, or itself be declared ```abstract```. An ```abstract``` member is always a method signature; abstract fields and accessors are not part of the proposal, and a required property is stated by an interface the class implements.
 
 ```js
 abstract class Shape {
@@ -2620,6 +2622,8 @@ class Circle extends Shape {
 ```
 
 An abstract class is a reference type. Its purpose is polymorphic dispatch through the hierarchy — a ```Shape```-typed binding holds any subclass and ```this.area()``` resolves at run time — which is reference-type behavior, so an abstract class is never a value type and neither is a subclass reached through it. It may declare a constructor, invoked by a subclass through ```super()```, even though it can never be the target of ```new``` directly. Abstract differs from an interface in carrying implementation: an interface is pure signature, while an abstract class combines abstract members with concrete methods, fields, and constructors, which is the tool for a partial implementation that a family of subclasses completes.
+
+The class modifiers ```abstract```, ```sealed```, and ```dynamic``` may be written in any order. Repeating a modifier is an error, and ```sealed``` together with ```dynamic``` is an error: the closed hierarchy exists to be matched and laid out by shape, which is exactly what ```dynamic``` opts out of.
 
 ```abstract``` composes with ```sealed```. A ```sealed abstract class``` can be neither instantiated nor extended outside its module, so its concrete subclasses are a fixed, known set with no base case among them — the algebraic data type in full: a closed union whose members are the subclasses, matched exhaustively by the ```switch``` the control structures section describes.
 
@@ -2708,7 +2712,7 @@ enum Count: float32 { Zero = (index, name) => index * 100, One, Two }; // 0, 100
 enum Count: string { Zero = (index, name) => name, One, Two = (index, name) => name.toLowerCase(), Three }; // "Zero", "One", "two", "three"
 enum Flags: uint32 { None = 0, Flag1 = (index, name) => 1 << (index - 1), Flag2, Flag3 } // 0, 1, 2, 4
 ```
-An enumeration that uses a non-numeric type must define a starting value. Each subsequent value without an initializer is computed by applying the prefix increment operator to the previous value. (The previous enumerator itself is not modified). If neither a sequential function nor a prefix increment operator, ```operator++()```, exists for the type then the next value will be equal to the previous value.
+An enumeration that uses a non-numeric type must define a starting value. Each subsequent value without an initializer is computed by applying the prefix increment operator to the previous value. (The previous enumerator itself is not modified). If neither a sequential function nor a prefix increment operator, ```operator++()```, exists for the type then the next value will be equal to the previous value. A sequential function applies to its own enumerator and to every following enumerator without an initializer, until another sequential function replaces it; an initializer that is not a sequential function sets its enumerator's value without disturbing the function for those after it.
 
 ```js
 // enum Count:string { Zero, One, Two }; // TypeError Zero is undefined, expected string
@@ -2846,6 +2850,8 @@ let a = new(buffer, byteOffset, byteElementLength) [10].<Type>(0);
 ```
 
 By default ```byteElementLength``` is the size of the type. Using a larger value than the size of the type acts as a stride adding padding between allocations in the buffer. Using a smaller length is unusual as it causes allocations to overlap.
+
+```new (``` also begins an ordinary construction whose constructor is a parenthesized expression. Source that continues with a member expression after the closing parenthesis is the placement form; today such source has no parse as a single expression, so the placement reading changes the meaning of no existing program.
 
 Placement ```new``` over a resizable buffer records the byte extent of the allocation. Shrinking the buffer below a live allocation's extent detaches those instances, and touching one afterward is a TypeError; growing never invalidates them.
 

@@ -4,6 +4,8 @@ The goal of generics would be to represent compile-time or at the least JIT opti
 
 Concretely, the semantics are those of full specialization. Each application - ```A.<uint8>```, ```A.<uint16>``` - is a distinct type with its own type object, its value parameters are compile-time constants within the body, and layout reads such as ```T.byteLength``` constant-fold per instantiation. An engine may share generated code between two instantiations only where the sharing is unobservable, and that specifically excludes any characteristic a program depends on for correctness: a ```[N].<T>``` extent that must be a fixed size, an ```inline``` operator that must expand. Sharing is therefore an implementation freedom, never a change in meaning. The cost is the one C++ and Rust accept openly - specialization multiplies code size - and the width-family patterns like ```write.<uint.<N>>``` in the [binary packet](examples/binarypacket.md) example are where it shows most.
 
+A specialization is written after the expression it specializes, ```f.<uint8>(x)``` or ```new A.<uint16>()```, and never after ```?.```: an optional chain takes no type arguments.
+
 The big picture of this section is to write out a near complete generics section to ensure types aren't implemented in a way that makes this awkward. It should be near seamless to introduce these as the main proposal relies on them in a few language feature areas.
 
 ```js
