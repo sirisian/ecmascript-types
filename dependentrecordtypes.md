@@ -147,6 +147,8 @@ payment.name = 'Bob'; // Valid: name has no constraints
 
 Fields referenced in a ```where``` clause are dependent: they cannot be validated on independent assignment, so the clause is checked at boundaries instead - construction, function calls, and object assignment. This is the rule the examples in this document assume.
 
+Two more choices the same rule settles. A dependent record type's identity is its declaration's: the predicate is a function value compared by SameValue, so two textually identical ```where``` blocks in two modules are two types, and sharing one means declaring once and importing. And a ```where``` block is one predicate: conjunction is written by nesting one refined type in another, and a multi-assertion block would need a separator the grammar does not have.
+
 The spread operator can be used to set a fully valid object:
 ```js
 const updatedPayment: Payment = {

@@ -32,7 +32,7 @@ namespace Reflect {
     | { kind: 'array'; element: type; extent: uint32 | undefined; }
     | { kind: 'object'; properties: [].<TypePropertyReflection>; }
     | { kind: 'function'; signatures: [].<FunctionSignatureReflection>; }
-    | { kind: 'reference'; name: string; };                           // recursive back-edge
+    | { kind: 'cycle'; name: string; };                               // recursive back-edge
 
   type TypeTupleElement = { type: type; rest: boolean; };
   type TypePropertyReflection = { name: string | symbol; type: type; optional: boolean; };
@@ -106,7 +106,8 @@ namespace Reflect {
         indexSignatures: [].<TypeIndexSignature>; }                               // indexSignatures added
     | { kind: 'function'; signatures: [].<FunctionSignatureReflection>; }
     | { kind: 'parameterized'; base: type; metadata: object; }                    // added: float32.<{ m: 1 }>
-    | { kind: 'reference'; name: string; };                                       // recursive back-edge (reflection output only)
+    | { kind: 'reference'; target: type; }                                        // added: the `ref` borrow type (references.md)
+    | { kind: 'cycle'; name: string; };                                           // renamed from 'reference': recursive back-edge (reflection output only)
 
   type TypeTupleElement = { type: type; rest: boolean; initial: any | undefined; };
   type TypePropertyReflection = {
@@ -115,6 +116,7 @@ namespace Reflect {
     optional: boolean;
     readonly: boolean;            // added, mirroring readonly fields
     initial: any | undefined;     // added: the a?: T = value default
+    origin: any | undefined;      // added: non-canonical provenance (§6.9, R22); unioned on intern, ignored by identity
   };
   type TypeIndexSignature = { key: type; value: type; };                          // added
   type GenericApplication = { base: type; arguments: [].<type | any>; };          // added: Map.<string, uint8> → { base: Map, arguments: [string, uint8] }
@@ -135,12 +137,14 @@ namespace Reflect {
 }
 ```
 
+**Three clarifications the completed model settles or names.** `generic` is *undefined* everywhere except on an instantiation: the unapplied family (`int`, `vector`) is itself a `primitive` node whose `generic` is *undefined*, and an instantiation's `base` is that family's type object. The `metadata` slots on signature and parameter records are always *undefined* when the record arrives through *type* reflection, since two identically-signed functions are one interned type however differently decorated; the same records serve declaration reflection ([decorators.md](decorators.md)), which is where decorators populate them. And the `name` of a *computed* cycle is open: an alias-produced cycle carries the alias's name, a builder-produced one has none to carry, and a synthesized marker or the canonical print form are the candidates; reflection output is where the choice shows.
+
 Notes on the additions:
 
 - **`literal`** carries the value and its base primitive. Today a literal type is reachable only as an opaque type object; builders need to read `'circle'` back out of the type `'circle'` (`literalValues` in §4.1 is built on this) and to mint literal types from computed strings (key remapping, §4.2).
 - **`generic` on `primitive`** exposes a nominal generic application's arguments. This is what replaces most uses of `infer`: TypeScript writes `T extends Promise<infer U> ? U : never` because it has no other way to reach inside `Promise<T>`; here `node.generic` hands back `{ base: Promise, arguments: [U] }` directly. Value generic arguments appear as values, type arguments as type objects.
 - **`parameterized`** is the metadata half of the same story: `Reflect.typeOf` already returns the full parameterization for a metadata-carrying value, so the node model must be able to express and rebuild it. Builders can thereby *manipulate metadata* — strip units, tighten bounds — with the same tools they use on shapes.
-- **`readonly`, `initial`, `indexSignatures`** exist in the type grammar (readonly fields, `a?: T = []` optional defaults, `[T, U = d]` trailing tuple defaults, index signatures) and merely weren't surfaced. The same completion pass adds `rest: boolean` to `FunctionParameterReflection` — a rest parameter is currently indistinguishable from a plain one, which `parameters` (§4.3) needs — and `optional` and `thisType` (to `FunctionParameterReflection` and `FunctionSignatureReflection` respectively), without which optional-parameter builders and `withThisType`/`thisParameterType` (§4.5) have nothing to read or write, and a `Reflect.ClassConstructor` reflection context, since `ClassReflection` today carries `name`/`type`/`abstract`/`metadata` and every member kind has a context *except* construct signatures. Without `readonly` in the node, `Readonly`/`Mutable` builders are unwritable and every mapped builder would silently strip the flag — the completeness of this record is exactly what makes builders homomorphic by default (§4.2).
+- **`readonly`, `initial`, `indexSignatures`** exist in the type grammar (readonly fields, `a?: T = []` optional defaults, `[T, U = d]` trailing tuple defaults, index signatures) and merely weren't surfaced. The same completion pass adds `rest: boolean` to `FunctionParameterReflection` — a rest parameter is currently indistinguishable from a plain one, which `parameters` (§4.3) needs — and `optional` and `thisType` (to `FunctionParameterReflection` and `FunctionSignatureReflection` respectively), without which optional-parameter builders and `withThisType`/`thisParameterType` (§4.5) have nothing to read or write. Construct signatures need no context of their own: the constructor is the method named `'constructor'`, so `Reflect.ClassMethod` returns its overload list and `Reflect.ClassMethodParameter` its parameters, which is how [decorators.md](decorators.md)'s dependency-injection example reads them. Without `readonly` in the node, `Readonly`/`Mutable` builders are unwritable and every mapped builder would silently strip the flag — the completeness of this record is exactly what makes builders homomorphic by default (§4.2).
 - Constructed nodes never contain `reference` nodes; cycles in *construction* come from the fixpoint mechanism in §3.4, and `reference` remains what a *reader* sees when walking an already-cyclic type.
 
 Two small conveniences round this out. Type objects get a canonical `toString` (the canonical source form — `String(type 'a' | 'b')` is `"'a' | 'b'"`), because builders throwing authored `TypeError`s need to print types. And `Reflect.never` names the empty union (§3.3) so kit code doesn't spell it as a construction.
@@ -327,12 +331,13 @@ export function keysOf(T: type): type {
   const node = reflect(T);
   switch (node.kind) {
     case 'object':       return union([
-      ...node.properties.filter(p => typeof p.name === 'string').map(p => literal(p.name)),
+      ...node.properties.map(p => literal(p.name)),                     // string and symbol keys alike (§6.6)
       ...node.indexSignatures.map(s => s.key),   // keyof { [key: string]: T } includes string itself
     ]);
     case 'intersection': return union(node.members.map(keysOf));
     case 'union': {                                // common keys: intersect the per-arm key unions
       const keyUnions = node.arms.map(keysOf);
+      if (keyUnions.length === 0) return union([]);              // keyof never: state the empty case, as union's [] -> never does
       return keyUnions.reduce((acc, next) => extract(acc, next)); // extract (§4.3): keeps 'x' against 'x', and 'x' against string
     }
     default: throw new TypeError(`keysOf: ${String(T)} has no keys`);
@@ -356,7 +361,7 @@ function pluck<T, K: keysOf(T)>(o: T, key: K): indexed(T, K) {
 const name = pluck(user, 'name'); // K = 'name' (literal inference via the computed constraint, §3.5)
 ```
 
-Two things worth noticing. The `undefined`-on-optional-access decision that TypeScript gates behind a compiler flag is a one-line, readable *policy choice* inside `indexed`, and a codebase that wants the other policy writes the other line. And symbol keys: property records carry `name: string | symbol`, so `pick`/`omit`/`mapProperties` handle symbol-keyed members by identity, but `keysOf` cannot mint a *literal type* for a symbol — literal types cover strings, numbers, booleans, and bigints, and the proposal has no `unique symbol`. Symbol keys are therefore reachable to builders but absent from `keyof`-style unions — the definition above filters them, and folds index-signature *key types* in wholesale, mirroring TypeScript's `keyof { [k: string]: T } = string` — matching the existing `unique symbol` gap row rather than widening it, until §6.6 closes that row.
+Two things worth noticing. The `undefined`-on-optional-access decision that TypeScript gates behind a compiler flag is a one-line, readable *policy choice* inside `indexed`, and a codebase that wants the other policy writes the other line. And symbol keys: property records carry `name: string | symbol`, so `pick`/`omit`/`mapProperties` handle symbol-keyed members by identity, and since §6.6 admits symbol literal types, `keysOf` mints a literal type for a symbol key like any other, so symbol keys appear in `keyof`-style unions too. The definition above folds index-signature *key types* in wholesale, mirroring TypeScript's `keyof { [k: string]: T } = string`.
 
 `typeof x` needs no builder: types are values, so `Reflect.typeOf(x)` in type position is the type query, and for a binding whose declared type you want without a value, the declared name itself is already the type object.
 
@@ -592,7 +597,7 @@ export function awaited(T: type): type {
 
 The recursion is the same shape as TypeScript's; what disappears is the encoding of "reach the callback's first parameter" as nested conditional inference.
 
-**`ConstructorParameters` and `InstanceType`.** Half of this pair dissolves. In this proposal a class's type object *is* the class and the class name *is* its instance type — there is no `typeof C` constructor-type / instance-type split — so `InstanceType<typeof C>` has no job: you already hold `C`. What remains meaningful is reflecting construct signatures — which the declaration-reflection model does not yet surface: `ClassReflection` carries `name`, `type`, `abstract`, and `metadata`, and fields, accessors, methods, and operators each have a context, but the constructor has none. R1 therefore adds a `Reflect.ClassConstructor` context returning the constructor's overload list in the existing `FunctionSignatureReflection` shape:
+**`ConstructorParameters` and `InstanceType`.** Half of this pair dissolves. In this proposal a class's type object *is* the class and the class name *is* its instance type — there is no `typeof C` constructor-type / instance-type split — so `InstanceType<typeof C>` has no job: you already hold `C`. What remains meaningful is reflecting construct signatures — which the declaration-reflection model does not yet surface: `ClassReflection` carries `name`, `type`, `abstract`, and `metadata`, and fields, accessors, methods, and operators each have a context, and the constructor is the method named `'constructor'`: `Reflect.ClassMethod` returns its overload list in the existing `FunctionSignatureReflection` shape, and `Reflect.ClassMethodParameter` its parameters, which is how [decorators.md](decorators.md)'s dependency-injection example reads them. No separate `Reflect.ClassConstructor` context exists:
 
 ```ts
 // TypeScript
@@ -605,7 +610,7 @@ type InstanceType<T extends abstract new (...args: any) => any> =
 ```js
 // Builder
 export function constructorParameters(C: type): type {
-  const { signatures } = Reflect.getReflection.<Reflect.ClassConstructor, C>(); // added by R1; overload policy as in returnType
+  const { signatures } = Reflect.getReflection.<Reflect.ClassMethod, C>('constructor'); // overload policy as in returnType
   return Reflect.makeType({ kind: 'tuple',
     elements: signatures[0].parameters.map(p => ({ type: p.type, rest: p.rest, initial: p.initial })) });
 }
@@ -619,7 +624,7 @@ export function instanceType(C: type): type {
   const node = reflect(C);
   if (node.kind === 'function' && node.signatures.length > 0)
     return returnType(C);                                          // String, Number: the call signature names the primitive
-  const { signatures } = Reflect.getReflection.<Reflect.ClassConstructor, C>();
+  const { signatures } = Reflect.getReflection.<Reflect.ClassMethod, C>('constructor');
   return signatures[0].return.type;                                // a class constructs its own type object: identity, made derivable
 }
 ```
@@ -1051,7 +1056,7 @@ Builders construct *structural* types. They cannot declare a class, an enum, or 
 
 ### 5.6 Symbol keys in computed key sets
 
-Property records carry symbol names, so shape transformations handle them; literal types don't include symbols, so `keysOf`-style unions can't. Inherited from the `unique symbol` gap in the comparison table; a builder-era resolution would be admitting symbol literal types — a main-proposal question on which §6.6 now takes a position: admit them. Severity: low, then zero.
+Property records carry symbol names, so shape transformations handle them, and §6.6 admits symbol literal types, so `keysOf`-style unions include them too; the comparison table's `unique symbol` row closes with it. Severity: zero.
 
 ### 5.7 Termination, resources, and supply-chain exposure
 
@@ -1121,7 +1126,7 @@ The engine consults a declared inverse only when ordinary inference (and any Run
 
 ### 6.2 Definition-site checking — checked contracts
 
-The [dependent record types](dependentrecordtypes.md) extension already attaches `where` clauses to functions as evaluable predicates over parameters. One extension — allowing `return` as an expression inside such a clause, naming the returned value, a position where the token is otherwise ungrammatical — turns the same syntax into postconditions. On a builder, a postcondition is a fact about the *type it returns*:
+The [dependent record types](dependentrecordtypes.md) extension attaches `where` clauses to types and checks them at boundaries including function calls; attaching one to a function declaration itself, an evaluable predicate over its parameters, is the new move here, reusing the same syntax. One extension — allowing `return` as an expression inside such a clause, naming the returned value, a position where the token is otherwise ungrammatical — turns the same syntax into postconditions. On a builder, a postcondition is a fact about the *type it returns*:
 
 ```js
 function omit(T: type, keys: [].<string | symbol>): type   // §4.2's omit, in its array form, quoted
@@ -1194,7 +1199,7 @@ export function omitThisParameter(F: type): type {
 
 Polymorphic `this` — the fluent-builder return type — is *not* covered by `thisType` and remains the comparison table's separate small gap: it is an implicitly generic self type the checker rebinds per receiver, a checker feature in its own right, whereas `thisType` only records what a signature demands of its receiver.
 
-**Narrowing signatures as declarative facts.** TypeScript's `asserts x is T` / `x is T` are not executed by its checker either — they are declared facts consumed by control-flow analysis. The same shape fits here: signature nodes gain an optional `narrows` record (`{ parameter, to }`, with an `asserts` flag for the throwing form), the checker applies it after a call exactly as it applies `instanceof` or `is`, and soundness stays where TypeScript put it — on the author of the function body, with the difference that here the declared fact is also *runtime-checkable* at the boundary if the host wants belt-and-braces. This closes the assertion-functions row of the comparison table, and it is worth noticing what it is not: no builder runs during narrowing; the checker reads a field.
+**Narrowing signatures as declarative facts.** TypeScript's `asserts x is T` / `x is T` are not executed by its checker either — they are declared facts consumed by control-flow analysis. The same shape fits here: signature nodes gain an optional `narrows` list of `{ target, to }` records, `target` a parameter name or `'this'`, and the form is read off the signature's return type rather than flagged: a `boolean` return narrows `target` in the branch, a `void` return narrows unconditionally on normal completion (the throwing form), and any other return type alongside a nonempty `narrows` is an error, so no `asserts` operator or flag exists. The checker applies the declared fact after a call exactly as it applies `instanceof` or `is`, and soundness stays where TypeScript put it, on the author of the function body, with the difference that here the declared fact is also *runtime-checkable* at the boundary if the host wants belt-and-braces. This closes the assertion-functions row of the comparison table, and it is worth noticing what it is not: no builder runs during narrowing; the checker reads a field.
 
 With these in place, R9's invariant is restated rather than retired: **the inference fixpoint remains builder-free; every checker-visible effect of user type code is declarative data, a forward-verified proposal, or a per-instantiation-checked contract.** That sentence is the whole security model, and it is checkable against every mechanism in this section.
 
@@ -1263,7 +1268,7 @@ The design that threads the needle is **provenance, not payload**: property reco
 
 ## 7. Recommendations
 
-**R1 — Add `Reflect.makeType` and complete the node model.** The inverse of `Reflect.getReflection.<Reflect.Type>`, canonicalizing and interning, with the round-trip law of §3.1. Extend nodes with: a `literal` kind carrying value and base; `readonly` and `initial` on property records; `indexSignatures` on object nodes; a `parameterized` kind for metadata parameterizations; `generic` (base plus arguments) on nominal applications; `initial` on tuple elements (the `[T, U = d]` trailing-default form); `rest` on `FunctionParameterReflection`; and a `Reflect.ClassConstructor` reflection context, since `ClassReflection` currently omits construct signatures. Give type objects a canonical `toString`. This single recommendation is the load-bearing one; everything in §4 is downstream of it.
+**R1 — Add `Reflect.makeType` and complete the node model.** The inverse of `Reflect.getReflection.<Reflect.Type>`, canonicalizing and interning, with the round-trip law of §3.1. Extend nodes with: a `literal` kind carrying value and base; `readonly` and `initial` on property records; `indexSignatures` on object nodes; a `parameterized` kind for metadata parameterizations; `generic` (base plus arguments) on nominal applications; `initial` on tuple elements (the `[T, U = d]` trailing-default form); `rest` on `FunctionParameterReflection`. Construct signatures ride the existing contexts: the constructor is the method named `'constructor'` under `Reflect.ClassMethod` and `Reflect.ClassMethodParameter`, matching [decorators.md](decorators.md). Give type objects a canonical `toString`. This single recommendation is the load-bearing one; everything in §4 is downstream of it.
 
 **R2 — Expose assignability: `Reflect.isAssignable(source, target)`.** The existing coinductive judgment as an evaluable predicate. With interned `===` already covering identity, this completes the relations builders branch on.
 
@@ -1287,7 +1292,7 @@ The design that threads the needle is **provenance, not payload**: property reco
 
 **R12 — Update the comparison document.** With R1–R7 accepted, the issue #64 table's **gap** rows for conditional types, mapped types and their modifiers, key remapping, `infer`, template-literal types, the string intrinsics, `Partial`/`Required`/`Readonly`/`Pick`/`Omit`, and `Exclude`/`Extract` generality become "via type builders (see this document)"; `NoInfer` folds into obviated; with §6 (R13–R20) accepted as well, the `unique symbol` and assertion-function rows close, §5.1 and §5.3 become opt-in features rather than gaps, and the honest residuals shrink to §5.2's universally-quantified knowledge (variance and parametricity before specialization) plus the deliberate non-goals.
 
-**R13 — Specify checked contracts: `where` postconditions on builders.** Extend the function-level `where` clause of [dependent record types](dependentrecordtypes.md) so `return` names the returned value inside the clause. Semantics per §6.2: verified at every concrete evaluation (violation is a compile-time TypeError naming the builder and arguments), assumed over the deferred application before specialization. Ship the R6 kit *with* contracts on every builder — lower bounds where they hold (`T <: omit(T, keys)`), kind facts everywhere — and add the `@exemplars(...)` decorator that forces compile-time specialization of a generic declaration.
+**R13 — Specify checked contracts: `where` postconditions on builders.** Add a function-level `where` clause, reusing the syntax of [dependent record types](dependentrecordtypes.md), with `return` naming the returned value inside it. Semantics per §6.2: verified at every concrete evaluation (violation is a compile-time TypeError naming the builder and arguments), assumed over the deferred application before specialization. Ship the R6 kit *with* contracts on every builder — lower bounds where they hold (`T <: omit(T, keys)`), kind facts everywhere — and add the `@exemplars(...)` decorator that forces compile-time specialization of a generic declaration.
 
 **R14 — Add trial specialization over closed constraint sets.** When a generic parameter occurs only in computed positions and its constraint denotes a closed finite set (a union of types, an enum of types, or a `sealed` class and its fixed subclass set), infer by forward-evaluating each candidate and checking; one survivor infers, otherwise require explicit `.<T>`. Deterministic, terminating, forward-verified. Ship alongside a literal freshness (excess-property) rule for object literals checked against candidate applications, without which all-optional shapes cannot discriminate. Trials are separable per parameter — arguments whose types mention two or more un-inferred parameters do not trial — and the phase runs under a spec-fixed ceiling, a sum across parameters and never a Cartesian product, so both the cost and the outcome are machine-independent.
 

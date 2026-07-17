@@ -51,8 +51,11 @@ type uint128 = uint.<128>;
 ```
 </details>
 
+```N``` runs from 1 to 2^16 inclusive, so the widest integer field is eight kibibytes; the shorthands stop at 128 and the arbitrary-width form continues to the bound.
+
 ```bigint```  
-```float16```, ```float32```, ```float64```, ```float80```, ```float128```  
+```float16```, ```float32```, ```float64```, ```float128```  
+(```float80```, the x87 extended format, is not included: it is not an IEEE 754 interchange format, so it has no portable layout to define.)  
 ```decimal32```, ```decimal64```, ```decimal128```  
 The decimal types follow IEEE 754-2008 decimal arithmetic, so ```decimal128``` carries 34 significant digits and rounds ties to even by default. Scale and rounding mode can be fixed on a type through the ```DecimalContext``` meta type described in [primitive metadata](primitivemetadata.md), which is how money types are declared. See [decimal numbers](decimal.md) for the full definition.  
 ```vector.<T, N>```
@@ -657,7 +660,7 @@ i < array.length; // Fine. Comparing any with uint32 is dynamic
 
 The standard library is overloaded for the value types, so nothing in it forces a conversion. ```Math.clz32``` of a ```uint32``` is a ```uint32```, ```Math.min``` of two ```float32``` is a ```float32```, and ```array.length``` is a ```uint32``` that compares against a ```uint32``` loop counter without a cast.
 
-Where a literal satisfies more than one overload, the ranking is ```float64``` first, since Number is a float64 and the conversion is exact, then ```float128/80/32/16```, ```decimal128/64/32```, ```uint128/64/32/16/8```, ```int128/64/32/16/8```. This ranks *literals*, not values, and it is the only place the order matters.
+Where a literal satisfies more than one overload, the ranking is ```float64``` first, since Number is a float64 and the conversion is exact, then ```float128/32/16```, ```decimal128/64/32```, ```uint128/64/32/16/8```, ```int128/64/32/16/8```. This ranks *literals*, not values, and it is the only place the order matters. The order is a back-compatibility condition rather than a taste: an untyped call reaching a function that later gained typed overloads must keep calling what it always called, and ```float64``` first is what makes adding overloads a non-breaking change.
 
 ```js
 function f(a: float32) {}
@@ -723,10 +726,11 @@ const b: int8 = 127;
 b + 1; // -128
 
 const array: [].<uint8> = [0];
-array[0] = 300; // 44, unchanged from Uint8Array today
+// array[0] = 300;     // does not compile: a literal follows the literal rule everywhere
+array[0] = uint8(300); // 44: the explicit cast wraps, as every cast does
 ```
 
-Silent wrapping is the wrong answer when the value is a count rather than a bit pattern, so the checked and saturating forms are named:
+The literal store is rejected rather than wrapped because the ```Uint8Array``` compatibility argument does not extend to new syntax, and a literal that does not fit its destination is a mistake here as in every other typed position; the wrap is an explicit cast away, which is where wrapping already lives. Silent wrapping is the wrong answer when the value is a count rather than a bit pattern, so the checked and saturating forms are named:
 
 ```js
 Math.addChecked(a, 1); // RangeError: 256 is out of range for uint8
@@ -2697,7 +2701,7 @@ enum Counter: (float32) => float32 { Zero = x => 0, One = x => x + 1, Two = x =>
 
 An ```enum``` declared without a ```: Type``` annotation has underlying type ```int32```, so the enumerators of ```Count``` above are ```int32``` values numbered from 0.
 
-An enum value converts *to* its underlying type implicitly: a ```Count``` is usable wherever its ```int32``` is, so arithmetic, indexing, and comparison on enum values need no cast. The reverse is explicit — ```Count(n)``` constructs the enumerator whose underlying value is ```n```, a checked conversion that is a ```TypeError``` when ```n``` is not one of the enumeration's values. This one-way rule, as in C#, Rust, and Swift, is what lets a bitmask index like ```comp / 32``` read directly while ```Component(id)``` stays a deliberate, validated step.
+An enum type is a subtype of its underlying type, so no conversion happens at all: a ```Count``` is usable wherever its ```int32``` is, so arithmetic, indexing, and comparison on enum values need no cast. The reverse is explicit — ```Count(n)``` constructs the enumerator whose underlying value is ```n```, a checked conversion that is a ```TypeError``` when ```n``` is not one of the enumeration's values. This one-way rule, as in C#, Rust, and Swift, is what lets a bitmask index like ```comp / 32``` read directly while ```Component(id)``` stays a deliberate, validated step.
 
 Custom sequential functions for types can be used. (Note these aren't closures):
 ```js

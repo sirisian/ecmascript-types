@@ -6,7 +6,7 @@ The default layout is the C, C++, and Rust rule, so a typed class is layout-comp
 
 ## Layout properties
 
-Every value type and value type class exposes its layout as three static properties. `byteLength` is the laid-out size in bytes, including any trailing padding required by the type's alignment; `alignment` is the byte alignment of the type; and `bitLength` is the size in bits, which is what an arbitrary-width integer needs to describe itself. A typed array's instance `byteLength` is its length times its element's `byteLength`.
+Every value type and value type class exposes its layout as three static properties. `byteLength` is the laid-out size in bytes, including any trailing padding required by the type's alignment; `alignment` is the byte alignment of the type; and `bitLength` is the size in bits, which is what an arbitrary-width integer needs to describe itself. A width no named type has aligns to the smallest power of two at least its byte length, capped at eight, so `uint.<4>` sits at alignment one and `uint.<24>` at four. A typed array's instance `byteLength` is its length times its element's `byteLength`.
 
 ```js
 uint8.byteLength;    // 1
@@ -186,7 +186,7 @@ A tagged union — a value that is one of several layouts distinguished by a dis
 
 ## Bit-fields
 
-Integer members narrower than a byte — `uint.<N>` or `int.<N>` with `N` under `8` — pack into shared bytes rather than each rounding up to a byte, the way a C bit-field does. `@offsetBit(n)` places a member `n` bits from the start of the allocation, defining the bit order explicitly so a wire format is exact; members without `@offsetBit` pack consecutively from the current bit position.
+Integer members narrower than a byte — `uint.<N>` or `int.<N>` with `N` under `8` — pack into shared bytes rather than each rounding up to a byte, the way a C bit-field does. `@offsetBit(n)` places a member `n` bits from the start of the allocation, defining the bit order explicitly so a wire format is exact; members without `@offsetBit` pack consecutively from the current bit position. Automatic packing stops at the byte: a member 8 bits or wider never packs, so a `uint.<12>` occupies two bytes at its alignment unless `@offsetBit` places it, which is what a 12-bit wire format has anyway. The byte boundary rather than `bitLength` is the line, and explicit placement is the tool past it.
 
 ```js
 @packed

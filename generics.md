@@ -153,6 +153,8 @@ init(Component.Transform, { x: 0, y: 0, rotation: 0 }); // C is bound to Compone
 
 ```C``` is fixed by the first argument, so the second parameter's type ```componentType(C)``` is a concrete type at the call and the object literal is checked against that specific component. This is the same specialization the explicit ```.<>``` form performs, reading the value off an argument instead of an angle-bracket list; a non-constant argument is a ```TypeError``` here for the same reason it is in a type position.
 
+What ```V: int32``` binds, primitively, is a type: the literal type of the supplied constant over ```int32```. The value reading is the view through it, ```V```'s value being that literal's value, so one binding serves both positions and the checker holds one notion. This is also why an untyped literal argument satisfies a value-typed constraint directly: against ```W: uint32``` the literal ```4``` takes the literal type ```4``` over ```uint32``` rather than over ```number```.
+
 #### Inferring from the expected type
 
 When an application leaves a generic parameter unpinned and the surrounding context supplies an expected type, the parameter is inferred from it — from the annotation on a binding, or from a function's declared return type:
