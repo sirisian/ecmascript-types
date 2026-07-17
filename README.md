@@ -55,7 +55,6 @@ type uint128 = uint.<128>;
 
 ```bigint```  
 ```float16```, ```float32```, ```float64```, ```float128```  
-(```float80```, the x87 extended format, is not included: it is not an IEEE 754 interchange format, so it has no portable layout to define.)  
 ```decimal32```, ```decimal64```, ```decimal128```  
 The decimal types follow IEEE 754-2008 decimal arithmetic, so ```decimal128``` carries 34 significant digits and rounds ties to even by default. Scale and rounding mode can be fixed on a type through the ```DecimalContext``` meta type described in [primitive metadata](primitivemetadata.md), which is how money types are declared. See [decimal numbers](decimal.md) for the full definition.  
 ```vector.<T, N>```
