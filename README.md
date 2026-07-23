@@ -631,6 +631,29 @@ let c: float32 = 1;
 // let e: number = c; // TypeError: number is float64
 ```
 
+**Which values a conversion accepts depends on the target.** A numeric type takes only numeric values, at a boundary and at a cast alike. Reading a number out of text is a parse, not a conversion, so a string is written with ```uint8.parse(s)``` or ```uint8.tryParse(s)```; ```uint8("5")``` and ```let a: uint8 = s``` are both TypeErrors. This is what keeps an annotation a check rather than a coercion: without it a ```float64``` annotation accepts an object or a missing field and yields NaN, since every value is in range at a float width and nothing can fail.
+
+```js
+function read() { return "5"; }
+// let a: uint8 = read();     // TypeError: a string is not a conversion source
+// let b: uint8 = uint8(read()); // TypeError: same reason, a cast is not a parse
+let c: uint8 = uint8.parse(read()); // 5, and "abc" would be a SyntaxError
+let d = uint8.tryParse(read());     // uint8 | null, handled by narrowing
+let e: uint8 = Number(read());      // also fine: Number(s) is written, and is numeric
+```
+
+**The ```string``` type takes what has a canonical text.** A number, a bigint, and a boolean each have exactly one text that denotes them, and ToString of them is total and loses nothing, so they convert without ceremony. ```undefined```, ```null```, an object, and a symbol have only a diagnostic text, and are refused: those are the language's best known silent failures, the ```"undefined"``` that reaches a user and the ```"[object Object]"``` where a field was meant. A program that wants one writes ```String(v)```. The asymmetry with the numeric rule is deliberate: ToString of a number cannot fail, while ToNumber of a string can, so the safe direction is implicit and the unsafe one is written.
+
+```js
+let a: string = 5;     // "5"
+let b: string = 5n;    // "5"
+let c: string = true;  // "true"
+// let d: string = undefined; // TypeError, write String(v) if that is meant
+// let e: string = {};        // TypeError
+```
+
+**The ```boolean``` type takes every value**, and that is deliberate rather than an omission. ToBoolean is total, every value has a defined truthiness, and ```if (v)``` is the language's own idiom for asking. There is no lost value to warn about.
+
 Four things remain implicit, and none of them is a conversion between two typed values.
 
 **Literals have no type.** A numeric literal takes the type of its context, and one that doesn't fit is a compile-time TypeError rather than a silent truncation. This is what makes the rule above livable: the arguments and initializers that would want a conversion are usually literals, and a literal never needs one.
