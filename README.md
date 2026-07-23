@@ -738,6 +738,8 @@ Math.addSaturating(a, 1); // 255
 
 ```addChecked```, ```subChecked```, ```mulChecked```, ```divChecked```, and their saturating counterparts are overloaded for every integer type. Floats saturate to an infinity as they do today, and decimals raise a RangeError, since their range is a property of the type rather than of the format.
 
+The Math functions sit on the checked side of the same split: they are overloaded over the numeric types with declared, checked returns, so ```Math.pow(a, b)``` on two ```uint8``` values throws the RangeError that ```a ** b``` wraps past, and ```Math.sqrt``` of an integer type is the integer root, truncated toward zero like integer division. The listing, including the numeric predicates, is summarized in the [standard library](standardlibrary.md) document.
+
 Division carries edge cases the other operators don't, since it can fail rather than merely wrap. They are covered in the integer division and remainder section below.
 
 ### parseFloat and parseInt For Each New Type
