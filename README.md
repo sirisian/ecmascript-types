@@ -2758,12 +2758,18 @@ class A {
 enum ExampleA: A { Zero = new A(0), One, Two }; // One = ++Zero, Two = ++One using the prefix increment operator.
 ```
 
-Index operator:
+Index operator, by position and by name:
 ```js
 enum Count { Zero, One, Two };
 Count[0]; // Count.Zero
 Count['Zero']; // Count.Zero
+
+enum Sparse: uint8 { A = 10, B = 20 };
+Sparse[0]; // Sparse.A — the first enumerator, not the one whose value is 0
+Sparse(10); // Sparse.A — lookup by VALUE is the reverse conversion, and already has a spelling
 ```
+
+The numeric index is the enumerator's **position**, which is the order ```keys()```, ```values()```, and ```entries()``` share. Looking one up by its underlying value is what calling the enum does, so an index that repeated it would leave the enumeration with no way to be read in order.
 
 Get ```enum``` value as string:
 
@@ -2782,18 +2788,19 @@ Similar to ```Array```, enumeration objects share a common prototype, written he
 %Enum.prototype%.values() // Array Iterator with the values
 %Enum.prototype%.entries() // Array Iterator with [key, value]
 %Enum.prototype%.toString(value) // the enumerator's key, e.g. 'Zero' for Count.Zero
-%Enum.prototype%.forEach((key, value, enumeration) => {})
-%Enum.prototype%.filter((key, value, enumeration) => {}) // returns an Array
-%Enum.prototype%.map((key, value, enumeration) => {}) // returns an Array
-%Enum.prototype%[@@iterator]()
+%Enum.prototype%[@@iterator]() // entries
 ```
+
+```forEach```, ```filter```, and ```map``` are deliberately not here. ```entries()``` composes with the Array methods to give all three — ```[...Count.entries()].forEach(...)``` — and this proposal has declined composable surface before, for the same reason it declines it elsewhere: a surface that can be written in terms of another is one more thing an implementation must get right and a reader must learn.
+
+```toString``` takes the value as an argument rather than being a method on an enumerator, because an enumerator *is* a value of its underlying type — the one-way subtype rule is what lets ```comp / 32``` read directly — so it has no method of its own to override. ```@@iterator``` is ```entries``` rather than ```values```, the choice ```Map``` makes and the opposite of ```Array```'s, for their reason: what an enumeration holds is named values, and yielding a bare value discards the name.
 
 These give the enumerator count at runtime, and reflection gives it wherever a constant is needed, since an enum is a static declaration:
 
 ```js
 enum Component: uint8 { Transform, Velocity, Health };
 
-Component.keys().length; // 3, at runtime
+[...Component.keys()].length; // 3, at runtime
 Reflect.getReflection.<Reflect.Enum, Component>().size; // 3, compile-time evaluable
 ```
 
