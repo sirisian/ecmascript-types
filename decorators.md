@@ -27,6 +27,48 @@ class A {
 
 A bare ```@f``` and an empty ```@f()``` are equivalent; both resolve through overload resolution with zero explicit arguments. The overload taking only the context parameter is preferred when present. If no such overload exists and multiple signatures match through default values alone, the decoration is ambiguous and throws a TypeError at class definition time.
 
+## Order
+
+Two phases, and they run in opposite directions. This is the rule TC39's decorators already established, and following it means a reader who knows those knows these.
+
+**Decorator expressions are evaluated in document order** — left to right, top to bottom, interleaved with computed property names. Whatever `@f(BASE + '/x')` computes, it computes at the position where it is written.
+
+**Decorators are applied innermost first, and in reverse source order.** Concretely:
+
+1. Several decorators on one declaration apply in reverse source order, so the one written closest to the declaration is applied first. `@a @b @c x` applies `c`, then `b`, then `a` — Python's `a(b(c(x)))`, and TC39's rule for the same shape.
+2. A declaration's sub-targets apply before the declaration itself: parameter decorators in parameter order, then the return's, then the method's own. A method's decorator therefore sees a method whose parts are already decorated.
+3. Members apply before their container, in document order, and the container's own decorators apply last. A class decorator sees a finished class, including whatever its fields' and methods' decorators did; an object decorator sees a finished object; an enum decorator sees decorated enumerators.
+4. `addInitializer` callbacks run after every decorator of that declaration has been applied, in the order they were added.
+
+```js
+function tag(name) { return (context) => log.push(name); }
+
+@tag('class')
+class A {
+	@tag('field-outer')
+	@tag('field-inner')
+	a: uint8;
+
+	@tag('method')
+	m(@tag('param') p: uint8): @tag('return') uint8 { return p; }
+}
+
+// log is:
+//   'field-inner', 'field-outer',   // reverse source order on one declaration
+//   'param', 'return', 'method',    // sub-targets before their owner
+//   'class'                         // the container last
+```
+
+The evaluation phase is separate and runs top to bottom, so in `@a(f()) @b(g()) x` the call `f()` happens before `g()` even though `b` is applied before `a`.
+
+### When
+
+A decorator runs when its declaration is evaluated: class definition time for a class and its members, function instantiation for a function, object literal evaluation for an object, enum definition time for an enum.
+
+**A decorated function declaration does not hoist.** `@dec function f() {}` behaves as `var f = @dec function () {};` — the value is not available above its declaration. Hoisting it would mean either evaluating the decorator expressions before the bindings they reference exist, or evaluating them out of document order, and both break the rule above. This is the approach TC39's function decorators proposal reaches for the same reason.
+
+Block, `let`, and `const` decorators are on the other timeline: they fire when the statement executes rather than when a declaration is evaluated. A block decorator on a loop body therefore fires once per iteration, which makes block decorators the only ones that can run more than once — deliberate, since a decorator that observes a block is observing an execution rather than a declaration.
+
 Decorators can target almost anything and are defined by the following target contexts:
 
 ```
