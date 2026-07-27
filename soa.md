@@ -92,7 +92,9 @@ Splitting one level rather than recursively to the leaves is deliberate, and it'
 
 There is no interior padding between an element's fields, because an element's fields are no longer adjacent. Each column is padded and aligned on its own, so a ```T``` whose interleaved layout pads to a larger stride has an ```SoA.byteLength``` smaller than its ```[].<T>``` equivalent. ```SoA.<T, Length>.byteLength``` is that full laid-out size, following the type-byteLength convention and the layout table in the main proposal; ```elementByteLength``` is the per-element sum of column strides.
 
-Columns are aligned to at least the platform's vector width, so a lane load at an aligned index is an aligned load.
+Each column is aligned to its element type's alignment, as every other layout in this proposal is, so ```byteLength``` stays a compile-time constant a program can size a buffer with. A vector width is a property of the host rather than of the type, and folding it into the layout would make the same ```SoA``` a different size on different engines.
+
+Alignment of the ALLOCATION is a separate question and the engine's own: where an ```SoA```'s base is placed is not part of what the type describes, so an engine is free to put every allocation on a vector or cache-line boundary and should. A program that needs a column over-aligned states it in the type with ```@alignAll```, as a class does, where it is visible and portable rather than inferred from a host.
 
 ## Elements
 
