@@ -74,6 +74,22 @@ Reflect.getReflection.<Reflect.ClassField, Vertex>('y').byteLength; // 4
 
 This is the `offsetof` of C and C#, and it is what a serializer, a placement `new`, or a GPU vertex attribute descriptor needs.
 
+What it returns is a **`ClassFieldLayoutReflection`**, and it belongs to this document rather than to the decorators one:
+
+```js
+type ClassFieldLayoutReflection = {
+	name: string | symbol;
+	offset: int32;      // Signed bytes from the start of the instance
+	byteLength: uint32;
+	bitLength: uint32;
+	alignment: uint32;
+	offsetBit: uint32;  // Bits from the start of the allocation, which is what fixes bit order exactly
+	isBitField: boolean;
+};
+```
+
+Layout reflection and declaration reflection are deliberately separate. `Reflect.ClassField`'s decorator context in decorators.md describes what a field WAS DECLARED as — its type, visibility, and `readonly` — and carries `offset` and `byteLength` because those two are what a decorator commonly wants; the bit-level placement above is meaningful only for a class that has a layout at all, and only this extension defines what it means. Every other language keeps the same seam: .NET has `FieldInfo` for members and `Marshal.OffsetOf` for layout, C has `offsetof` unconnected to anything else, and Rust had no stable field-offset reflection at all until `offset_of!`. Asking a class with no layout for a field's placement is a TypeError, for the same reason reading `byteLength` from a `string` is.
+
 ## Natural alignment and padding
 
 Members are naturally aligned. Each member is placed at the next offset that is a multiple of its own alignment, a class's alignment is the largest alignment among its members, and its `byteLength` is rounded up to that alignment so that every element of an array of the class is aligned too.

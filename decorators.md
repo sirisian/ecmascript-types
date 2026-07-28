@@ -85,6 +85,7 @@ namespace Reflect {
 	ClassMethodReturn<T, TMethod, TClass>
 	ClassOperator<T, TClass>
 	ClassOperatorParameter<T, TMethod, TClass>
+	ClassOperatorReturn<T, TMethod, TClass>
 	Function<T>
 	FunctionParameter<T, TFunction>
 	FunctionReturn<T, TFunction>
@@ -185,7 +186,7 @@ class A {
 	}
 
 	@f // Reflect.ClassOperator
-	operator+(@f rhs): @f uint32 { // Reflect.ClassOperatorParameter
+	operator+(@f rhs): @f uint32 { // Reflect.ClassOperatorParameter, then Reflect.ClassOperatorReturn
 	}
 }
 
@@ -303,8 +304,9 @@ namespace Reflect {
 		private: boolean;
 		protected: boolean;
 		readonly: boolean;
+		// The DECLARED default: a typed field's zero value, or a constant initializer. A field's initializer runs per INSTANCE at construction while a field decorator fires at class definition, so there is no instance value to report here; `addInitializer` is what reaches one. (`inspect.Parameter.default` and `ParameterInfo.DefaultValue` report a declared default for the same reason.)
 		initial: T | undefined;
-		// Layout, present when the declaring class has one. A static field is not part of an instance's layout, so both are undefined for it.
+		// Layout, present when the declaring class has one. A static field is not part of an instance's layout, so both are undefined for it. The full layout of a field - bit-level placement included - is `ClassFieldLayoutReflection` in memorylayout.md; these two are here because they are the two a decorator commonly wants.
 		offset: int32 | undefined; // Signed bytes from the start of the instance; a negative offset overlaps a base
 		byteLength: uint32 | undefined;
 		metadata: ClassFieldMetadata;
@@ -382,6 +384,11 @@ namespace Reflect {
 		index: uint32;
 		initial: T | undefined;
 		metadata: ClassOperatorParameterMetadata;
+	};
+
+	type ClassOperatorReturnReflection<T = any> = {
+		type: T;
+		metadata: ClassOperatorReturnMetadata;
 	};
 }
 ```
@@ -654,6 +661,7 @@ namespace Reflect {
 
 	// Method return
 	getReflection<Reflect.ClassMethodReturn, T>(method: string | symbol): Reflect.ClassMethodReturnReflection;
+	getReflection<Reflect.ClassOperatorReturn, T>(operator: Operator): Reflect.ClassOperatorReturnReflection;
 
 	// Getters
 	getReflection<Reflect.ClassGetter, T>(): { [name: string | symbol]: Reflect.ClassGetterReflection };
@@ -832,6 +840,7 @@ namespace Reflect {
 
 	getMetadata<Reflect.ClassOperatorParameter, T>(op: Operator): { [index: uint32]: ClassOperatorParameterMetadata };
 	getMetadata<Reflect.ClassOperatorParameter, T>(op: Operator, param: string | uint32): ClassOperatorParameterMetadata;
+	getMetadata<Reflect.ClassOperatorReturn, T>(op: Operator): ClassOperatorReturnMetadata;
 	getMetadataByIndex<Reflect.ClassOperatorParameter, T>(op: Operator): [].<ClassOperatorParameterMetadata>;
 }
 ```
