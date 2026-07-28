@@ -898,11 +898,11 @@ No `getMetadata` overloads exist for `Reflect.Let`, `Reflect.Const`, `Reflect.Tu
 
 Some contexts have metadata which is on the type (class constructor) and/or target. The same is true for enum types. For objects the metadata is on the instance.
 
-All Metadata uses a partial class which can be appended with typed symbol fields. Partial classes are specified in the main proposal's class extension section, including the restricted form this relies on: appending typed, symbol-keyed fields to the intrinsic metadata classes.
+All metadata uses a partial interface which can be appended with typed, symbol-keyed members. Metadata shapes are extended with `partial interface`, which the main proposal's class extension section specifies: an interface declares a shape and adds no instance state, so a partial one may contribute members where a partial class may not. An interface rather than a class because a metadata object must be an ordinary object - the inheritance rules below have a subclass's metadata inherit prototypically, and an instance of a class with a typed field is not extensible and so cannot be prototypically linked at all.
 
 ```js
 const myMetadata = Symbol('myMetadata');
-partial class ClassMetadata {
+partial interface ClassMetadata {
 	[myMetadata]: string;
 };
 ```
@@ -925,7 +925,7 @@ This would need to also work on fields.
 
 ```js
 const myMetadata = Symbol('myMetadata');
-partial class ClassFieldMetadata {
+partial interface ClassFieldMetadata {
 	[myMetadata]: string;
 };
 
@@ -1019,7 +1019,7 @@ namespace Reflect {
 ```js
 const singletonKey = Symbol('singleton');
 
-partial class ClassMetadata {
+partial interface ClassMetadata {
 	[singletonKey]?: { instance: any };
 }
 
@@ -1219,7 +1219,7 @@ namespace Reflect {
 ```js
 const setterLogKey = Symbol('setterLog');
 
-partial class ClassSetterMetadata {
+partial interface ClassSetterMetadata {
 	[setterLogKey]?: { logged: boolean };
 }
 
@@ -1299,7 +1299,7 @@ namespace Reflect {
 ```js
 const deprecatedKey = Symbol('deprecated');
 
-partial class ClassMethodMetadata {
+partial interface ClassMethodMetadata {
 	[deprecatedKey]?: { message: string, since: string };
 }
 
@@ -1415,7 +1415,7 @@ namespace Reflect {
 ```js
 const profiledOpsKey = Symbol('profiledOps');
 
-partial class ClassOperatorMetadata {
+partial interface ClassOperatorMetadata {
 	[profiledOpsKey]?: { calls: uint64, totalTime: float64 } = { calls: 0, totalTime: 0 };
 }
 
@@ -1476,7 +1476,7 @@ namespace Reflect {
 ```js
 const memoKey = Symbol('memo');
 
-partial class FunctionMetadata {
+partial interface FunctionMetadata {
 	[memoKey]: { maxSize: uint32 } = { maxSize: 1000 };
 }
 
@@ -1817,7 +1817,7 @@ type EnumInfo = {
 	description: string
 };
 
-partial class EnumMetadata {
+partial interface EnumMetadata {
 	[enumInfoKey]?: EnumInfo;
 }
 
@@ -1852,7 +1852,7 @@ namespace Reflect {
 ```js
 const enumLabelKey = Symbol('enumLabels');
 
-partial class EnumEnumeratorMetadata {
+partial interface EnumEnumeratorMetadata {
 	[enumLabelKey]: Map.<string, string> = new Map();
 }
 
@@ -1925,7 +1925,7 @@ A naive example below that assumes we only want to run a validation for the whol
 ```js
 const validatorsSymbol = Symbol('validators');
 
-partial class ClassFieldMetadata {
+partial interface ClassFieldMetadata {
 	[validatorsSymbol]: [].<(value: any) => boolean> = [];
 }
 
@@ -1997,7 +1997,7 @@ WIP: Trying to keep this example simple. This is a bit expensive in practice.
 ```js
 const binaryWriter = Symbol('binary');
 
-partial class ClassFieldMetadata {
+partial interface ClassFieldMetadata {
 	[binaryWriter]: (packet: Packet, value: any) => void = (packet, value) => {};
 }
 
@@ -2076,7 +2076,7 @@ export class UITree extends HTMLElement {
 ```js
 const injectKey = Symbol('inject');
 
-partial class ClassMethodParameterMetadata {
+partial interface ClassMethodParameterMetadata {
 	[injectKey]?: { token: string | symbol };
 }
 
@@ -2131,7 +2131,7 @@ const service = resolve(OrderService, container);
 const routeKey = Symbol('route');
 const routesKey = Symbol('routes');
 
-partial class ClassMetadata {
+partial interface ClassMetadata {
 	[routeKey]?: string;
 }
 
@@ -2141,7 +2141,7 @@ type RouteEntry = {
 	handler: string | symbol
 };
 
-partial class ClassMethodMetadata {
+partial interface ClassMethodMetadata {
 	[routesKey]?: RouteEntry;
 }
 
@@ -2254,25 +2254,25 @@ const docKey = Symbol('doc');
 
 // Metadata
 
-partial class ClassMetadata {
+partial interface ClassMetadata {
 	[docKey]?: string;
 }
-partial class ClassFieldMetadata {
+partial interface ClassFieldMetadata {
 	[docKey]?: string;
 }
-partial class ClassMethodMetadata {
+partial interface ClassMethodMetadata {
 	[docKey]?: string;
 }
-partial class ClassMethodParameterMetadata {
+partial interface ClassMethodParameterMetadata {
 	[docKey]?: string;
 }
-partial class ClassGetterMetadata {
+partial interface ClassGetterMetadata {
 	[docKey]?: string;
 }
-partial class ClassSetterMetadata {
+partial interface ClassSetterMetadata {
 	[docKey]?: string;
 }
-partial class ClassSetterParameterMetadata {
+partial interface ClassSetterParameterMetadata {
 	[docKey]?: string;
 }
 
