@@ -1347,7 +1347,7 @@ function f(): IExample {
 }
 ```
 
-A default requires the ```?```: an initializer on a required member is an error, since a required member is never absent for the default to fill. Where an object lacking the member is checked against the type, the default supplies its value.
+A default requires the ```?```: an initializer on a required member is an error, since a required member is never absent for the default to fill. A default is written wherever a value is *built* - an object literal taking the type, a ```:=``` fill, a typed parse, a typed [composite](composites.md) creation - and never by a check of a value that already exists. A check reads: an object lacking an optional member satisfies the type with the member absent, and reads ```undefined``` for it. The distinction is invisible for a fresh literal, which is built at the position it is checked against, and load-bearing for a frozen or shared object, which cannot receive a member at all.
 
 Interface and type-literal members may be separated by ```;``` or ```,```, as in an object literal; both appear in this document and mean the same thing.
 

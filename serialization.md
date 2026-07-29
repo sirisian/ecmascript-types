@@ -29,7 +29,11 @@ Validation is layered exactly like any other boundary in the proposal. Each fiel
 
 ### Value mapping
 
-JSON has six value forms and each maps onto the type system directly. An object maps to an interface, type literal, or class; an array maps to `[].<T>` or `[N].<T>` (the length must equal `N` or it's a TypeError); a string maps to `string` and runs any `StringBounds` metadata; `true`/`false` map to `boolean`; `null` maps to a nullable union member; and an absent property maps to an optional `?` field, which takes its declared default or the type's default value. Anything else is a TypeError.
+JSON has six value forms and each maps onto the type system directly. An object maps to an interface, type literal, or class; an array maps to `[].<T>`, to `[N].<T>` (the length must equal `N` or it's a TypeError), or to a tuple type, whose positions type the elements one by one and one of whose admitted lengths the array's length must be; a string maps to `string` and runs any `StringBounds` metadata; `true`/`false` map to `boolean`; `null` maps to a nullable union member; and an absent property maps to an optional `?` member. Anything else is a TypeError.
+
+The tuple target is what types a heterogeneous row - `[uint32, string, float32]` for a record, `[float64, float64]` for a coordinate pair - which an array type cannot, since its one element type would have to be the union of the positions and would lose the order.
+
+An absent optional member takes its declared default where it has one and otherwise stays absent, since a default is written where a value is built, which a parse is, and a member with no default has nothing to write. A short array against a tuple type takes the trailing positions' declared defaults by the same rule, and a position with no default that the array doesn't supply is a TypeError. A class target is the one place where a field the document omits and the declaration doesn't default still gets a value: the layout has a slot for every field and absence isn't representable in it, so the field's type default fills it, which is what the class section below assumes.
 
 ### Numbers parse into their target type
 
@@ -133,9 +137,25 @@ JSON.stringify(10n); // '10', previously a TypeError
 
 Types with no natural JSON form, like `rational`, `complex`, and the SIMD types, are a TypeError to stringify without a `toJSON`, rather than silently choosing an encoding.
 
+## Composites
+
+A [composite](composites.md) is data on the wire and interning is not: it is an identity within one heap, not a serialization format. A record composite stringifies as a JSON object and a tuple composite as a JSON array, which needs no rule, since one is an object of own enumerable properties and the other is an array.
+
+The parse direction re-interns. `JSON.parse.<Composite.<T>>(text)` validates the document against `T` by the rules above and interns the result, so two parses of equal documents are the same object and "has this changed since the last poll" is `===`:
+
+```js
+interface ServerConfig { port: uint16; host: string; }
+
+const a = JSON.parse.<Composite.<ServerConfig>>(text);
+const b = JSON.parse.<Composite.<ServerConfig>>(text);
+a === b; // true, one interned object
+```
+
+`Composite` unparameterized is a TypeError as a parse target: it states no shape to validate against. Absent optional members and short tuples follow the default rule above, so a parsed composite interns with the typed creation of the same data.
+
 ## structuredClone and Typed Values
 
-Within an agent cluster, `structuredClone` preserves types: a typed class instance clones to an instance of the same class with the same layout, which for classes containing only value types is a memory copy with no per-field work. `[N].<T>` arrays clone, and transfer, like the TypedArrays they interoperate with. A `shared` array is already shared and is passed by reference rather than cloned. Between threads none of this is usually needed - the [threading](threading.md) extension's shared heap means a thread shares an object by referencing it - but `structuredClone` remains available for deliberate snapshots.
+Within an agent cluster, `structuredClone` preserves types: a typed class instance clones to an instance of the same class with the same layout, which for classes containing only value types is a memory copy with no per-field work. `[N].<T>` arrays clone, and transfer, like the TypedArrays they interoperate with. A `shared` array is already shared and is passed by reference rather than cloned. A composite clones as its kind and contents and is re-interned on arrival, so equality is preserved within each heap - two messages carrying equal composites arrive `===` - and never across heaps, whose registries are disjoint. Between threads none of this is usually needed - the [threading](threading.md) extension's shared heap means a thread shares an object by referencing it - but `structuredClone` remains available for deliberate snapshots.
 
 Outside the agent cluster, in persistence like IndexedDB or messages to another process, type identity can't be assumed on the other side, so values are stored structurally as untyped data. Reading typed data back is then an ordinary boundary: the host API or the program casts with a target type, and the same validation that backs `JSON.parse.<T>` runs. Hosts are encouraged to expose that directly, e.g. a typed read like `store.get.<Player>(key)`.
 
@@ -180,7 +200,3 @@ const config = await (await fetch('/config.json')).json.<ServerConfig>();
 ```
 
 The same shape applies to `structuredClone.<T>(value)`, to storage reads such as an IndexedDB `get.<Player>(key)`, and to `WebSocket` message events over binary or text frames. These are specified by their host, not here; what this document fixes is the shape they should copy, so that a validated read looks the same wherever the bytes came from.
-
-## Open Questions
-
-- Composites: the composites section's `Composite(...)` values need a JSON mapping here.
