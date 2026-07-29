@@ -39,6 +39,7 @@ Two phases, and they run in opposite directions. This is the rule TC39's decorat
 2. A declaration's sub-targets apply before the declaration itself: parameter decorators in parameter order, then the return's, then the method's own. A method's decorator therefore sees a method whose parts are already decorated.
 3. Members apply before their container, in document order, and the container's own decorators apply last. A class decorator sees a finished class, including whatever its fields' and methods' decorators did; an object decorator sees a finished object; an enum decorator sees decorated enumerators.
 4. `addInitializer` callbacks run after every decorator of that declaration has been applied, in the order they were added.
+5. A BLOCK decorator runs on every ENTRY to the block, not once at the declaration. A block inside a loop is evaluated each iteration, so its decorator runs each iteration - which follows from the rule above ("a decorator runs when the declaration it decorates is evaluated") and is what makes a block decorator useful for instrumentation, tracing, and scoped resources. It is also the ONE per-evaluation position in this extension: every other decorator runs once per declaration, so a block decorator in a hot loop costs a context and a call per iteration, and that cost is not visible at the declaration site.
 
 ```js
 function tag(name) { return (context) => log.push(name); }
@@ -319,6 +320,8 @@ namespace Reflect {
 		private: boolean;
 		protected: boolean;
 		initial: T | undefined;
+		// The pair this accessor generated, over its own backing field. A decorator that REPLACES the accessor returns a new `{ get, set }`; delegating to this one keeps the replacement over the SLOT the layout already allotted, instead of closing over storage of its own and leaving that slot dead. The slot exists either way: a layout is compile-time evaluable and must not depend on whether a decorator ran.
+		access: { get(): T, set(value: T): void };
 		metadata: ClassAccessorMetadata;
 	};
 

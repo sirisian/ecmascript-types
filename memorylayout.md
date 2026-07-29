@@ -78,6 +78,7 @@ What it returns is a **`ClassFieldLayoutReflection`**, and it belongs to this do
 
 ```js
 type ClassFieldLayoutReflection = {
+	// The name the slot was DECLARED under. An `accessor` reports its own name, not the private field it desugars to: the backing is unnameable, and a slot no program can name leaves a hole in a layout walk - a serializer would see bytes it could not label. This is deliberately not C#'s `<a>k__BackingField`, which leaks a compiler artifact into every reflective enumeration. A genuine `#` private field keeps its own invisibility, since it was never reachable by name to begin with.
 	name: string | symbol;
 	offset: int32;      // Signed bytes from the start of the instance
 	byteLength: uint32;
