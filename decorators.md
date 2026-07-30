@@ -2328,14 +2328,14 @@ type ConstraintDoc = {
 	pattern?: string,
 };
 
-function constraintsFor(type: float32.<B: NumberBounds> | string.<S: StringBounds>): ConstraintDoc | undefined {
+function constraintsFor(type: type): ConstraintDoc | undefined {
 	return match (type) {
-		when extends float32.<B: NumberBounds>: // This would be new syntax for pattern matching
-			({ ...B });
+		when extends float32.<B: NumberBounds>:
+			({ ...B }); // B is the bound metadata, checked against NumberBounds
 		when extends string.<S: StringBounds>:
 			({ ...S, pattern: S.pattern?.toString() }); // Replace the pattern with the string representation
 		default:
-			break undefined;
+			undefined;
 	};
 }
 

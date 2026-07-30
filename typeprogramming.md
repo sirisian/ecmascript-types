@@ -641,7 +641,7 @@ const m = Reflect.matchType(genericApplication(Map, [K, arrayOf(V)]), T); // pat
 if (m) { /* m.K and m.V are the bound type objects */ }
 ```
 
-`Reflect.matchType(pattern, subject)` performs one-sided structural unification and returns bindings or `null`; `infer S extends string`-style constraints are an `isAssignable` check on the binding afterwards. It is proposed as optional (the catalog needed it exactly zero times), and its existence is mostly an argument-closer: nothing `infer` does is out of reach.
+`Reflect.matchType(pattern, subject)` performs one-sided structural unification and returns bindings or `null`; `infer S extends string`-style constraints are an `isAssignable` check on the binding afterwards. It was proposed as optional on the measurement that the catalog needed it exactly zero times. That measurement has changed: [decorators](decorators.md) dispatch on the structure of a type they are handed, which is what emitting a schema, a validator, or documentation from a declaration consists of, and `when extends T:` in [pattern matching](patternmatching.md) is the syntactic form of this operation - standing to it as `is` stands to a membership test, and consuming this unification rather than defining a second. It remains the reflective spelling and the escape hatch for what the syntax does not reach, and it still closes the abstract-`infer` question: nothing `infer` does is out of reach.
 
 **Deferral.** Inside a generic declaration, `T extends U ? X : Y` and `partial(T)` are in the same boat: unevaluable until `T` binds. TypeScript carries the deferred conditional and can occasionally reason about it (its constraint is `X | Y`; identical deferred conditionals match). The builder model carries the deferred *application* `partial(T)`, interned so identical applications match (§3.4), with declared result knowledge limited to `: type` — effectively "some type." The practical difference shows up only when checking generic bodies before specialization, taken up in §5.2–5.3; under this proposal's full-specialization semantics every use eventually reaches a concrete `T`, where the difference vanishes.
 
@@ -968,7 +968,7 @@ The comparison table marks several TypeScript constructs **obviated**; the build
 | `Exclude`/`Extract`/`NonNullable` | `exclude`/`extract`/`nonNullable` | §4.3 |
 | `infer` (destructuring uses) | reflection accessors | §4.3 |
 | `infer` on generic applications | `generic` node field | §4.3 |
-| `infer` (abstract patterns) | optional `Reflect.matchType` | §4.3 |
+| `infer` (abstract patterns) | `Reflect.matchType`, or `when extends T:` syntactically | §4.3 |
 | `ReturnType`/`Parameters`/`FirstParameter` | reflection | §4.3 |
 | `ConstructorParameters` | constructor reflection | §4.3 |
 | `InstanceType` | `instanceType`: call signature first, construct signature second; a class is its own | §4.3 |
@@ -1284,7 +1284,7 @@ The design that threads the needle is **provenance, not payload**: property reco
 
 **R7 — Route infinite string types to pattern metadata.** Specify a `StringPattern` meta type over the [regexp](regexp.md) extension: `validate` by matching; `subtype` conservative (syntactic containment for literal/class concatenations, reflexive otherwise), with the conservatism documented as intentional. Provide `suffixed`/`prefixed`-style kit builders. Do not add a structural template-literal type kind.
 
-**R8 — Add `Reflect.matchType` and `Reflect.inferSlot` as optional completeness.** One-sided structural unification returning bindings or `null`. Low priority — the catalog never needed it — but it closes the abstract-`infer` question and gives §5.1's determined library author an explicit-inverse escape hatch. Do **not** add *trusted* engine-consulted inverses; the verified propose-and-check form is R15, and `matchType` patterns are structural only — never opaque applications (§6.1).
+**R8 — Add `Reflect.matchType` and `Reflect.inferSlot`.** One-sided structural unification returning bindings or `null`. Promoted from optional: the decorator catalog needs it to dispatch on a type it is handed, and `when extends T:` in [pattern matching](patternmatching.md) is its syntactic form and consumes this unification. It also closes the abstract-`infer` question and gives §5.1's determined library author an explicit-inverse escape hatch. Do **not** add *trusted* engine-consulted inverses; the verified propose-and-check form is R15, and `matchType` patterns are structural only — never opaque applications (§6.1).
 
 **R9 — Keep the phase boundary.** Builders never run inside inference, overload resolution, or narrowing; checker-integrated user code remains exclusively the `meta` protocol hooks with their specified obligations. State this as a design invariant in the spec text so future ergonomic pressure has something to push against — in the precise form §6.3 gives it: the inference fixpoint stays builder-free, and every checker-visible effect of user type code is declarative data, a forward-verified proposal, or a per-instantiation-checked contract.
 
