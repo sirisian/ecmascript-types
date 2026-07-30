@@ -262,17 +262,18 @@ And the case against, stated fairly, since this document was written to decide i
 
 A composite is the best-behaved subject [pattern matching](patternmatching.md) can be handed - frozen, canonical, sorted, getter-free, null-prototyped - and one addition makes the two features meet correctly.
 
-**```Composite``` carries its own ```Symbol.customMatcher```**, returning ```Composite.isComposite(subject)```. It needs one because ```Composite``` is a function, not a Type Object: an expression pattern naming a Type Object tests membership, but a plain function is a constant, so without the matcher ```when Composite:``` would compare the subject against the function itself by SameValue - a test nothing sensible ever passes. The matcher makes the bare name mean what ```Composite.<T>``` already means narrowed: is this value a composite. In an ecosystem whose default matcher instead *invokes* a callable as a predicate, the method is not merely useful but load-bearing, since a bare ```when Composite:``` would otherwise call ```Composite(subject)```, match every object, run the subject's getters, and intern a composite as the side effect of a test.
+**```Composite``` carries its own ```Symbol.customMatcher```**, returning ```Composite.isComposite(subject)```. It needs one because ```Composite``` is a function, not a Type Object: an expression pattern naming a Type Object tests membership, but a plain function is a constant, so without the matcher ```when Composite:``` would compare the subject against the function itself by SameValue - a test nothing sensible ever passes. The matcher makes the bare name mean what ```Composite.<T>``` already means narrowed: is this value a composite. Being the widest of the composite patterns, it goes below the specific ones, as the arm order above shows - a bare ```Composite``` above ```Composite.<IPoint>``` leaves the second arm matching nothing, which is an unreachable-clause error rather than a silent shadowing. In an ecosystem whose default matcher instead *invokes* a callable as a predicate, the method is not merely useful but load-bearing, since a bare ```when Composite:``` would otherwise call ```Composite(subject)```, match every object, run the subject's getters, and intern a composite as the side effect of a test.
 
 ```js
 match (value) {
-  when Composite: 'a composite';              // Composite.isComposite(value)
-  when Composite.<IPoint>: 'a typed one';     // type test, narrows to Composite.<IPoint>
+  when Composite.<IPoint>: project(value);      // type test, narrows to Composite.<IPoint>
   when { kind: 'key', let code }: handle(code);
+  when Composite: 'some other composite';       // Composite.isComposite(value)
+  default: reject(value);
 }
 ```
 
-The type form in that second arm is [pattern matching](patternmatching.md)'s rule that a type is a pattern, and its widening of ```is``` is what keeps one operator serving both questions: ```value is Composite.<IPoint>``` is the structural test this proposal defines, ```value is { let x }``` is the pattern form, and there are not two boolean operators sharing a name and both taking something brace-shaped.
+The type form in the first arm is [pattern matching](patternmatching.md)'s rule that a type is a pattern, and its widening of ```is``` is what keeps one operator serving both questions: ```value is Composite.<IPoint>``` is the structural test this proposal defines, ```value is { let x }``` is the pattern form, and there are not two boolean operators sharing a name and both taking something brace-shaped.
 
 **Object patterns need no special casing.** Every key of a composite is own, enumerable, and non-configurable, there are no getters and no prototype, so a subset pattern tests exactly what it names and a rest pattern collects the remaining fields. The object-pattern caching [pattern matching](patternmatching.md) specifies - each property read at most once per match, guarding against getters that are expensive or non-idempotent - is unnecessary for a composite subject, whose every read is idempotent by construction, so an implementation may skip it.
 

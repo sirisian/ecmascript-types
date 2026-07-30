@@ -4,7 +4,7 @@ A typed HTTP API client: response discrimination, retry with backoff, header par
 
 Features exercised:
 
-- An exhaustive ```match``` over a union of response shapes discriminated by a literal ```status``` field, so adding a response kind to the type breaks every site that must handle it.
+- An exhaustive ```match``` over a union of response shapes discriminated by a literal ```status``` field, so adding a response kind to the type breaks every site that must handle it - and no ```default``` clause anywhere it would be dead.
 - Range patterns classifying status codes - ```when { status: 500..600 }:``` - the containment test a numeric family needs where enumeration is absurd.
 - A generic ```Result.<T, E>``` matched through extractor patterns, ```Ok(let value)``` and ```Err(let error)```, with the bindings typed by ordinary generic inference from the subject.
 - Regular expression patterns with typed named groups parsing ```Retry-After``` and ```Link``` headers, where a misspelled group name is a compile-time TypeError.
@@ -80,7 +80,7 @@ function logClass(status: uint16): void {
 }
 ```
 
-The subject is open - ```uint16``` has 65536 values and the ranges name 500 of them - so the ```default``` is required, and its presence is the honest statement that the classification is partial.
+The subject is open - ```uint16``` has 65536 values and the ranges name 500 of them - so the ```default``` is required, every ```match``` being exhaustive or an error, and its presence is the honest statement that the classification is partial. The rule cuts the other way in ```interpret``` above, where the five arms cover the five members of the union and a ```default``` would be an unreachable-clause error.
 
 ## Result and the Extractors
 
