@@ -63,7 +63,7 @@ Bare ```..``` is half-open because that is what JavaScript already means everywh
 (0..10).length; // 10
 ```
 
-Two hazards worth writing into the grammar notes. A statement beginning with ```..``` continues the previous expression, joining ```(```, ```[```, and ```` ` ```` on the list of ASI hazards. And a range is an expression, so it appears in ```case``` labels, object literals, and argument lists without further ceremony.
+Two hazards worth writing into the grammar notes. A statement beginning with ```..``` continues the previous expression, joining ```(```, ```[```, and ```` ` ```` on the list of ASI hazards. And a range is an expression, so it appears in ```case``` labels, object literals, and argument lists without further ceremony - and stands as a pattern in a ```when``` clause of [pattern matching](patternmatching.md), matching by the same containment a range ```case``` label uses.
 
 ## Types
 

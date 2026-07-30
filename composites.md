@@ -260,9 +260,9 @@ And the case against, stated fairly, since this document was written to decide i
 
 ## Pattern Matching
 
-A composite is the best-behaved subject the [pattern matching proposal](https://github.com/tc39/proposal-pattern-matching) can be handed - frozen, canonical, sorted, getter-free, null-prototyped - and one addition is needed to make the two features meet correctly.
+A composite is the best-behaved subject [pattern matching](patternmatching.md) can be handed - frozen, canonical, sorted, getter-free, null-prototyped - and one addition makes the two features meet correctly.
 
-**```Composite``` carries its own ```Symbol.customMatcher```**, returning ```Composite.isComposite(subject)```. This is required rather than decorative: the matcher installed on ```Function.prototype``` invokes a non-constructor function as a predicate, so absent one of its own, ```when Composite:``` would *call* ```Composite(subject)```, match every object because the result is truthy, run the subject's getters, and intern a composite as a side effect of a test.
+**```Composite``` carries its own ```Symbol.customMatcher```**, returning ```Composite.isComposite(subject)```. It needs one because ```Composite``` is a function, not a Type Object: an expression pattern naming a Type Object tests membership, but a plain function is a constant, so without the matcher ```when Composite:``` would compare the subject against the function itself by SameValue - a test nothing sensible ever passes. The matcher makes the bare name mean what ```Composite.<T>``` already means narrowed: is this value a composite. In an ecosystem whose default matcher instead *invokes* a callable as a predicate, the method is not merely useful but load-bearing, since a bare ```when Composite:``` would otherwise call ```Composite(subject)```, match every object, run the subject's getters, and intern a composite as the side effect of a test.
 
 ```js
 match (value) {
@@ -272,9 +272,9 @@ match (value) {
 }
 ```
 
-The type form in that second arm relies on ```is``` being one operator whose right side is the pattern grammar, with a type as one of its forms: ```value is Composite.<IPoint>``` is then the structural test this proposal defines and ```value is { let x }``` is the pattern proposal's, rather than two boolean operators sharing a name and both taking something brace-shaped.
+The type form in that second arm is [pattern matching](patternmatching.md)'s rule that a type is a pattern, and its widening of ```is``` is what keeps one operator serving both questions: ```value is Composite.<IPoint>``` is the structural test this proposal defines, ```value is { let x }``` is the pattern form, and there are not two boolean operators sharing a name and both taking something brace-shaped.
 
-**Object patterns need no special casing.** Every key of a composite is own, enumerable, and non-configurable, there are no getters and no prototype, so a subset pattern tests exactly what it names and a rest pattern collects the remaining fields. The object-pattern caching the proposal specifies - guarding against getters that are expensive or non-idempotent - is unnecessary for a composite subject, whose every read is idempotent by construction, so an implementation may skip it.
+**Object patterns need no special casing.** Every key of a composite is own, enumerable, and non-configurable, there are no getters and no prototype, so a subset pattern tests exactly what it names and a rest pattern collects the remaining fields. The object-pattern caching [pattern matching](patternmatching.md) specifies - each property read at most once per match, guarding against getters that are expensive or non-idempotent - is unnecessary for a composite subject, whose every read is idempotent by construction, so an implementation may skip it.
 
 **Array patterns reach tuple composites through iteration.** They obtain an iterator from the subject, which is what the tuple kind's iterability is for: without it ```when [let x, let y]:``` would silently fail to match every tuple composite, which is the difference between a feature and a trap.
 
@@ -288,9 +288,9 @@ match (event) {
 }
 ```
 
-**Literal patterns take their field types from the subject**, by the same propagation that types a creation site: ```when { code: 27 }``` against a ```Composite.<{ kind: string; code: uint8 }>``` tests a ```uint8``` 27, not a ```number``` 27, which would otherwise never match. Where the subject's type is unknown the literal is a ```number``` and the mismatch is a static error rather than a silent non-match. The pattern proposal's rule that a bare ```0``` matches with SameValueZero while ```+0``` and ```-0``` match with SameValue carries over per type.
+**Literal patterns take their field types from the subject**, by the same propagation that types a creation site: ```when { code: 27 }``` against a ```Composite.<{ kind: string; code: uint8 }>``` tests a ```uint8``` 27, not a ```number``` 27, which would otherwise never match. Where the subject's type is unknown the literal is a ```number``` and the mismatch is a static error rather than a silent non-match. The literal-pattern rule that a bare ```0``` matches with SameValueZero while ```+0``` and ```-0``` match with SameValue carries over per type.
 
-Exhaustiveness is unchanged: composite patterns are structural, and this proposal checks exhaustiveness only over an ```enum``` and a sealed class. A shape that wants the check puts one of those in a discriminating field - ```Composite({ kind: Phase.Running, ... })``` - and switches on the field.
+Exhaustiveness reaches composites through unions: a composite type is one of the member kinds [pattern matching](patternmatching.md)'s closed subjects admit, so a ```match``` over ```Composite.<KeyEvent> | Composite.<MouseEvent>``` with an arm per member is checked complete, each ```Composite.<T>``` type pattern covering its member. A single composite shape is a subset-test subject like any lone object type and is not checked; discrimination *within* one shape stays what it was, an ```enum``` in a discriminating field - ```Composite({ kind: Phase.Running, ... })``` - matched exhaustively.
 
 ## Performance
 

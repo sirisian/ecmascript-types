@@ -1,0 +1,223 @@
+# Pattern Matching
+
+A pattern is three things at once: a test, a destructuring, and a proof. ```match``` runs the test, performs the destructuring, and hands the proof to the type system, so the arm that runs knows statically what the subject is, the bindings it introduced carry exact types, and a ```match``` over a closed type is checked complete the way a ```switch``` over an enum already is. This document defines the ```match``` expression and its pattern grammar for this proposal, extends the ```is``` operator so a pattern is usable as an ordinary boolean test, and then does what the [ranges](ranges.md) document did: checks the feature against everything else here - literal types, narrowing, enums and sealed classes, [composites](composites.md), [ranges](ranges.md), [typed regular expressions](regexp.md), [error handling](errorhandling.md), generics - because a pattern language is only worth its grammar if the type system makes every pattern checkable and most of them free.
+
+```js
+type Response =
+  | { status: 200, body: string }
+  | { status: 404 }
+  | { status: uint16, error: string };
+
+const text = match (response) {
+  when { status: 200, let body }: body;
+  when { status: 404 }: 'not found';
+  when { status: 500..600, let error }: throw new ServerError(error);
+  when { let status, let error }: `${status}: ${error}`;
+};
+```
+
+Every piece of that is typed. The literals ```200``` and ```404``` take ```uint16``` from the subject's field, so they compare against what is actually stored; ```body``` binds as ```string``` because the arm has narrowed the union to its first member; the range arm tests containment the way a range ```case``` label does; the last arm is reachable only for the third member, so ```error``` binds ```string``` with no test the earlier arms haven't already paid for; and removing the last arm is a compile-time TypeError, because the union is not covered.
+
+## The match Expression
+
+```match (subject) { ... }``` is an expression. Its body is one or more clauses, each ```when``` a pattern, or ```default```, followed by ```:``` and an arm body. Clauses are tried in source order; the first whose pattern matches evaluates its body, and that value is the value of the expression. ```default``` matches anything and must be last. If no clause matches, a ```TypeError``` is thrown - and the exhaustiveness rules below make that throw statically impossible exactly where the types can prove it.
+
+An arm body is an expression, a ```throw``` expression, or a block. A block arm is for effects: its type is ```void```, so a ```match``` used for its value must not take a block arm on any path the value is read from, and a ```match``` whose value is unused is the statement form, written as an expression statement. The subject is evaluated once, before any pattern.
+
+```js
+match (command) {
+  when 'start': engine.start();
+  when 'stop': { engine.stop(); log('stopped'); }
+  default: throw new RangeError(command);
+};
+```
+
+The static type of a ```match``` expression is the union of its arm types, canonicalized, with ```throw``` arms and diverging blocks contributing nothing - the same divergence analysis the README defines for ```switch```. A contextual type on the ```match``` flows into each arm body, so a ```match``` in a ```uint8``` position types its arm literals as ```uint8``` by ordinary [literal propagation](README.md).
+
+### Why not switch
+
+```switch``` stays what it is: a statement dispatching on ```===```, on range containment, or on the type objects of a sealed hierarchy, with exhaustiveness over enums and sealed classes. ```match``` is the expression form with structure: it destructures, it binds, it composes tests, and it answers with a value. The two share their narrowing and exhaustiveness machinery, and a ```switch``` that has outgrown its labels - a guard here, a destructure there - is a ```match``` waiting to be written. Nothing is removed from ```switch``` to make room; the division is statement-and-equality against expression-and-structure.
+
+### The grammar is an error today
+
+This proposal only adds syntax that is currently invalid, and ```match``` needs the argument made, because ```match(x) { }``` is a valid program today: a call followed by an empty block. The construct stays valid and keeps its meaning, because a ```match``` expression requires at least one clause, and every clause begins ```when <pattern>:``` or ```default:```. ```default``` is a reserved word, so ```default:``` cannot be a label; ```when``` is an ordinary identifier, but ```when <token>:``` parses today only as the label ```when:``` with nothing between - and a clause's pattern is never empty - or as the expression ```when``` followed immediately by another expression, which is a SyntaxError. So every program the new grammar accepts is an error in the current language, and every program the current language accepts keeps its parse: ```match(x) {}```, ```match(x) { foo: bar(); }```, and bare ```match(x)``` all still mean the call. In expression position there is no overlap at all, since a call followed by ```{``` is already a SyntaxError there.
+
+## Patterns
+
+The pattern grammar, one form at a time, each with its runtime meaning and its typing rule. Throughout, the *position type* is the static type a pattern is matched against: the subject's type at the top, a field's type inside an object pattern, an element's type inside an array pattern.
+
+### Literal patterns
+
+A literal - number, string, boolean, ```null```, ```undefined```, a template with no substitutions - matches by SameValue, except that a bare ```0``` matches both zeros by SameValueZero while an explicit ```+0``` or ```-0``` distinguishes them. The literal takes the position type, by the same propagation that types a literal anywhere else: ```when 27:``` against a ```uint8``` field is a ```uint8``` 27, and against a ```decimal128``` field a decimal, so the comparison is within one type and the cross-type miss that propagation exists to prevent cannot happen here either. A literal that cannot take the position type - ```when 'baz':``` against a ```uint32``` - is a compile-time TypeError, the impossible-test rule narrowing already enforces.
+
+One case needs a rule rather than inference: a numeric literal against a union of numeric types, ```when 5:``` against ```uint8 | float32```, has two types it could take and matching only one would be a silent half-answer. It is a type error, and the fix is to say which: ```when uint8 and 5:``` narrows first and lets the literal take the narrowed type, or ```${uint8(5)}``` states the value outright.
+
+### Interpolation patterns
+
+```${expression}``` evaluates the expression and matches by SameValue against the result, whatever the result is - a constant, a composite, a Type Object matched for identity rather than membership. It is the escape hatch from every cleverer rule below: where an expression pattern would consult a matcher or test a type, ```${...}``` compares. It is a type error if the expression's type and the position type share no values, since the test could never succeed.
+
+### Binding patterns
+
+```let name``` and ```const name``` match anything and bind the matched value at the position type, narrowed by everything the enclosing pattern has established. The binding is scoped to the arm - its guard and its body. An annotated binding is a test and a bind in one: ```let e: TypeError``` matches when the value is of the type and binds it narrowed, which is the ```catch (e: TypeError)``` form of [error handling](errorhandling.md) appearing where it was always going to reappear. There are no bare-identifier bindings; an identifier without ```let``` or ```const``` is an expression pattern, below, which is what lets a constant be a pattern without a sigil.
+
+### Type patterns
+
+A pattern that is a type - a predefined name, a class, an interface, a parameterized type, ```Composite.<T>```, a union written inline - matches when the subject is of the type, by the same ```IsOfType``` test the ```is``` operator and every boundary perform, and narrows the position to it. A dependent record type runs its ```where``` clauses here, because membership in such a type is defined by them. A union of literal types is the or-pattern for constants with no combinator spelled: ```when 'GET' | 'HEAD':``` is one type pattern whose test is two SameValue comparisons and whose narrowing is the union of the two literal types.
+
+```js
+match (value) {
+  when uint8: value + 1;                  // value: uint8 here
+  when 'GET' | 'HEAD': readOnly(value);   // value: 'GET' | 'HEAD'
+  when Circle: value.radius;              // instanceof, narrowed
+  when Payment: charge(value);            // where clauses evaluated
+  default: reject(value);
+}
+```
+
+### Expression patterns
+
+A pattern that is an identifier or member expression - not a literal, not a binding, not a call - evaluates it and matches by what the result is. A Type Object is a type pattern, which is what makes ```when Circle:``` and ```when Count.Zero:``` read as the tests they are - a class is its type object, an enumerator is a constant, and both spellings do the expected thing, the enumerator comparing by SameValue as the constant it is. A value with a ```[Symbol.customMatcher]``` method is matched through it, below. Anything else is a constant compared by SameValue, which for an interned [composite](composites.md) is one pointer comparison. A call expression is never a constant pattern - a call in pattern position is the extractor form below, and a computed constant is spelled ```${f(x)}```.
+
+### Object patterns
+
+```{ key: pattern, ..., ...let rest }``` matches a subject that has each named member, each member's value matching its sub-pattern; ```{ let x }``` is shorthand for ```{ x: let x }```. Presence is the ```in``` test, so an optional member that is absent fails the pattern rather than matching ```undefined```, and matching the *absence* is written with a guard or by matching the member against a union with ```undefined``` where the type says that is possible. A member the pattern does not name is ignored - a pattern is a subset test, as an interface check is - unless ```...let rest``` appears, which binds an object of the remaining named members at the type the position type gives them; the rest is a fresh ordinary object, built like an object spread.
+
+The typing rule is where a union subject earns its keep: an object pattern is matched against each member of a union position type, the members it cannot match are discarded, and the sub-patterns and bindings type against what remains. That is how the opening example's ```let body``` binds ```string``` - the ```status: 200``` field pattern eliminated the members without it - and it is the [dependent record types](dependentrecordtypes.md) narrowing arriving through a pattern instead of an ```if```: ```when { country: 'US', let postalCode }:``` types ```postalCode``` as ```USPostalCode``` because the discriminant chose the member. A pattern no union member can match is the impossible test again, a compile-time TypeError.
+
+Reads are cached per match evaluation: each property is read at most once however many patterns name it, so a getter runs once and arms agree about what they saw. A composite subject makes the cache unnecessary rather than the guarantee weaker, since its every read is idempotent - the [composites](composites.md) document owns that note.
+
+### Array patterns
+
+```[p1, p2, ..., ...let rest]``` obtains an iterator from the subject - which is what makes a tuple composite matchable, its iterability being supplied by kind - and matches elements positionally. Without a rest element the pattern requires the iterator to be exhausted at the pattern's length: ```[let a, let b]``` matches exactly two. With ```...let rest``` the remainder is collected into an array. Iteration results are memoized per match evaluation, so alternatives over array patterns of different lengths pull each element once.
+
+Element positions type from the position type: a tuple type gives each position its own type, an array type gives every position the element type, and ```rest``` binds ```[].<T>``` over the element type or the tuple's remainder. What an array pattern does *not* do is narrow an array's length into its type: a ```[].<uint8>``` that matched ```[let a, let b]``` is still a ```[].<uint8>```, because a dynamic-length array and a ```[2].<uint8>``` are distinct types with distinct values and no test converts one into the other. The length was tested; the elements were typed; the subject's type is unchanged. This is stated under limitations because it is one.
+
+### Range patterns
+
+A range literal is a pattern matching by containment, exactly as a range ```case``` label does in the [ranges](ranges.md) extension, and with the same requirement: the position type must be ordered. ```when 500..600:``` against a ```uint16``` is two comparisons; against a float it is the form that makes a float subject matchable at all, since a float has no cases to enumerate. A range pattern narrows through metadata where the interval is constant, the refinement the ranges document already gives a ```for``` counter.
+
+### Regular expression patterns
+
+A regular expression literal is a pattern over a ```string``` position. It matches when the pattern matches the *entire* subject - the whole-string discipline this proposal uses everywhere a pattern constrains a string, from ```StringPattern``` metadata to parsing - and a search is spelled by writing the pattern as a search, ```/.*error.*/```. Its typed match result is available to a juxtaposed object pattern, so the capture types of [typed regular expressions](regexp.md) flow into bindings:
+
+```js
+match (line) {
+  when /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})/ { groups: { let year, let month } }:
+    Date.parse(year, month);       // year, month: string, and the group names are checked
+  when /\s*/: skip();
+  default: throw new SyntaxError(line);
+}
+```
+
+A misspelled group name in that pattern is a compile-time TypeError, because the match result's ```groups``` has an exact object type; this is the difference between a pattern language with types and one with conventions.
+
+### Extractor patterns
+
+```Expr(p1, p2, ...)``` evaluates ```Expr``` and matches through its ```[Symbol.customMatcher]```. The typed protocol is a method, usually static, from the subject to a tuple or ```null```:
+
+```js
+class Some<T> {
+  value: T;
+  static [Symbol.customMatcher]<T>(subject: Option.<T>): [T] | null {
+    return subject instanceof Some.<T> ? [subject.value] : null;
+  }
+}
+
+match (find(id)) {              // find returns Option.<User>
+  when Some(let user): greet(user);   // user: User
+  when None: signIn();      // None is the library's singleton, an expression pattern matched by identity
+}
+```
+
+```null``` is no match; a tuple is a match whose elements the sub-patterns match positionally, each typing from the tuple's element types. The protocol is an ordinary method, so everything ordinary applies: overloads select on the subject's type, a generic matcher infers its parameters from the subject as any generic call does - which is how ```let user``` above binds ```User``` with nothing annotated - and the declared return type is the whole contract, checked where the matcher is written rather than trusted where it is used. A matcher may instead return ```boolean```, in which case the pattern takes no parentheses and is a plain membership test, the form ```Composite``` uses; a boolean matcher with parentheses, or a tuple matcher without them, is a type error. Matchers run user code, so unlike every other pattern they can observe order and throw; a throw propagates out of the ```match```.
+
+### Juxtaposition
+
+A type pattern followed directly by an object or array pattern matches both against the same value: the type first, then the structure, with the structure typing against the *narrowed* subject. ```Circle { let radius }``` is the variant form every language with sealed hierarchies converges on, and here it is not a special form but the composition it looks like - sugar for ```Circle and { let radius }```:
+
+```js
+match (shape) {
+  when Circle { let radius }: PI * radius ** 2;
+  when Rect { let w, let h }: w * h;
+}
+```
+
+### Combinators
+
+```and``` matches when both sides match, evaluated left to right, with the right side typed against the position as narrowed by the left - which is the rule that made ```uint8 and 5``` work above, and makes ```Payment and { let creditCard }``` destructure a validated value. ```or``` matches when either side does, tried in order; a binding that appears in one alternative must appear in all, and it binds at the union of its types across them, so ```{ ok: let v: uint8 } or { fallback: let v: float32 }``` binds ```v: uint8 | float32```. ```not``` binds tightest, then ```and```, then ```or```, and parentheses group. ```not``` matches when its operand does not, binds nothing - a binding inside a failed pattern has no value to carry - and narrows by subtraction where the operand's type has a subtractable representation: ```not null``` removes ```null``` from a union, ```not Circle``` removes a sealed member. Where it does not - ```not { let x }``` against an open object type - the test runs and the type is unchanged, because this proposal has no negation types to record "lacks ```x```" in; that too is a limitation stated below rather than a rule pretended.
+
+### Guards
+
+```when Pattern if (expr):``` runs the guard after the pattern matches, with the pattern's bindings in scope and the subject narrowed; a falsy guard fails the arm and matching continues. A guard is an ordinary expression - it may not ```await```, since a ```match``` evaluates synchronously - and its own narrowing tests compose: ```when { let user } if (user is Admin):``` types ```user``` as ```Admin``` in the body. A guarded arm proves nothing to exhaustiveness, since the checker does not evaluate guards.
+
+## Narrowing and Exhaustiveness
+
+Each arm narrows the subject to what its pattern established, through the same machinery that serves ```instanceof```, ```is```, the brand check, and the sealed ```switch```; failing an arm narrows the *next* arm's view of the subject by subtraction where the failed pattern is subtractable, so a ```default``` after ```when null:``` sees the subject non-null. Nothing outlives the expression: the subject's type after the ```match``` is what it was before, since which arm ran is not visible outside.
+
+A ```match``` with no ```default``` must cover its subject when the subject's type is *closed*, and it is a compile-time TypeError when it does not - the ```switch``` rule, extended to what patterns can prove. The closed subjects are: an enum; a sealed class, covered by covering its direct subclasses and itself where instantiable; ```boolean```, covered by ```true``` and ```false```; ```null``` and ```undefined```; and a union of two or more members each of which is one of these, an object type, a tuple type, or a [composite](composites.md) type, covered by covering every member. An arm covers a member when its unguarded pattern provably matches every value of it: a type pattern naming the member or a supertype, an enumerator constant for that enumerator, a binding, an object or tuple pattern whose every sub-pattern covers the member's corresponding field - the subsumption the impossible-test rule already computes, run in the other direction - and a guard forfeits the arm's contribution, since the checker does not evaluate guards. That is what checks the opening example, a union of object types discriminated by a field, and what makes ```Node | null``` - the shape every ```tryParse``` in this proposal returns - exhaustive from ```when null:``` plus the subclass arms, with no ```default``` standing in for the case the types already name.
+
+Two subjects stay deliberately outside the check. A *lone* object or tuple type is not checked - a subset pattern is the point of matching on one, and a partial ```match``` over an event object is a program, not an oversight - which is why the union rule asks for two members; totality over one structural type is what ```is``` and an ```if``` are for. And a union containing string or number *literal-type* members is not checked, for the reason the README gives ```switch```: a closed set of strings that wants the check is an ```enum``` over ```string```, and this document keeps that decision rather than reopening it with a second exhaustiveness regime. Literal types remain patterns and remain discriminants inside object members; they do not become an enumerable subject by appearing in a union.
+
+Unreachability is the check's other half, and it is an error, not a lint: an arm whose pattern cannot match what the preceding arms have left - subsumed by an earlier pattern, or impossible against the narrowed subject - is a compile-time TypeError, the dead-```case``` rule generalized. ```default``` under a fully covered closed subject is unreachable by this rule, so a covered ```match``` and a defaulted one cannot silently coexist; delete the ```default``` and keep the check, or keep the ```default``` knowing it forfeited it, exactly the trade the enum ```switch``` documents.
+
+```js
+sealed abstract class Node {}
+class Num extends Node { value: float64; }
+class Neg extends Node { operand: Node; }
+class Bin extends Node { op: Op; left: Node; right: Node; }
+
+function evaluate(node: Node): float64 {
+  return match (node) {
+    when Num { let value }: value;
+    when Neg { let operand }: -evaluate(operand);
+    when Bin { let op, let left, let right }: apply(op, evaluate(left), evaluate(right));
+  }; // Closed and covered: no default, no missing-return, and a new subclass breaks the build here
+}
+```
+
+## The is Operator Takes a Pattern
+
+```is``` is this proposal's boolean test - ```value is Payment``` from [dependent record types](dependentrecordtypes.md), running the structural check and the ```where``` clauses, narrowing on success. This document widens its right side from a type to a pattern, of which a type is now one form, so nothing existing changes meaning and one operator serves both questions:
+
+```js
+if (response is { status: 200, let body }) {
+  render(body);                       // body in scope, typed as the narrowed member's field
+}
+while (input is not '') { ... }       // subtraction-narrowed in the loop body
+```
+
+Bindings from an ```is``` pattern scope to where the test being true implies they matched: the consequent of the ```if```, the right of ```&&```, the loop body - the narrowing positions the README already enumerates for boolean tests. In a position where truth implies nothing, the bindings do not exist. ```is``` with a pattern is the one-arm ```match```, and the equivalence is exact: ```subject is P``` matches, binds, and narrows precisely as ```when P``` would.
+
+## What the Rest of the Proposal Provides
+
+Checking the feature against its neighbours, which is where a design either compounds or contradicts:
+
+**Composites** are the best-behaved subject the grammar has - frozen, canonical, getter-free - and the cheapest constant it can name: an interned composite in an expression pattern is one pointer comparison, and a ```match``` over composite constants compiles to the hash dispatch ```switch``` has always had for primitives, reaching compound keys. ```Composite``` carries the boolean matcher that makes ```when Composite:``` a membership test, ```Composite.<T>``` is a type pattern that narrows, tuple composites meet array patterns through their iterability, and the read-caching above is waived for a subject that cannot change. The [composites](composites.md) document works each of these through.
+
+**Enums** are the closed sets. An enumerator is a constant pattern; a ```match``` over an enum is checked exhaustive; a string enum is how a closed set of strings gets both the ergonomics of ```when Status.Active:``` and the check the literal union declines. Sentinel enumerators appear in coverage as they do in a ```switch```, cased explicitly - typically to ```throw``` - to keep the check.
+
+**Sealed classes** are the algebraic data types, and juxtaposition is their eliminator: ```when Bin { let op }:``` tests, narrows, and destructures in one clause, which is the shape the ```switch``` chapter's evaluator wanted and had to spell as a case plus member reads. Value type classes match structurally through their fieldwise ```===```: a value-class constant in an expression pattern compares by contents, so ```when origin:``` against a ```Vector2``` is the structural test with no protocol.
+
+**Errors** split the work with typed ```catch```: ```catch (e: RangeError)``` remains the form at a ```try```, and ```match``` takes over when an error value is *data* - already caught, carried in a result field, matched on its type and destructured for its payload in one arm. The annotated binding is deliberately the same syntax in both.
+
+**Generics** type the extractor protocol, as ```Some.<T>``` showed: inference from the subject is ordinary inference, and an ```Option```/```Result``` library is patterns all the way down with no machinery this document had to add. That the protocol needed nothing new is the strongest evidence the type system was ready.
+
+**Types themselves** are matchable values, with one rule to keep straight: an expression pattern producing a Type Object tests *membership*, because that is what naming a type in a test position means everywhere else here, and identity - "is this exactly the Type Object ```uint8```" - is the interpolation ```${uint8}```, SameValue on interned objects. Matching over ```Reflect.typeOf(v)``` therefore usually wants interpolations; matching over ```v``` wants type patterns. The compile-time structural matching of [type programming](typeprogramming.md), ```Reflect.matchType```, is the other feature with "match" in its name and is orthogonal: it unifies a *type* against a pattern of types with inference slots, this document matches *values*, and the only relation is that both narrow what the checker knows.
+
+## What the Engine Compiles
+
+The recurring shape of this proposal - annotations converting dynamic discovery into straight-line code - lands hard here, because a ```match``` is a decision tree the source hands over whole. An enum subject compiles to the jump table its ```switch``` would; a sealed subject to a brand-tag dispatch, one load and one bounded table; composite and enumerator constants to pointer compares and, past a handful, a hash on the pointer; literal patterns over a typed field to monomorphic compares with no type check inside; object patterns over a known type to direct slot loads in one pass, the caching guarantee costing nothing because a known layout has nothing to cache; a discriminated union to a test of the discriminant followed by the member's straight-line destructure. The order-sensitivity budget is confined to where the source spent it: guards and custom matchers run user code in arm order, everything else is a pure test the compiler may reorder, factor, and share between arms, because patterns cannot observe each other.
+
+## Limitations
+
+Stated because they were found, not designed:
+
+- **No negation types.** ```not``` and arm-failure narrow only what subtraction can represent - union members, sealed subclasses, literals, ```null```. A failed structural pattern narrows nothing, so ```default``` below ```when { let x }:``` still sees a subject that may have ```x```. Recording "lacks a member" would be a new kind of type, and no other feature here has needed one; the guard ```if (!('x' in v))``` is the workaround and is honest about being a runtime fact.
+- **Array length does not narrow.** ```[let a, let b]``` tests length 2 and types the elements, but cannot retype a ```[].<uint8>``` as ```[2].<uint8>```, because those are distinct types with distinct values, not one type at two levels of knowledge. Code that wants a length-indexed type constructs one; a pattern only proves things a value's own type can express.
+- **Literal-union exhaustiveness stays declined.** A ```match``` over ```'a' | 'b'``` needs a ```default``` however plainly the arms cover it. This is the standing decision restated, and the pressure a pattern language puts on it is real and is the strongest argument the enum-over-string form has ever had; if that decision is ever revisited, this document inherits the answer without changing.
+- **Where-clause knowledge flows one way.** A type pattern naming a dependent record type runs its predicates; a structural pattern that happens to establish what a ```where``` clause would conclude - matching ```{ creditCard: let c }``` against ```Payment``` - narrows by the built-in field correspondences of [dependent record types](dependentrecordtypes.md) and no further. Patterns evaluate types' predicates; they do not prove new consequences from them.
+
+## Open Questions
+
+1. **Arm bodies that compute.** A block arm is ```void```, so an arm needing statements *and* a value writes an immediately-invoked arrow, which is the one place this design makes the straightforward thing awkward. The clean fix is a block form whose completion value is the arm's value - a do-expression - which is a language-wide feature this document should consume, not define. Until it exists, the question is whether ```match``` should ship with the arrow workaround documented, or hold a syntax slot (```when P: do { ... }```) that a future form fills.
+2. **Totality through where-chains.** A dependent record type whose ```where``` clauses form an ```if```/```else``` covering every case is closed in fact but not in kind, and the exhaustiveness rule above cannot see it. Whether the closed-set list should ever admit "a union the checker can prove disjoint and total from its predicates" is open, and expensive either way: admitting it makes exhaustiveness depend on predicate reasoning with a budget, declining it keeps the rule syntactic and sends such types through ```default```. The conservative rule ships; the question is recorded for the dependent record types work.

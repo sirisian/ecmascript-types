@@ -2989,6 +2989,8 @@ switch (shape) {
 }
 ```
 
+A ```switch``` that has outgrown its labels - wanting destructuring, guards, or an expression result - is the [pattern matching](patternmatching.md) extension's ```match```, which keeps this section's exhaustiveness and narrowing and adds the pattern grammar on top; ```switch``` remains the statement-and-equality half of that division.
+
 #### Divergence
 
 A statement *diverges* when no path of control through it completes normally. The analysis is syntactic, so it never reasons about values:
@@ -3363,49 +3365,22 @@ This extension covers running typed value types across workers over shared memor
 
 ### Composites
 
-The [Composites proposal](https://github.com/tc39/proposal-composites) adds deeply immutable, structurally-compared aggregates as ordinary frozen objects rather than as new primitives. A composite is built with ```Composite```, is frozen, and is compared by its contents through ```Composite.equal``` and the SameValueZero that ```Map```, ```Set```, and ```Array.prototype.includes``` use - not through ```===```, which stays identity.
+This extension integrates interned composites with the type system: frozen, ```null```-prototype objects where equal contents are one object, so ```===```, ```Map```, and ```Set``` compare structurally with nothing new to learn. It covers typed creation through ```Composite.<T>```, type-sensitive interning over SameValueZero, the tuple kind, canonicalization, and the per-heap registry.
 
-Types compose with them as with any object. An object-backed composite has ```Object.prototype```, so it is assignable to an interface, and a value-typed one carries its element types:
+[Composites](composites.md)
 
-```js
-interface IPoint { x: int32, y: int32 }
-const ship1: IPoint = Composite({ x: 1, y: 2 });   // a frozen, value-compared point
-const ship2: IPoint = { x: -1, y: 3 };             // an ordinary mutable object
+### Pattern Matching
 
-function move(start: IPoint, deltaX: int32, deltaY: int32): IPoint {
-  return Composite({
-    x: start.x + deltaX,
-    y: start.y + deltaY,
-  });
-}
+This extension adds the ```match``` expression and its pattern grammar - literal, binding, type, object, array, range, regular expression, and extractor patterns, with ```and```/```or```/```not``` and guards - checked exhaustive over closed subjects, narrowing through every arm, and widening ```is``` to take a pattern.
 
-const a = move(ship1, 1, 0);
-const b = move({ x: 0, y: 2 }, 1, 0);   // an ordinary object argument works too
-Composite.equal(a, b);                  // true: same contents
-a === b;                                // false: composites are objects, so === is identity
-new Set([a, b]).size;                   // 1: SameValueZero compares contents, so Map/Set keys dedupe
-```
-
-An array-backed composite has ```Array.prototype```, so ```Array.isArray``` is true - the tuple shape - indexed and spread like an array and typed by its elements:
-
-```js
-const measures = Composite([uint8(42), uint8(12), uint8(67)]);
-measures[0];               // 42
-Array.isArray(measures);   // true
-
-const corrected = Composite([...measures, uint8(99)]);
-corrected[3];              // 99
-Composite.equal(corrected, Composite([uint8(42), uint8(12), uint8(67), uint8(99)])); // true
-```
-
-Reflecting a composite value goes through ```Reflect.Record``` for the object-backed shape and ```Reflect.Tuple``` for the array-backed one, described in the [decorators](decorators.md) extension.
+[Pattern Matching](patternmatching.md)
 
 ## New Syntax and Backwards Compatibility
 
 All new syntax in this proposal is a syntax error in current ECMAScript, so no existing program changes meaning:
 
 - ```enum``` is already a reserved word. ```interface``` and ```implements``` are reserved in strict mode and are treated as reserved everywhere this proposal uses them as declarations.
-- ```type```, ```ref```, ```operator```, ```dynamic```, ```partial```, ```sealed```, ```readonly```, ```shared```, ```inline```, ```where```, and ```is``` are contextual keywords. They're only treated as keywords in positions that don't parse today. For example ```type X = 1;``` is currently a syntax error on one line, and the grammar uses a [no LineTerminator here] restriction after ```type``` so a two-statement sequence split across lines keeps its current meaning. Extensions introduce further contextual keywords the same way, each a keyword only where it would be a syntax error today: ```meta``` and ```primitive``` in [primitive metadata](primitivemetadata.md), and ```namespace``` where an extension uses it.
+- ```type```, ```ref```, ```operator```, ```dynamic```, ```partial```, ```sealed```, ```readonly```, ```shared```, ```inline```, ```where```, and ```is``` are contextual keywords. They're only treated as keywords in positions that don't parse today. For example ```type X = 1;``` is currently a syntax error on one line, and the grammar uses a [no LineTerminator here] restriction after ```type``` so a two-statement sequence split across lines keeps its current meaning. Extensions introduce further contextual keywords the same way, each a keyword only where it would be a syntax error today: ```meta``` and ```primitive``` in [primitive metadata](primitivemetadata.md), ```namespace``` where an extension uses it, and ```match```, ```when```, ```and```, ```or```, and ```not``` in [pattern matching](patternmatching.md), whose compatibility argument that document makes in full.
 - ```:=``` and ```.<``` are token sequences that cannot appear in any valid program today, which is why the typed assignment and generic application syntaxes are built on them.
 - ```a: Type``` annotations appear only in declaration positions (bindings, parameters, class members, return types) where a ```:``` is currently invalid. Object literal and destructuring positions, where ```:``` already has a meaning, use the parenthesized ```(a: Type)``` form throughout the proposal for exactly this reason.
 
