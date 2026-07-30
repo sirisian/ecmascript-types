@@ -403,7 +403,7 @@ let pair: [uint32, string] = [1, 'a'];
 let triple: [uint8, uint8, uint8] = [255, 0, 128];
 ```
 
-A trailing position may carry a default, which is what lets a shorter array satisfy a longer tuple return, as the typed return values for destructuring section uses:
+A trailing position may carry a default, which is what lets a shorter array satisfy a longer tuple return, as the typed return values for destructuring section uses. *Trailing* is a rule, not a habit: a position without a default may not follow one that has it, and no default may follow a spread. A tuple is positional, so the only way to leave a position out is to stop short of it, and that omits a suffix and nothing else - a default anywhere but the tail could never be taken, since supplying the position after it supplies it too. A shape that wants to omit something in the middle names its members, which is an object type.
 
 ```js
 let p: [uint8, uint32 = 10] = [1]; // p is [1, 10]
@@ -1769,8 +1769,7 @@ function f(...mixed: Mixed) {
   match (mixed) {
     when FloatType: { /* float handling */ }
     when IntType: { /* int handling */ }
-    default: { /* an intersection is not a closed subject, so a catch-all is required */ }
-  }
+  } // Covered: the intersection distributes into two cases, so no default
 }
 ```
 
