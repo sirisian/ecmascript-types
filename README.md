@@ -1767,8 +1767,9 @@ function f(...mixed: Mixed) {
   // Do something with label
   // ...
   match (mixed) {
-    FloatType: // float handling
-    IntType: // int handling
+    when FloatType: { /* float handling */ }
+    when IntType: { /* int handling */ }
+    default: { /* an intersection is not a closed subject, so a catch-all is required */ }
   }
 }
 ```
