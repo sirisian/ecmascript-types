@@ -43,6 +43,7 @@ const size = match (request) {
 A ```match``` initializing several bindings at once returns a tuple or an object and is destructured, which is typed positionally or by member rather than inferred from a literal:
 
 ```js
+// status: Status, an enum of Active, Paused, and Off
 const [color, size] = match (status) {
   when Status.Active: ['green', 2];
   when Status.Paused: ['yellow', 1];
