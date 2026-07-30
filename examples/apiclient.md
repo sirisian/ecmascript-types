@@ -10,6 +10,7 @@ Features exercised:
 - Regular expression patterns with typed named groups parsing ```Retry-After``` and ```Link``` headers, where a misspelled group name is a compile-time TypeError.
 - Composite request keys as constant patterns: a match over interned keys is pointer comparisons, and the cache's ```Map``` needs no custom hashing.
 - Typed error patterns in the retry loop - the ```catch (e: T)``` form reappearing as ```when let e: NetworkError:``` - deciding retry against give-up by type.
+- A block arm that computes - statements then a final expression - where a closure would have broken ```await``` and ```return```.
 - ```is``` with a pattern as a loop condition, binding and narrowing in the body.
 - An enum-typed connection state matched exhaustively, including the sentinel cased to ```throw```.
 
@@ -51,13 +52,16 @@ function interpret(response: Response): Result.<string, ProtocolError> {
 		when { status: 301 | 302, let location }: throw new Redirect(location);
 		when { status: 404 }: new Err(new ProtocolError('not found', 404));
 		when { status: 429 }: throw new RateLimited(response);
-		when { let status }:
-			new Err(new ProtocolError(response.message ?? 'server error', status));
+		when { let status }: {
+			const detail = response.message ?? 'server error';
+			log.warn(`unhandled status ${status}: ${detail}`);
+			new Err(new ProtocolError(detail, status));
+		}
 	};
 }
 ```
 
-The literal ```200``` takes ```uint16``` from the field, so the comparison is against what the field stores. ```let body``` binds ```string``` because the first field pattern narrowed the union to its first member. The last arm names only ```status```, and that is the presence rule doing its work: an object pattern requires the members it names, ```message``` is optional in the final member, so ```{ let status, let message }``` would fail a response that lacks it and the arm would not cover the member - a compile-time TypeError under the exhaustiveness check, caught before it shipped as a runtime one. The body reads ```response.message``` instead, at ```string | undefined```, off the subject the arm has narrowed.
+The literal ```200``` takes ```uint16``` from the field, so the comparison is against what the field stores. ```let body``` binds ```string``` because the first field pattern narrowed the union to its first member. The last arm names only ```status```, and that is the presence rule doing its work: an object pattern requires the members it names, ```message``` is optional in the final member, so ```{ let status, let message }``` would fail a response that lacks it and the arm would not cover the member - a compile-time TypeError under the exhaustiveness check, caught before it shipped as a runtime one. The body reads ```response.message``` instead, at ```string | undefined```, off the subject the arm has narrowed. That arm is also the block form carrying a value: two statements and a final expression, whose value is the arm's, with no closure between the ```log``` call and the result.
 
 ## Status Classes by Range
 

@@ -125,6 +125,23 @@ if (addr.country == 'US') {
 }
 ```
 
+### Discriminated where-chains
+
+A ```where``` chain that switches on one member against constants is a discriminated union written from the inside, and where the chain qualifies it *denotes* that union. It qualifies when every condition is an equality test between a member of ```this``` and a literal or enumerator constant, every condition tests the same member, that member's declared type is a closed set of those constants - a literal union or an ```enum``` - and the chain is total, meaning it ends in ```else``` or its conditions exhaust the member's type. Each branch contributes the declared members with the discriminant narrowed to the constant that branch tested, plus whatever shape the branch asserts; a branch predicate that isn't a shape assertion rides along as a refinement of that branch and contributes no members.
+
+```js
+// Address above qualifies: one member, two literal constants, a final else.
+// It denotes:
+//   | { streetAddress: string, country: 'US', postalCode: USPostalCode }
+//   | { streetAddress: string, country: 'CA', postalCode: CAPostalCode }
+```
+
+Which is the union printed for reference above, so the equivalence that section asserts is a rule rather than a remark. What it buys is the property an ```enum``` and a sealed class already have and this form did not: [pattern matching](patternmatching.md) checks a ```match``` over an ```Address``` exhaustive from one arm per country with no ```default```, and adding ```'MX'``` to ```country``` becomes a compile-time error at every such ```match``` instead of silently routing through a default clause.
+
+A chain that doesn't qualify denotes nothing but itself: a ```!=``` or ordering condition, conditions over two different members, or a chain with no ```else``` over a member whose type isn't exhausted. Those keep every other behavior described here - the predicates run at boundaries, ```is``` evaluates them, narrowing works off the field correspondences - and only forgo the totality claim, so code matching on them writes a ```default```. Nothing is lost by declining to normalize; the alternative is a checker that reasons about predicates on a budget, and no other rule in this proposal asks for one.
+
+The derived union is used for checking, not as the type's identity. ```Reflect.typeOf``` reports the dependent record type, assignability compares against it, and ```Address``` remains one type object rather than two.
+
 ### Assignment design choices
 
 In the previous example for ```Payment``` setting either ```creditCard``` or ```billingAddress``` would place an instance into an invalid state. (Both need to be defined).
