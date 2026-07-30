@@ -267,7 +267,7 @@ Decorators can optionally return a replacement for the decorated target. If a de
 
 | Context | Return replaces | Return type |
 |---|---|---|
-| `Reflect.Class.<T>` | The class itself | `T` (constructor with same interface) |
+| `Reflect.Class.<T>` | The class itself | `T` (the class or a subclass: a class type is nominal, so a structurally identical class of another declaration is not a `T`) |
 | `Reflect.ClassField.<T, TClass>` | The field's initial value | `T` |
 | `Reflect.ClassAccessor.<T, TClass>` | The accessor's get/set pair | `{ get(): T, set(value: T): void }` |
 | `Reflect.ClassGetter.<T, TClass>` | The getter function | `() => T` |
