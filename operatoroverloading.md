@@ -39,6 +39,8 @@ primitive float32 {
 
 Resolution looks only at the left operand's type. For ```a * b```, the compiler searches the operator table of ```a```'s type for a signature whose parameter accepts ```b```. It never reverses the operands to find a match. That rule is not a limitation to work around, it is the reason ```Matrix4 * Vector4``` and ```Vector4 * Matrix4``` can mean different things, which in a column-major library they do: one transforms a column vector, the other a row vector. A language that silently reverses operands to find any match makes that bug unfindable.
 
+Two operators are outside this entirely, and it is worth saying which and why. ```|>``` (the [pipeline operator](pipelineoperator.md)) cannot be declared: it does not compute a value from two operands, it binds one and evaluates the other, so there is no operation for a signature to give a meaning to and no receiver whose table would be searched. The same reasoning excludes any future operator that binds rather than computes.
+
 Return type overloading applies to operators as it does to functions, which is how a SIMD comparison yields either a mask or a vector:
 
 ```js

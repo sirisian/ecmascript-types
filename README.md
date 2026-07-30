@@ -3377,6 +3377,12 @@ This extension adds ```do { ... }```, a block that produces a value, with the co
 
 [do Expressions](doexpressions.md)
 
+### Pipeline Operator
+
+This extension adds ```|>```, which binds its left side to the topic ```%``` and evaluates its right side, so a computation reads in the order it happens whether or not its steps are methods. The typed part is that the topic is a binding rather than a substitution: it carries the left side's type, a contextual type reaches through it, and a test on it narrows. It also states two refusals — ```|>``` is not overloadable, having no operand to resolve on, and ```ref %``` is an error, because a topic is a value and not a place.
+
+[Pipeline Operator](pipelineoperator.md)
+
 ### Pattern Matching
 
 This extension adds the ```match``` expression and its pattern grammar - literal, binding, type, object, array, range, regular expression, and extractor patterns, with ```and```/```or```/```not``` and guards - checked exhaustive over closed subjects, narrowing through every arm, and widening ```is``` to take a pattern.
