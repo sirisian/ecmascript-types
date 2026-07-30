@@ -566,6 +566,15 @@ namespace Reflect {
 		block: Expression;
 		binding: string | symbol;
 	};
+
+	type MatchArmBlockReflection = {
+		label?: string;
+		block: Expression;
+		subject: Expression;   // the match's argument
+		pattern?: Expression;  // absent for a `default` clause
+		guard?: Expression;    // absent where the clause is unguarded
+		index: uint32;         // the clause's position among its siblings
+	};
 }
 ```
 
@@ -767,6 +776,7 @@ namespace Reflect {
 	getReflection<Reflect.ForBlock>(label: string): Reflect.ForBlockReflection;
 	getReflection<Reflect.ForInBlock>(label: string): Reflect.ForInBlockReflection;
 	getReflection<Reflect.ForOfBlock>(label: string): Reflect.ForOfBlockReflection;
+	getReflection<Reflect.MatchArmBlock>(label: string): Reflect.MatchArmBlockReflection;
 }
 ```
 
@@ -1757,6 +1767,9 @@ namespace Reflect {
 
 	interface ForOfBlock extends Reflect.ForOfBlockReflection {
 	}
+
+	interface MatchArmBlock extends Reflect.MatchArmBlockReflection {
+	}
 }
 ```
 
@@ -1791,7 +1804,24 @@ loop:
 for (let i = 0; i < 10; ++i) @f {
 
 }
+
+match (command) {
+	when 'start': @g { start(); }
+	default: @g { }
+}
 ```
+
+A match arm is the position the per-entry rule pays for. A block decorator runs on every entry rather than once at the declaration, so decorating arms counts how often each case is actually taken - the measurement that tells an author their arms are in the wrong order, which is the one thing about a ```match``` that source order controls and static analysis cannot predict:
+
+```js
+const counts: Map.<uint32, uint32> = new Map();
+
+function g({ index }: Reflect.MatchArmBlock) {
+	counts.set(index, (counts.get(index) ?? 0) + 1);
+}
+```
+
+```index``` is what identifies an arm, since an arm carries no label of its own; ```pattern``` is absent on a ```default``` clause, which is how the two clause kinds are told apart without a context each.
 
 Could include in the context all sorts of information like the scope information for current variables declarations/references.
 

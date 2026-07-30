@@ -268,6 +268,8 @@ match (addr) {                                    // addr: Address
 }                                                 // Covered: adding 'MX' breaks this
 ```
 
+**Decorators** meet pattern matching from both sides. A ```match``` arm's body is a block, so it takes a block decorator with no new syntax - ```when P: @count { ... }``` - and ```Reflect.MatchArmBlock``` is that position's [context](decorators.md). Block decorators are the one per-entry position in that extension, running on every entry rather than once at the declaration, which makes an arm the natural thing to count: how often each case is actually taken is what tells an author their arms are in the wrong order, and source order is the one thing about a ```match``` that the author controls and the compiler cannot second-guess. In the other direction, a decorator is handed a *type* and must dispatch on its structure to emit a schema, a validator, or documentation, which is what type-subject patterns above are for; the two features need each other in opposite directions.
+
 **Errors** split the work with typed ```catch```: ```catch (e: RangeError)``` remains the form at a ```try```, and ```match``` takes over when an error value is *data* - already caught, carried in a result field, matched on its type and destructured for its payload in one arm. The annotated binding is deliberately the same syntax in both.
 
 **Generics** type the extractor protocol, as ```Some.<T>``` showed: inference from the subject is ordinary inference, and an ```Option```/```Result``` library is patterns all the way down with no machinery this document had to add. That the protocol needed nothing new is the strongest evidence the type system was ready.
