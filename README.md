@@ -1789,11 +1789,12 @@ Multiple rest parameters can be used:
 function f(a: string, ...args: [].<uint32>, ...args2: [].<string>, callback: () => void) {}
 f('a', 0, 1, 2, 'a', 'b', () => {});
 ```
-Dynamic types have less precedence than typed parameters:
+An untyped rest needs no precedence rule of its own; it collects anything, and the typed parameters around it are what bound it:
 ```js
 function f(...args1, callback1: () => void, ...args2, callback2: () => void) {}
 f('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
 ```
+Two rests with nothing typed between them are an error, since there is no boundary between them and no assignment more right than another.
 Rest array destructuring:
 ```js
 function f(...[a: uint8, b: uint8, c: uint8]) {
@@ -1801,12 +1802,13 @@ function f(...[a: uint8, b: uint8, c: uint8]) {
 }
 ```
 
-The behavior of rest parameters can create confusing signatures. While these are allowed, they aren't recommended. Arguments are taken by parameters greedily and given back to satisfy signatures.
+A parameter list is a pattern over the arguments - a plain parameter is one argument of its type, an optional one is one or none, a rest is any number of them - and a call is bound by matching left to right, each parameter taking as many arguments as it can and giving them back one at a time until the parameters after it can be satisfied. That is the whole rule, and the type of each parameter is what decides where one run ends and the next begins. The match is greedy from the left, so the binding is determined rather than a choice among several.
 ```js
 function f(...a: [].<uint32>, ...b: [].<uint32>, c: uint32): void {}
-f(0, 1, 2); // a: [0, 1], b: [], c: 2
-f(a: 0, 1, 2, b: 3, 4, 5, 6); // a: [0, 1, 2], b: [3, 4, 5], c: 6
+f(0, 1, 2); // a: [0, 1], b: [], c: 2 - a took all three, gave back for c, then b gave back too
+f(a: 0, 1, 2, b: 3, 4, 5, 6); // a: [0, 1, 2], b: [3, 4, 5], c: 6 - a name starts a run
 ```
+The behavior can create confusing signatures. While these are allowed, they aren't recommended: two rests of the same element type read as one, and it is the parameter after them that says where they split.
 
 ### Typed Promises
 
