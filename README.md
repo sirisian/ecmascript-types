@@ -3371,6 +3371,12 @@ This extension integrates interned composites with the type system: frozen, ```n
 
 [Composites](composites.md)
 
+### do Expressions
+
+This extension adds ```do { ... }```, a block that produces a value, with the completion type a typed language needs and the Early Errors that keep it predictable; ```do *``` and ```async do *```, the generator forms, whose type is inferred as a ```Generator.<Y, R, N>```; and the block decorator contexts that follow from a block finally having a value to replace.
+
+[do Expressions](doexpressions.md)
+
 ### Pattern Matching
 
 This extension adds the ```match``` expression and its pattern grammar - literal, binding, type, object, array, range, regular expression, and extractor patterns, with ```and```/```or```/```not``` and guards - checked exhaustive over closed subjects, narrowing through every arm, and widening ```is``` to take a pattern.

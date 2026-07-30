@@ -278,8 +278,10 @@ Decorators can optionally return a replacement for the decorated target. If a de
 | `Reflect.ObjectGetter.<T, TObject>` | The getter function | `() => T` |
 | `Reflect.ObjectSetter.<T, TObject>` | The setter function | `(value: T) => void` |
 | `Reflect.ObjectMethod.<T, TObject>` | The method | `T` (same signature) |
+| `Reflect.DoBlock.<T>` | The [`do` expression's](doexpressions.md) value | `T` |
+| `Reflect.DoGeneratorBlock.<Y, R, N>` | The `do *` expression's generator | `Generator.<Y, R, N>` |
 
-Decorators that describe sub-targets (parameters, returns) or structural positions (blocks, enums, tuples, records, let, const) do not support return replacement.
+Decorators that describe sub-targets (parameters, returns) or the remaining structural positions (blocks other than a `do`'s, enums, tuples, records, let, const) do not support return replacement. For a block that was never about its being structural: a block produces nothing, so there was nothing to replace. A `do` block produces a value and a `do *` block produces a generator, which is why those two rows exist and the others do not.
 
 ## Reflection
 
@@ -567,6 +569,17 @@ namespace Reflect {
 		binding: string | symbol;
 	};
 
+	type DoBlockReflection = {
+		label?: string;
+		block: Expression;
+	};
+
+	type DoGeneratorBlockReflection = {
+		label?: string;
+		block: Expression;
+		async: boolean;   // `async do *` rather than `do *`
+	};
+
 	type MatchArmBlockReflection = {
 		label?: string;
 		block: Expression;
@@ -776,6 +789,8 @@ namespace Reflect {
 	getReflection<Reflect.ForBlock>(label: string): Reflect.ForBlockReflection;
 	getReflection<Reflect.ForInBlock>(label: string): Reflect.ForInBlockReflection;
 	getReflection<Reflect.ForOfBlock>(label: string): Reflect.ForOfBlockReflection;
+	getReflection<Reflect.DoBlock>(label: string): Reflect.DoBlockReflection;
+	getReflection<Reflect.DoGeneratorBlock>(label: string): Reflect.DoGeneratorBlockReflection;
 	getReflection<Reflect.MatchArmBlock>(label: string): Reflect.MatchArmBlockReflection;
 }
 ```
@@ -1768,6 +1783,12 @@ namespace Reflect {
 	interface ForOfBlock extends Reflect.ForOfBlockReflection {
 	}
 
+	interface DoBlock extends Reflect.DoBlockReflection {
+	}
+
+	interface DoGeneratorBlock extends Reflect.DoGeneratorBlockReflection {
+	}
+
 	interface MatchArmBlock extends Reflect.MatchArmBlockReflection {
 	}
 }
@@ -1809,6 +1830,11 @@ match (command) {
 	when 'start': @g { start(); }
 	default: @g { }
 }
+
+// A `do` block and a `do *` block are blocks too, and are the only ones whose
+// decorator may RETURN a replacement, since they are the only ones with a value.
+const config = @memo do { expensiveParse(readFile(path)) };
+for (const v of @take(3) do * { yield* head(); yield* tail(); }) { use(v); }
 ```
 
 A match arm is the position the per-entry rule pays for. A block decorator runs on every entry rather than once at the declaration, so decorating arms counts how often each case is actually taken - the measurement that tells an author their arms are in the wrong order, which is the one thing about a ```match``` that source order controls and static analysis cannot predict:
