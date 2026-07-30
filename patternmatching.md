@@ -89,8 +89,9 @@ One case needs a rule rather than inference: a numeric literal against a union o
 A binding on the right of ```and``` names the whole value a pattern just matched, which is what other languages spell as an *as-pattern* or an ```@``` binding:
 
 ```js
+// result: ['ok', Payload] | ['error', string]
 match (result) {
-  when ['ok', _] and let success: forward(success);   // success: the whole tuple, narrowed
+  when ['ok', _] and let success: forward(success);   // success: ['ok', Payload]
   when ['error', let message]: report(message);
 }
 ```
@@ -158,25 +159,22 @@ class Some<T> {
   }
 }
 
-class None<T> extends Option.<T> {
-  static [Symbol.customMatcher]<T>(subject: Option.<T>): boolean {
-    return subject instanceof None.<T>;
-  }
-}
+class None<T> extends Option.<T> {}
 
 match (find(id)) {                    // find returns Option.<User>
   when Some(let user): greet(user);   // user: User, and the arm narrows to Some.<User>
-  when None: signIn();                // the boolean form, no parentheses
+  when None: signIn();                // a class is a type pattern; no matcher needed
 }
 ```
 
-```null``` is no match; a tuple is a match whose elements the sub-patterns match positionally, each typing from the tuple's element types, and a runtime TypeError where the counts disagree, so an extractor reached through ```any``` fails loudly rather than part-matching. An extractor whose head names a type narrows the arm to that type, so ```when Some(let user):``` narrows exactly as ```when Some:``` would and covers the ```Some``` case of a sealed ```Option```. That narrowing is a claim the matcher's author makes and the checker takes, the same trust a declared narrowing predicate receives; a matcher on a head that is not a type extracts without narrowing. The protocol is an ordinary method, so everything ordinary applies: overloads select on the subject's type, a generic matcher infers its parameters from the subject as any generic call does - which is how ```let user``` above binds ```User``` with nothing annotated - and the declared return type is the whole contract, checked where the matcher is written rather than trusted where it is used. A matcher may instead return ```boolean```, in which case the pattern takes no parentheses and is a plain membership test, the form ```Composite``` uses; a boolean matcher with parentheses, or a tuple matcher without them, is a type error. Matchers run user code, so unlike every other pattern they can observe order and throw; a throw propagates out of the ```match```.
+```null``` is no match; a tuple is a match whose elements the sub-patterns match positionally, each typing from the tuple's element types, and a runtime TypeError where the counts disagree, so an extractor reached through ```any``` fails loudly rather than part-matching. An extractor whose head names a type narrows the arm to that type, so ```when Some(let user):``` narrows exactly as ```when Some:``` would and covers the ```Some``` case of a sealed ```Option```. That narrowing is a claim the matcher's author makes and the checker takes, the same trust a declared narrowing predicate receives; a matcher on a head that is not a type extracts without narrowing. The protocol is an ordinary method, so everything ordinary applies: overloads select on the subject's type, a generic matcher infers its parameters from the subject as any generic call does - which is how ```let user``` above binds ```User``` with nothing annotated - and the declared return type is the whole contract, checked where the matcher is written rather than trusted where it is used. A matcher may instead return ```boolean```, in which case the pattern takes no parentheses and is a plain membership test - the form ```Composite``` uses, and the form a head that is *not* a type needs, since a class or interface name already tests membership as a type pattern without consulting any matcher; a boolean matcher with parentheses, or a tuple matcher without them, is a type error. Matchers run user code, so unlike every other pattern they can observe order and throw; a throw propagates out of the ```match```.
 
 ### Juxtaposition
 
 A type pattern followed directly by an object or array pattern matches both against the same value: the type first, then the structure, with the structure typing against the *narrowed* subject. ```Circle { let radius }``` is the variant form every language with sealed hierarchies converges on, and here it is not a special form but the composition it looks like - sugar for ```Circle and { let radius }```:
 
 ```js
+// shape: a sealed hierarchy of Circle and Rect
 match (shape) {
   when Circle { let radius }: PI * radius ** 2;
   when Rect { let w, let h }: w * h;
@@ -239,7 +237,7 @@ Checking the feature against its neighbours, which is where a design either comp
 
 **Sealed classes** are the algebraic data types, and juxtaposition is their eliminator: ```when Bin { let op }:``` tests, narrows, and destructures in one clause, which is the shape the ```switch``` chapter's evaluator wanted and had to spell as a case plus member reads. Value type classes match structurally through their fieldwise ```===```: a value-class constant in an expression pattern compares by contents, so ```when origin:``` against a ```Vector2``` is the structural test with no protocol.
 
-**Dependent record types** discriminate from the inside: a ```where``` chain switching on one member against constants denotes the union of its branches, so ```when { country: 'US', let postalCode }:``` narrows ```postalCode``` to ```USPostalCode``` because the discriminant chose the branch, and an arm per country is checked complete with no ```default```. That is the same coverage the opening example gets from a hand-written union, reaching the form written to avoid one.
+**Dependent record types** discriminate from the inside, and a ```match``` is one of the two forms a ```where``` chain is written in - ```where match (this.status) { ... }``` - carrying an implicit ```default: false;``` there, since a predicate that matches no clause has said the value is not of the type. A chain switching on one member against constants, in either form, denotes the union of its branches, so ```when { country: 'US', let postalCode }:``` narrows ```postalCode``` to ```USPostalCode``` because the discriminant chose the branch, and an arm per country is checked complete with no ```default```. That is the same coverage the opening example gets from a hand-written union, reaching the form written to avoid one.
 
 ```js
 match (addr) {                                    // addr: Address

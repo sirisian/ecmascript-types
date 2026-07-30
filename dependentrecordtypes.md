@@ -127,7 +127,9 @@ if (addr.country == 'US') {
 
 ### Discriminated where-chains
 
-A ```where``` chain that switches on one member against constants is a discriminated union written from the inside, and where the chain qualifies it *denotes* that union. It qualifies when every condition is an equality test between a member of ```this``` and a literal or enumerator constant, every condition tests the same member, that member's declared type is a closed set of those constants - a literal union or an ```enum``` - and the chain is total, meaning it ends in ```else``` or its conditions exhaust the member's type. Each branch contributes the declared members with the discriminant narrowed to the constant that branch tested, plus whatever shape the branch asserts; a branch predicate that isn't a shape assertion rides along as a refinement of that branch and contributes no members.
+A ```where``` chain that switches on one member against constants is a discriminated union written from the inside, and where the chain qualifies it *denotes* that union. It qualifies in either of the two forms a chain is written in.
+
+The ```if```/```else``` form qualifies when every condition is an equality test between a member of ```this``` and a literal or enumerator constant, every condition tests the same member, that member's declared type is a closed set of those constants - a literal union or an ```enum``` - and the chain is total, meaning it ends in ```else``` or its conditions exhaust the member's type. The ```where match``` form qualifies when its subject is one member of ```this``` of such a type, every clause is unguarded against a constant of it or an ```or``` of constants, no constant is named twice, and the clauses name them all; each clause is a branch, and a clause naming several constants contributes a member for each. Each branch contributes the declared members with the discriminant narrowed to the constant that branch tested, plus whatever shape the branch asserts; a branch predicate that isn't a shape assertion rides along as a refinement of that branch and contributes no members. A branch's predicates narrow within the branch whether or not they contribute members: any narrowing form over a path on ```this``` - ```this is T```, ```this.p is T```, ```this.data !== undefined``` - contributes there what it would contribute over the same path on a value, and a conjunction contributes both sides.
 
 ```js
 // Address above qualifies: one member, two literal constants, a final else.
@@ -346,7 +348,7 @@ class AddressResponse {
 
 ### Network Messages
 
-Showing ```where match``` syntax. The ```match```/```when``` forms follow the [pattern matching proposal](https://github.com/tc39/proposal-pattern-matching); ```where match``` inherits its semantics.
+Showing ```where match``` syntax. A ```match``` is an expression, so it is a predicate like any other; in this position it carries an implicit ```default: false;```, since a predicate that matches no clause has answered that the value is not of the type. Its semantics are otherwise [pattern matching](patternmatching.md)'s.
 
 ```js
 type NetworkState = {
@@ -373,6 +375,8 @@ function renderUI(state: NetworkState) {
 	}
 }
 ```
+
+A ```where match``` on one member against constants is a discriminating chain in the sense above, so ```NetworkState``` denotes the union of its four branches and the ```match``` in ```renderUI``` is checked exhaustive with no ```default```. The branch predicates narrow too: a branch asserting ```this.data !== undefined``` contributes that fact where its branch is taken, which is why ```state.data``` is not optional inside the ```'success'``` arm.
 
 ### Business Logic
 

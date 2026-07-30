@@ -3043,7 +3043,7 @@ function f(mode: Mode) {
 }
 ```
 
-Dispatching on the shape or contents of an arbitrary value is the [pattern matching proposal](https://github.com/tc39/proposal-pattern-matching)'s territory, and ```is``` covers a single structural test today.
+Dispatching on the shape or contents of an arbitrary value is [pattern matching](patternmatching.md)'s territory, where ```is``` takes a full pattern and ```match``` takes a clause per case; the form here is the single structural test.
 
 ### 128-bit Integer Types
 
