@@ -1873,6 +1873,8 @@ const it = g();
 it.next(true); // { value, done } with value: int32 until done, then string
 ```
 
+A generator is an iterator: ```Generator.<Y, R, N>``` satisfies ```IterableIterator<Y, R, N>``` and ```Iterable<Y>```, which is why a generator may be spread, consumed by ```for...of```, or passed anywhere an iterator is expected. That relation holds because the two families default ```R``` and ```N``` the same way, and the iteration types were written to match rather than the reverse.
+
 ```next``` takes the generator's next type and returns an iterator result:
 
 ```js
@@ -1906,7 +1908,7 @@ if (result.done) {
 
 ```for...of``` binds only ```Y```, since it stops when ```done``` is true.
 
-The loop variable of ```for...of``` infers from the iterable's yield type and can be annotated to assert it:
+The loop variable of ```for...of``` infers from the ```Iterable.<T>``` the subject satisfies, and can be annotated to assert it:
 
 ```js
 for (const a: int32 of f()) {}
@@ -1951,14 +1953,85 @@ async function* f(): AsyncGenerator.<uint8, void, void> {
 for await (const a: uint8 of f()) {}
 ```
 
+The async protocols mirror the synchronous ones, with the result wrapped:
+
+```js
+interface AsyncIterator<T, R = void, N = void> {
+  next(value?: N): Promise.<IteratorResult<T, R>, any>;
+}
+interface AsyncIterable<T> {
+  [Symbol.asyncIterator](): AsyncIterator<T>;
+}
+interface AsyncIterableIterator<T, R = void, N = void> extends AsyncIterable<T>, AsyncIterator<T, R, N> {}
+```
+
+An ```AsyncGenerator.<Y, R, N>``` satisfies ```AsyncIterableIterator<Y, R, N>``` for the reason its synchronous counterpart does. ```AsyncIterator``` becomes a class when the async iterator helpers proposal advances, and needs no change here when it does.
+
+#### The Iteration Types
+
+The protocols are interfaces, so a value satisfies them by having the members. This is not a stylistic choice: ```for...of``` asks whether ```[Symbol.iterator]``` is callable and never asks what a value declared, so a type that refused a hand-written iterator would describe a language this is not.
+
+```js
+type IteratorResult<T, R> = { value: T; done: false } | { value: R; done: true };
+
+interface Iterator<T, R = void, N = void> {
+  next(value?: N): IteratorResult<T, R>;
+  return?(value?: R): IteratorResult<T, R>;
+  throw?(e?: any): IteratorResult<T, R>;
+}
+interface Iterable<T> {
+  [Symbol.iterator](): Iterator<T>;
+}
+interface IterableIterator<T, R = void, N = void> extends Iterable<T>, Iterator<T, R, N> {}
+```
+
+A bare argument is the element type, as it is for a generator: ```Iterator.<uint8>``` is ```Iterator.<uint8, void, void>```. The defaults are ```void``` because ```Generator.<Y, R, N>```'s are, and that agreement is what makes **a generator an iterator**: ```Generator.<Y, R, N>``` satisfies ```IterableIterator<Y, R, N>```. Had the two been chosen apart, a generator would have been *nearly* an iterator, which is the trap TypeScript documented when its builtin iterators and its generators disagreed on the same parameter.
+
+```Iterator``` is also a class - the one iterator helpers put ```map```, ```filter```, and ```take``` on - and it declares that it implements ```IterableIterator```. A class that declares an interface is checked once at its declaration and by brand afterwards, so the common path costs a prototype check and only a hand-written object pays a member walk.
+
+```js
+class Cursor implements Iterator<uint8> {   // checked here, by brand at every use
+  next(): IteratorResult<uint8, void> { … }
+}
+function drain(it: Iterator.<uint8>): void {}
+drain(new Cursor());
+drain({ next: () => ({ value: 1, done: false }) });   // also fine: it has the members
+```
+
+```IteratorResult``` is a discriminated union over a boolean literal, so reading one is an ordinary exhaustive ```match``` and the two ```value``` types are separate:
+
+```js
+match (it.next()) {
+  when { done: false, let value }: use(value);      // value: uint8
+  when { done: true, let value }: finish(value);    // value: void
+}
+```
+
+That is the shape TypeScript needed a compiler flag for, ```--strictBuiltinIteratorReturn```, because without one the result's ```value``` was ```any```. Here the discriminant does the work the flag was standing in for.
+
+There are no per-collection iterator types. TypeScript has ```ArrayIterator```, ```MapIterator```, and ```SetIterator``` because it needs somewhere to put a narrower return type; the shorthand carries that here, so the family stays at three.
+
+The element parameter is **invariant**, in common with every generic in this proposal:
+
+```js
+class Shape {}
+class Circle extends Shape {}
+function draw(xs: Iterable.<Shape>): void {}
+// draw(circles); // TypeError: Iterable.<Circle> is not Iterable.<Shape>
+```
+
+Covariance would be sound here, since an iterator only produces its element and never accepts one, and it is what C# and Kotlin spend declaration-site variance on. Admitting it is the [generics](generics.md) extension's to make - the same deferral the invariance rule already records - and it can be made later without breaking a program, exactly as .NET added it to ```IEnumerable<T>``` in a later version, because covariance only ever adds legal conversions.
+
 #### Iterator Helpers
 
-The iterator helper methods flow element types through their callbacks, so fully typed chains need no annotations and can be fused by the engine:
+The helper methods flow element types through their callbacks, so fully typed chains need no annotations and can be fused by the engine:
 
 ```js
 function* f(): int32 { yield* [1, 2, 3]; }
-const a: [].<int32> = f().map(x => x * 2).filter(x => x > 2).toArray(); // x: int32 inferred
+const a: [].<int32> = f().map(x => x * 2).filter(x => x > 2).toArray();
 ```
+
+Each step names a type now that the family exists: ```f()``` is a ```Generator.<int32, void, void>```, which satisfies ```IterableIterator<int32>```; ```map``` gives an ```Iterator.<int32>``` with ```x``` inferred as ```int32```; ```filter``` keeps it; and ```toArray``` leaves the family for ```[].<int32>```.
 
 ### Explicit Resource Management
 
