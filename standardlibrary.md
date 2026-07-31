@@ -16,7 +16,7 @@ The numeric predicates gain the same per-type answers, returning ```boolean```. 
 
 ## Iterables
 
-The iteration interfaces are the ```...``` operator from the main proposal's typed iteration section, expressed as interface requirements:
+The iteration interfaces are the ```...``` operator from the main proposal's typed iteration section, expressed as interface requirements. ```*operator...()``` is how a class declares ```[Symbol.iterator]```, so these are the same member the [iteration types](README.md) state:
 
 ```js
 interface Iterable<T> {
@@ -28,12 +28,14 @@ interface AsyncIterable<T> {
 }
 ```
 
-An ```Iterator.<T>``` implements ```Iterable.<T>``` and is what generator functions and the helper methods below return.
+```Iterator<T, R, N>``` is the other half of the pair - it declares ```next```, returning an ```IteratorResult<T, R>``` - and ```IterableIterator<T, R, N>``` inherits both. A bare argument is the element type, so ```Iterator.<T>``` below is ```Iterator.<T, void, void>```.
 
 ## Iterator Helpers
 
+The helpers are defined on the ```Iterator``` class, which declares that it implements ```IterableIterator<T, R, N>```. Every method returning an iterator returns the class, so a chain stays on the fast path: a declared implementation is checked at the declaration and by brand afterwards, where a hand-written iterator entering the chain pays one structural check on the way in.
+
 ```js
-class Iterator<T> {
+class Iterator<T, R = void, N = void> implements IterableIterator<T, R, N> {
 	map<U>(callback: (value: T, index: uint32) => U): Iterator.<U>;
 	filter(callback: (value: T, index: uint32) => boolean): Iterator.<T>;
 	take(limit: uint32): Iterator.<T>;
@@ -49,13 +51,17 @@ class Iterator<T> {
 }
 ```
 
-```AsyncIterator.<T>``` mirrors these with callbacks allowed to return ```Promise```-wrapped results and the terminal methods returning promises, e.g. ```toArray(): Promise.<[].<T>, any>```.
+```AsyncIterator<T, R, N>``` mirrors these with callbacks allowed to return ```Promise```-wrapped results and the terminal methods returning promises, e.g. ```toArray(): Promise.<[].<T>, any>```.
+
+Two of these carry the shape the rest follow. ```map``` is the one that changes the element type, so its ```U``` is what every downstream callback infers from; ```toArray``` is the one that leaves the family, exchanging ```Iterator.<T>``` for ```[].<T>```, which is why a chain's annotation goes on the binding rather than on any step.
 
 A fully typed chain infers every callback parameter and can be fused into a single specialized loop with no intermediate allocation:
 
 ```js
 function* f(): int32 { yield* [1, 2, 3]; }
-const a: [].<int32> = f().map(x => x * 2).filter(x => x > 2).toArray(); // x: int32 inferred
+const a: [].<int32> = f().map(x => x * 2).filter(x => x > 2).toArray();
+// f() is a Generator.<int32, void, void>, which satisfies IterableIterator<int32>
+// map gives an Iterator.<int32> with x: int32; filter keeps it; toArray leaves for [].<int32>
 ```
 
 ## Grouping

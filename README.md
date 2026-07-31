@@ -1960,7 +1960,7 @@ interface AsyncIterator<T, R = void, N = void> {
   next(value?: N): Promise.<IteratorResult<T, R>, any>;
 }
 interface AsyncIterable<T> {
-  [Symbol.asyncIterator](): AsyncIterator<T>;
+  [Symbol.asyncIterator](): AsyncIterator<T>;   // declared as async *operator...()
 }
 interface AsyncIterableIterator<T, R = void, N = void> extends AsyncIterable<T>, AsyncIterator<T, R, N> {}
 ```
@@ -1980,7 +1980,7 @@ interface Iterator<T, R = void, N = void> {
   throw?(e?: any): IteratorResult<T, R>;
 }
 interface Iterable<T> {
-  [Symbol.iterator](): Iterator<T>;
+  [Symbol.iterator](): Iterator<T>;   // a class declares this as *operator...()
 }
 interface IterableIterator<T, R = void, N = void> extends Iterable<T>, Iterator<T, R, N> {}
 ```
