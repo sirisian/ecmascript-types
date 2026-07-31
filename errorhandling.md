@@ -30,9 +30,11 @@ Most of the errors a program catches are the ones it throws itself. But this pro
 - An **array access out of bounds** is a `RangeError`, from the bounds checks the array sections describe.
 - A **failed conversion at a dynamic boundary** — assigning an `any` or an untyped value into a typed binding whose runtime value doesn't match — is a `TypeError`. This is the check that makes `any` safe: the mismatch surfaces at the boundary rather than corrupting typed code downstream.
 - **Division by zero** in an integer, `decimal`, or `rational` type is a `RangeError`, since these types do not produce `Infinity` the way binary floats do.
-- A **failed `parse`** — `uint8.parse('nope')` — throws rather than returning a hidden `NaN`.
+- A **failed `parse`** throws rather than returning a hidden `NaN`, and which error it throws distinguishes the two ways a string can fail. `uint8.parse('12abc')` is a `SyntaxError`, because the string is not a literal of the type at all; `uint8.parse('256')` is a `RangeError`, because it *is* a literal and the value is out of range. That is the same distinction the rest of this list draws between a value of the wrong type and a value of the right type out of range, so `catch (e: RangeError)` still handles every range failure in one clause and a malformed string is separable from an oversized one.
 
-These are the standard `RangeError` and `TypeError`, so existing handlers catch them, and a typed `catch (e: RangeError)` handles every range failure above in one clause.
+These are the standard `RangeError`, `TypeError`, and `SyntaxError`, so existing handlers catch them, and a typed `catch (e: RangeError)` handles every range failure above in one clause.
+
+A program that would rather branch than catch uses `tryParse`, which returns `null` instead of throwing, and narrows with `?.` or a `null` check. That is the same choice the `T | null` union offers elsewhere in this document: the throwing form is the default because the platform's is, and the non-throwing form is there for the case where a failed parse is expected rather than exceptional.
 
 ## Custom errors
 
