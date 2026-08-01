@@ -88,6 +88,30 @@ type Identity<T> = T;
 
 Nothing else is required. A generic alias may already be applied, so ```Identity.<uint8>``` is ```uint8``` and ```Iterator.<Identity, uint8>``` is the synchronous iterator. This proposal ships the alias in the standard library rather than making it a built-in type, because there is nothing built-in about it.
 
+## Defaults, and where the parameter goes
+
+A higher-kinded parameter may carry a default like any other, and doing so decides where it sits in the list. The wrapper is the *least* interesting parameter at most use sites — almost every annotation wants the synchronous form — so it goes **last** and defaults to ```Identity```:
+
+```js
+interface Iterator<T, R = void, N = void, W<_> = Identity> {
+  next(value?: N): W.<IteratorResult<T, R>>;
+  return?(value?: R): W.<IteratorResult<T, R>>;
+  throw?(e?: any): W.<IteratorResult<T, R>>;
+}
+```
+
+```Iterator.<uint8>``` therefore reads exactly as it did before this extension existed, which matters more than it sounds: the alternative is that every annotation naming an iteration type in the standard library grows a wrapper argument to say what it already said.
+
+Putting it last is not a style preference — it is what the ordinary rule requires. A parameter carrying a default may not precede one that does not, so a leading ```W<_> = Identity``` followed by a required ```T``` would be ill-formed. **This extension adds no exception to that rule**, and a design needing one should be read as a sign the parameter is in the wrong position.
+
+The asynchronous form is then a name rather than a second declaration:
+
+```js
+type AsyncIterator<T, R = void, N = void> = Iterator<T, R, N, Promise>;
+```
+
+which keeps ```AsyncIterator.<uint8>``` writable while the members it describes are declared once. The duplication this extension removes is of *content*, not of names — names are cheap, and a reader looking for ```AsyncIterator``` should find it.
+
 ## Constraints
 
 A ```where``` clause on a higher-kinded parameter constrains its **applied form at a stated argument**:

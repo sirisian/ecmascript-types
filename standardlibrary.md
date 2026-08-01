@@ -14,6 +14,16 @@ The Math functions are overloaded over the numeric types with declared, checked 
 
 The numeric predicates gain the same per-type answers, returning ```boolean```. ```isNaN``` and ```isFinite``` are constants at the integer, bigint, and rational types and value tests at the float and decimal types. ```Number.isNaN```, ```Number.isFinite```, ```Number.isInteger```, and ```Number.isSafeInteger``` answer for the mathematical value, so ```Number.isNaN(x)``` on a ```float32``` NaN is true and ```Number.isInteger(i)``` on an ```int32``` is true, where today both are false because a typed value is not a Number. ```Number.isSafeInteger``` of an ```int64``` past 2^53 is false because the value is out of safe range, not because a payload lost precision.
 
+## Identity
+
+The wrapper that means *no wrapper*, used by the [higher-kinded](higherkindedtypes.md) iteration types and by anything else parameterized over one:
+
+```js
+type Identity<T> = T;
+```
+
+It is an ordinary generic alias rather than a built-in, because nothing about it is built in. ```Identity.<uint8>``` is ```uint8```.
+
 ## Iterables
 
 The iteration interfaces are the ```...``` operator from the main proposal's typed iteration section, expressed as interface requirements. ```*operator...()``` is how a class declares ```[Symbol.iterator]```, so these are the same member the [iteration types](README.md) state:
