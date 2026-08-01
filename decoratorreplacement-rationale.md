@@ -617,3 +617,36 @@ first day, and it was not followed here.
 that reports success. A stash that returns non-zero, an encode that throws after
 a truncate. **The check to run is not "did the last step succeed" but "did the
 step I am relying on actually happen".**
+
+## 20. The specification had the defect too
+
+Implementing expansion found two things wrong in the ENGINE and, on checking,
+one of them was wrong in the specification as well.
+
+**The engine applied every expansion site in one pass.** For `@a @b class C {}`
+the outer decoration's range CONTAINS the inner one's, so two edits overlapped
+and corrupted each other. **The specification was already right** - `sec-expansion`
+says "let _d_ be the outermost such decoration in source order", singular, one per
+iteration - so this was an implementation diverging from a clear rule rather than
+a rule that needed writing. Taking the algorithm literally fixed it.
+
+**But `sec-applyreplacementdecorator` had the other defect.** It said
+"Let _target_ be TokensOf(the declaration _d_ decorates)" while `sec-expansion`
+replaces "_d_ itself" TOGETHER WITH what it decorates. Those two do not agree: a
+decoration written between them - `@a @r class C {}` - is inside the range being
+replaced and outside what the macro was handed, so it was dropped silently.
+
+That contradicts §7.8(iii), which settles that a replacement encloses the runtime
+decorations and may rewrite or remove them, and it is the whole reason the
+outermost rule exists. _target_ is now everything the decoration encloses.
+
+**The pattern worth keeping**: the two clauses were each defensible alone and
+disagreed about a range. **A specification can be internally consistent
+clause-by-clause and still describe an operation that loses information**, and
+what found it was implementing the thing and printing what came out - not reading
+either clause again.
+
+`[[LineTerminatorBefore]]` also landed on the Token Record, which the engine had
+carried since stage G and the specification had not. Newlines are semantically
+significant through ASI, so a printer emitting a space where the source had a
+newline changes what a program means.
