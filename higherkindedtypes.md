@@ -17,13 +17,16 @@ interface AsyncIterator<T, R = void, N = void> {
 }
 ```
 
-**They differ on three axes, and a higher-kinded parameter addresses one of them.** Saying so plainly is more useful than a motivating example that does not survive being checked:
+**They differ on two axes, and a higher-kinded parameter addresses one of them.** Saying so plainly is more useful than a motivating example that does not survive being checked:
 
-1. `next`'s **return is wrapped** in a promise. This is the axis a kind removes.
-2. The **member key** differs — ```[Symbol.iterator]``` against ```[Symbol.asyncIterator]``` — so ```Iterable``` and ```AsyncIterable``` do not unify by this feature. A kind over the return type does not reach a key.
-3. The synchronous ```Iterator``` declares optional ```return``` and ```throw```; the asynchronous one declares neither.
+1. `next`'s **return is wrapped** in a promise. This is the axis a kind removes, and the unified declaration below is what removes it.
+2. The **member key** differs — ```[Symbol.iterator]``` against ```[Symbol.asyncIterator]```. A kind abstracts over the *type* a member has and never over the *key* it is stored under, so ```Iterable``` and ```AsyncIterable``` do not unify by this feature — and because ```IterableIterator``` extends one while ```AsyncIterableIterator``` extends the other, that pair does not either.
 
-So the family goes from six declarations to four or five, not to three. That is worth having, and it is not the dramatic collapse a first look suggests.
+**So the family goes from six declarations to five: one merge, in the smallest of the three pairs.** That is the honest measure of what this buys, and a reader deciding whether the feature is worth its weight should have it rather than an estimate.
+
+A third difference is often listed and is not one. The synchronous ```Iterator``` declares optional ```return``` and ```throw``` where the asynchronous one declares neither — but they are *optional*, so an interface declaring them is satisfied by a value with neither, and the asynchronous form's omission is a gap in its description rather than a difference in the protocol.
+
+The larger deduplication here is not this feature's. Abstracting over the member key would collapse all six to two, and it needs a **value** generic rather than a kind — a symbol parameter, as ```interface Iterable<K: symbol, W<_>, T> { [K](): Iterator.<W, T>; }```. That form is unwritten and would cost the use site its readability, since ```Iterable.<Symbol.iterator, Identity, uint8>``` stands where ```Iterable.<uint8>``` did, and defaults cannot rescue it because the defaultable parameters come first. It is recorded here because a reader who sees ```Iterable``` left un-unified will ask why, and because it is the larger prize.
 
 ## The declaration
 
@@ -34,6 +37,8 @@ interface Iterator<W<_>, T, R = void, N = void> {
   next(value?: N): W.<IteratorResult<T, R>>;
 }
 ```
+
+The declaration above is the unification, and it is worth reading against the two it replaces: `next`, `return`, and `throw` are written once, with `W.<…>` where the synchronous form had a bare result and the asynchronous form a promise. `Iterator.<Identity, T>` is the first and `Iterator.<Promise, T>` the second.
 
 ```W<_>``` takes one argument. ```W<_, _>``` takes two. **Arity is written, never inferred**, so a declaration says how it will use its parameter and a reader need not scan the body to find out.
 
