@@ -477,3 +477,143 @@ document — argument evaluation beside "evaluated in document order", overload
 selection beside the `@f`/`@f(0)`/`@f('a')` rule, and block frequency beside
 rule 5 — which was the point of §2.5: a rule with its exception recorded
 elsewhere is a rule that will be applied without it.
+
+## 16. Implementing the specification changes
+
+Eight new clauses, two edits, six early errors — and the plan was wrong about one
+edit in a way worth recording.
+
+**The plan listed four edited clauses; there are three.** It called for changing
+block reflection fields to `TokenStream` in `sec-decorators`, and **the
+specification does not define reflection fields at all** — `BlockReflection` and
+`ClassFieldReflection` appear nowhere in it. `sec-decorator-contexts` says so
+outright: "This is the one context this specification defines; the rest are the
+decorators extension's."
+
+So the `Expression`  to  `TokenStream` change is a decorators.md change only. **The
+plan assumed a division of labour between the design documents and the
+specification without checking where the line actually falls**, which is the same
+class of error as the ten-versus-two `initial` count: an estimate wearing the
+clothes of a fact.
+
+**`sec-expansion` was the load-bearing clause and it landed smaller than
+expected.** Inserting a phase between scanning and parsing needed one algorithm
+and four notes, because everything that would have made it complicated had
+already been decided: the fixpoint terminates by a limit, the order is
+outer-first, nothing is re-lexed because the input is tokens, and the name set is
+fixed before the loop so no import can appear mid-expansion. **A clause is short
+when its decisions were made elsewhere.**
+
+**One convention check worth having done.** The new `sec-import-attributes`
+reference reads as dangling, because it names an ECMA-262 clause rather than one
+of this proposal's. Six such references already existed and use exactly the same
+form — `<emu-xref href="#sec-numeric-types"></emu-xref>` — so the new one is
+consistent rather than broken. **Comparing the dangling set before and after
+separates "I introduced an error" from "this is how the document already cites
+its base."**
+
+## 17. Verifying the implementation — a probe on the wrong branch
+
+The coverage pass against the plan found one genuine specification gap and one
+error that had been running since the beginning.
+
+**The gap:** `ApplyReplacementDecorator` never set [[Macro]] or [[Generation]] on
+the tokens a decorator returns. The Source Reference Record table defined the
+fields and nothing populated them — the same shape as `SourceRef` being used and
+never defined, caught the same way, by checking a table's fields against their
+assignments rather than reading the prose.
+
+Closing it settled something the prose had implied and never said: a token a
+decorator COPIED keeps the Span it arrived with, and only a token it CREATED is
+attributed to the decorator. That is what makes a diagnostic inside generated
+code point at the macro rather than at the splice.
+
+**The error:** every measurement of the block decoration grammar in this project
+wrote the decorator in the wrong place. **It goes on the BLOCK** —
+`if (c) @g { … }`, not `@g if (c) { … }` — and the reflection context is chosen
+by the block's position, which is exactly why `IfBlockReflection` carries a
+`condition` the decorator did not write.
+
+Measured on the right branch, eight forms already work: `Block`, `IfBlock`,
+`ElseBlock`, `ElseIfBlock`, `WhileBlock`, `DoWhileBlock`, `ForBlock`,
+`ForInBlock`, `ForOfBlock`. **"The other block forms are not in the grammar" was
+never true**, and it had been carried in the design's state table, in the plan's
+out-of-scope list, and in the rationale.
+
+Two things hid it. The syntax was inferred from `@g { … }` working and never
+checked against the reflections that name an enclosing statement — **the
+`condition` field was the clue and it sat unread for the whole project**. And the
+probes were run against the wrong branch: a chained
+`git reset --hard origin/master || origin/main || origin/proposal-runtime-types`
+succeeded at `origin/main` for the engine, which HAS that branch, so it never
+reached the proposal branch and every measurement in that cycle described
+upstream engine262.
+
+**A fallback chain is not a fallback when an earlier alternative can succeed for
+the wrong reason.** The first symptom was `@g { … }` failing — a form measured
+working many times — and treating that as a regression rather than as an apparatus
+failure cost a bisect before the branch was checked.
+
+## 18. The specification did not build
+
+Two ecmarkup errors survived every review pass of this work, and both were
+invisible to the checks that were being run.
+
+**A step ended in `, and`.** The `TokensOf` algorithm was written as a sentence
+with a `where:` clause and two joined sub-items — correct English, and not an
+algorithm. `algorithm-line-style` requires each freeform step to end with a
+period. Rewriting it as a loop with a step per token fixed the lint and produced
+a better operation: the recursion into a delimited run is now explicit rather
+than implied by the phrase "the tokens of the run".
+
+**`sec-import-attributes` does not exist.** An earlier pass compared the dangling
+reference set before and after, found six pre-existing base-spec references in
+the same form, and concluded the new one was "consistent rather than broken".
+**That reasoning was wrong.** The six resolve through `@tc39/ecma262-biblio`;
+the seventh did not, because the biblio names those clauses
+`importattribute-record` and `sec-hostgetsupportedimportattributes`.
+
+**A convention check says a reference is well-FORMED, not that its target
+exists.** The two questions look alike and only one of them was being asked.
+
+Both were found by a build that had never been run — `npm run build` in the
+specification repository runs ecmarkup with `--strict` and `--lint-spec`, and it
+had been sitting in `package.json` throughout. **Balanced tags, resolving
+internal cross-references and a coherent reading are three proxies for a build,
+and the build is not expensive.**
+
+Fixing the second improved the text: the clause now names the ImportAttribute
+Record's [[Key]] and [[Value]] rather than gesturing at "the import attribute",
+and the Static Semantics operation matches it — which is the specification's own
+vocabulary, arrived at because the wrong reference forced a look at the right
+one.
+
+## 19. Two verifications that verified nothing
+
+Closing out this work, two checks turned out to be circular, and both had already
+reported success.
+
+**A `git stash -u && git reset --hard` chain broke at the stash**, so HEAD never
+moved. Every check afterwards read the working tree, which held the very edits
+being checked: "upstream is byte-identical to mine" compared a file to itself,
+and "the patch reverse-applies" tested a patch against the tree it was generated
+from. Both said yes. Both would have said yes if the work had never left this
+machine.
+
+**The conclusion happened to be right** - the work had landed - which is the
+uncomfortable part. A circular check that agrees with reality teaches nothing and
+leaves no trace. Reading `git show origin/master:decorators.md` instead of the
+file on disk is what finally distinguished them, and it is the only form of the
+question that could have.
+
+**Then a write helper truncated a file before failing.** Appending to this
+document meant encoding UTF-8 text into its cp1252 bytes, and a right-arrow
+character has no cp1252 encoding. The exception fired mid-write, after the file
+had been opened and emptied - 479 lines gone. Computing the payload fully and
+only then opening the file for write is the rule this session recorded on its
+first day, and it was not followed here.
+
+**Both failures share a shape**: a step that can fail silently sits before a step
+that reports success. A stash that returns non-zero, an encode that throws after
+a truncate. **The check to run is not "did the last step succeed" but "did the
+step I am relying on actually happen".**
