@@ -3408,6 +3408,12 @@ This extension covers typed Temporal signatures, units as an enumeration, and du
 
 [Generics](generics.md)
 
+### Higher-Kinded Types
+
+This extension lets a generic parameter stand for a generic *declaration* rather than a type, so one declaration can serve a family that differs only in a wrapper — an ```Iterator<W<_>, T>``` covering both the synchronous and asynchronous forms. Arity is written rather than inferred, application is always explicit, and the reasons for both are the evaluation budget's.
+
+[Higher-Kinded Types](higherkindedtypes.md)
+
 ### Decorators
 
 This extension introduces a compact syntax for defining and specializing decorators with types. It focuses on allowing compile time decorator calculations which provide typed feedback in editors and no overhead at runtime.
