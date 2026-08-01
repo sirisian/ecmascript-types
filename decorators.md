@@ -25,21 +25,21 @@ class A {
 }
 ```
 
-A bare ```@f``` and an empty ```@f()``` are equivalent; both resolve through overload resolution with zero explicit arguments. The overload taking only the context parameter is preferred when present. If no such overload exists and multiple signatures match through default values alone, the decoration is ambiguous and throws a TypeError at class definition time.
+A bare ```@f``` and an empty ```@f()``` are equivalent; both resolve through overload resolution with zero explicit arguments. **A REPLACEMENT decorator name binds one function and is not overloaded** — overload resolution needs types, and a replacement decorator runs before the module is checked. The overload taking only the context parameter is preferred when present. If no such overload exists and multiple signatures match through default values alone, the decoration is ambiguous and throws a TypeError at class definition time.
 
 ## Order
 
 Two phases, and they run in opposite directions. This is the rule TC39's decorators already established, and following it means a reader who knows those knows these.
 
-**Decorator expressions are evaluated in document order** — left to right, top to bottom, interleaved with computed property names. Whatever `@f(BASE + '/x')` computes, it computes at the position where it is written.
+**Decorator expressions are evaluated in document order** — left to right, top to bottom, interleaved with computed property names. Whatever `@f(BASE + '/x')` computes, it computes at the position where it is written. **A replacement decorator's arguments are NOT evaluated**: it runs before the module is parsed, so there is nothing to evaluate against, and `@derive(Serialize)` passes the identifier token `Serialize`.
 
 **Decorators are applied innermost first, and in reverse source order.** Concretely:
 
-1. Several decorators on one declaration apply in reverse source order, so the one written closest to the declaration is applied first. `@a @b @c x` applies `c`, then `b`, then `a` — Python's `a(b(c(x)))`, and TC39's rule for the same shape.
+1. Several decorators on one declaration apply in reverse source order, so the one written closest to the declaration is applied first. `@a @b @c x` applies `c`, then `b`, then `a` — Python's `a(b(c(x)))`, and TC39's rule for the same shape. **A stack of REPLACEMENT decorators runs the other way, outer first**, and the two orders are one principle in two media: both say `a` is outside `b`, and a value must exist before it is wrapped where syntax must be rewritten before it is consumed. Replacement decorators are written OUTERMOST in a mixed stack, so a replacement encloses the runtime decorations and may rewrite or remove them with what it replaces.
 2. A declaration's sub-targets apply before the declaration itself: parameter decorators in parameter order, then the return's, then the method's own. A method's decorator therefore sees a method whose parts are already decorated.
 3. Members apply before their container, in document order, and the container's own decorators apply last. A class decorator sees a finished class, including whatever its fields' and methods' decorators did; an object decorator sees a finished object; an enum decorator sees decorated enumerators.
 4. `addInitializer` callbacks run after every decorator of that declaration has been applied, in the order they were added.
-5. A BLOCK decorator runs on every ENTRY to the block, not once at the declaration. A block inside a loop is evaluated each iteration, so its decorator runs each iteration - which follows from the rule above ("a decorator runs when the declaration it decorates is evaluated") and is what makes a block decorator useful for instrumentation, tracing, and scoped resources. It is also the ONE per-evaluation position in this extension: every other decorator runs once per declaration, so a block decorator in a hot loop costs a context and a call per iteration, and that cost is not visible at the declaration site.
+5. A BLOCK decorator runs on every ENTRY to the block, not once at the declaration. **A replacement block decorator runs ONCE, at parse time**, and the cost this rule warns about below does not apply to it — it rewrites the block and can emit the instrumentation inline, so the per-iteration work happens where the per-iteration decorator does not. A block inside a loop is evaluated each iteration, so its decorator runs each iteration - which follows from the rule above ("a decorator runs when the declaration it decorates is evaluated") and is what makes a block decorator useful for instrumentation, tracing, and scoped resources. It is also the ONE per-evaluation position in this extension: every other decorator runs once per declaration, so a block decorator in a hot loop costs a context and a call per iteration, and that cost is not visible at the declaration site.
 
 ```js
 function tag(name) { return (context) => log.push(name); }
@@ -265,6 +265,8 @@ for (const item of items) @f { // Reflect.ForOfBlock
 
 Decorators can optionally return a replacement for the decorated target. If a decorator returns `void` (or `undefined`), no replacement occurs. If it returns a value, that value replaces the original target. The return type must be compatible with the original.
 
+This is the **value replacement** table. A *replacement decorator* returns SYNTAX rather than a value and is governed by a second table, below - the two are different axes, and a position may appear in both.
+
 | Context | Return replaces | Return type |
 |---|---|---|
 | `Reflect.Class.<T>` | The class itself | `T` (the class or a subclass: a class type is nominal, so a structurally identical class of another declaration is not a `T`) |
@@ -282,6 +284,32 @@ Decorators can optionally return a replacement for the decorated target. If a de
 | `Reflect.DoGeneratorBlock.<Y, R, N>` | The `do *` expression's generator | `Generator.<Y, R, N>` |
 
 Decorators that describe sub-targets (parameters, returns) or the remaining structural positions (blocks other than a `do`'s, enums, tuples, records, let, const) do not support return replacement. For a block that was never about its being structural: a block produces nothing, so there was nothing to replace. A `do` block produces a value and a `do *` block produces a generator, which is why those two rows exist and the others do not.
+
+### Syntax replacement
+
+A **replacement decorator** - one imported with `with { preprocessor: true }`, see [decoratorreplacement.md](decoratorreplacement.md) - returns a `TokenStream` that replaces the SYNTAX it decorates, before the module is checked. That is a different axis from the table above, and the reasoning that excludes blocks there does not carry: a block produces no value, but it has syntax.
+
+Every decorable position can be syntax-replaced, including every position the value table excludes. The constraint is grammatical rather than typed:
+
+| Context | Replacement must parse as | Also value-replaceable |
+|---|---|---|
+| `Reflect.Class` | a class declaration or expression, as the position was | yes |
+| `Reflect.ClassField` | a class field definition | yes |
+| `Reflect.ClassMethod` | a method definition | yes |
+| `Reflect.ClassAccessor` | an `accessor` field definition | yes |
+| `Reflect.ClassGetter` / `Reflect.ClassSetter` | a getter / setter definition | yes |
+| `Reflect.ClassOperator` | an operator definition | yes |
+| `Reflect.Function` | a function declaration or expression, as the position was | yes |
+| `Reflect.ObjectMethod` / `ObjectGetter` / `ObjectSetter` | the corresponding object member | yes |
+| `Reflect.ClassMethodParameter` and the other parameter contexts | a formal parameter | no |
+| `Reflect.ClassMethodReturn` and the other return contexts | a type annotation | no |
+| `Reflect.Block` and the eleven other block contexts | the statement form decorated | only `DoBlock` and `DoGeneratorBlock` |
+| `Reflect.Enum` / `Reflect.Tuple` / `Reflect.Record` | the corresponding declaration | no |
+| `Reflect.Let` / `Reflect.Const` | a lexical declaration | no |
+
+An EMPTY replacement needs no separate permission: it is legal exactly where an empty token stream parses, so `@cfg` removing a statement or a class member works and removing a parameter from the middle of a list does not.
+
+`DoBlock` and `DoGeneratorBlock` appear in both tables. What a return means at those positions is decided by WHICH KIND of decorator returned it, which the import that introduced its name settles.
 
 ## Reflection
 
@@ -309,6 +337,7 @@ namespace Reflect {
 		readonly: boolean;
 		// The DECLARED default: a typed field's zero value, or a constant initializer. A field's initializer runs per INSTANCE at construction while a field decorator fires at class definition, so there is no instance value to report here; `addInitializer` is what reaches one. (`inspect.Parameter.default` and `ParameterInfo.DefaultValue` report a declared default for the same reason.)
 		initial: T | undefined;
+		initializer: TokenStream | undefined;
 		// Layout, present when the declaring class has one. A static field is not part of an instance's layout, so both are undefined for it. The full layout of a field - bit-level placement included - is `ClassFieldLayoutReflection` in memorylayout.md; these two are here because they are the two a decorator commonly wants.
 		offset: int32 | undefined; // Signed bytes from the start of the instance; a negative offset overlaps a base
 		byteLength: uint32 | undefined;
@@ -322,6 +351,7 @@ namespace Reflect {
 		private: boolean;
 		protected: boolean;
 		initial: T | undefined;
+		initializer: TokenStream | undefined;
 		// The pair this accessor generated, over its own backing field. A decorator that REPLACES the accessor returns a new `{ get, set }`; delegating to this one keeps the replacement over the SLOT the layout already allotted, instead of closing over storage of its own and leaving that slot dead. The slot exists either way: a layout is compile-time evaluable and must not depend on whether a decorator ran.
 		access: { get(): T, set(value: T): void };
 		metadata: ClassAccessorMetadata;
@@ -348,6 +378,7 @@ namespace Reflect {
 		type: T;
 		name: string;
 		initial: T | undefined;
+		initializer: TokenStream | undefined;
 		metadata: ClassSetterParameterMetadata;
 	};
 
@@ -367,6 +398,7 @@ namespace Reflect {
 		name: string;
 		index: uint32;
 		initial: T | undefined;
+		initializer: TokenStream | undefined;
 		metadata: ClassMethodParameterMetadata;
 	};
 
@@ -388,6 +420,7 @@ namespace Reflect {
 		name: string;
 		index: uint32;
 		initial: T | undefined;
+		initializer: TokenStream | undefined;
 		metadata: ClassOperatorParameterMetadata;
 	};
 
@@ -422,6 +455,7 @@ namespace Reflect {
 		name: string;
 		index: uint32;
 		initial: T | undefined;
+		initializer: TokenStream | undefined;
 		metadata: FunctionParameterMetadata;
 	};
 
@@ -440,12 +474,14 @@ namespace Reflect {
 		type: T;
 		name: string;
 		initial: T | undefined;
+		initializer: TokenStream | undefined;
 	};
 
 	type ConstReflection<T = any> = {
 		type: T;
 		name: string;
 		initial: T;
+		initializer: TokenStream | undefined;
 	};
 }
 ```
@@ -486,6 +522,7 @@ namespace Reflect {
 		type: T;
 		name: string;
 		initial: T | undefined;
+		initializer: TokenStream | undefined;
 		metadata: ObjectSetterParameterMetadata;
 	};
 
@@ -501,6 +538,7 @@ namespace Reflect {
 		name: string | symbol;
 		index: uint32;
 		initial: T | undefined;
+		initializer: TokenStream | undefined;
 		metadata: ObjectMethodParameterMetadata;
 	};
 
@@ -517,75 +555,75 @@ namespace Reflect {
 namespace Reflect {
 	type BlockReflection = {
 		label?: string;
-		block: Expression;
+		block: TokenStream;
 	};
 
 	type IfBlockReflection = {
 		label?: string;
-		block: Expression;
-		condition: Expression;
+		block: TokenStream;
+		condition: TokenStream;
 	};
 
 	type ElseIfBlockReflection = {
 		label?: string;
-		block: Expression;
-		condition: Expression;
+		block: TokenStream;
+		condition: TokenStream;
 	};
 
 	type ElseBlockReflection = {
 		label?: string;
-		block: Expression;
+		block: TokenStream;
 	};
 
 	type WhileBlockReflection = {
 		label?: string;
-		block: Expression;
-		condition: Expression;
+		block: TokenStream;
+		condition: TokenStream;
 	};
 
 	type DoWhileBlockReflection = {
 		label?: string;
-		block: Expression;
-		condition: Expression;
+		block: TokenStream;
+		condition: TokenStream;
 	};
 
 	type ForBlockReflection = {
 		label?: string;
-		block: Expression;
-		initializer?: Expression;
-		condition?: Expression;
-		update?: Expression;
+		block: TokenStream;
+		initializer?: TokenStream;
+		condition?: TokenStream;
+		update?: TokenStream;
 	};
 
 	type ForInBlockReflection = {
 		label?: string;
-		block: Expression;
+		block: TokenStream;
 		binding: string | symbol;
 	};
 
 	type ForOfBlockReflection = {
 		label?: string;
-		block: Expression;
+		block: TokenStream;
 		binding: string | symbol;
 	};
 
 	type DoBlockReflection = {
 		label?: string;
-		block: Expression;
+		block: TokenStream;
 	};
 
 	type DoGeneratorBlockReflection = {
 		label?: string;
-		block: Expression;
+		block: TokenStream;
 		async: boolean;   // `async do *` rather than `do *`
 	};
 
 	type MatchArmBlockReflection = {
 		label?: string;
-		block: Expression;
-		subject: Expression;   // the match's argument
-		pattern?: Expression;  // absent for a `default` clause
-		guard?: Expression;    // absent where the clause is unguarded
+		block: TokenStream;
+		subject: TokenStream;   // the match's argument
+		pattern?: TokenStream;  // absent for a `default` clause
+		guard?: TokenStream;    // absent where the clause is unguarded
 		index: uint32;         // the clause's position among its siblings
 	};
 }
@@ -1752,7 +1790,7 @@ namespace Reflect {
 
 ### Block Decorators
 
-Note: That `Expression` is not defined here. Macro AST is out of scope. The Expression is a placeholder.
+Note: `TokenStream` is defined in [decoratorreplacement.md](decoratorreplacement.md). It is the token stream of what the decorator decorates - kinds, values, and spans saying where each token came from - deliberately below an AST: ECMAScript's lexical grammar is already normative, where a syntax tree would have to be invented and versioned. A decorator READS one here; a *replacement* decorator also RETURNS one, which is that document's subject.
 
 ```js
 namespace Reflect {
@@ -2626,4 +2664,4 @@ Yes.
 function f(a: uint32, b: uint32 = a * 2) {}
 ```
 
-Similar to `Reflect.ClassField` the parameter decorators only capture constant values. This is a limitation. Ideally one could capture the `Expression`, but I'm trying not to directly implement AST into this yet. Just leaving it as an extension.
+`initial` captures CONSTANT values only: a non-constant initializer reports *undefined*, because evaluating it would run user code at class definition rather than per call. `initializer` carries the same declaration as a `TokenStream`, so `x: uint32 = f()` is readable as what was written even though no value exists yet. The pair is a value and the expression that produced it, not two spellings of one thing - see [decoratorreplacement.md](decoratorreplacement.md).
