@@ -106,15 +106,16 @@ ref b = a[1]; // Rebinds b to a[1]; does not write a[0]
 
 ## The escape rule
 
-Everything above rests on one rule: **a reference may not outlive the access that produced it.** Storing a `ref` into a binding that survives the element access, a field, an array, or a collection is a TypeError, checked at compile time wherever the types are known.
+Everything above rests on one rule: **a reference may not outlive the access that produced it.** The rule needs no checker, because the grammar and decay enforce it between them. The `ref e` form exists in exactly three places — an argument, a return, and the binding forms — so writing a reference into anything that stores, a variable on the right of `=`, a field, an array element, a collection, is not a type violation to detect but a sentence the language cannot say: a syntax error, rejected before the program runs.
 
 ```js
 let escaped;
-// for (const ref p of particles) { escaped = ref p; } // TypeError: the reference outlives the element access
-
+// for (const ref p of particles) { escaped = ref p; } // SyntaxError: `ref` has no expression form here
 let saved;
-// zip(transforms, velocities, (ref t, ref v) => { saved = ref t; }); // TypeError: the reference outlives the element access
+// zip(transforms, velocities, (ref t, ref v) => { saved = ref t; }); // SyntaxError: `ref` has no expression form here
 ```
+
+The indirect routes are closed by decay. Writing `saved = t` inside the callback is legal and copies the element's value, because a reference reaching any value-consuming position decays to the value at its location first; what `saved` holds afterwards is a value with no tie to the array. There is no third route: a reference is either in one of the three forms, or it has already decayed.
 
 This is what keeps a reference a *location* rather than a heap object. A reference parameter is valid for the duration of its call and no longer; a `ref` binding is valid for its scope, and the array it points into may not be resized or moved while it is live.
 
