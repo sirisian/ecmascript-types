@@ -31,9 +31,11 @@ o.a; // 1
 function g({ (ref a: int32) }) {
   a++;
 }
-g(ref o);
+g(o); // Not `g(ref o)` - see below
 o.a; // 2
 ```
+
+The argument is `g(o)`, not `g(ref o)`. What the pattern borrows is the location of `a` *on the object*, and the object arrives on its own: an object is a reference to a heap object already, so the callee can reach `o.a` without the caller lending its variable. `ref o` would mean something else entirely — lending the caller's *binding*, so that `o = somethingElse` inside `g` rewrites the caller's variable — and that is unrelated to reaching a member. It would also have no effect here: a parameter that is a destructuring pattern consumes its argument as a value, so a reference reaching one decays before the pattern is applied.
 
 What can be borrowed is decided at the location, not at the property behind it. A variable, an array element, and an object property all qualify, and a property qualifies whether it holds data, is an accessor, is missing, or is answered by a `Proxy`: a read through the borrow is an ordinary get and a write an ordinary set, so borrowing an accessor calls the getter and the setter, borrowing an absent property reads `undefined` and creates it on write, and borrowing through a `Proxy` fires the traps as those operations always do. This is the only line that holds, because a property's shape is not fixed for the life of a borrow — a data property can be redefined as an accessor, or deleted, between the borrow and the write. What is refused is where no location exists at all: a private member, a `super` property, a property of a primitive (the wrapper a write would land on is discarded), and a [bit-field](memorylayout.md), which is a run of bits inside a scalar and addressable only by rewriting the whole scalar.
 
