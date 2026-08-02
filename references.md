@@ -35,9 +35,11 @@ g(ref o);
 o.a; // 2
 ```
 
+What can be borrowed is decided at the location, not at the property behind it. A variable, an array element, and an object property all qualify, and a property qualifies whether it holds data, is an accessor, is missing, or is answered by a `Proxy`: a read through the borrow is an ordinary get and a write an ordinary set, so borrowing an accessor calls the getter and the setter, borrowing an absent property reads `undefined` and creates it on write, and borrowing through a `Proxy` fires the traps as those operations always do. This is the only line that holds, because a property's shape is not fixed for the life of a borrow — a data property can be redefined as an accessor, or deleted, between the borrow and the write. What is refused is where no location exists at all: a private member, a `super` property, a property of a primitive (the wrapper a write would land on is discarded), and a [bit-field](memorylayout.md), which is a run of bits inside a scalar and addressable only by rewriting the whole scalar.
+
 ## Reference iteration
 
-A `for...of` binding can be a reference when iterating a typed array whose elements are value types. Each iteration binds a reference to the element rather than a copy, so the loop writes in place:
+A `for...of` binding can be a reference when iterating an array. Each iteration binds a reference to the element rather than a copy, so the loop writes in place. A typed array of value types is where this pays and where the storage rules below bite, but a slot is a location whatever it holds:
 
 ```js
 const particles: [1000].<Particle>;
@@ -49,7 +51,11 @@ for (const p of particles) {
 }
 ```
 
-The reference is to the array slot, so writes through other aliases are visible during the loop. Any operation that could change a variable-length array's length or move its storage — `push`, `pop`, `shift`, `unshift`, `splice`, or assigning `length` — while a reference into that array is live is a TypeError, checked at compile time wherever the types are known; a `ref` loop is the common case, since it holds a reference across the whole iteration. A fixed-length `[N].<T>` and a placement-`new` allocation never move, so references into them carry no such restriction.
+The reference is to the array slot, so writes through other aliases are visible during the loop. Liveness is enforced by two rules that catch different things at different moments.
+
+Inside a `ref` loop, any operation that changes the container's length — `push`, `pop`, `shift`, `unshift`, `splice`, or assigning `length` — is a TypeError *at that operation*. The loop holds a reference for its whole duration, so the length is pinned for its whole duration; nothing needs to be counted to know a reference is live.
+
+Outside a loop, a reference into storage that can relocate is invalidated when the storage relocates, and the next read or write through it is a TypeError. This is the rule that catches `reserve` and `withCapacity`, which change an allocation's capacity without touching its length and so are invisible to any length comparison. A reference to an element that has been removed is invalidated the same way: a reference names an element, not an address. A fixed-length `[N].<T>` and a placement-`new` allocation never move, so references into them are never invalidated.
 
 Reference iteration is direct, index-based element access: it does not go through `Symbol.iterator`, so patching the iterator protocol does not affect it, and it allocates nothing, since there is no `{ value, done }` result object — which a reference could not be stored in anyway. It is defined for the built-in typed arrays, including `SoA.<T>` from the [structure of arrays](soa.md) extension, where a reference denotes a column set and an index rather than a contiguous element. A user-defined iterator yielding references is not supported; the `...` operator's yield type is a value type.
 
@@ -123,6 +129,8 @@ This is what keeps a reference a *location* rather than a heap object. A referen
 
 Rust reaches the same in-place mutation with `&mut T`, and pays for it with a borrow checker and lifetimes: every reference carries a lifetime the compiler tracks, aliasing a mutable borrow is forbidden, and functions annotate how their references' lifetimes relate. That machinery buys compile-time memory safety without a garbage collector — the reference can never dangle because the borrow checker proves the referent outlives it.
 
-This proposal does not need most of that, because the collector already owns object lifetime. A `ref` cannot dangle in the Rust sense: the array it points into is a garbage-collected object that stays alive as long as any reference to it exists. What remains to prevent is a reference into *storage that moves* — a variable-length array reallocating, or a reference escaping the scope where its location is valid — and those are exactly the two rules above: no length change while a reference is live, and no escape past the producing access. Neither needs a lifetime system; both are local, syntactic checks.
+This proposal does not need most of that, because the collector already owns object lifetime. A `ref` cannot dangle in the Rust sense: the array it points into is a garbage-collected object that stays alive as long as any reference to it exists. What remains to prevent is a reference into *storage that moves* — a variable-length array reallocating — or a reference escaping the scope where its location is valid, and those are exactly the rules above: the loop rule and the relocation rule for movement, and the grammar plus decay for escape. Neither needs a lifetime system; each is computed from state the container already keeps, its length and whether its allocation has moved, so no reference has to be discoverable from the container it points into.
+
+That last point is why borrow *counting* was not the design. A count incremented per live reference would have to be decremented when each dies, and a reference reachable only from a suspended generator that is never resumed dies without any code running — the count would never come back down, and the container would be permanently unresizable through no program's fault. Both rules here read container state instead, so an abandoned reference simply stops being used and nothing has to notice.
 
 The trade is deliberate. There is no lifetime annotation to write and no aliasing rule to satisfy, so two `ref` parameters may alias the same element and a `ref` loop may read other elements freely — which is sound here precisely because the collector, not the borrow checker, guarantees the referent's existence. What is given up is Rust's compile-time data-race freedom, which the borrow checker also provides; concurrent mutation of shared value types is governed instead by the [threading](threading.md) extension's `shared` types and atomics. Within a single agent, a `ref` is a borrow with the ergonomics of a pointer and the safety of a bounds-checked, collector-backed location.
