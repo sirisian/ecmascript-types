@@ -3443,7 +3443,7 @@ This extension covers typed JSON parsing and stringification, structured clone o
 
 ### Threading
 
-This extension covers running typed value types across workers over shared memory: ```shared``` arrays backed by a SharedArrayBuffer, the atomics that make cross-thread updates well-defined, and the relaxed memory model that governs racing access.
+This extension covers real threads over one shared heap: ```callThread``` spawning any function onto another core in the same realm, the ```shared``` modifier that marks the value types crossing threads, ```Atomics``` extended to typed bindings and own properties, ```Lock```, ```Condition```, and ```ThreadLocal```, parallel iteration over a pool, and the relaxed memory model that governs racing access.
 
 [Threading](threading.md)
 
