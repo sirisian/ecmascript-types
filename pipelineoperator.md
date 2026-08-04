@@ -152,6 +152,6 @@ The subject is the topic, the arms narrow it, and the `match` is exhaustive or i
 
 **Errors.** A pipeline over a value that is either a success or a failure is the pattern the pipe proposal calls railway-oriented, and its own issue tracker records as far-future because JavaScript lacks the pieces. Some of those pieces are here: [typed `catch`](errorhandling.md) filters by type, `match` discriminates a result without a library, and `do` gives a step statements. What is not here is a pipe that *knows* about the failure track — `value |maybe> f(%)` — and this document does not propose one. It is worth knowing how much of the distance is already covered.
 
-**Ranges and the numeric types.** `x |> clamp(%, 0..255)` and `n |> Math.mod(%, len)` are the small everyday case, and they are where the contextual type matters most, since the literals in a step should be the type the step expects rather than Numbers that happen to fit.
+**Ranges and the numeric types.** `x |> clamp(%, 0..=255)` and `n |> Math.mod(%, len)` are the small everyday case, and they are where the contextual type matters most, since the literals in a step should be the type the step expects rather than Numbers that happen to fit.
 
 A worked program using all of the above is in [examples/pipeline.md](examples/pipeline.md): environment configuration read into typed settings, a timing feed fetched and validated, and a summary formatted, built from the shapes the proposal's own issue tracker keeps returning to.

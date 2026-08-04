@@ -85,6 +85,23 @@ interface MetaProtocol.<T> {
 }
 ```
 
+**Naming the base.** The ```primitive``` in those signatures is the type being parameterized - the meta type's *base* - and it reaches the hooks but not the constraint shape, because a shape is a free-standing ```type``` alias that any code may reference and a keyword bound to nothing would be meaningless there. A meta type whose fields live in the base's own value space therefore **declares one type parameter, which is bound to the base at each parameterization**:
+
+```js
+type NumberBounds<T: Ordered.<T>> = { bounds?: RangeBounds.<T>, nonZero?: boolean };
+
+meta NumberBounds<T: Ordered.<T>> {
+	default: NumberBounds.<T>;
+	subtype(sub: NumberBounds.<T>, sup: NumberBounds.<T>): boolean;
+	validate?(value: T, constraint: NumberBounds.<T>): boolean;
+	// ... and so on for each hook, with `T` where `primitive` stood
+}
+```
+
+The parameter is not new power; it is a **name** for what ```primitive``` already means, usable where a keyword cannot reach. Three things follow. It is supplied by position and never written - ```uint8.<{ bounds: 1..=6 }>``` binds ```T``` to ```uint8``` because that is the type being parameterized - so nothing at a use site changes. It must be bounded, and the shape says how tightly: ```RangeBounds.<T>``` requires ```T: Ordered.<T>```, so a base that carries no ordering is rejected at the declaration rather than at some later use. And claiming is unchanged, being a property of the declaration rather than of an instantiation: ```NumberBounds``` claims ```bounds``` and ```nonZero``` once and globally, whatever ```T``` turns out to be.
+
+A meta type that needs the base only inside a hook declares no parameter and keeps ```primitive```, which is every other meta type in this document: ```Dimensions``` carries exponents and a ratio, and ```DecimalContext``` a scale and a rounding mode, none of them in the base's value space. The generic form is what a meta type opts into by declaring a parameter, and the hooks of one that does are more precise for it, since ```validate(value: T, ...)``` says which primitive where ```validate(value: primitive, ...)``` does not.
+
 Two examples will be used, a dimensions (units of measure) and bounds (minimum and maximum constraints from JSON Schema).
 
 **Metadata Type**: Dimensions  
@@ -190,9 +207,144 @@ function halveDimensions(d: Dimensions): Dimensions {
 ```
 
 **Metadata Type**: NumberBounds  
-JSON Schema numeric constraints. Absent fields mean unconstrained in that direction. Both inclusive (minimum, maximum) and exclusive (exclusiveMinimum, exclusiveMaximum) bounds are supported. When both exist on the same side, the tighter (more restrictive) one takes effect.
+A range constraining the value, and a flag for the one constraint a range cannot express. `bounds` is the range a value must fall within; `nonZero` excludes zero from a range that otherwise contains it, which is what a divisor needs. An absent key means the meta type's default, an unconstrained bound.
 
-A range literal with compile-time constant endpoints, from the [ranges](ranges.md) extension, is a valid metadata argument and desugars to exactly these fields: `..` sets `exclusiveMaximum`, `..=` sets `maximum`, and an omitted endpoint omits its constraint. So `uint8.<1..=6>` is `uint8.<{ minimum: 1, maximum: 6 }>` and `float32.<0..1>` is `float32.<{ minimum: 0, exclusiveMaximum: 1 }>`.
+The range under `bounds` is a **value**, one of the four shapes of the [ranges](ranges.md) extension, and not an arbitrary `RangeBounds` implementor: a class of a program's own has no structural comparison, so interning would have no answer for it and an expansion artifact no way to carry it. Its endpoints are compile-time constants, and each is taken at the type the metadata parameterizes rather than at the type its literal would otherwise have - `uint8.<{ bounds: 1..=6 }>` has `uint8` endpoints - which is what makes the same spelling in two modules the same type, since a `uint8` 1 and a Number 1 are never SameValue under this proposal.
+
+There is no bare-range metadata argument: `uint8.<1..=6>` is not a type, and the range is written under the key that says what it means. Dispatch in the metadata system is by claimed key, and a bare range carries no key to route by; a grammar-level desugaring would need no dispatch but would give one type two spellings, which is the thing `bounds` was adopted to stop.
+
+```js
+type NumberBounds<T: Ordered.<T>> = {
+	bounds?: RangeBounds.<T>,
+	nonZero?: boolean,
+};
+
+// A constraint excludes zero when it says so or when its bounds already do.
+// This is the rule that keeps `uint32.<{ bounds: 1.. }>` a Divisor without
+// its having to repeat itself.
+function excludesZero<T: Ordered.<T>>(c: NumberBounds.<T>): boolean {
+	return c.nonZero || !c.bounds.contains(0);
+}
+
+meta NumberBounds<T: Ordered.<T>> {
+	// The default is total: every key has a value, so no hook tests for absence.
+	default = { bounds: .., nonZero: false };
+
+	subtype(sub: NumberBounds.<T>, sup: NumberBounds.<T>): boolean {
+		// A range that cannot contain zero is non-zero whether or not it says so.
+		if (excludesZero(sup) && !excludesZero(sub)) return false;
+		return sup.bounds.contains(sub.bounds);
+	}
+
+	validate(value: T, constraint: NumberBounds.<T>): boolean {
+		// `value == 0` is true for -0 as well, which is also a zero divisor.
+		if (constraint.nonZero && value == 0) return false;
+		return constraint.bounds.contains(value);
+	}
+
+	// Bounds live in the value's own unit space. When another meta type's
+	// conversion scales the value by `factor`, the bounds scale identically.
+	// A non-zero factor maps non-zero values to non-zero values, so `nonZero`
+	// carries through unchanged.
+	rescale(constraint: NumberBounds.<T>, factor: float64): NumberBounds.<T> {
+		return clean({ ...constraint, bounds: constraint.bounds.scale(factor) });
+	}
+
+	narrow(current: NumberBounds.<T>, op: string, value: T): NumberBounds.<T> {
+		// Each operator is a one-sided range, and narrowing is intersection.
+		// Intersection is monotone, so a comparison looser than what is already
+		// known changes nothing and no tightness test is needed.
+		switch (op) {
+			case '>=': return clean({ ...current, bounds: current.bounds.intersect(value..) });
+			case '>': return clean({ ...current, bounds: current.bounds.intersect(value<..) });
+			case '<=': return clean({ ...current, bounds: current.bounds.intersect(..=value) });
+			case '<': return clean({ ...current, bounds: current.bounds.intersect(..<value) });
+			// An equality outside the bounds already known intersects to an
+			// empty range, which is a dead branch stated precisely rather than
+			// a fabricated bound.
+			case '==': return clean({ ...current, bounds: current.bounds.intersect(value..=value) });
+			case '!=': {
+				// A single range cannot exclude an arbitrary value, since that
+				// would need a union of two disjoint ranges. Zero is the one
+				// exception, because `nonZero` names exactly that hole.
+				return value == 0 ? clean({ ...current, nonZero: true }) : current;
+			}
+		}
+		return current;
+	}
+
+	describe(constraint: NumberBounds.<T>): string {
+		const parts: [].<string> = [];
+		if (!constraint.bounds.isFull)
+			parts.push(`in ${constraint.bounds}`);
+		if (constraint.nonZero)
+			parts.push('!= 0');
+		return parts.join(' and ') || 'unconstrained';
+	}
+}
+
+// Canonicalization: drop what the default already says, and drop a flag the
+// bounds already imply, so one constraint has one spelling.
+function clean<T: Ordered.<T>>(b: NumberBounds.<T>): NumberBounds.<T> {
+	return { ...b, nonZero: b.nonZero && b.bounds.contains(0) };
+}
+```
+
+`conversionFactor` and `quantize` are absent, and correctly: a bound admits or rejects a value, it never changes one.
+
+**Narrowing is where the range earns its place.** Each comparison operator *is* a one-sided range in the syntax the [ranges](ranges.md) extension gives - `>` is `value<..`, which is the form that motivated giving an exclusive start a type at all - and narrowing is their intersection. That makes it monotone by construction: a comparison looser than what is already known intersects to the same range, where four separate fields needed a tightness test in every branch to avoid *widening* a constraint on a comparison against a looser bound.
+
+Two properties follow that the four-field form could not have. Illegal states stop being representable: `{ minimum: 5, exclusiveMinimum: 7 }` was two lower bounds at once, which is why the old rule had to say that the tighter one takes effect on each side, and **that rule is now gone rather than restated**. And `subtype` becomes containment - one range inside another - rather than a four-way reconciliation of which bound on which side was tighter.
+
+**What it costs.** The correspondence with JSON Schema's `minimum`, `maximum`, `exclusiveMinimum`, and `exclusiveMaximum` is gone, so a tool generating metadata from a schema translates rather than copies; the translation is total and mechanical in both directions, which is the whole of the loss.
+
+The larger change is that **validation is exact**. The four-field form compared with a relative tolerance of four float32 epsilons while `subtype` compared exactly, so a value a hair outside a bound validated and a type a hair outside did not. `Range.contains` is exact, as it must be - a `case 200..<300` that matched `300.0000001`, or a slice bound that did, would be indefensible - so validation now agrees with subtyping and with narrowing rather than disagreeing with both. Two consequences are worth stating plainly: a value within the old tolerance of a bound now fails where it used to pass, and the epsilon helpers are deleted rather than relocated. It is also the only answer that generalizes, since `NumberBounds` is now generic in its host primitive and a float32 epsilon means nothing to a `bigint` or a `decimal128` bound.
+
+**This is the meta type that made the base worth naming.** `uint8.<{ bounds: 1..=6 }>` wants a `Range.<uint8>`, so `NumberBounds` is the first constraint shape whose fields live in the base's own value space, and it takes the type parameter described under the protocol above. The fields it replaces were declared `float32` outright, so a bound on a `float64` truncated and a bound on a `decimal128` truncated further; the parameterized form fixes a live deficiency rather than a hypothetical one, and it is what makes the operators below well typed, since `B.bounds + B2.bounds` is range arithmetic only if `B.bounds` is a range over the base.
+
+### nonZero and division
+
+`nonZero` is the one constraint a range cannot express, since excluding a single interior value would need a union of two disjoint ranges. It earns its place because it is the constraint the hardware cares about.
+
+Integer division throws a RangeError when its divisor is zero, so an engine emits a test and a branch before every `idiv`. A divisor whose type cannot be zero needs neither, and the check moves from every division to the one boundary where the value was built.
+
+```js
+type Divisor = int32.<{ nonZero: true }>;
+
+function scale(x: int32, by: Divisor): int32 {
+	return x / by; // No guard. `by` cannot be zero
+}
+
+scale(10, 3); // The literal is validated once, here
+// scale(10, 0); // TypeError: literal 0 fails NumberBounds.validate
+```
+
+A range that already excludes zero is non-zero without saying so, which `subtype` accounts for, so `uint32.<{ bounds: 1.. }>` is a `Divisor` and an array length is one for free.
+
+The `narrow` hook makes the constraint reachable from ordinary control flow rather than only from an annotation. Guarding a divisor is the way this is written already, and now the guard is what removes the guard:
+
+```js
+function ratio(a: int32, b: int32): int32 {
+	if (b != 0) {
+		return a / b; // b: int32.<{ nonZero: true }> here, and the division cannot throw
+	}
+	return 0;
+}
+```
+
+Because the main proposal makes the most negative value divided by `-1` wrap rather than throw, a division by a non-zero divisor cannot fail at all. It is a pure expression, so it can be hoisted out of a loop, shared between `a / b` and `a % b`, and eliminated when its result is unused. That is the second half of what the constraint buys.
+
+### Primitive Operators
+
+Two rules govern operator blocks:
+
+**Raw operations inside bodies.** Inside a ```primitive``` operator body, expressions evaluate on raw values; no operator blocks (value or metadata-only) are re-entered. Without this rule ```return this + rhs;``` inside ```operator+``` would recurse infinitely, and the cast body ```return this * D.ratio;``` would re-enter ```operator*```. The metadata of an operation's result comes solely from the return type annotations per the composition rules below.
+
+**Operator generic parameter lists use ```.<...>```.** The operator token itself may end in ```<``` or ```>```, so ```operator<.<D2: Dimensions>``` lexes unambiguously where ```operator< <D2: Dimensions>``` would collide with the ```<<``` token.
+
+Unit conversion between operands happens at the operator's argument boundary through the standard implicit conversion described under the composition rules; the bodies below can assume ```rhs``` is already in ```this```'s unit system.
+
+The comparison operators below compare with a tolerance, and they are the only place in this document that does. A conversion between units is a multiplication, so `Kilometer(1)` and `Meter(1000)` are equal in principle and need not be equal bit for bit once one has been scaled into the other's space; comparing dimensioned quantities exactly would make that pair unequal for no reason a reader would accept. This is a fact about converted *values* and not about bounds: `NumberBounds` validates exactly, so that a value admitted by a constraint and a type admitted by a constraint agree.
 
 <details>
 	<summary>Expand for float32 epsilon helper functions.</summary>
@@ -226,186 +378,6 @@ function fgt(a: float32, b: float32): boolean {
 }
 ```
 </details>
-
-```js
-type NumberBounds = {
-	minimum?: float32,
-	maximum?: float32,
-	exclusiveMinimum?: float32,
-	exclusiveMaximum?: float32,
-	nonZero?: boolean,
-};
-
-meta NumberBounds {
-	default = {};
-
-	// Subtyping uses exact comparisons on the canonical metadata values so the relation stays transitive; epsilon comparisons are reserved for runtime value validation below.
-	subtype(sub: NumberBounds, sup: NumberBounds): boolean {
-		const subLo = effectiveMin(sub);
-		const supLo = effectiveMin(sup);
-		const subHi = effectiveMax(sub);
-		const supHi = effectiveMax(sup);
-		const subLoX = isExclusiveMin(sub);
-		const supLoX = isExclusiveMin(sup);
-		const subHiX = isExclusiveMax(sub);
-		const supHiX = isExclusiveMax(sup);
-
-		// Sub's lower bound must be at least as tight as sup's
-		if (supLo != null) {
-			if (subLo == null) return false;
-			if (subLo < supLo) return false;
-			// Equal: exclusive is tighter than inclusive
-			if (subLo == supLo && supLoX && !subLoX) return false;
-		}
-
-		// Sub's upper bound must be at least as tight as sup's
-		if (supHi != null) {
-			if (subHi == null) return false;
-			if (subHi > supHi) return false;
-			if (subHi == supHi && supHiX && !subHiX) return false;
-		}
-
-		// A range that cannot contain zero is non-zero whether or not it says so.
-		if (excludesZero(sup) && !excludesZero(sub)) return false;
-
-		return true;
-	}
-
-	validate(value: float32, constraint: NumberBounds): boolean {
-		if (constraint.minimum != null && flt(value, constraint.minimum))
-			return false;
-		if (constraint.exclusiveMinimum != null && fle(value, constraint.exclusiveMinimum))
-			return false;
-		if (constraint.maximum != null && fgt(value, constraint.maximum))
-			return false;
-		if (constraint.exclusiveMaximum != null && fge(value, constraint.exclusiveMaximum))
-			return false;
-		// `value == 0` is true for -0 as well, which is also a zero divisor.
-		if (constraint.nonZero && value == 0)
-			return false;
-		return true;
-	}
-
-	// Bounds live in the value's own unit space. When another meta type's conversion scales the value by `factor`, the bounds scale identically. A non-zero factor maps non-zero values to non-zero values, so `nonZero` carries through unchanged.
-	rescale(constraint: NumberBounds, factor: float64): NumberBounds {
-		return scalarMulNumberBounds(constraint, factor);
-	}
-
-	narrow(current: NumberBounds, op: string, value: float32): NumberBounds {
-		const result: NumberBounds = { ...current };
-
-		switch (op) {
-			case '>=': {
-				const curMin = effectiveMin(current);
-				if (curMin == null || fgt(value, curMin)) {
-					result.minimum = value;
-					delete result.exclusiveMinimum;
-				}
-				break;
-			}
-			case '>': {
-				const curMin = effectiveMin(current);
-				if (curMin == null || fge(value, curMin)) {
-					result.exclusiveMinimum = value;
-					delete result.minimum;
-				}
-				break;
-			}
-			case '<=': {
-				const curMax = effectiveMax(current);
-				if (curMax == null || flt(value, curMax)) {
-					result.maximum = value;
-					delete result.exclusiveMaximum;
-				}
-				break;
-			}
-			case '<': {
-				const curMax = effectiveMax(current);
-				if (curMax == null || fle(value, curMax)) {
-					result.exclusiveMaximum = value;
-					delete result.maximum;
-				}
-				break;
-			}
-			case '==': {
-				result.minimum = value;
-				result.maximum = value;
-				delete result.exclusiveMinimum;
-				delete result.exclusiveMaximum;
-				break;
-			}
-			case '!=': {
-				// A single range cannot exclude an arbitrary value, since that
-				// would need a union of two disjoint ranges. Zero is the one
-				// exception, because `nonZero` names exactly that hole.
-				if (value == 0) {
-					result.nonZero = true;
-				}
-				break;
-			}
-		}
-
-		return clean(result);
-	}
-
-	describe(constraint: NumberBounds): string {
-		const parts: [].<string> = [];
-		if (constraint.minimum != null)
-			parts.push(`>= ${constraint.minimum}`);
-		if (constraint.exclusiveMinimum != null)
-			parts.push(`> ${constraint.exclusiveMinimum}`);
-		if (constraint.maximum != null)
-			parts.push(`<= ${constraint.maximum}`);
-		if (constraint.exclusiveMaximum != null)
-			parts.push(`< ${constraint.exclusiveMaximum}`);
-		if (constraint.nonZero)
-			parts.push('!= 0');
-		return parts.join(' and ') || 'unconstrained';
-	}
-}
-```
-
-### nonZero and division
-
-`nonZero` is the one constraint a range cannot express, since excluding a single interior value would need a union of two disjoint ranges. It earns its place because it is the constraint the hardware cares about.
-
-Integer division throws a RangeError when its divisor is zero, so an engine emits a test and a branch before every `idiv`. A divisor whose type cannot be zero needs neither, and the check moves from every division to the one boundary where the value was built.
-
-```js
-type Divisor = int32.<{ nonZero: true }>;
-
-function scale(x: int32, by: Divisor): int32 {
-	return x / by; // No guard. `by` cannot be zero
-}
-
-scale(10, 3); // The literal is validated once, here
-// scale(10, 0); // TypeError: literal 0 fails NumberBounds.validate
-```
-
-A range that already excludes zero is non-zero without saying so, which `subtype` accounts for, so `uint32.<{ minimum: 1 }>` is a `Divisor` and an array length is one for free.
-
-The `narrow` hook makes the constraint reachable from ordinary control flow rather than only from an annotation. Guarding a divisor is the way this is written already, and now the guard is what removes the guard:
-
-```js
-function ratio(a: int32, b: int32): int32 {
-	if (b != 0) {
-		return a / b; // b: int32.<{ nonZero: true }> here, and the division cannot throw
-	}
-	return 0;
-}
-```
-
-Because the main proposal makes the most negative value divided by `-1` wrap rather than throw, a division by a non-zero divisor cannot fail at all. It is a pure expression, so it can be hoisted out of a loop, shared between `a / b` and `a % b`, and eliminated when its result is unused. That is the second half of what the constraint buys.
-
-### Primitive Operators
-
-Two rules govern operator blocks:
-
-**Raw operations inside bodies.** Inside a ```primitive``` operator body, expressions evaluate on raw values; no operator blocks (value or metadata-only) are re-entered. Without this rule ```return this + rhs;``` inside ```operator+``` would recurse infinitely, and the cast body ```return this * D.ratio;``` would re-enter ```operator*```. The metadata of an operation's result comes solely from the return type annotations per the composition rules below.
-
-**Operator generic parameter lists use ```.<...>```.** The operator token itself may end in ```<``` or ```>```, so ```operator<.<D2: Dimensions>``` lexes unambiguously where ```operator< <D2: Dimensions>``` would collide with the ```<<``` token.
-
-Unit conversion between operands happens at the operator's argument boundary through the standard implicit conversion described under the composition rules; the bodies below can assume ```rhs``` is already in ```this```'s unit system.
 
 ```js
 primitive float32<D: Dimensions> {
@@ -519,262 +491,23 @@ primitive float32<D: Dimensions> {
 **NumberBounds Operators**  
 NumberBounds operators only modify the return metadata with no value, so they have no function body.
 
-<details>
-	<summary>Expand for boundary helper functions.</summary>
-	
 ```js
-// Effective lower bound: if both inclusive and exclusive exist,
-// the tighter (larger) one wins.
-function effectiveMin(b: NumberBounds): float32 | null {
-	if (b.minimum != null && b.exclusiveMinimum != null) {
-		return Math.max(b.minimum, b.exclusiveMinimum);
-	}
-	return b.minimum ?? b.exclusiveMinimum ?? null;
-}
+primitive float32<B: NumberBounds.<float32>> {
+	operator+.<B2: NumberBounds.<float32>>(rhs: float32.<B2>): float32.<{ bounds: B.bounds + B2.bounds }>;
+	operator-.<B2: NumberBounds.<float32>>(rhs: float32.<B2>): float32.<{ bounds: B.bounds - B2.bounds }>;
+	operator*.<B2: NumberBounds.<float32>>(rhs: float32.<B2>): float32.<{ bounds: B.bounds * B2.bounds }>;
+	operator/.<B2: NumberBounds.<float32>>(rhs: float32.<B2>): float32.<{ bounds: B.bounds / B2.bounds }>;
 
-// Effective upper bound: if both inclusive and exclusive exist,
-// the tighter (smaller) one wins.
-function effectiveMax(b: NumberBounds): float32 | null {
-	if (b.maximum != null && b.exclusiveMaximum != null) {
-		return Math.min(b.maximum, b.exclusiveMaximum);
-	}
-	return b.maximum ?? b.exclusiveMaximum ?? null;
-}
+	operator-(): float32.<{ bounds: -B.bounds }>;
 
-// Determine whether the effective minimum is exclusive
-function isExclusiveMin(b: NumberBounds): boolean {
-	if (b.minimum != null && b.exclusiveMinimum != null) {
-		return b.exclusiveMinimum >= b.minimum;
-	}
-	return b.exclusiveMinimum != null;
-}
-
-// Determine whether the effective maximum is exclusive
-function isExclusiveMax(b: NumberBounds): boolean {
-	if (b.maximum != null && b.exclusiveMaximum != null) {
-		return b.exclusiveMaximum <= b.maximum;
-	}
-	return b.exclusiveMaximum != null;
-}
-
-// Whether the constraint can be satisfied by zero. A range strictly above or
-// strictly below zero excludes it without needing the flag, which is why
-// subtype() asks this question rather than reading `nonZero` directly.
-function excludesZero(b: NumberBounds): boolean {
-	if (b.nonZero) return true;
-	const lo = effectiveMin(b);
-	if (lo != null && (lo > 0 || (lo == 0 && isExclusiveMin(b)))) return true;
-	const hi = effectiveMax(b);
-	if (hi != null && (hi < 0 || (hi == 0 && isExclusiveMax(b)))) return true;
-	return false;
-}
-
-// Remove undefined fields, absence means unconstrained.
-// Never store infinities in metadata.
-// `nonZero` is dropped when the range already excludes zero, so that
-// int32.<{ minimum: 1 }> and int32.<{ minimum: 1, nonZero: true }> intern
-// to the same type.
-function clean(b: NumberBounds): NumberBounds {
-	const result: NumberBounds = {};
-	if (b.minimum != null) result.minimum = b.minimum;
-	if (b.maximum != null) result.maximum = b.maximum;
-	if (b.exclusiveMinimum != null) result.exclusiveMinimum = b.exclusiveMinimum;
-	if (b.exclusiveMaximum != null) result.exclusiveMaximum = b.exclusiveMaximum;
-	if (b.nonZero && !excludesZero(result)) result.nonZero = true;
-	return result;
-}
-
-// Construct a NumberBounds from effective values + exclusivity flags
-function makeNumberBounds(
-	lo: float32 | undefined, loExclusive: boolean,
-	hi: float32 | undefined, hiExclusive: boolean,
-): NumberBounds {
-	const result: NumberBounds = {};
-	if (lo != null) {
-		if (loExclusive) {
-			result.exclusiveMinimum = lo;
-		} else {
-			result.minimum = lo;
-		}
-	}
-	if (hi != null) {
-		if (hiExclusive) {
-			result.exclusiveMaximum = hi;
-		} else {
-			result.maximum = hi;
-		}
-	}
-	return result;
-}
-
-// Interval arithmetic for multiplication.
-// Computes the bounds of the product of two bounded values.
-function boundsFromProducts(a: NumberBounds, b: NumberBounds): NumberBounds {
-	const aLo = effectiveMin(a);
-	const aHi = effectiveMax(a);
-	const bLo = effectiveMin(b);
-	const bHi = effectiveMax(b);
-
-	// Can't propagate without complete bounds on both sides
-	if (aLo == null || aHi == null || bLo == null || bHi == null) {
-		// Partial propagation for semi-bounded cases:
-		// If both are non-negative with a lower bound, result has a lower bound
-		if (aLo != null && bLo != null && fge(aLo, 0) && fge(bLo, 0)) {
-			const loExclusive = isExclusiveMin(a) || isExclusiveMin(b);
-			return clean(makeNumberBounds(aLo * bLo, loExclusive, undefined, false));
-		}
-		return {};
-	}
-
-	const products = [aLo * bLo, aLo * bHi, aHi * bLo, aHi * bHi];
-	const lo = Math.min(...products);
-	const hi = Math.max(...products);
-
-	// Determine exclusivity: a resulting bound is exclusive only if EVERY product attaining it involves at least one exclusive source bound.
-	// If any attaining combination uses only inclusive bounds, the extremum is attainable and the result bound is inclusive.
-	// Example: a = [0, 1], b = [0, 2). The minimum 0 is attained by 0 * 0 using only inclusive endpoints, so the result minimum is inclusive even though aLo * bHi also equals 0 and touches an exclusive endpoint.
-	const usesExclusive = (i: uint32): boolean => {
-		const usedALo = (i == 0 || i == 1);
-		const usedBLo = (i == 0 || i == 2);
-		return (usedALo && isExclusiveMin(a)) || (!usedALo && isExclusiveMax(a))
-			|| (usedBLo && isExclusiveMin(b)) || (!usedBLo && isExclusiveMax(b));
-	};
-
-	const loExclusive = products.every((p, i) => !feq(p, lo) || usesExclusive(i));
-	const hiExclusive = products.every((p, i) => !feq(p, hi) || usesExclusive(i));
-
-	return clean(makeNumberBounds(lo, loExclusive, hi, hiExclusive));
-}
-
-// Sum: [a_lo, a_hi] + [b_lo, b_hi] = [a_lo + b_lo, a_hi + b_hi]
-// Exclusivity: if EITHER contributing bound is exclusive, the result is exclusive.
-// Example: (>= 3) + (> 5) = (> 8) because b can approach 5 but never reach it.
-function boundsFromSum(a: NumberBounds, b: NumberBounds): NumberBounds {
-	const aLo = effectiveMin(a);
-	const aHi = effectiveMax(a);
-	const bLo = effectiveMin(b);
-	const bHi = effectiveMax(b);
-
-	const lo = (aLo != null && bLo != null) ? aLo + bLo : undefined;
-	const hi = (aHi != null && bHi != null) ? aHi + bHi : undefined;
-
-	const loExclusive = lo != null && (isExclusiveMin(a) || isExclusiveMin(b));
-	const hiExclusive = hi != null && (isExclusiveMax(a) || isExclusiveMax(b));
-
-	return clean(makeNumberBounds(lo, loExclusive, hi, hiExclusive));
-}
-
-// Difference: [a_lo, a_hi] - [b_lo, b_hi] = [a_lo - b_hi, a_hi - b_lo]
-// Note the cross: result lower = a's lower - b's UPPER.
-// Exclusivity: if either contributing bound is exclusive, result is exclusive.
-// Example: (>= 5) - (< 3) = (> 2) because b can approach 3 from below,
-// making the difference approach 2 from above but never reaching it.
-function boundsFromDifference(a: NumberBounds, b: NumberBounds): NumberBounds {
-	const aLo = effectiveMin(a);
-	const aHi = effectiveMax(a);
-	const bLo = effectiveMin(b);
-	const bHi = effectiveMax(b);
-
-	const lo = (aLo != null && bHi != null) ? aLo - bHi : undefined;
-	const hi = (aHi != null && bLo != null) ? aHi - bLo : undefined;
-
-	const loExclusive = lo != null && (isExclusiveMin(a) || isExclusiveMax(b));
-	const hiExclusive = hi != null && (isExclusiveMax(a) || isExclusiveMin(b));
-
-	return clean(makeNumberBounds(lo, loExclusive, hi, hiExclusive));
-}
-
-// Negation: -[lo, hi] = [-hi, -lo]
-// Exclusivity follows the original bound that was negated.
-function negateNumberBounds(b: NumberBounds): NumberBounds {
-	const lo = effectiveMin(b);
-	const hi = effectiveMax(b);
-	const loExclusive = isExclusiveMin(b);
-	const hiExclusive = isExclusiveMax(b);
-
-	return clean(makeNumberBounds(
-		hi != null ? -hi : undefined, hiExclusive,
-		lo != null ? -lo : undefined, loExclusive,
-	));
-}
-
-// Scalar multiplication of bounds.
-// Correctly handles negative scalars by swapping and re-pairing
-// the inclusive/exclusive attributes.
-function scalarMulNumberBounds(b: NumberBounds, scalar: float32): NumberBounds {
-	if (scalar === 0) {
-		// Exactly zero collapses any interval to the single attainable point 0, regardless of endpoint exclusivity, since 0 * x == 0.
-		// Near-zero scalars fall through and scale the bounds like any other value.
-		return { minimum: 0, maximum: 0 };
-	}
-
-	const lo = effectiveMin(b);
-	const hi = effectiveMax(b);
-	const loExclusive = isExclusiveMin(b);
-	const hiExclusive = isExclusiveMax(b);
-
-	if (scalar > 0) {
-		// Positive scalar: bounds scale directly, exclusivity preserved
-		return clean(makeNumberBounds(
-			lo != null ? lo * scalar : undefined, loExclusive,
-			hi != null ? hi * scalar : undefined, hiExclusive,
-		));
-	}
-
-	// Negative scalar: lo and hi swap roles
-	//   old lower bound * negative -> new upper bound
-	//   old upper bound * negative -> new lower bound
-	//   exclusivity follows the original bound, not the position
-	return clean(makeNumberBounds(
-		hi != null ? hi * scalar : undefined, hiExclusive, // old hi -> new lo
-		lo != null ? lo * scalar : undefined, loExclusive, // old lo -> new hi
-	));
-}
-
-// Scalar division of bounds. Division by exactly zero produces an unconstrained result rather than storing infinities.
-function scalarDivNumberBounds(b: NumberBounds, scalar: float32): NumberBounds {
-	if (scalar === 0) {
-		return {};
-	}
-	return scalarMulNumberBounds(b, 1.0 / scalar);
-}
-
-// Interval arithmetic for division: [a] / [b] = [a] * [1 / b].
-function boundsFromQuotient(a: NumberBounds, b: NumberBounds): NumberBounds {
-	const bLo = effectiveMin(b);
-	const bHi = effectiveMax(b);
-
-	// The divisor must be completely bounded away from zero, otherwise the quotient is unbounded and no propagation is possible.
-	// This also rejects exclusive bounds touching zero, like (0, 1], since values may be arbitrarily close to zero.
-	if (bLo == null || bHi == null || !(fgt(bLo, 0) || flt(bHi, 0))) {
-		return {};
-	}
-
-	// Reciprocal interval: [1 / bHi, 1 / bLo], exclusivity following the
-	// originating endpoint.
-	const recip = makeNumberBounds(
-		1.0 / bHi, isExclusiveMax(b),
-		1.0 / bLo, isExclusiveMin(b),
-	);
-
-	return boundsFromProducts(a, recip);
+	operator*(rhs: float32): float32.<{ bounds: B.bounds.scale(rhs) }>;
+	operator/(rhs: float32): float32.<{ bounds: rhs == 0 ? .. : B.bounds.scale(1 / rhs) }>;
 }
 ```
-</details>
 
-```js
-primitive float32<B: NumberBounds> {
-	operator+.<B2: NumberBounds>(rhs: float32.<B2>): float32.<boundsFromSum(B, B2)>;
-	operator-.<B2: NumberBounds>(rhs: float32.<B2>): float32.<boundsFromDifference(B, B2)>;
-	operator*.<B2: NumberBounds>(rhs: float32.<B2>): float32.<boundsFromProducts(B, B2)>;
-	operator/.<B2: NumberBounds>(rhs: float32.<B2>): float32.<boundsFromQuotient(B, B2)>;
+The bound of a computed value is the interval arithmetic of the bounds it was computed from, so these declarations are the range operators of the [ranges](ranges.md) extension applied to the `bounds` of each operand and nothing else. The helper layer this replaces reimplemented that arithmetic over four separate fields, and every one of its subtleties - the crossed endpoints of a difference, the four products of a multiplication and the rule that a product bound is exclusive only where every combination attaining it is, the divisor that must be bounded away from zero rather than merely non-zero - is a fact about intervals rather than about metadata, and is stated once where ranges are defined.
 
-	operator-(): float32.<negateNumberBounds(B)>;
-
-	operator*(rhs: float32): float32.<scalarMulNumberBounds(B, rhs)>;
-	operator/(rhs: float32): float32.<scalarDivNumberBounds(B, rhs)>;
-}
-```
+`nonZero` does not propagate through these, which is sound and lossy in one direction only: the product of two non-zero values is non-zero, so an operator could carry the flag through `*` and does not. The bound is what the arithmetic computes, and a flag the result could have had but does not costs a check at a later boundary and nothing else.
 
 ### Composition Rules
 
@@ -786,25 +519,25 @@ For a given operator invocation:
 4. If no value block matches, the default primitive operation runs.
 5. All return type annotations (from both value and metadata-only blocks) are evaluated independently, and their metadata fields are merged into the flat result object.
 
-#### Example: `Kilometer(5) + Meter(300)` where both have `NumberBounds { minimum: 0 }`
+#### Example: `Kilometer(5) + Meter(300)` where both have `NumberBounds { bounds: 0.. }`
 
-**Conversion at the boundary:** `operator+`'s parameter is typed `float32.<D>` with `D` being the LHS's Dimensions. The `Meter` argument passes `Dimensions.subtype` (same exponents). `Dimensions.conversionFactor(ratio: 1, ratio: 1000)` = `1/1000`, so the argument value becomes `300 * 1/1000 = 0.3` and the argument's NumberBounds pass through `NumberBounds.rescale({ minimum: 0 }, 1/1000)` = `{ minimum: 0 }`.
+**Conversion at the boundary:** `operator+`'s parameter is typed `float32.<D>` with `D` being the LHS's Dimensions. The `Meter` argument passes `Dimensions.subtype` (same exponents). `Dimensions.conversionFactor(ratio: 1, ratio: 1000)` = `1/1000`, so the argument value becomes `300 * 1/1000 = 0.3` and the argument's NumberBounds pass through `NumberBounds.rescale({ bounds: 0.. }, 1/1000)` = `{ bounds: 0.. }`.
 
 **Dimensions block** (value block):
 - Body runs on converted operands: `5 + 0.3 = 5.3`
 - Return metadata (Dimensions portion): `{ m: 1, ratio: 1000 }` (remaining exponents `0`)
 
 **NumberBounds block** (metadata-only):
-- Return metadata (NumberBounds portion): `boundsFromSum({ minimum: 0 }, { minimum: 0 })` = `{ minimum: 0 }`
+- Return metadata (NumberBounds portion): `{ bounds: (0..) + (0..) }` = `{ bounds: 0.. }`
 - No body, so no conflicting value calculation.
 
-**Final result:** float32 value `5.3` with merged metadata `{ m: 1, kg: 0, s: 0, A: 0, K: 0, mol: 0, cd: 0, ratio: 1000, minimum: 0 }`
+**Final result:** float32 value `5.3` with merged metadata `{ m: 1, kg: 0, s: 0, A: 0, K: 0, mol: 0, cd: 0, ratio: 1000, bounds: 0.. }`
 
-The boundary conversion is what keeps cross-meta-type interactions sound. Had `Meter`'s bounds been `{ minimum: 100 }` (at least 100 meters), the rescale step yields `{ minimum: 0.1 }` in kilometer space and the sum's bound becomes `{ minimum: 0.1 }`, correctly expressed in the result's unit space. Without rescaling, `boundsFromSum` would have mixed meter-space and kilometer-space numbers. The metadata-only block never touches the value.
+The boundary conversion is what keeps cross-meta-type interactions sound. Had `Meter`'s bounds been `{ bounds: 100.. }` (at least 100 meters), the rescale step yields `{ bounds: 0.1.. }` in kilometer space and the sum's bound becomes `{ bounds: 0.1.. }`, correctly expressed in the result's unit space. Without rescaling, the range addition would have mixed meter-space and kilometer-space numbers. The metadata-only block never touches the value.
 
 ## Unit Type Aliases
 
-All metadata is specified as flat objects. The compiler decomposes automatically based on field ownership: `{m, kg, s, A, K, mol, cd, ratio}` fields are claimed by `Dimensions`, `{minimum, maximum, exclusiveMinimum, exclusiveMaximum}` fields are claimed by `NumberBounds`.
+All metadata is specified as flat objects. The compiler decomposes automatically based on field ownership: `{m, kg, s, A, K, mol, cd, ratio}` fields are claimed by `Dimensions`, `{bounds, nonZero}` fields are claimed by `NumberBounds`.
 
 ### Base SI Units
 
@@ -860,11 +593,11 @@ type GramsPerCubicCm = float32.<{ m: -3, kg: 1, ratio: (1/1000) / (1/1000000) }>
 ### NumberBounds-Only Types (No Dimension)
 
 ```js
-type Positive = float32.<{ exclusiveMinimum: 0 }>;
-type NonNegative = float32.<{ minimum: 0 }>;
-type Normalized = float32.<{ minimum: 0, maximum: 1 }>;
+type Positive = float32.<{ bounds: 0<.. }>;
+type NonNegative = float32.<{ bounds: 0.. }>;
+type Normalized = float32.<{ bounds: 0..=1 }>;
 type Probability = Normalized;
-type Percentage = float32.<{ minimum: 0, maximum: 100 }>;
+type Percentage = float32.<{ bounds: 0..=100 }>;
 ```
 
 ### Combined: Dimension + NumberBounds
@@ -874,23 +607,20 @@ Fields from both `Dimensions` and `NumberBounds` appear in a single flat object.
 ```js
 type PositiveMeter = float32.<{
 	m: 1,
-	exclusiveMinimum: 0
+	bounds: 0<..
 }>;
 
 type SafeSpeed = float32.<{
 	m: 1, s: -1,
-	minimum: 0,
-	maximum: 343
+	bounds: 0..=343
 }>;
 
 type Latitude = float32.<{
-	minimum: -90,
-	maximum: 90
+	bounds: -90..=90
 }>;
 
 type Longitude = float32.<{
-	minimum: -180,
-	exclusiveMaximum: 180
+	bounds: -180..<180
 }>;
 ```
 
@@ -1006,7 +736,7 @@ When the compiler encounters `float32.<{ ... }>`:
 
 ```
 Dimensions -> { m, kg, s, A, K, mol, cd, ratio }
-NumberBounds -> { minimum, maximum, exclusiveMinimum, exclusiveMaximum }
+NumberBounds -> { bounds, nonZero }
 ```
 
 **Step 2.** For each field in the metadata object, find which `meta` type claims it. Each field must belong to exactly one `meta` type. Unclaimed fields produce a compile error.
@@ -1014,9 +744,9 @@ NumberBounds -> { minimum, maximum, exclusiveMinimum, exclusiveMaximum }
 **Step 3.** Group fields by their `meta` type.
 
 ```
-Input: { m: 1, kg: 0, s: -1, ratio: 1, minimum: 0, maximum: 343 }
+Input: { m: 1, kg: 0, s: -1, ratio: 1, bounds: 0..=343 }
   -> Dimensions: { m: 1, kg: 0, s: -1, ratio: 1 }
-  -> NumberBounds: { minimum: 0, maximum: 343 }
+  -> NumberBounds: { bounds: 0..=343 }
 ```
 
 **Step 4.** When executing an operator, run each `meta` type's operator block on its portion independently.
@@ -1053,7 +783,7 @@ primitive float32 {
 }
 ```
 
-Both operators compose for combined types. When the target is `float32.<{ m:1, ..., exclusiveMinimum: 0 }>`, the compiler decomposes into Dimensions and NumberBounds slots and invokes both cast operators. `NumberBounds.validate()` runs at the cast boundary (elided for compile-time-provable constant literals).
+Both operators compose for combined types. When the target is `float32.<{ m:1, ..., bounds: 0<.. }>`, the compiler decomposes into Dimensions and NumberBounds slots and invokes both cast operators. `NumberBounds.validate()` runs at the cast boundary (elided for compile-time-provable constant literals).
 
 ### Cast Operator Invocation Points
 
@@ -1074,15 +804,15 @@ const v: Velocity = 10; // operator float32.<Dimensions>() invoked
 // number -> Probability via cast operator + validation:
 const p: Probability = 0.7;
 // operator float32.<NumberBounds>() invoked
-// NumberBounds.validate(0.7, { minimum: 0, maximum: 1 }) -> true
+// NumberBounds.validate(0.7, { bounds: 0..=1 }) -> true
 
-const p2: Probability = 1.5; // NumberBounds.validate(1.5, { minimum: 0, maximum: 1 }) -> false, throws TypeError('Expected >= 0 and <= 1, got 1.5')
+const p2: Probability = 1.5; // NumberBounds.validate(1.5, { bounds: 0..=1 }) -> false, throws TypeError('Expected in 0..=1, got 1.5')
 
 // number -> PositiveMeter via both cast operators:
-const h: PositiveMeter = 1.75; // Dimensions cast, NumberBounds.validate(1.75, { exclusiveMinimum: 0 }) -> true
+const h: PositiveMeter = 1.75; // Dimensions cast, NumberBounds.validate(1.75, { bounds: 0<.. }) -> true
 
 const h2: PositiveMeter = -3;
-// NumberBounds.validate(-3, { exclusiveMinimum: 0 }) -> false, throws TypeError
+// NumberBounds.validate(-3, { bounds: 0<.. }) -> false, throws TypeError
 
 // Already-typed value, cast operator doesn't apply:
 const m: Meter = 100;
@@ -1102,9 +832,9 @@ const v3: Velocity = v2; // direct, same metadata
 const v4: Velocity = 100;
 const safe: SafeSpeed = v4;
 // Dimensions.subtype: exponents match
-// NumberBounds.subtype: v4 has no bounds (default {}), SafeSpeed has { minimum: 0, maximum: 343 }
+// NumberBounds.subtype: v4 is unbounded (default `..`), SafeSpeed has { bounds: 0..=343 }
 //   sup.minimum = 0, sub.minimum = null -> false
-// Insert runtime check: NumberBounds.validate(v4_value, { minimum: 0, maximum: 343 })
+// Insert runtime check: NumberBounds.validate(v4_value, { bounds: 0..=343 })
 
 // Narrowed by control flow: zero cost
 if (v4 >= 0 && v4 <= 343) {
@@ -1165,9 +895,9 @@ const width: PositiveMeter = 0.5;
 const height: PositiveMeter = 1.75;
 const area = width * height;
 // Dimensions: { m: 1 } * { m: 1 } = { m: 2, kg: 0, s: 0, ratio: 1 }
-// NumberBounds: boundsFromProducts({ exclusiveMinimum: 0 }, { exclusiveMinimum: 0 })
-//   both non-negative, partial propagation -> { exclusiveMinimum: 0 }
-// area: float32.<{ m: 2, kg: 0, s: 0, ratio: 1, exclusiveMinimum: 0 }>
+// NumberBounds: (0<..) * (0<..)
+//   two positive lower bounds, partial propagation -> 0<..
+// area: float32.<{ m: 2, kg: 0, s: 0, ratio: 1, bounds: 0<.. }>
 // That's a positive square-meter.
 ```
 
@@ -1176,16 +906,16 @@ const area = width * height;
 ```js
 function clampToSafe(v: Velocity): SafeSpeed {
 	if (v >= 0) {
-		// NumberBounds.narrow({}, '>=', 0) -> { minimum: 0 }
-		// v: float32.<{ m: 1, kg: 0, s: -1, ratio: 1, minimum: 0 }>
+		// NumberBounds.narrow({ bounds: .. }, '>=', 0) -> { bounds: 0.. }
+		// v: float32.<{ m: 1, kg: 0, s: -1, ratio: 1, bounds: 0.. }>
 
 		if (v <= 343) {
-			// NumberBounds.narrow({ minimum: 0 }, '<=', 343) -> { minimum: 0, maximum: 343 }
-			// v: float32.<{ m: 1, kg: 0, s: -1, ratio: 1, minimum: 0, maximum: 343 }>
+			// NumberBounds.narrow({ bounds: 0.. }, '<=', 343) -> { bounds: 0..=343 }
+			// v: float32.<{ m: 1, kg: 0, s: -1, ratio: 1, bounds: 0..=343 }>
 			//
 			// SafeSpeed.subtype check:
 			//   Dimensions: exponents match
-			//   NumberBounds: NumberBounds.subtype({ minimum:0, maximum:343 }, { minimum:0, maximum:343 }) -> true
+			//   NumberBounds: NumberBounds.subtype({ bounds: 0..=343 }, { bounds: 0..=343 }) -> true
 			return v; // no cast, no runtime check
 		}
 
@@ -1221,8 +951,8 @@ function potentialEnergy(m: Kilogram, h: PositiveMeter): Joule {
 	const g: Acceleration = 9.80665;
 	return m * g * h;
 	// Dimensions: { kg: 1 } * { m: 1, s: -2 } * { m: 1 } = { m: 2, kg: 1, s: -2 } Joule
-	// NumberBounds: {} * {} * { exclusiveMinimum: 0 } -> { exclusiveMinimum: 0 } propagated
-	// Result has NumberBounds{ exclusiveMinimum: 0 }, energy is positive.
+	// NumberBounds: .. * .. * (0<..) -> .., since an unbounded factor bounds nothing
+	// Joule states no bound of its own, so the result needs none.
 	// Joule has no NumberBounds requirement -> extra bounds are fine (subtype).
 }
 ```
@@ -1244,14 +974,14 @@ function pressure(force: Newton, area: SquareMeter): Pascal {
 const prob: Probability = 0.7;
 const prob2: Probability = 0.2;
 const sum = prob + prob2;
-// NumberBounds: { minimum: 0, maximum: 1 } + { minimum: 0, maximum: 1 } = { minimum: 0, maximum: 2 }
-// sum: float32.<{ minimum: 0, maximum: 2 }>
+// NumberBounds: (0..=1) + (0..=1) = 0..=2
+// sum: float32.<{ bounds: 0..=2 }>
 
 // const bad: Probability = sum;
-// NumberBounds.subtype({ minimum: 0, maximum: 2 }, { minimum: 0, maximum: 1 }) -> false (max 2 > max 1)
+// NumberBounds.subtype({ bounds: 0..=2 }, { bounds: 0..=1 }) -> false (0..=1 does not contain 0..=2)
 
 if (sum <= 1) {
-	// NumberBounds.narrow({ minimum: 0, maximum: 2 }, '<=', 1) -> { minimum: 0, maximum: 1 }
+	// NumberBounds.narrow({ bounds: 0..=2 }, '<=', 1) -> { bounds: 0..=1 }
 	const safe: Probability = sum; // proven by narrowing
 }
 ```
@@ -1306,7 +1036,7 @@ class User {
 ```js
 // Metadata approach
 class User {
-	age: number.<{ minimum: 0, maximum: 150 }>;
+	age: number.<{ bounds: 0..=150 }>;
 	email: string.<{ pattern: /^[^@]+@[^@]+$/ }>;
 }
 ```
@@ -1382,7 +1112,7 @@ function validateInstance<T>(instance: T): boolean {
 
 class User {
 	@validate
-	age: number.<{ minimum: 0, maximum: 150 }>;
+	age: number.<{ bounds: 0..=150 }>;
 	@validate
 	email: string.<{ pattern: /^[^@]+@[^@]+$/ }>;
 }
@@ -1393,7 +1123,7 @@ user.email = 'alice@example.com';
 validateInstance(user); // true
 
 user.age = -5; // Note: This would throw at compile time. If the value was dynamic then it would throw at runtime assuming the meta block defines a validate
-validateInstance(user); // false, minimum: 0 violated
+validateInstance(user); // false, the 0..=150 bound is violated
 
 user.age = 25;
 user.email = 'not-an-email'; // Note: This would throw at compile time. If the value was dynamic then it would throw at runtime assuming the meta block defines a validate
@@ -1453,14 +1183,14 @@ class UserResponse {
 	@field('email_address')
 	email: string.<{ pattern: /^[^@]+@[^@]+$/ }>;
 	@field
-	age: number.<{ minimum: 0, maximum: 150 }>;
+	age: number.<{ bounds: 0..=150 }>;
 }
 
 // Incoming JSON:
 // { "id": 42, "user_name": "alice", "email_address": "a@b.com", "age": 30 }
 const user = deserialize(UserResponse, json);
 // Assignment to `email` triggers: string.<StringBounds>.validate('a@b.com', { pattern: ... })
-// Assignment to `age` triggers: number.<NumberBounds>.validate(30, { minimum: 0, maximum: 150 })
+// Assignment to `age` triggers: number.<NumberBounds>.validate(30, { bounds: 0..=150 })
 
 serialize(user);
 // { "id": 42, "user_name": "alice", "email_address": "a@b.com", "age": 30 }
@@ -1498,8 +1228,8 @@ function post<T extends (...args: [].<any>) => any, TClass>(
 class EventController {
 	@get('/events')
 	list(
-		limit: uint32.<{ minimum: 1, maximum: 100 }> = 20,
-		offset: uint32.<{ minimum: 0 }> = 0
+		limit: uint32.<{ bounds: 1..=100 }> = 20,
+		offset: uint32.<{ bounds: 0.. }> = 0
 	): [].<Event> {
 		return db.events.slice(offset, offset + limit);
 	}
@@ -1522,7 +1252,7 @@ class EventController {
 class EventCreate {
 	title: string.<{ minLength: 1, maxLength: 200 }>;
 	date: string.<{ pattern: /^\\d{4}-\\d{2}-\\d{2}$/ }>;
-	capacity: uint32.<{ minimum: 1, maximum: 10000 }>;
+	capacity: uint32.<{ bounds: 1..=10000 }>;
 }
 ```
 
@@ -1568,9 +1298,9 @@ class SensorReading {
 	@column('sensor_id')
 	sensorId: uint32;
 	@column
-	temperature: float32.<{ minimum: -273.15 }>; // can't go below absolute zero
+	temperature: float32.<{ bounds: -273.15.. }>; // can't go below absolute zero
 	@column
-	humidity: float32.<{ minimum: 0, maximum: 100 }>; // percentage
+	humidity: float32.<{ bounds: 0..=100 }>; // percentage
 	@column('recorded_at')
 	recordedAt: string.<{ pattern: /^\\d{4}-\\d{2}-\\d{2}T/ }>;
 }
@@ -1582,7 +1312,7 @@ class SensorReading {
 //
 // Row hydration assigns each column value to the typed field.
 // temperature = row['temperature'] triggers:
-//   float32.<{ minimum: -273.15 }>.validate(value, { minimum: -273.15 })
+//   float32.<{ bounds: -273.15.. }>.validate(value, { bounds: -273.15.. })
 // A corrupted row with temperature = -300 fails validation at the ORM boundary, not deep in business logic.
 ```
 

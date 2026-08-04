@@ -558,14 +558,14 @@ rows.window(0, 8); // [].<uint32>, length 8
 Indexed access into a typed array is bounds-checked, as it is today. The type system elides the check wherever it can prove the index is in range, so the patterns a hot loop is written in pay nothing:
 
 - ```for (const ref p of a)``` performs no per-element check. The length is pinned for the loop's duration - changing it is a TypeError, per the [references and borrowing](references.md) extension - and the induction variable is the engine's own, in range by construction.
-- Indexing a fixed-length ```[N].<T>``` with an index the compiler knows is below ```N``` - a value generic, a ```where```-constrained parameter, or the counter of a ```for``` over ```0..N``` from the [ranges](ranges.md) extension - needs no runtime check, because ```N``` is a compile-time constant and the bound is proven statically.
+- Indexing a fixed-length ```[N].<T>``` with an index the compiler knows is below ```N``` - a value generic, a ```where```-constrained parameter, or the counter of a ```for``` over ```0..<N``` from the [ranges](ranges.md) extension - needs no runtime check, because ```N``` is a compile-time constant and the bound is proven statically.
 - ```window.<N>(start)``` checks once that ```start + N``` fits and returns a ```[N].<T>``` whose own accesses are then the case above, so a fixed-size window hoists a single check to cover ```N``` of them.
 
 These are the guarantees Rust's slice and iterator code leans on: the checked operation is the default, and the idioms that let the compiler discharge the check are the ones performance-critical code already uses. Where the bound cannot be proven - a runtime index into a variable-length array - the check stays, and a program that wants it gone makes either the extent or the index statically known.
 
 Without it the same window is spelled with the element size folded in by hand, ```[8].<uint32>(rows, entityIndex * 8 * uint32.byteLength)```, which is correct and repeats the element type three times.
 
-With the [ranges](ranges.md) extension the index operator takes a range, so ```rows[start..end]``` is the same view and is the form to prefer. ```window``` remains for a fixed length over a runtime start.
+With the [ranges](ranges.md) extension the index operator takes a range, so ```rows[start..<end]``` is the same view and is the form to prefer. ```window``` remains for a fixed length over a runtime start.
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 
@@ -1351,7 +1351,7 @@ A default requires the ```?```: an initializer on a required member is an error,
 
 Interface and type-literal members may be separated by ```;``` or ```,```, as in an object literal; both appear in this document and mean the same thing.
 
-An interface may also declare operator members, as in ```interface Ordered<T> { operator<(other: T): boolean; }```. A type satisfies such an interface by defining those operators, which is how a generic constrains its parameter to carry an operation - the [operator overloading](operatoroverloading.md) and [ranges](ranges.md) extensions use this for scalar multiplication and ordering.
+An interface may also declare operator members, as in ```interface Ordered<T> { operator<(other: T): boolean; }```. A type satisfies such an interface by defining those operators, which is how a generic constrains its parameter to carry an operation - the [operator overloading](operatoroverloading.md) and [ranges](ranges.md) extensions use this for scalar multiplication, as ```Scalable.<T>```, and ordering, as ```Ordered.<T>```.
 
 Similar to other types an object interface can be made nullable and also made into an array with ```[]```.
 
@@ -1672,7 +1672,10 @@ A call selects its signature as follows:
 1. Collect every declared signature for the name.
 2. Keep the viable signatures where the argument list satisfies the parameter list's arity, accounting for default values, optional parameters, and rest parameters, and where every argument is assignable to its parameter's type.
 3. Rank each viable signature by the worst match any of its arguments requires: an exact type match, then an untyped literal taking the parameter's type by the ranking in the conversions section, then a user-defined implicit cast, then binding to an untyped catch all signature. A typed argument never ranks below an exact match, because a typed argument of the wrong type isn't viable at all.
-4. If exactly one signature ranks best it's called. Otherwise the call is ambiguous, a TypeError is thrown, and explicit casts are required to select a signature.
+4. Where more than one signature ranks best, break the tie on **specificity**, compared pointwise across the type arguments of each parameter's type: a concrete type argument is more specific than a type parameter that would bind to it, and one signature is more specific than another when it is at least as specific in every position and strictly more specific in at least one. A signature more specific than every other survivor is called.
+5. If exactly one signature remains it's called. Otherwise the call is ambiguous, a TypeError is thrown, and explicit casts are required to select a signature.
+
+Pointwise is what makes a multi-parameter generic resolvable, and what makes an incomparable pair an error rather than a coin flip. A range (see [ranges](ranges.md)) carries one type parameter per endpoint, so ```f<E: Bound>(r: Range.<uint8, Bound.Closed, E>)``` and ```f<S: Bound>(r: Range.<uint8, S, Bound.Open>)``` are each more specific than the fully generic ```f<S: Bound, E: Bound>(r: Range.<uint8, S, E>)``` and neither is more specific than the other. A call with ```0..<10``` matches all three; the generic one loses, the other two are incomparable, and the call is ambiguous until a signature naming both bounds is declared. That is the intended answer rather than a gap: two overloads that partition a type's parameters along different axes genuinely disagree where the axes cross, and resolving it by declaration order would make the result depend on which file was read first.
 
 Return types don't participate in ranking. Selecting between signatures that differ only by return type is covered below.
 
@@ -2446,7 +2449,7 @@ class Sensor {
   read(): float32 {}
 }
 class Thermometer extends Sensor {
-  read(): float32.<{ exclusiveMinimum: 0 }> {} // Same representation, refined constraint
+  read(): float32.<{ bounds: 0<.. }> {} // Same representation, refined constraint
 }
 ```
 
@@ -3017,7 +3020,7 @@ let a: float32 = 1 / 5;   // 0.2
 //switch (a) { case 0.2: break; } // TypeError: a value-case switch needs an integral, string, or symbol type
 
 switch (a) {              // Valid: every label is a range
-  case 0..0.99:
+  case 0..<0.99:
     break;
 }
 ```
@@ -3352,7 +3355,7 @@ This extension defines typed ```catch``` clauses, the errors a typed program rai
 
 ### Ranges
 
-This extension adds range literals, ```a..b``` and ```a..=b```, as typed values that carry their endpoints and inclusivity, for iteration, slicing, bounded types, and random generation.
+This extension adds range literals - ```a..<b```, ```a..=b```, ```a<..<b```, ```a<..=b```, and the open-ended ```a..```, ```a<..```, ```..<b```, ```..=b```, and ```..``` - as typed values that carry their endpoints and each endpoint's inclusivity, for iteration, slicing, bounded types, and random generation. Every range that has an end says whether it includes it; there is no ```a..b```.
 
 [Ranges](ranges.md)
 

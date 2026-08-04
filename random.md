@@ -49,7 +49,7 @@ Math.random.<uint8>(a);
 a; // [100, 20, 25] as an example
 ```
 
-Both no-argument forms are defaults over the range form below. ```Math.random.<float32>()``` is ```Math.random.<float32>(0..1)```, and ```Math.random.<uint8>()``` is ```Math.random.<uint8>(..)```.
+Both no-argument forms are defaults over the range form below. ```Math.random.<float32>()``` is ```Math.random.<float32>(0..<1)```, and ```Math.random.<uint8>()``` is ```Math.random.<uint8>(..)```.
 
 ### Math.random.<T, Method = Math.PRNG.Default>(range)
 
@@ -63,9 +63,9 @@ function Math.random<T, R extends RangeBounds.<T>, Method: Math.PRNG = Math.PRNG
 ```js
 Math.random.<uint8>(1..=6); // A die. 1 through 6
 Math.random.<int32>(-5..=5); // -5 through 5
-Math.random.<float32>(0..1); // [0, 1)
+Math.random.<float32>(0..<1); // [0, 1)
 Math.random.<float32>(-1..=1); // Both endpoints attainable
-Math.random.<uint32>(0..100); // 0 through 99
+Math.random.<uint32>(0..<100); // 0 through 99
 Math.random.<bigint>(0n..=1000n); // Any ordered type works
 ```
 
@@ -88,26 +88,26 @@ prng.random(a, -1..=1);
 An empty range produces no value. When its endpoints are literals this is a compile-time TypeError, and otherwise a ```RangeError``` when the call is made:
 
 ```js
-// Math.random.<uint8>(5..5); // TypeError: the range is empty
+// Math.random.<uint8>(5..<5); // TypeError: the range is empty
 Math.random.<uint8>(5..=5); // 5, the only value the range contains
-Math.random.<uint8>(low..high); // RangeError at the call when high <= low
+Math.random.<uint8>(low..<high); // RangeError at the call when high <= low
 ```
 
-The two intervals with an open start have no literal form. They are named through ```Range.of```, and the one that matters is ```(0, 1]```, which sampling code needs whenever it takes a logarithm:
+Every interval has a literal, the two with an open start included, and the one that matters is ```(0, 1]```, which sampling code needs whenever it takes a logarithm:
 
 ```js
-const u = Math.random.<float32>(Range.of.<Range.Interval.OpenClosed>(0, 1)); // (0, 1]
+const u = Math.random.<float32>(0<..=1); // (0, 1]
 const exponential = -Math.log(u) / lambda;
 ```
 
 ### Bounded Types
 
-A range whose endpoints are compile-time constants is also a type, since a range is what ```NumberBounds``` describes. A bounded type therefore needs no bounds argument, and the same declaration validates the value everywhere else it travels:
+A range whose endpoints are compile-time constants is also a type, since a range is the value ```NumberBounds``` carries. A bounded type therefore needs no bounds argument, and the same declaration validates the value everywhere else it travels:
 
 ```js
-type Die = uint8.<1..=6>;
-type Unit = float32.<0..1>;
-type Percent = uint8.<0..=100>;
+type Die = uint8.<{ bounds: 1..=6 }>;
+type Unit = float32.<{ bounds: 0..<1 }>;
+type Percent = uint8.<{ bounds: 0..=100 }>;
 
 Math.random.<Die>(); // 1 through 6, no arguments
 Math.random.<Unit>(); // [0, 1)
@@ -150,7 +150,7 @@ function Math.seededRandom<T, Method: Math.PRNG = Math.PRNG.Default>(config: See
 const prng = Math.seededRandom.<float32>({ seed: 0 });
 const i = prng.random(); // [0, 1)
 const j = prng.random(-5..=5); // [-5, 5]
-const k = prng.random(0..1); // [0, 1)
+const k = prng.random(0..<1); // [0, 1)
 ```
 
 Rapidly generating arrays of random numbers:

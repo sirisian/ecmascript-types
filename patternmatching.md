@@ -11,7 +11,7 @@ type Response =
 const text = match (response) {
   when { status: 200, let body }: body;
   when { status: 404 }: 'not found';
-  when { status: 500..600, let error }: throw new ServerError(error);
+  when { status: 500..<600, let error }: throw new ServerError(error);
   when { let status, let error }: `${status}: ${error}`;
 };
 ```
@@ -118,7 +118,7 @@ match (value) {
 ```js
 function constraintsFor(type: type): ConstraintDoc | undefined {
   return match (type) {
-    when extends float32.<B: NumberBounds>: ({ ...B });
+    when extends float32.<B: NumberBounds.<float32>>: ({ ...B });
     when extends string.<S: StringBounds>: ({ ...S, pattern: S.pattern?.toString() });
     default: undefined;
   };
@@ -155,7 +155,7 @@ Element positions type from the position type: a tuple type gives each position 
 
 ### Range patterns
 
-A range literal is a pattern matching by containment, exactly as a range ```case``` label does in the [ranges](ranges.md) extension, and with the same requirement: the position type must be ordered. ```when 500..600:``` against a ```uint16``` is two comparisons; against a float it is the form that makes a float subject matchable at all, since a float has no cases to enumerate. A range pattern narrows through metadata where the interval is constant, the refinement the ranges document already gives a ```for``` counter.
+A range literal is a pattern matching by containment, exactly as a range ```case``` label does in the [ranges](ranges.md) extension, and with the same requirement: the position type must be ordered. ```when 500..<600:``` against a ```uint16``` is two comparisons; against a float it is the form that makes a float subject matchable at all, since a float has no cases to enumerate. A range pattern narrows through metadata where the interval is constant, the refinement the ranges document already gives a ```for``` counter.
 
 ### Regular expression patterns
 

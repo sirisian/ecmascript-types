@@ -200,7 +200,7 @@ function schedule(interval: Interval) {}
 // schedule({ start: b, end: a }); // TypeError: the where clause failed
 ```
 
-A range over ```Temporal.Instant```, ```start..end```, covers the same two endpoints and is what the [ranges](ranges.md) extension uses for iteration and containment; this record adds the ```where this.start < this.end``` constraint a bare range does not, since an empty range is a legal value rather than an error.
+A range over ```Temporal.Instant```, ```start..<end```, covers the same two endpoints and is what the [ranges](ranges.md) extension uses for iteration and containment; this record adds the ```where this.start < this.end``` constraint a bare range does not, since an empty range is a legal value rather than an error.
 
 ## Serialization
 

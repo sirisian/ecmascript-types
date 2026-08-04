@@ -208,9 +208,9 @@ Integer members narrower than a byte — `uint.<N>` or `int.<N>` with `N` under 
 ```js
 @packed
 class RGB565 {
-  r: uint.<5>; // Bits 0..5
-  g: uint.<6>; // Bits 5..11
-  b: uint.<5>; // Bits 11..16
+  r: uint.<5>; // Bits 0..<5
+  g: uint.<6>; // Bits 5..<11
+  b: uint.<5>; // Bits 11..<16
 }
 RGB565.byteLength; // 2
 RGB565.bitLength;  // 16

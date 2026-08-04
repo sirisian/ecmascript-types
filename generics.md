@@ -37,7 +37,7 @@ class A<T extends int> {
 ```
 Here ```int``` is the constraint family matching any ```int.<N>```; likewise ```uint``` matches any ```uint.<N>```, and ```enum``` matches any enumeration - written ```enum.<TValue>``` to bound it to enumerations over a given underlying type, as the [decorators](decorators.md) reflection API does. These families are only usable as constraints, not as concrete types, since they don't specify a width (or, for ```enum```, a member set).
 
-A ```static``` member is not parameterized by its class's type parameters, so it declares its own. A static that works over the class's element type takes that type as a fresh parameter - ```static of<T, I: Interval>(start: T, end: T): Range.<T, I>``` and ```static from<T>(values: [].<T>): SoA.<T>``` - rather than referring to a bare ```T``` that isn't in scope.
+A ```static``` member is not parameterized by its class's type parameters, so it declares its own. A static that works over the class's element type takes that type as a fresh parameter - ```static of<T, S: Bound, E: Bound>(start: T, end: T): Range.<T, S, E>``` and ```static from<T>(values: [].<T>): SoA.<T>``` - rather than referring to a bare ```T``` that isn't in scope.
 
 Simple syntax, but often you want to apply multiple interface constraints. TypeScript uses ```&```.
 
@@ -214,7 +214,9 @@ write<uint<N: uint32>, minimum: uint32, maximum: uint32>(value: uint.<N>) {}
 
 ```uint<N: uint32>``` matches ```uint.<8>```, ```uint.<12>```, and so on, binding ```N``` to the width for the parameter and body. This is the declaration-site counterpart of the ```extends uint``` constraint: ```extends``` bounds an open parameter, while a family in the specialization position both selects the overload and binds its width.
 
-A ```partial class``` may specialize a generic parameter the same way, to a concrete type or a constraint family, so its members exist only on the matching instantiations. The [SIMD](simd.md) extension uses this to put the mask operations on ```partial class vector<boolean1, N: uint32>``` alone, leaving the general ```vector<T, N>``` without them. A specialized ```partial``` adds members only - it changes no layout, per the class extension rules - and a member that would collide with the primary declaration's is a TypeError as usual.
+A ```partial class``` or ```partial interface``` may specialize a generic parameter the same way, so its members exist only on the matching instantiations. What a specialization does in general is *narrow* the parameter, always against the primary declaration's own bound rather than in place of it: a concrete type is the narrowest narrowing, a constraint family is an intermediate one, and an interface bound is the general case, admitting every instantiation whose argument satisfies the primary's constraint and the narrowing both. The [SIMD](simd.md) extension uses a concrete narrowing to put the mask operations on ```partial class vector<boolean1, N: uint32>``` alone, leaving the general ```vector<T, N>``` without them; the [ranges](ranges.md) extension uses an interface narrowing to put ```scale``` on ```partial interface RangeBounds<T: Scalable.<T>>```, leaving it off the ranges whose element type has an ordering but no arithmetic. A specialized ```partial``` adds members only - it changes no layout, per the class extension rules - and a member that would collide with the primary declaration's is a TypeError as usual.
+
+A member added this way is present on an instantiation only where the declaring module is loaded, which is true of every partial and is why a narrowing the language itself relies on belongs to the standard library rather than to a program.
 
 Specialization mixes freely with open parameters. A selector type followed by an open one is the shape the [decorators](decorators.md) reflection API uses throughout, one overload per reflection kind:
 

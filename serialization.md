@@ -16,7 +16,7 @@ JSON.parse.<T>(text: string): T
 type ServerConfig = {
 	host: string.<{ pattern: /^[a-z0-9.-]+$/ }>,
 	port: uint16,
-	timeout?: float32.<{ exclusiveMinimum: 0 }>,
+	timeout?: float32.<{ bounds: 0<.. }>,
 	tls: boolean,
 	certificate?: string
 } where !this.tls || this.certificate != undefined;
@@ -111,7 +111,7 @@ try {
 	// not JSON at all
 } catch (e: TypeError) {
 	// JSON, but not a ServerConfig; e.message like:
-	// "at .timeout: expected float32 where exclusiveMinimum: 0, got -1"
+	// "at .timeout: expected float32 in 0<.., got -1"
 }
 ```
 

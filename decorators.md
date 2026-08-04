@@ -2343,11 +2343,9 @@ This documentation generation is basically reflecting a class to access its full
 A ```typename``` operator goes from a type to a string, which documentation generation uses to render a type.
 
 ```js
-type NumberBounds = {
-	minimum?: float32,
-	maximum?: float32,
-	exclusiveMinimum?: float32,
-	exclusiveMaximum?: float32,
+type NumberBounds<T: Ordered.<T>> = {
+	bounds?: RangeBounds.<T>,
+	nonZero?: boolean,
 };
 
 type StringBounds = {
@@ -2422,10 +2420,23 @@ type ConstraintDoc = {
 	pattern?: string,
 };
 
+// `ConstraintDoc` stays in JSON Schema's vocabulary, because that is what a
+// generated schema speaks. The metadata no longer does, so the decorator
+// translates rather than spreading - which is the point of a claimed key: the
+// consumer owns the translation into whatever names it needs.
+function schemaFromBounds(b: NumberBounds.<float32>): ConstraintDoc {
+	const r = b.bounds, doc: ConstraintDoc = {};
+	if (r.start != null)
+		r.startBound == Bound.Open ? doc.exclusiveMinimum = r.start : doc.minimum = r.start;
+	if (r.end != null)
+		r.endBound == Bound.Open ? doc.exclusiveMaximum = r.end : doc.maximum = r.end;
+	return doc;
+}
+
 function constraintsFor(type: type): ConstraintDoc | undefined {
 	return match (type) {
-		when extends float32.<B: NumberBounds>:
-			({ ...B }); // B is the bound metadata, checked against NumberBounds
+		when extends float32.<B: NumberBounds.<float32>>:
+			schemaFromBounds(B); // Translate the range into JSON Schema's four fields
 		when extends string.<S: StringBounds>:
 			({ ...S, pattern: S.pattern?.toString() }); // Replace the pattern with the string representation
 		default:
@@ -2560,10 +2571,10 @@ class Sensor {
 	label: string.<{ minLength: 1, maxLength: 120 }> = 'Unnamed Sensor';
 
 	@doc('Current temperature reading in Celsius.')
-	temperature: float32.<{ minimum: -273.15, maximum: 1000 }> = 20.0;
+	temperature: float32.<{ bounds: -273.15..=1000 }> = 20.0;
 
 	@doc('Humidity percentage.')
-	humidity: float32.<{ minimum: 0, maximum: 100 }> = 50.0;
+	humidity: float32.<{ bounds: 0..=100 }> = 50.0;
 
 	@doc('Whether the sensor is currently active.')
 	active: boolean = true;
@@ -2572,14 +2583,14 @@ class Sensor {
 	private readingCount: uint32 = 0;
 
 	@doc('Returns the current temperature.')
-	get currentTemp(): float32.<{ minimum: -273.15, maximum: 1000 }> {
+	get currentTemp(): float32.<{ bounds: -273.15..=1000 }> {
 		return this.temperature;
 	}
 
 	@doc('Sets the calibration offset applied to readings.')
 	set calibrationOffset(
 		@doc('Offset in Celsius.')
-		value: float32.<{ minimum: -50, maximum: 50 }>
+		value: float32.<{ bounds: -50..=50 }>
 	) {
 		this.#offset = value;
 	}
@@ -2587,9 +2598,9 @@ class Sensor {
 	@doc('Records a new temperature and humidity reading.')
 	record(
 		@doc('Temperature value in Celsius.')
-		temp: float32.<{ minimum: -273.15, maximum: 1000 }>,
+		temp: float32.<{ bounds: -273.15..=1000 }>,
 		@doc('Humidity value as a percentage.')
-		humid: float32.<{ minimum: 0, maximum: 100 }>,
+		humid: float32.<{ bounds: 0..=100 }>,
 		@doc('Optional timestamp override.')
 		timestamp: Temporal.Instant = Temporal.Now.instant(),
 	): void {
