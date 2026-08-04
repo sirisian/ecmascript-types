@@ -114,7 +114,7 @@ ref b = a[1]; // Rebinds b to a[1]; does not write a[0]
 
 `first(a)++` works because a call that returns a `ref` is not decayed in a position that consumes a *location*. There are two such positions: the operand of `++` or `--`, and the operand of a `ref` argument, so `g(ref first(a))` re-borrows the location the call returned and passes it straight on. Everywhere else the returned reference decays as usual — `let v = first(a)` copies the element's value, and `typeof first(a)` is the element's type. A call in one of these two positions whose return type is not a `ref` type is refused before the program runs where the type is known, and is a TypeError at the operation where it is not.
 
-Using a call as a plain assignment target, `first(a) = v`, is not part of this. It needs the assignment-target rules to tell a call that denotes a location from one that does not in every position a target can appear, which is a larger change than relaxing the one rule `++` needs; until then that position decays like any other.
+A call is also a valid assignment target: `first(a) = v` stores through the location, and so does every form that assigns to one — a compound or logical assignment like `first(a) += 1`, an element or property of a destructuring assignment at any depth, and the target of a `for...of` or `for...in` head. These all follow from a single rule about whether a call may be a target, so no position needs its own.
 
 The location a `ref` return names can be anything the callee could reach, including one of its own locals. The collector owns the lifetime: an environment stays alive while anything refers to it, so a reference to a local outlives the call that made it for exactly the reason a closure over that local does.
 
