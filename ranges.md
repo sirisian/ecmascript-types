@@ -99,7 +99,9 @@ a < ..    // a compared against the full range
 a <.. < b // (a<..) < b, and not the open range: `<..<` is one token
 ```
 
-None of the spaced readings is useful, since ```Range``` does not implement ```Ordered``` and each is a TypeError, which is why longest match resolves all of them the way a writer means. The last line is the one to read twice: spacing ```<..<``` apart does not give the open range, it gives a comparison, and it fails at the check rather than at the parse.
+None of the spaced readings is a program at all: a range binds **looser** than the relational operators, so a range can never be a relational operand and each of these is a SyntaxError. The last line is the one to read twice: spacing ```<..<``` apart does not give the open range, it gives a comparison against ```a<..``` that the grammar has no production for.
+
+Parentheses put a range back under the relational operators, and there the ordinary comparison applies to an ordinary object: ```(a..) < b``` and ```(0..<3) < 5``` are ```false``` rather than errors, because a range has no numeric primitive to compare. Whether that should instead be rejected - a range does not implement ```Ordered```, so comparing one is meaningless - is left open below.
 
 **One existing lookahead grows by a character.** ```?.``` is already not the optional chaining punctuator when a decimal digit follows, so that ```a?.5:b``` stays a ternary. It is now also not the punctuator when a ```.``` follows, so that ```cond?..<b:c``` is a ternary over a to-range rather than ```?.``` and a stray ```.<```. The extension is free: ```?.``` followed by ```.``` is a SyntaxError today in every case, because the punctuator must be followed by an identifier, ```(```, ```[```, a template, or a private name. It gives meaning to input that had none, which is the trade the digit half of the rule already makes.
 
@@ -225,6 +227,8 @@ const b: ClosedRange.<uint8> = 1..=6; // uint8 endpoints
 Meter(0)..<Meter(10); // ClosedOpenRange.<float32.<{ m: 1 }>>
 ```
 
+**```length``` adjusts once per open endpoint.** Over a bounded integer range it is ```end - start + 1``` less one for each endpoint that excludes its own value, so ```0..=10``` has 11 members, ```0..<10``` and ```0<..=10``` have 10, and ```0<..<10``` has 9; it is never negative. **```isEmpty``` reads the bounds at equal endpoints**: ```5..=5``` holds exactly one value, while ```5..<5```, ```5<..=5```, and ```5<..<5``` hold none, since an open endpoint excludes the only value the interval could contain.
+
 Descending ranges are **empty**, not reversed: ```10..<0``` contains nothing, and ```(0..<10).reverse()``` is how you count down. This is Rust's rule and it exists because the alternative silently produces a loop that runs backwards when a variable goes negative.
 
 **The interface's operations are total across the four shapes**, because the interface is what a consumer of an arbitrary range holds: the [metadata](primitivemetadata.md) bounds field is a ```RangeBounds.<T>```, and narrowing reaches it through ```..``` where there is no bound yet.
@@ -247,7 +251,7 @@ Descending ranges are **empty**, not reversed: ```10..<0``` contains nothing, an
 
 Addition adds the corresponding endpoints; subtraction crosses them, the result's low being the left's low minus the right's **high**; negation reflects, as ```scale(-1)``` does. For all three, **a result bound is exclusive where either contributing bound is**: ```(3..) + (5<..)``` is ```8<..```, because the right operand approaches 5 without reaching it, so the sum approaches 8 without reaching it.
 
-Multiplication is the four products of the endpoints, the least and the greatest of them being the result's. Its exclusivity rule is the one that repays stating: **a result bound is exclusive only where every product attaining it involves an exclusive source bound.** For ```(0..=1) * (0..<2)``` the least product is zero, attained both by ```0 * 0``` from two inclusive endpoints and by ```0 * 2``` touching an exclusive one - and because one attaining combination is inclusive, zero is reached and the result is ```0..=2```. Where the operands are not both fully bounded, multiplication propagates what it can: two non-negative lower bounds still give a lower bound, which is the ```(2..) * (3..)``` line above.
+Multiplication is the four products of the endpoints, the least and the greatest of them being the result's. Its exclusivity rule is the one that repays stating: **a result bound is exclusive only where every product attaining it involves an exclusive source bound.** For ```(0..=1) * (0..<2)``` the least product is zero, attained both by ```0 * 0``` from two inclusive endpoints and by ```0 * 2``` touching an exclusive one - and because one attaining combination is inclusive, zero is reached and the low bound is closed. The greatest product is two, and it is attained only by ```1 * 2```, whose right endpoint is exclusive: the product approaches two without reaching it, so the high bound is open and the result is ```0..<2```. Where the operands are not both fully bounded, multiplication propagates what it can: two non-negative lower bounds still give a lower bound, which is the ```(2..) * (3..)``` line above.
 
 Division is multiplication by the reciprocal, and it is defined only where the divisor is bounded away from zero - a strictly positive low or a strictly negative high. A divisor whose range merely excludes zero at an open endpoint, like ```0<..=1```, is not enough: its values approach zero, so the quotient is unbounded and the result is ```..```.
 
@@ -300,6 +304,8 @@ for (const i of 0..=9) {} // 0 through 9
 ```
 
 The nth value is ```start + n * by``` rather than the previous value plus ```by```, and iteration stops when that value reaches ```end```, tested against the value and not against a computed count. Both halves matter for a float range: ```(end - start) / by``` can round up and yield one value too many, and repeated addition accumulates error.
+
+**An open start begins one step in.** The nth value is counted from ```n = 0``` where the start is inclusive and from ```n = 1``` where it is exclusive, because an open start excludes its own endpoint: ```0<..<4``` yields 1, 2, 3, and ```(0<..<1).step(0.25)``` yields 0.25, 0.5, and 0.75. The rule is stated because the arithmetic above was written when a closed start was the only start a literal could spell, and an open one changes where the count begins rather than how each value is computed.
 
 ```js
 [...(0.0..<1.0).step(0.1)]; // Ten values, ending at 0.9
@@ -422,5 +428,6 @@ Iterator.range(0, 10, 2); // The values of (0..<100).step(2)
 ## Open Questions
 
 - Should ```String``` gain the range index operator (```str[1..<3]```), or is ```slice``` enough? Strings are not typed arrays here, so this is a separate decision.
+- Should comparing a range with ```<``` be rejected? A range does not implement ```Ordered```, so ```(0..<3) < 5``` is meaningless, but the base language's relational comparison applies to it as it would to any object and yields ```false```. Rejecting it is a type-system rule rather than a grammar one, since the unparenthesized spellings are already SyntaxErrors.
 - ```Range.of.<Bound.Open, Bound.Open>(a, b)``` needs its bounds as compile-time constants. Choosing a bound at runtime therefore produces a union of range types, which a ```switch``` handles and which is rare enough that no sugar is proposed. Now that all four intervals have literals, this is the escape hatch for a bound that is computed rather than written, and not the only way to name an interval.
 - Whether ```step``` should return an ```Iterator``` or a stepped ```Range```. An iterator is what Rust's ```step_by``` returns and what the helpers want, but it costs the range's other affordances, including ```contains```.
