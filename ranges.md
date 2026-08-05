@@ -101,7 +101,7 @@ a <.. < b // (a<..) < b, and not the open range: `<..<` is one token
 
 None of the spaced readings is a program at all: a range binds **looser** than the relational operators, so a range can never be a relational operand and each of these is a SyntaxError. The last line is the one to read twice: spacing ```<..<``` apart does not give the open range, it gives a comparison against ```a<..``` that the grammar has no production for.
 
-Parentheses put a range back under the relational operators, and there the ordinary comparison applies to an ordinary object: ```(a..) < b``` and ```(0..<3) < 5``` are ```false``` rather than errors, because a range has no numeric primitive to compare. Whether that should instead be rejected - a range does not implement ```Ordered```, so comparing one is meaningless - is left open below.
+Parentheses put a range back under the relational operators, and there a range is **rejected** as a relational operand: ```(a..) < b``` and ```(0..<3) < 5``` are TypeErrors. A range does not implement ```Ordered```, so the comparison is meaningless, and the base language would otherwise answer it with ```false``` - which is worse than an error because it is invisible. The unspaced spellings are already SyntaxErrors, so this rule reaches only the parenthesized forms.
 
 **One existing lookahead grows by a character.** ```?.``` is already not the optional chaining punctuator when a decimal digit follows, so that ```a?.5:b``` stays a ternary. It is now also not the punctuator when a ```.``` follows, so that ```cond?..<b:c``` is a ternary over a to-range rather than ```?.``` and a stray ```.<```. The extension is free: ```?.``` followed by ```.``` is a SyntaxError today in every case, because the punctuator must be followed by an identifier, ```(```, ```[```, a template, or a private name. It gives meaning to input that had none, which is the trade the digit half of the rule already makes.
 
@@ -181,7 +181,11 @@ class Range<T: Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bound.Open> impl
 	*operator...(): Iterator.<T>;
 
 	// The bounds are value generics, not arguments. A runtime bound would
-	// defeat the specialization the type exists to provide.
+	// defeat the specialization the type exists to provide. `of` survives the
+	// arrival of literals for all four intervals because it is the only way to
+	// construct a range in code GENERIC OVER ITS BOUNDS: a literal fixes its
+	// bounds by its own marker, so `function widen<S: Bound, E: Bound>(a, b)
+	// { return Range.of.<S, E>(a, b); }` has no literal spelling.
 	static of<T: Ordered.<T>, S: Bound, E: Bound>(start: T, end: T): Range.<T, S, E>;
 }
 
@@ -303,6 +307,8 @@ for (const i of 0..=9) {} // 0 through 9
 (0..).step(3).take(4); // 0, 3, 6, 9
 ```
 
+**```step``` returns an ```Iterator```, not a stepped range**, and the reason is algebraic rather than ergonomic. ```RangeBounds``` is an *interval* abstraction: ```contains```, ```intersect```, ```scale```, and the arithmetic operators are all point-set operations, and intersection is **closed** over intervals - which is what makes narrowing monotone. A step turns the point set into a lattice, and intersection is not closed over lattices: the multiples of 2 in ```0..<10``` intersected with the multiples of 3 are the multiples of 6, which no single stepped range with one step expresses. A stepped range would therefore make ```intersect``` either wrong or union-valued. Kotlin can afford ```IntProgression``` with ```contains``` precisely because it has no interval arithmetic to keep closed; Rust's ```step_by``` returns an iterator, as here.
+
 The nth value is ```start + n * by``` rather than the previous value plus ```by```, and iteration stops when that value reaches ```end```, tested against the value and not against a computed count. Both halves matter for a float range: ```(end - start) / by``` can round up and yield one value too many, and repeated addition accumulates error.
 
 **An open start begins one step in.** The nth value is counted from ```n = 0``` where the start is inclusive and from ```n = 1``` where it is exclusive, because an open start excludes its own endpoint: ```0<..<4``` yields 1, 2, 3, and ```(0<..<1).step(0.25)``` yields 0.25, 0.5, and 0.75. The rule is stated because the arithmetic above was written when a closed start was the only start a literal could spell, and an open one changes where the count begins rather than how each value is computed.
@@ -390,6 +396,7 @@ Exhaustiveness is not claimed for range labels. Deciding whether a set of interv
 ## The Rest of the Language
 
 - **Dimensioned quantities.** ```Meter(0)..<Meter(10)``` is a ```Range.<Meter>``` because ```float32.<D>``` defines ```operator<```. Mixing dimensions is the same TypeError it is anywhere: ```Meter(0)..<Second(10)``` fails at the range's construction.
+- **Strings do not get it.** ```a[start..<end]``` is a *view*, which is the whole of why it is an operator rather than a method, and a string cannot give one - ```str[1..<3]``` could only copy. Four characters costing O(1) on one receiver and O(n) on another, with no signal at the call site, is the trap this proposal avoids elsewhere; ```slice``` already says "copy" in its name. Underneath sits a second trap: a string range index would have to choose code units or code points, and Rust's ```&s[1..3]``` panicking on a non-boundary index is the known result of choosing.
 - **Temporal.** ```start..<end``` over ```Temporal.Instant``` works, and it subsumes the ad-hoc ```Interval``` record in [temporal.md](temporal.md). Like any non-integer range it needs a step, and ```(start..<end).step(Temporal.Duration.from('PT1H'))``` reads better than the loop it replaces. A non-empty requirement stays a ```where``` clause, since an empty range is a legal value, not an error.
 - **decimal and rational.** Ordered, so ranged. ```Math.random.<decimal128.<{ scale: 2 }>>(0..=100)``` quantizes at the return boundary like any other decimal.
 - **Dependent record types.** ```where (0..=150).contains(this.age)``` reads as the constraint it is, and the bounded-type spelling ```age: uint8.<{ bounds: 0..=150 }>``` is better still, since it validates at every boundary rather than at record construction.
@@ -427,7 +434,6 @@ Iterator.range(0, 10, 2); // The values of (0..<100).step(2)
 
 ## Open Questions
 
-- Should ```String``` gain the range index operator (```str[1..<3]```), or is ```slice``` enough? Strings are not typed arrays here, so this is a separate decision.
-- Should comparing a range with ```<``` be rejected? A range does not implement ```Ordered```, so ```(0..<3) < 5``` is meaningless, but the base language's relational comparison applies to it as it would to any object and yields ```false```. Rejecting it is a type-system rule rather than a grammar one, since the unparenthesized spellings are already SyntaxErrors.
-- ```Range.of.<Bound.Open, Bound.Open>(a, b)``` needs its bounds as compile-time constants. Choosing a bound at runtime therefore produces a union of range types, which a ```switch``` handles and which is rare enough that no sugar is proposed. Now that all four intervals have literals, this is the escape hatch for a bound that is computed rather than written, and not the only way to name an interval.
-- Whether ```step``` should return an ```Iterator``` or a stepped ```Range```. An iterator is what Rust's ```step_by``` returns and what the helpers want, but it costs the range's other affordances, including ```contains```.
+- Whether a stepped range should be reachable as a value - a ```Progression```, Kotlin's name for it - so that a step can be carried and asked ```contains```. This is deliberately not ```step```'s return type, for the reason given under Iteration; it would be a separate type whose containment is lattice membership rather than interval membership.
+- ```Range.of.<S, E>(a, b)``` needs its bounds as compile-time constants, so choosing a bound at runtime produces a union of range types, which a ```switch``` handles and which is rare enough that no sugar is proposed.
+
