@@ -181,11 +181,21 @@ class Range<T: Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bound.Open> impl
 	*operator...(): Iterator.<T>;
 
 	// The bounds are value generics, not arguments. A runtime bound would
-	// defeat the specialization the type exists to provide. `of` survives the
-	// arrival of literals for all four intervals because it is the only way to
-	// construct a range in code GENERIC OVER ITS BOUNDS: a literal fixes its
-	// bounds by its own marker, so `function widen<S: Bound, E: Bound>(a, b)
-	// { return Range.of.<S, E>(a, b); }` has no literal spelling.
+	// defeat the specialization the type exists to provide.
+	//
+	// Whether `of` should exist at all is OPEN. The case for it is narrow: a
+	// literal fixes its bounds by its own marker, so constructing a range in
+	// code generic over its bounds - `function widen<S: Bound, E: Bound>(a, b)
+	// { return Range.of.<S, E>(a, b); }` - has no literal spelling, and without
+	// it such a function returns a union of four types rather than
+	// `Range.<T, S, E>`. The case against is that bound-generic code almost
+	// always DERIVES a range rather than constructing one, and derivation is
+	// already covered: `intersect`, `scale`, and the arithmetic are
+	// bound-polymorphic by construction, so shifting a range is
+	// `r + (by..=by)`, which preserves its bounds exactly. What is left is
+	// construction from two loose endpoints at bounds named by type
+	// parameters, which is rare enough that the member may not earn its
+	// keep.
 	static of<T: Ordered.<T>, S: Bound, E: Bound>(start: T, end: T): Range.<T, S, E>;
 }
 
