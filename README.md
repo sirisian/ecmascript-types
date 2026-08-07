@@ -2533,7 +2533,7 @@ A compact syntax is proposed with signatures. These can be overloaded to work wi
 
 See the [operator overloading proposal](https://github.com/tc39/proposal-operator-overloading) for more examples.
 
-The [operator overloading](operatoroverloading.md) extension works these rules through a math library: operand resolution, scalars on the left of a user-defined type, and the SIMD intrinsics that make a matrix multiply compile well.
+The [operator overloading](operatoroverloading.md) extension works these rules through a math library: operand resolution, scalars on the left of a user-defined type, and the SIMD intrinsics that make a matrix multiply compile well. What each operator yields for each built-in family, and of what type, is collected in [operators by type](operators.md).
 
 ```js
 class A {
