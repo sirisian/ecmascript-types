@@ -16,7 +16,7 @@ A `ref` parameter binds to the caller's location, so a write in the callee is a 
 function f(ref a: int32) {
   a++;
 }
-let a = 0;
+let a: int32 = 0;
 f(ref a);
 a; // 1
 ```
