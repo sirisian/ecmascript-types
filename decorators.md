@@ -317,6 +317,16 @@ The following `<Context>Reflection` types define the data that is returned when 
 
 Every `type` field below holds a type object - interned by structural identity, the same value `Reflect.typeOf` returns for a value of that type. Those type objects are opaque to property access; to walk a type's own structure (a union's arms, an array's element and extent, an object type's properties, a function's overload signatures) reflect it with the `Reflect.Type` context defined at the end of this section. `Reflect.Type` is the one reflection target that is not also a decorator context - a bare type expression carries no decorator - so it appears in the reflection structures and `getReflection` signatures but not in the replacement, `addInitializer`, or decorator-context tables.
 
+Every reflection below carries a `kind`, a string naming the context it came from - `'ClassField'`, `'FunctionParameter'`, and so on. A reader that is handed a reflection can dispatch on it rather than inferring which context it holds from which fields happen to be present, which matters most for a decorator whose parameter is a union of contexts.
+
+The fields listed for a reflection are all of them, and all of them are present. There is no field an implementation may leave out, because the point of the facility is that a decorator reads a shape it can rely on: a `readonly` or an `offset` that some hosts have is one every reader has to feature-test for, and feature tests are how a portable API becomes a single-implementation one. Where an implementation wants to expose something of its own, it goes under `host`, a single reserved property that is absent unless the implementation puts something there. So every bare property of a reflection is one of these, and anything else is under one key a reader can see and ignore.
+
+Reflecting the same thing twice gives two objects, not one. A reflection is a report about a declaration rather than the declaration itself, and it is an ordinary object: extensible, not frozen, and not interned the way a type object is. The `metadata` object is the exception, and is stable: reflecting a declaration twice reaches the same metadata object, which is what makes a decorator's write visible to a later reader and what lets a subclass's metadata inherit prototypically from its base's. Identity belongs to the thing that carries state, not to the report about it. Block contexts show why this could not be otherwise: a block decorator runs on every entry to its block, so its reflection is produced per evaluation and there is nothing to intern it against.
+
+`metadata` is present and empty where nothing has written to it. A declaration with no decorators anywhere still reflects with a metadata object, so a reader never has to guard the read, and a missing key is a missing key rather than a TypeError on the ordinary case. Contexts whose family carries no metadata at all - bindings, blocks, tuples, and records - have no `metadata` field, which is a different thing from an empty one.
+
+`initial` captures CONSTANT values only: a non-constant initializer reports *undefined*, because evaluating it would run user code at class definition rather than per call. `initializer` carries the same declaration as a `TokenStream`, so `x: uint32 = f()` is readable as what was written even though no value exists yet. The pair is a value and the expression that produced it, not two spellings of one thing - see [decoratorreplacement.md](decoratorreplacement.md).
+
 ### Class
 
 ```js
@@ -2675,4 +2685,4 @@ Yes.
 function f(a: uint32, b: uint32 = a * 2) {}
 ```
 
-`initial` captures CONSTANT values only: a non-constant initializer reports *undefined*, because evaluating it would run user code at class definition rather than per call. `initializer` carries the same declaration as a `TokenStream`, so `x: uint32 = f()` is readable as what was written even though no value exists yet. The pair is a value and the expression that produced it, not two spellings of one thing - see [decoratorreplacement.md](decoratorreplacement.md).
+`initial` captures CONSTANT values only, as the [Reflection](#reflection) section defines it: a non-constant initializer reports *undefined*, because evaluating it would run user code at class definition rather than per call, and `initializer` carries the declaration as a `TokenStream` instead.
