@@ -161,6 +161,17 @@ partial class vector<boolean1, N: uint32> { // Mask operations: boolean lanes on
 }
 ```
 
+A comparison has to choose among the hardware's predicates, and the choice is the one scalar JavaScript already makes. x86 offers thirty-two floating-point predicates along two axes: an *ordered* comparison is false when either operand is NaN and an *unordered* one is true, and a *signaling* comparison raises the invalid-operation flag where a non-signaling one does not. Lane-wise, each operator means what it means on a scalar:
+
+| Operator | Predicate | Because |
+| --- | --- | --- |
+| ```<``` ```<=``` ```>``` ```>=``` | ```_CMP_LT_OQ``` ```_CMP_LE_OQ``` ```_CMP_GT_OQ``` ```_CMP_GE_OQ``` | ordered: a NaN lane compares false, as ```NaN < 1``` does |
+| ```==``` | ```_CMP_EQ_OQ``` | ```NaN == NaN``` is false |
+| ```!=``` | ```_CMP_NEQ_UQ``` | ```NaN != NaN``` is true, so unordered |
+| integer lanes | ```_MM_CMPINT_*``` | integers have no NaN, so the axis does not arise |
+
+Non-signaling throughout, since this proposal has no floating-point exception surface to signal into. The predicates with no operator - ```UNORD```, ```ORD```, and the signaling variants - are not exposed; a program that wants ```ORD``` writes ```a == a && b == b```.
+
 ```select``` is how branchless code is written. It is ```blendvps``` on x86 and ```bsl``` on ARM, and it evaluates both arguments, which is the trade a branch would have made anyway when the lanes disagree:
 
 ```js
@@ -224,6 +235,24 @@ type FloatBatch = vector.<float32, Lanes>;
 It is a value generic argument like any other constant, so a generic pass over a column reads it once and specializes. A vector wider than the hardware supports is not an error: an operation on it lowers to a sequence over the hardware width - two ```float32x4``` operations for a ```float32x8``` on a 128-bit target - so ```vector.<float32, 8>``` is always defined, just not always one instruction. Writing ```vector.<float32, vector.preferredLanes(float32)>``` is how a kernel stays both portable and optimal.
 
 Gather, scatter, and masked load and store are not in the first version. They are the operations that vectorize an indirect or predicated loop - reading ```data[index[i]]``` across lanes, or storing only where a mask is set - and they matter for exactly the entity-component sweeps this proposal is aimed at, but WebAssembly's ```simd128``` does not have them either, so a portable baseline cannot assume them. They are named here as a deliberate gap rather than an oversight; a later version would add them as methods on ```vector.<T, N>``` that lower to the portable width the same way the arithmetic operators already do.
+
+## Lane-wise Math
+
+```Math```'s functions apply lane-wise to a vector, returning a vector of the same shape.
+
+```js
+const v = float32x4(1, 4, 9, 16);
+Math.sqrt(v);                  // (1, 2, 3, 4)          sqrtps
+Math.min(v, float32x4(2));     // (1, 2, 2, 2)          minps
+Math.abs(int32x4(-1, 2, -3, 4));                     // pabsd
+Math.sin(v);                   // lane-wise             SVML _mm_sin_ps
+```
+
+The set divides on a line that matters more than which header the instruction lives in: whether the scalar function is *exactly specified* or *implementation-approximated*.
+
+```min```, ```max```, ```abs```, ```sqrt```, ```floor```, ```ceil```, ```round```, and ```trunc``` are exact. A lane of the result is exactly the scalar result for that lane, which an implementation gets for free because the hardware instruction is the one the scalar function already uses.
+
+```sin```, ```cos```, ```tan```, their inverses, ```exp```, ```log```, ```pow```, ```cbrt```, ```hypot```, and the hyperbolics are approximated, and ECMAScript already permits an implementation-approximated result for each. **The vector form is approximated independently of the scalar form**: lane *j* of ```Math.sin(v)``` need not equal ```Math.sin(v.lane.<j>())``` bit for bit. That latitude is the whole point - a vector math library such as SVML computes ```_mm_sin_ps``` to a different accuracy than the scalar libm ```sin```, and requiring agreement would forbid using it, which is to forbid the fast path the feature exists for. A program needing bit-identical scalar and vector results computes lane by lane.
 
 ## Instructions
 
