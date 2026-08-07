@@ -360,6 +360,7 @@ namespace Reflect {
 		static: boolean;
 		private: boolean;
 		protected: boolean;
+		readonly: boolean;
 		initial: T | undefined;
 		initializer: TokenStream | undefined;
 		// The pair this accessor generated, over its own backing field. A decorator that REPLACES the accessor returns a new `{ get, set }`; delegating to this one keeps the replacement over the SLOT the layout already allotted, instead of closing over storage of its own and leaving that slot dead. The slot exists either way: a layout is compile-time evaluable and must not depend on whether a decorator ran.
@@ -370,6 +371,9 @@ namespace Reflect {
 	type ClassGetterReflection<T = any> = {
 		type: () => T;
 		name: string | symbol;
+		static: boolean;
+		private: boolean;
+		protected: boolean;
 		metadata: ClassGetterMetadata;
 	};
 
@@ -381,9 +385,15 @@ namespace Reflect {
 	type ClassSetterReflection<T = any> = {
 		type: (value: T) => void;
 		name: string | symbol;
+		static: boolean;
+		private: boolean;
+		protected: boolean;
 		metadata: ClassSetterMetadata;
 	};
 
+	// A setter takes exactly one parameter, so this reflection carries no `index`
+	// where the other parameter reflections do - an index that is always 0 reports
+	// nothing.
 	type ClassSetterParameterReflection<T = any> = {
 		type: T;
 		name: string;
