@@ -664,6 +664,21 @@ Four things remain implicit, and none of them is a conversion between two typed 
 
 **Literals have no type.** A numeric literal takes the type of its context, and one that doesn't fit is a compile-time TypeError rather than a silent truncation. This is what makes the rule above livable: the arguments and initializers that would want a conversion are usually literals, and a literal never needs one.
 
+**A ```const``` of a numeric constant behaves as if inlined.** ```const K = 3.14``` used where a ```float64``` is wanted is a ```float64```, and where a ```float32``` is wanted a ```float32``` — the same two values the literal ```3.14``` gives in those positions, from one binding. The initializer may compute: ```const TAU = 2 * PI``` qualifies, and so does a chain of such constants. Nothing about the binding changes — ```typeof K``` is ```'number'```, ```K === 3.14``` holds, and with no contextual type it is a ```number```, so untyped code runs unchanged.
+
+A ```let``` does **not** take its context's type. A mutable binding's type must be fixed, or a reassignment would have nothing to check against — so ```let``` is the spelling for an ordinary ```number``` variable, and ```const n: number = 5``` is how a constant is pinned to one. The distinction is the one TypeScript already draws between ```const x = 5``` and ```let x = 5```, and the diagnostic says which fix applies:
+
+```js
+let K = 3.14;
+let r: float64 = 2.0;
+K * r;    // a "let" holds a "number" rather than taking this position's "float64";
+          // declare it "const" if it is never reassigned, or annotate it
+```
+
+**The constants of ```Math``` take their context's type too.** ```Math.PI * radius ** 2``` works wherever ```radius``` is a float type, because ```Math.PI``` cannot be *written* as a literal that denotes π — which is the only reason these are named individually. ```Math.PI```, ```E```, ```LN2```, ```LN10```, ```LOG2E```, ```LOG10E```, ```SQRT2```, and ```SQRT1_2``` participate; the limits on ```Number``` deliberately do not, since ```Number.MAX_SAFE_INTEGER``` narrowed to a ```float32``` would not be the maximum safe integer of anything. The property is untouched — still a non-writable, non-configurable data property, not an accessor — because this is typing rather than a runtime change.
+
+Narrowing a constant's ```float64``` value to a narrower float **is** the correctly rounded result, not a double rounding: an intermediate carrying at least ```2p + 2``` bits rounds equivalently to rounding once, and ```float64```'s 53 cover ```float32```'s 50 and ```float16```'s 24.
+
 ```js
 function f(a: uint8) {}
 f(1); // The literal is a uint8
