@@ -555,7 +555,10 @@ namespace Reflect {
 
 	type ObjectMethodParameterReflection<T = any> = {
 		type: T;
-		name: string | symbol;
+		// A parameter is named by an identifier, so `string` - as the other
+		// parameter reflections have it. A `symbol` here would be a member name,
+		// which a parameter does not have.
+		name: string;
 		index: uint32;
 		initial: T | undefined;
 		initializer: TokenStream | undefined;
