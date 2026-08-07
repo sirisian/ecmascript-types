@@ -660,6 +660,7 @@ namespace Reflect {
 namespace Reflect {
 	type EnumReflection<T extends enum.<TValue>, TValue = int32> = {
 		type: T;
+		name: string;
 		valueType: TValue;
 		size: uint32;
 		metadata: EnumMetadata;
