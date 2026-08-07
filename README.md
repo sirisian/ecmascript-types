@@ -558,8 +558,12 @@ rows.window(0, 8); // [].<uint32>, length 8
 Indexed access into a typed array is bounds-checked, as it is today. The type system elides the check wherever it can prove the index is in range, so the patterns a hot loop is written in pay nothing:
 
 - ```for (const ref p of a)``` performs no per-element check. The length is pinned for the loop's duration - changing it is a TypeError, per the [references and borrowing](references.md) extension - and the induction variable is the engine's own, in range by construction.
-- Indexing a fixed-length ```[N].<T>``` with an index the compiler knows is below ```N``` - a value generic, a ```where```-constrained parameter, or the counter of a ```for``` over ```0..<N``` from the [ranges](ranges.md) extension - needs no runtime check, because ```N``` is a compile-time constant and the bound is proven statically.
+- Indexing a fixed-length ```[N].<T>``` with an index the compiler knows is below ```N``` - a value generic, a ```where```-constrained parameter, or the counter of a ```for``` over a range from the [ranges](ranges.md) extension whose members all fall below ```N``` - needs no runtime check, because ```N``` is a compile-time constant and the bound is proven statically.
 - ```window.<N>(start)``` checks once that ```start + N``` fits and returns a ```[N].<T>``` whose own accesses are then the case above, so a fixed-size window hoists a single check to cover ```N``` of them.
+
+The C-style ```for (let i = 0; i < N; i++)``` carries no range, so its counter proves nothing and the check stays. That is deliberate rather than an oversight: recovering a bound from a loop's *shape* is the analysis this design avoids by putting the bound in a *type*, and supporting both would leave it unclear which one a program relies on. ```for (const i of 0..<N)``` is the spelling that carries the proof, which is the same trade Rust makes when ```for i in 0..n``` is the idiom and the indexed form is the slow one.
+
+Which range it is matters only in that its members stay below ```N```. ```0..<N```, ```0..=N-1```, and any narrower span all prove the same thing, and ```0<..=N``` proves nothing, its largest member being ```N``` itself. The bounds are part of what the members are, so the four shapes of one span do not all qualify.
 
 These are the guarantees Rust's slice and iterator code leans on: the checked operation is the default, and the idioms that let the compiler discharge the check are the ones performance-critical code already uses. Where the bound cannot be proven - a runtime index into a variable-length array - the check stays, and a program that wants it gone makes either the extent or the index statically known.
 
