@@ -179,6 +179,15 @@ const clamped = m.select(a, b); // Lanes of a where a < b, lanes of b elsewhere
 if (m.any()) {} // Reduce a mask to a boolean
 ```
 
+Computing some lanes and leaving the others is ```select``` over the operation, which is the shape a predicated instruction takes:
+
+```js
+m.select(a + b, a);     // Lanes where m is set are a + b, the rest stay a
+m.select(a + b, zero);  // Lanes where m is clear become zero
+```
+
+Those are x86's write-masked and zero-masked forms, ```_mm512_mask_add_epi32``` and ```_mm512_maskz_add_epi32```, and an implementation may compile them to one instruction rather than computing both arms and blending. Nothing new is needed to say it: an operator with a mask parameter would be a second spelling for what this composition already means. The latitude has a limit worth stating - ```select``` is an ordinary call, so an argument that runs user code runs whatever the mask holds, and only arithmetic an implementation can see is pure may go uncomputed.
+
 Masks are vectors, so they swizzle and index like any other:
 
 ```js
