@@ -63,13 +63,23 @@ const header: [Header.byteLength].<uint8>;
 | A class with an untyped field | No |
 | A union of value types | No. It has no single layout |
 
-Reading `byteLength`, `bitLength`, or `alignment` from a type in the second group is a TypeError, which is the point: a program that asks for the size of a `string` has made a mistake a returned number would hide. The three properties reflect the *declared* layout, so the offset and endianness decorators below are accounted for.
+Reading `byteLength`, `bitLength`, or `alignment` from a type in the second group is a TypeError, which is the point: a program that asks for the size of a `string` has made a mistake a returned number would hide.
 
-A field's offset within its class is reflection rather than a property of the type, since it belongs to the field. `Reflect.getReflection.<Reflect.ClassField, T>(name)` returns an `offset`, compile-time evaluable for the same reason the layout is:
+Asking WHETHER a type has a layout is a different act from asserting that it does, and `hasLayout` answers it:
 
 ```js
-Reflect.getReflection.<Reflect.ClassField, Vertex>('y').offset;     // 4
-Reflect.getReflection.<Reflect.ClassField, Vertex>('y').byteLength; // 4
+uint8.hasLayout;              // true
+string.hasLayout;             // false, rather than throwing
+Reflect.typeOf(v).hasLayout;  // what a generic serializer actually asks
+```
+
+Without it the only way to ask is to read one of the three and catch, which is control flow by exception for a question that is not a mistake - and `'byteLength' in string` is `true`, the property being present and throwing on read, so there is nothing cheaper to test. A serializer walking a heterogeneous structure is asking, not asserting; the `catch` that stands in for it also swallows a typo in the type name. `hasLayout` sits beside the three it guards, is compile-time evaluable for the same reason they are, and leaves them free to keep throwing on the mistake they are for. .NET keeps the same pair - `Marshal.SizeOf` throws where `Type.IsValueType` answers - and Rust answers it in the type system with `Sized` so it never reaches run time. The three properties reflect the *declared* layout, so the offset and endianness decorators below are accounted for.
+
+A field's offset within its class is reflection rather than a property of the type, since it belongs to the field. `Reflect.getReflection.<Reflect.ClassFieldLayout, T>(name)` returns it, compile-time evaluable for the same reason the layout is:
+
+```js
+Reflect.getReflection.<Reflect.ClassFieldLayout, Vertex>('y').offset;     // 4
+Reflect.getReflection.<Reflect.ClassFieldLayout, Vertex>('y').byteLength; // 4
 ```
 
 This is the `offsetof` of C and C#, and it is what a serializer, a placement `new`, or a GPU vertex attribute descriptor needs.
@@ -89,7 +99,9 @@ type ClassFieldLayoutReflection = {
 };
 ```
 
-Layout reflection and declaration reflection are deliberately separate. `Reflect.ClassField`'s decorator context in decorators.md describes what a field WAS DECLARED as — its type, visibility, and `readonly` — and carries `offset` and `byteLength` because those two are what a decorator commonly wants; the bit-level placement above is meaningful only for a class that has a layout at all, and only this extension defines what it means. Every other language keeps the same seam: .NET has `FieldInfo` for members and `Marshal.OffsetOf` for layout, C has `offsetof` unconnected to anything else, and Rust had no stable field-offset reflection at all until `offset_of!`. Asking a class with no layout for a field's placement is a TypeError, for the same reason reading `byteLength` from a `string` is.
+Layout reflection and declaration reflection are deliberately separate, and they are reached by separate contexts: `Reflect.ClassFieldLayout` for the placement above and `Reflect.ClassField` for the declaration. They were both written as `Reflect.ClassField` here, which made one retrieval expression mean two shapes depending on which document a reader had open. `Reflect.ClassFieldLayout` is a reflection context and not a DECORATOR context - nothing decorates a placement, which is the distinction `Reflect.Type` already draws.
+
+`Reflect.ClassField`'s decorator context in decorators.md describes what a field WAS DECLARED as — its type, visibility, and `readonly` — and carries `offset` and `byteLength` because those two are what a decorator commonly wants; the bit-level placement above is meaningful only for a class that has a layout at all, and only this extension defines what it means. Every other language keeps the same seam: .NET has `FieldInfo` for members and `Marshal.OffsetOf` for layout, C has `offsetof` unconnected to anything else, and Rust had no stable field-offset reflection at all until `offset_of!`. Asking a class with no layout for a field's placement is a TypeError, for the same reason reading `byteLength` from a `string` is.
 
 ## Natural alignment and padding
 
