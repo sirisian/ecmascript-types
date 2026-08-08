@@ -1125,14 +1125,15 @@ const a: uint64 = 18446744073709551615; // propagated, exact
 const b: bigint = 18446744073709551615n;
 ```
 
-### Typed Array Propagation to Arrays
+### Target-Typed Construction
 
-Identically to how types propagate to literals they also propagate to arrays. For example, the array type is propagated to the right side:
+Identically to how types propagate to literals they also propagate to arrays. The array type is propagated to the right side, and each element is a typed position:
 ```js
 const a: [].<bigint> = [999999999999999999999999999999999999999999];
+const b: [].<float32> = [0.1, 0.2, 0.3];
 ```
 
-This can be used to construct instances using implicit casting:
+Where the element type is a class, a bare element converts through the class's constructor:
 ```js
 class MyType {
   constructor(a: uint32) {
@@ -1142,34 +1143,45 @@ class MyType {
 }
 let a: [].<MyType> = [1, 2, 3, 4, 5];
 ```
+A one-parameter constructor is a converting constructor, so the element is constructed from its value. See [conversions](#conversions).
 
-Implicit array casting already exists for single variables as defined above. It's possible one might want to compactly create instances. The following new syntax allows this:
+That covers a single argument. To construct compactly with several, the type of the position is already known, so the construction does not need to name it:
 
 ```js
-let a: [].<MyType> = [(10, 20), (30, 40), 10];
+let a: [].<MyType> = [new.(10, 20), new.(30, 40), 10];
 ```
-This would be equivalent to:
+This is equivalent to:
 ```js
 let a: [].<MyType> = [new MyType(10, 20), new MyType(30, 40), 10];
 ```
 
-Due to the very specialized syntax it can't be introduced later. In ECMAScript the parentheses have defined meaning such that ```[(10, 20), 30]``` is ```[20, 30]``` when evaluated. This special syntax takes into account that an array is being created requiring more grammar rules to specialize this case.
-
-Initializer lists work well with SIMD to create compact arrays of vectors:
+```new.(``` is *target-typed construction*: it constructs the type the position requires. It is not an array feature — a position whose type is known is a position whose type is known, so the same form serves a binding, an argument, and a return:
 
 ```js
-let a: [].<float32x4> = [
-  (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
-  (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4),
-  (1, 2, 3, 4), (1, 2, 3, 4), (1, 2, 3, 4)
-];
+const a: MyType = new.(10, 20);
+function f(x: MyType) { }
+f(new.(10, 20));
+function g(): MyType { return new.(10, 20); }
 ```
 
-Since this works for any type the following works as well. The typed array is propagated to the argument.
+Where there is no contextual type there is nothing to construct, and ```new.(1)``` standing alone is a Syntax Error rather than a type the compiler guesses at.
+
+The spelling reuses ```new.```, which ECMAScript already uses for something meta about construction in ```new.target```; the token after the dot tells the two apart. It does not collide with the [placement new](#placement-new) forms, which name their type after the parentheses:
 ```js
+let p = new(buffer, byteOffset) MyType(0);   // placement: allocates into buffer
+let q: MyType = new.(0);                     // target-typed: type from the annotation
+```
+
+Since this works for any type the following works as well. The typed array is propagated to the argument:
+```js
+let a: [].<float32x4> = [
+  new.(1, 2, 3, 4), new.(1, 2, 3, 4), new.(1, 2, 3, 4),
+  new.(1, 2, 3, 4), new.(1, 2, 3, 4), new.(1, 2, 3, 4)
+];
+
 function f(a: [].<float32x4>) {
 }
-f([(1, 2, 3, 4)]);
+f([new.(1, 2, 3, 4)]);
 ```
 
 ### 64-bit Integer Types and Number Interop
