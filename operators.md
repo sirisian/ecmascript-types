@@ -82,7 +82,7 @@ An enum member computes at the enum's underlying type and yields that type, so a
 
 ## Ranges and refined types
 
-A type refined by [primitive metadata](primitivemetadata.md), such as ```uint8.<1, 5>```, is its underlying type for every operator: the refinement constrains what may be stored, not what an operator does. ```(a: uint8.<1, 5>) + (b: uint8.<1, 5>)``` is a ```uint8```, and whether the sum is back in range is a question for the next assignment.
+A type refined by [primitive metadata](primitivemetadata.md), such as ```uint8.<{ bounds: 1..=6 }>```, is its underlying type for every operator: the refinement constrains what may be stored, not what an operator does. The sum of two ```uint8.<{ bounds: 1..=6 }>``` values is a ```uint8```, and whether it is back in range is a question for the next assignment. A range is written under the key that says what it means, as [ranges](ranges.md) requires; there is no bare ```uint8.<1..=6>```.
 
 ## References
 
