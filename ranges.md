@@ -289,6 +289,18 @@ type Positive = float32.<{ bounds: 0<.. }>;
 
 The range is written under the key that says what it means. There is no bare ```uint8.<1..=6>```: dispatch in the [metadata](primitivemetadata.md) system is by claimed key, and a bare range carries no key to route by, so admitting one would mean either a second dispatch rule or a second spelling of ```{ bounds: r }```. What the metadata gains in exchange is that a constraint has one form: the four JSON Schema fields it replaces could say the same thing two ways and could contradict themselves, and a range can do neither.
 
+A bounded type reports its bounds through the ```min``` and ```max``` a Type Object carries, so a reader asks one question whether the constraint came from the width or from the ```bounds``` key:
+
+```js
+type Die = uint8.<{ bounds: 1..=6 }>;
+Die.min;    // 1      - the bounds, not the width
+Die.max;    // 6
+uint8.min;  // 0      - the width, where there are no bounds
+uint8.max;  // 255
+```
+
+```min``` and ```max``` report values a type ADMITS and carry no exclusivity of their own, so ```uint8.<{ bounds: 0..10 }>``` has a ```max``` of 9. A schema emitter that must distinguish ```exclusiveMaximum: 10``` from ```maximum: 9``` reads the range itself from the metadata, where it is kept whole.
+
 One notation now spells an interval in all four places a program needs one - as a value, as a constraint, as a random source, and as the bound the arithmetic on a constrained value carries - and they agree by construction:
 
 ```js
