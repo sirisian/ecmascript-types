@@ -207,12 +207,21 @@ A union type can be defined like:
 let a: uint8 | string = 'a';
 ```
 
-The ```|``` can be placed at the beginning when defining a union across multiple lines.
+The ```|``` can be placed at the beginning when defining a union across multiple lines. It's purely visual — a leading ```|``` means nothing beyond the alignment it gives, so ```| T``` is just ```T```. The same holds for ```&``` in an intersection, and both are allowed wherever a type is written, not only in a ```type``` declaration:
 ```js
 type a =
   | b
   | c;
+
+let x:
+  | uint32
+  | null = 5;
+
+type d =
+  & e
+  & f;
 ```
+A leading token may appear once and only before the first member, so ```a | | b``` does not parse.
 
 #### null, undefined, and the Short-Circuiting Operators
 
