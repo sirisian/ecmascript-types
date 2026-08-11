@@ -32,14 +32,26 @@ For a metadata-parameterized value it returns the full parameterization, e.g. `f
 
 ## The `type` operator and the `type` type
 
-The type literals whose syntax collides with expression grammar cannot be written bare in expression position: a function type reads as an arrow function, an inline object interface as a block, and `'a' | 'b'` or `float32 & 1` as bitwise operations. Prefixing a type expression with `type` resolves the collision and yields its type object:
+The type literals whose syntax collides with expression grammar cannot be written bare in expression position: a function type reads as an arrow function, an inline object interface as a block, a tuple type as an array literal, and `'a' | 'b'` or `float32 & 1` as bitwise operations. Prefixing a type expression with `type` resolves the collision and yields its type object:
 
 ```js
 const A = type (uint8) => uint8;           // a function type
 const B = type { x: float32, y: float32 }; // an inline object interface
 const C = type 'a' | 'b' | 'c';            // a union
 const D = type float32 & (0 | 1 | 1.5);    // an intersection
+const E = type [uint8, uint8];             // a tuple type
+const F = type [].<uint8>;                 // an array type
 ```
+
+Two of those operands are ambiguous with an expression, and in a way no lookahead
+resolves: `type [0]` is both a tuple type and a member access on a binding named
+`type`, and `type -1` is both a literal type and a subtraction. Each reading is
+complete and ends where the other does, so the ambiguity is decided rather than
+parsed apart, and it is decided in the operator's favour. A program that means
+the value writes `(type)[0]` or `(type) - 1`; this is what ECMAScript already
+does for `let [` at the start of a statement. A property access like
+`o.type[0]` is untouched, since only a bare `type` reaches the operator, and a
+line break before `- 1` leaves it a subtraction.
 
 The operator belongs to expression position, where a value is expected. A type position — an annotation, a generic argument, or the right of `is` or `as` — is already parsing a type and takes no `type`, so `let f: (uint8) => uint8` and `x is (uint8) => uint8` have none. The operand is a full type expression and extends as far as one reaches, so `type A | B` is the union of `A` and `B`, not `(type A) | B`; a bare name is a type expression too, which makes `type uint8` a redundant spelling of `uint8`. The statement-position companion is the `type NAME = ...` declaration, which binds the same type object to a name and additionally introduces a type alias usable in type position.
 
