@@ -124,4 +124,33 @@ class Resources {
 
 A type object is opaque to property access: given `Player | null` nothing exposes the arms, and given `[].<uint32>` nothing exposes the element. To inspect a type's structure at run time — a union's arms, an array's element and extent, an object type's properties, a function's overload signatures — reflect it with `Reflect.getReflection.<Reflect.Type>(t)`. `Reflect.typeOf(v)` returns the type object; `Reflect.getReflection.<Reflect.Type>` cracks it open, returning a node discriminated by `kind` (`union`, `array`, `object`, `function`, `reference`, and so on) whose leaves are themselves type objects a walker can recurse on.
 
+A type also says what KIND of value it describes, without being cracked open. ```family``` is a string naming it, and the families are the ones the operator rules already use:
+
+```js
+uint8.family;      // 'integer'
+float32.family;    // 'float'
+decimal64.family;  // 'decimal'
+string.family;     // 'string'
+float32x4.family;  // 'vector'
+```
+
+Three spellings are worth separating, because their names suggest otherwise. ```boolean``` is the ordinary two-valued type and its family is ```'boolean'```. ```boolean1``` is a one-bit unsigned integer, so its family is ```'integer'``` and it has a ```min``` of 0 and a ```max``` of 1. ```boolean8``` and the wider forms are bit vectors — ```boolean8``` is ```vector.<boolean1, 8>``` — so their family is ```'vector'```.
+
+A class reports ```'class'```, which names the family and not the declaration: a nominal type stays opaque, and nothing about its fields, its name, or its shape follows from asking. A type carrying metadata reports the family of what it parameterizes, so a ```float32.<{ m: 1 }>``` is a ```'float'``` — the parameterization refines the type rather than replacing it, which is the same reason ```m instanceof float32``` holds.
+
+The point of the member is that a walker dispatches on it instead of keeping a list. Together with ```min``` and ```max``` it is the whole of leaf handling for something like a JSON Schema emitter:
+
+```js
+switch (t.family) {
+  case 'integer': return { type: 'integer', minimum: t.min, maximum: t.max };
+  case 'float':
+  case 'decimal': return { type: 'number' };
+  case 'string':  return { type: 'string' };
+  case 'boolean': return { type: 'boolean' };
+  default:        return {};
+}
+```
+
+```family``` answers what a type IS, not what may be assigned to it. Two types of one family are no more assignable to each other than two of different families are, this proposal widening nothing implicitly; that question belongs to ```is```, ```instanceof```, and ```Reflect.isAssignable```.
+
 That structural reflection is one context of the broader reflection facility — the same `Reflect.getReflection` reflects a *declaration*'s members (a class's fields, a function's parameters, an enum's enumerators), keyed on the declaration rather than on a bare type. The full reflection API, its context taxonomy, and its metadata are defined in the [decorators](decorators.md) extension; this document covers the type-object half it operates on.
