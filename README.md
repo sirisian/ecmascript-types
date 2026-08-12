@@ -176,6 +176,26 @@ const arr: [4].<uint8> = [0, 0, 0, 0];
 arr instanceof [].<uint8>; // true, fixed-length is assignable to variable-length
 ```
 
+**A known element type supplies the sort order.** ```sort``` and ```toSorted``` compare by text when given no comparator, which is why ```[10, 9, 1].sort()``` is ```[1, 10, 9]``` in JavaScript. Where the element type is declared, that type's own order is used instead, so a typed array agrees with the corresponding ```TypedArray``` rather than contradicting it:
+
+```js
+let a: [].<uint8> = [10, 9, 1];
+a.sort();                          // [1, 9, 10], as Uint8Array does
+
+const b = [10, 9, 1];
+b.sort();                          // [1, 10, 9], unchanged
+```
+
+A type is ordered when it's a numeric type, ```bigint```, ```string```, ```boolean```, an enum, or a class declaring ```operator <```. An enum uses the order it already has — a ```string```-based enum by declaration position, not alphabetically, so a sequence of severities sorts the way it reads:
+
+```js
+enum Level: string { Low = "low", High = "high" };
+let levels: [].<Level> = [Level.High, Level.Low];
+levels.sort();                     // [Low, High], not ["high", "low"]
+```
+
+Anything else — ```any```, an object type with no declared comparison — keeps the text comparison, as does an array with no element type and any call that passes a comparator.
+
 Classes are unchanged: a class's type object is its constructor, and prototype chain semantics apply exactly as today. In a fully typed program these checks compile away or reduce to cheap tag tests. The ```instanceof``` operator is useful at boundaries where the static type is a union or ```any```, and a successful check narrows the static type in that branch, the nominal counterpart to the structural ```is``` operator from the [dependent record types](dependentrecordtypes.md) document:
 
 ```js
