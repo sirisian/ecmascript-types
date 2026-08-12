@@ -340,8 +340,9 @@ symbols — `InputElementDiv`, `InputElementRegExp`, `InputElementTemplateTail`.
 So a JavaScript token stream is **parse-informed**, not purely lexical, in a way
 Rust's is not. Two consequences:
 
-- **Incoming** tokens are unambiguous, because the engine resolved the goal
-  symbol when it produced them.
+- **Incoming** tokens are unambiguous *where the decorated region is
+  ECMAScript*, because the engine resolved the goal symbol when it produced
+  them. That qualifier is load-bearing and was missing here; see below.
 - **Outgoing** tokens are the problem. A macro emitting `/` must say which it
   means, or the engine must re-derive it — and re-deriving means re-parsing the
   output, which is the cost tokens were meant to avoid.
@@ -355,6 +356,59 @@ Rust has the same shape of problem in miniature — `>>` as a shift versus two
 closing generics — and solves it the same way, with `Spacing::Joint`/`Alone` on
 `Punct`. **This is the one place the Rust analogy needs a JavaScript-specific
 answer**, and it is a token-kind distinction rather than a new mechanism.
+
+#### The incoming direction is a second problem, and it is not the `/`
+
+The bullet above originally read that incoming tokens are simply unambiguous.
+That is true of a region the engine can lex, and every region it can lex is
+ECMAScript — which is precisely what a syntax replacement is often wanted for
+NOT being. A macro over a DSL cannot receive tokens the engine cannot produce.
+
+JSX is the case that shows it, and the reason is not the `/` this section is
+about. Measured in an implementation:
+
+| source | result |
+| --- | --- |
+| `const v = < 2;` | Unexpected token |
+| `const v = <div/>;` | Unexpected token — the **same** failure |
+| `const a = 1; const v = a </div>/;` | **parses**, as `a < /div>/` |
+
+`<` cannot begin an expression, so the parse stops there and never reaches the
+closing tag. The third row is this section's ambiguity behaving exactly as
+described, and it is downstream: it would matter only if the first two rows
+succeeded.
+
+So there are two problems of different kinds. **`<` beginning an expression is a
+GRAMMAR question; `/` after it is a GOAL-SYMBOL question.** This section answers
+the second, in the outgoing direction, by construction. The first has no answer
+in a token-kind distinction, because there are no tokens yet to distinguish.
+
+**The answer is to let the region declare how it is scanned.** A preprocessor
+import may name a lexical mode, and the region its decoration takes is then found
+by delimiter and tokenized by that mode rather than as ECMAScript:
+
+```js
+import { jsx } from "./jsx.js" with { preprocessor: "true", mode: "jsx" };
+const el = @jsx do { <div class="a">{name}</div> };
+```
+
+A mode governs INGESTION only — what a macro returns is ECMAScript however its
+region was scanned — and the grammar outside a region is untouched, so `a < b`
+and `.<T>` read as they always did. Keeping JSX a macro's business rather than
+the language's is the whole point: TypeScript declines to disambiguate `<` in the
+grammar at all and switches on the file extension instead.
+
+Two consequences worth stating, because they are easy to assume away in turn:
+
+- **Delimiter matching cannot be naive.** A region's end is found without lexing
+  its contents, so string and comment forms must be recognised even though
+  nothing else is. Otherwise `<a title="}">` ends the region at the wrong brace.
+- **A regular expression is deliberately NOT recognised while scanning a
+  region.** Inside one the contents are not ECMAScript, so `/` is whatever the
+  mode says — in JSX it opens a closing tag — and a `{` within it is a real
+  delimiter. Outside a region the opposite holds, which is the third row above.
+  No single scanner serves both readings, which is why a region declares its
+  mode rather than being guessed at.
 
 ### 4.4 Phases
 
@@ -463,8 +517,11 @@ It also matches Rust, where a macro must be in scope at its expansion site.
   that. `TokenStream::to_string()` exists and is documented as lossy. **This
   proposal now takes the same position** — §7.1 — having first argued against it
   and been wrong about the cost.
-  Two places where JavaScript differs: the `/` ambiguity has no Rust analogue
-  (§4.3), and `quote!` is a crate where a tag function is native (§4.2).
+  Three places where JavaScript differs: the `/` ambiguity has no Rust analogue
+  (§4.3); a region the engine cannot LEX has none either, since Rust's lexer is
+  context-free and can tokenize any delimited run, which is why a mode is needed
+  here and not there (§4.3); and `quote!` is a crate where a tag function is
+  native (§4.2).
 - **Sweet.js** is the JavaScript macro system that got furthest, and made
   hygiene its central feature rather than an extension.
 - **Scheme `syntax-rules`** is hygienic by construction and is the origin of the
@@ -1439,6 +1496,7 @@ decoration site far from the mistake.
 | Delimited runs are grouped, not flat | **settled** — §4.2 |
 | Hygiene contexts belong to Part B only | **settled** — §3.2 |
 | `regexp` and `punctuator` are distinct kinds, for the `/` ambiguity | **settled** — §4.3 |
+| A region the engine cannot lex reaches a macro via a declared lexical MODE | **settled** — §4.3 |
 | Hygiene from `TokenStream.gensym()`, not `def_site` contexts | **settled** — §7.1 |
 | Protocol and hygiene are independent axes | **settled** — §7.1 |
 | Phase decided by the import name, STRICTLY — no aliasing | **settled** — §7.2 |
