@@ -1074,6 +1074,26 @@ Reflect.getReflection.<Reflect.ClassField, B>() // All fields including inherite
 Reflect.getReflection.<Reflect.ClassField, B>({ own: true }) // Only fields B declares
 ```
 
+An enumeration answers members of one staticness. `{ static: true }` asks for the static ones; with neither option the instance ones come back:
+
+```js
+class A { m() {} static m() {} }
+
+Reflect.getReflection.<Reflect.ClassMethod, A>()                 // { constructor, m } - the instance m
+Reflect.getReflection.<Reflect.ClassMethod, A>({ static: true }) // { m }              - the static one
+```
+
+The result is keyed by name, and a name does not identify a member: `m` and `static m` are both legal in one body and both reach the same owner. A program wanting both asks twice and merges by VALUE, each reflection carrying its own `name` and `static`:
+
+```js
+const all = [...Object.values(Reflect.getReflection.<Reflect.ClassMethod, A>()),
+             ...Object.values(Reflect.getReflection.<Reflect.ClassMethod, A>({ static: true }))];
+
+const broken = { ...instance, ...statics };   // keyed by name, so `m` collides again
+```
+
+The enumerated methods include `constructor` - a class always has one, written or not - so a program listing the methods it means to expose skips that name.
+
 ## addInitializer
 
 Present on contexts that represent declaration sites where initialization logic can be injected:
