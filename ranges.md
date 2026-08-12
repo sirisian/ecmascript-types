@@ -123,6 +123,12 @@ enum Bound: uint8 { Closed, Open }; // Exposed as Range.Bound
 interface Ordered<T> {
 	operator<(other: T): boolean;
 }
+// `Ordered` is a TOTAL order: of any two values one is less, or they are
+// equivalent. A range derives the comparisons it needs from `operator<` alone -
+// `a <= b` is `!(b < a)`, `a > b` is `b < a` - which is exact under totality and
+// wrong under a partial one, where two values may be mutually incomparable and
+// the derivation would call them equivalent. One operator is what an element
+// type implements, so no type can declare `<` and `<=` that disagree.
 
 interface Scalable<T> {
 	operator*(factor: float64): T; // Scalar multiplication, preserving T
