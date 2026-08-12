@@ -1521,6 +1521,26 @@ f((a, b) => b);
 
 The interface in this example defines the mapping for "named" to the second parameter.
 
+A *type* argument may be named the same way. This matters where a generic has parameters with defaults, since supplying only a later one otherwise means repeating the earlier ones:
+
+```js
+type Grid<T = float64, Rows = 4, Cols = 4> = { cells: [].<T> };
+
+let a: Grid.<float64, 4, 8>;  // repeats the two defaults
+let b: Grid.<Cols: 8>;        // says what differs
+```
+
+The separator is ```:```, matching the named argument form above rather than the ```=``` of a parameter's default — in a declaration ```=``` means *the default if none is supplied*, and in an application it would mean *the value being supplied*, which are opposite senses at the same position.
+
+Positional arguments come first, so a positional argument's meaning never depends on the names used after it:
+
+```js
+let c: Grid.<float64, Cols: 8>;  // fine
+// let d: Grid.<Cols: 8, float64>;  // does not compile: positional after named
+```
+
+A name that matches no parameter is an error rather than being ignored, since a misspelling would otherwise silently take the parameter's default and change what the program means. The same rule refuses a name on a form that declares no parameters, such as ```[4].<uint8>```, whose extent and element the grammar does not name. A parameter may not be supplied twice, whether by two names or by a name and a position.
+
 It might not be obvious at first glance, but there are two separate syntaxes for defining function type constraints. One without an interface, for single non-overloaded function signatures, and with interface, for either constraining the parameter names or to define overloaded function type constraints.
 
 ```js
