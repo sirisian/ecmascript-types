@@ -196,6 +196,22 @@ levels.sort();                     // [Low, High], not ["high", "low"]
 
 Anything else — ```any```, an object type with no declared comparison — keeps the text comparison, as does an array with no element type and any call that passes a comparator.
 
+**Declaring ```operator <``` is enough.** A relational operator a class doesn't declare is derived from the one it does, so a type becomes fully comparable — and sortable — from a single declaration:
+
+```js
+class Version {
+  constructor(n) { this.n = n; }
+  operator <(o: Version) { return this.n < o.n; }
+}
+
+new Version(2) > new Version(1);   // true, derived as (1 < 2)
+new Version(2) <= new Version(1);  // false, derived as !(1 < 2)
+```
+
+```a > b``` is ```b < a```, ```a <= b``` is ```!(b < a)```, and ```a >= b``` is ```!(a < b)```. A declared operator always wins over the derivation, so a class may still declare all four and have each used as written.
+
+Note that deriving ```<=``` this way assumes a *total* order. For a type where two values can be mutually incomparable — as ```NaN``` is among numbers — ```!(b < a)``` answers ```true``` where ```false``` is meant, so such a type should declare ```<=``` itself.
+
 Classes are unchanged: a class's type object is its constructor, and prototype chain semantics apply exactly as today. In a fully typed program these checks compile away or reduce to cheap tag tests. The ```instanceof``` operator is useful at boundaries where the static type is a union or ```any```, and a successful check narrows the static type in that branch, the nominal counterpart to the structural ```is``` operator from the [dependent record types](dependentrecordtypes.md) document:
 
 ```js
