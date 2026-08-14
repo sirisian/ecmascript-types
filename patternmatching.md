@@ -55,6 +55,65 @@ A block arm is a block, not a function body, which is the whole reason to have o
 
 The static type of a ```match``` expression is the union of its arm types, canonicalized, with ```throw``` arms and diverging blocks contributing nothing - the same divergence analysis the README defines for ```switch``` and that a [```do``` expression](doexpressions.md) reads its own type by. A contextual type on the ```match``` flows into each arm body, so a ```match``` in a ```uint8``` position types its arm literals as ```uint8``` by ordinary [literal propagation](README.md).
 
+### Every matching arm
+
+```match all (subject) { ... }``` answers with **every** arm that matched rather
+than the first, as a ```[].<T>``` in arm order.
+
+```js
+const warnings = match all (character) {
+  when { hp: ..<30 }: 'LOW HEALTH';
+  when { mp: ..<10 }: 'LOW MANA';
+  when { inCombat: true }: 'IN COMBAT';
+};
+```
+
+Three things differ from ```match```, and nothing else does - patterns, guards,
+bindings, per-arm narrowing, arm bodies and block decorators are all the same:
+
+- **The value is a list.** Every matching arm's body is evaluated, in source
+  order, and the results collected. The subject is evaluated once.
+- **Exhaustiveness does not apply.** No arm need match, and the value is then an
+  empty list. That is an answer rather than a missing case, which is why the rule
+  below is not inherited here.
+- **Arm-failure subtraction does not apply.** A later clause is reached whether
+  or not an earlier one matched, so it learns nothing from the earlier failure -
+  where a ```match```'s ```default``` after ```when null:``` sees a non-null
+  subject.
+
+**```default``` is a Syntax Error in a ```match all```.** It and ```_``` are
+synonyms in a ```match```, and a word meaning "always" in one form and "only if
+nothing else did" one form over is a trap worth refusing outright. A clause that
+always contributes is spelled ```when _:```, which is what ```_``` means
+everywhere. What to do when nothing matched is an ordinary question about an
+empty list, and is better asked after the expression than inside it.
+
+An arm that ```throw```s aborts the collection: the arms before it have already
+run, and their values are lost with the expression. Collecting failures rather
+than throwing them is what the form is already for -
+
+```js
+const failures = match all (form) {
+  when { email: '' }: new ValidationError('email required');
+  when { age: ..<18 }: new ValidationError('must be 18');
+};
+```
+
+- where the value *is* the failure and the result is already the collection.
+
+No general-purpose language has this. Every pattern-matching construct surveyed -
+Rust, OCaml, Haskell, Scala, F#, Elixir, Swift, Kotlin, Python, C#, Java, Ruby,
+Elm, Racket, Clojure - is first-match. The semantics lives in rule engines, whose
+agenda fires every activated rule; in the CSS cascade, where every matching
+selector applies; in Prolog, where matching is non-deterministic and first-match
+is the special case spelled with a cut; and in ```bash```'s ```case```, whose
+```;;&``` terminator continues testing the remaining patterns. The case for the
+form is the use rather than the tradition: validation collecting every failing
+rule, classification where an item carries several tags, diagnostics gathering
+every applicable warning, permissions accumulating grants. Each is written today
+as a filter over an array of predicate-and-value pairs, which is this construct
+with the patterns spelled as lambdas.
+
 ### Why not switch
 
 ```switch``` stays what it is: a statement dispatching on ```===```, on range containment, or on the type objects of a sealed hierarchy, with exhaustiveness over enums and sealed classes. ```match``` is the expression form with structure: it destructures, it binds, it composes tests, and it answers with a value. The two share their narrowing and exhaustiveness machinery, and a ```switch``` that has outgrown its labels - a guard here, a destructure there - is a ```match``` waiting to be written. Nothing is removed from ```switch``` to make room; the division is statement-and-equality against expression-and-structure.
@@ -62,6 +121,15 @@ The static type of a ```match``` expression is the union of its arm types, canon
 ### The grammar is an error today
 
 This proposal only adds syntax that is currently invalid, and ```match``` needs the argument made, because ```match(x) { }``` is a valid program today: a call followed by an empty block. The construct stays valid and keeps its meaning, because a ```match``` expression requires at least one clause, and every clause begins ```when <pattern>:``` or ```default:```. ```default``` is a reserved word, so ```default:``` cannot be a label; ```when``` is an ordinary identifier, but ```when <token>:``` parses today only as the label ```when:``` with nothing between - and a clause's pattern is never empty - or as the expression ```when``` followed immediately by another expression, which is a SyntaxError. So every program the new grammar accepts is an error in the current language, and every program the current language accepts keeps its parse: ```match(x) {}```, ```match(x) { foo: bar(); }```, and bare ```match(x)``` all still mean the call. In expression position there is no overlap at all, since a call followed by ```{``` is already a SyntaxError there.
+
+The same argument covers ```all```. ```match all (x)``` is two adjacent expressions today and so a SyntaxError, and the modifier carries a **[no LineTerminator here]** restriction so that
+
+```js
+match
+all(x) { }
+```
+
+keeps the parse it has now - a statement, a call, and a block - rather than becoming a ```match all``` whose subject is on the next line. ```all``` is an ordinary identifier everywhere else, including as a binding, a property, and a function name.
 
 ## Patterns
 
@@ -218,7 +286,7 @@ match (shape) {
 
 Each arm narrows the subject to what its pattern established, through the same machinery that serves ```instanceof```, ```is```, the brand check, and the sealed ```switch```; failing an arm narrows the *next* arm's view of the subject by subtraction where the failed pattern is subtractable, so a ```default``` after ```when null:``` sees the subject non-null. Nothing outlives the expression: the subject's type after the ```match``` is what it was before, since which arm ran is not visible outside.
 
-**Every ```match``` must be exhaustive**, and it is a compile-time TypeError when it is not. A ```match``` is exhaustive when it has an unguarded catch-all clause - ```default```, ```_```, or an unannotated binding - or when its subject's type is *closed* and every case of it is covered. The consequence is the one worth stating plainly: a ```match``` whose subject holds a value of its static type never throws for want of a clause, so the runtime TypeError the previous section describes is unreachable from typed code, and the analysis is what makes it so. The closed-subject half is the ```switch``` rule extended to what patterns can prove. The closed subjects are: an enum; a sealed class, covered by covering its direct subclasses and itself where instantiable; ```boolean```, covered by ```true``` and ```false```; ```null``` and ```undefined```; a union of two or more members each of which is one of these, an object type, a tuple type, or a [composite](composites.md) type, covered by covering every member; a [dependent record type](dependentrecordtypes.md) whose ```where``` chain discriminates on one member against a closed set of constants, which denotes such a union and is covered by covering it; and an intersection one of whose members is a union, which distributes into one - ```(FloatType | IntType) & Shared``` has the two cases a reader sees in it, and an arm naming ```FloatType``` covers ```FloatType & Shared```.
+**Every ```match``` must be exhaustive**, and it is a compile-time TypeError when it is not. A ```match all``` is the exception: no arm need match there, since its value is the list of those that did and an empty list is an answer. A ```match``` is exhaustive when it has an unguarded catch-all clause - ```default```, ```_```, or an unannotated binding - or when its subject's type is *closed* and every case of it is covered. The consequence is the one worth stating plainly: a ```match``` whose subject holds a value of its static type never throws for want of a clause, so the runtime TypeError the previous section describes is unreachable from typed code, and the analysis is what makes it so. The closed-subject half is the ```switch``` rule extended to what patterns can prove. The closed subjects are: an enum; a sealed class, covered by covering its direct subclasses and itself where instantiable; ```boolean```, covered by ```true``` and ```false```; ```null``` and ```undefined```; a union of two or more members each of which is one of these, an object type, a tuple type, or a [composite](composites.md) type, covered by covering every member; a [dependent record type](dependentrecordtypes.md) whose ```where``` chain discriminates on one member against a closed set of constants, which denotes such a union and is covered by covering it; and an intersection one of whose members is a union, which distributes into one - ```(FloatType | IntType) & Shared``` has the two cases a reader sees in it, and an arm naming ```FloatType``` covers ```FloatType & Shared```.
 
 The last two are *derived* forms, and derived for this check alone: neither changes what the type is. ```Reflect.typeOf``` reports the dependent record type and the intersection, identity and interning are untouched, and assignability compares against the type as written. All they change is that the checker sees the cases the reader sees, which is the whole job of the check. An arm covers a member when its unguarded pattern provably matches every value of it: a type pattern naming the member or a supertype, an enumerator constant for that enumerator, a binding, an object or tuple pattern whose every sub-pattern covers the member's corresponding field - the subsumption the impossible-test rule already computes, run in the other direction - and a guard forfeits the arm's contribution, since the checker does not evaluate guards. That is what checks the opening example, a union of object types discriminated by a field, and what makes ```Node | null``` - the shape every ```tryParse``` in this proposal returns - exhaustive from ```when null:``` plus the subclass arms, with no ```default``` standing in for the case the types already name.
 
@@ -292,6 +360,8 @@ The recurring shape of this proposal - annotations converting dynamic discovery 
 ## Limitations
 
 Stated because they were found, not designed:
+
+- **A guard belongs to a clause, not to a pattern.** ```is``` takes a pattern, so it cannot express "matches ```P1``` under this guard or ```P2``` under that one" - that needs ```x is P1 && g1 || x is P2 && g2```, which names the subject twice. The combinators cover every guard-free case, which is why this has not forced a second matching form; if the shape recurs, the answer is guards in patterns rather than one.
 
 - **No negation types.** ```not``` and arm-failure narrow only what subtraction can represent - union members, sealed subclasses, literals, ```null```. A failed structural pattern narrows nothing, so ```default``` below ```when { let x }:``` still sees a subject that may have ```x```. Recording "lacks a member" would be a new kind of type, and no other feature here has needed one; the guard ```if (!('x' in v))``` is the workaround and is honest about being a runtime fact.
 - **Array length does not narrow.** ```[let a, let b]``` tests length 2 and types the elements, but cannot retype a ```[].<uint8>``` as ```[2].<uint8>```, because those are distinct types with distinct values, not one type at two levels of knowledge. Code that wants a length-indexed type constructs one; a pattern only proves things a value's own type can express.
