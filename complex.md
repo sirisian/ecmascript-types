@@ -72,7 +72,7 @@ Mixing follows the no-implicit-widening rule. A real literal propagates onto the
 
 ## Components, functions, and conversions
 
-- `.re` and `.im` return the `T` real and imaginary parts.
+- `.real` and `.imaginary` return the `T` real and imaginary parts. The names are written out rather than abbreviated to `re`/`im`, matching `bitLength`, `elementByteLength`, and `minPositive` elsewhere in this proposal; Go and NumPy abbreviate, Python does not.
 - `Math.abs(z)` is the magnitude `√(re² + im²)`, a real `T`.
 - `Math.conj(z)` is the conjugate `re − im·i`.
 - `Math.arg(z)` is the phase `atan2(im, re)`, a real `T`.
@@ -85,7 +85,7 @@ Math.sqrt(float64(-1));   // NaN, the real overload
 Math.exp(complex(0, Math.PI));   // -1 + 0i, Euler's identity, within rounding
 ```
 
-`Math.sin`, `Math.cos`, `Math.tan`, `Math.log`, and `Math.pow` extend the same way. Conversions are explicit in both directions: `complex(x)` lifts a real onto the plane, `.re` projects back off it, and `complex64` and `complex128` convert between each other with an explicit cast, like their component floats.
+`Math.sin`, `Math.cos`, `Math.tan`, `Math.log`, and `Math.pow` extend the same way. Conversions are explicit in both directions: `complex(x)` lifts a real onto the plane, `.real` projects back off it, and `complex64` and `complex128` convert between each other with an explicit cast, like their component floats.
 
 ## Example
 
