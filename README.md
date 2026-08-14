@@ -3621,6 +3621,7 @@ magnitude(p); // signature known across the module boundary
 - [Expression Parser](examples/expressionparser.md): a tokenizer, recursive descent parser, and evaluator stressing enums, typed generators, and sealed hierarchies.
 - [Invoicing](examples/invoicing.md): decimal money with a user-defined Currency meta type, Temporal dates, where-clause invariants, and typed JSON boundaries.
 - [Entity Component System](examples/ecs.md): archetype storage over value type columns, compile-time component-to-type mapping, type-keyed resources and events, and delta replication for a networked game server.
+- [Query Comprehensions](examples/linq.md): a `linq` lexical mode compiling `from`/`where`/`orderby`/`group by`/`join` into calls, with a higher-kinded source protocol, per-site query plans, and a provider that translates rather than evaluates.
 
 # Previous discussions
 
