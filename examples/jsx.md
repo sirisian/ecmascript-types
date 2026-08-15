@@ -58,7 +58,7 @@ With that in place:
    which is what the name-keyed hook above reads. Run it once; the registry persists for the realm.
 2. **Create a second snippet** containing the demo below, and run it. It prints the tree, checks that two renders share their templates, and changes a signal to show the controllers re-evaluating.
 
-A region cannot be pasted as a bare script, because the mode is declared by an import attribute and only a module may carry one. Without it `<inventory-grid columns="8">` lexes as ECMAScript and `grid columns` is two adjacent identifiers. The demo therefore contains what the macro EMITS, so it runs with nothing but itself.
+A region cannot be a bare SCRIPT: the mode is declared by an import attribute and only a module may carry one. Without it `<inventory-grid columns="8">` lexes as ECMAScript and `grid columns` is two adjacent identifiers, which is the error a paste produces. Run the demo as a module and the import does its work.
 
 ## Three Rules
 
@@ -928,70 +928,35 @@ function splitRange(tokens) {
 
 ## The Demo
 
-The second snippet. Runtime, the view as the macro emits it, and a driver.
+The second snippet, run as a MODULE. Runtime, the view as written, and a driver. The `@jsx { }` region is the real thing - the macro compiles it at parse time, which is what the static import above makes possible.
 
 ```js
 // =============================================================================
-// A COMPLETE, PASTE-AND-RUN EXAMPLE
+// A COMPLETE, RUNNABLE EXAMPLE - the real `@jsx { }` source, not its expansion.
 //
-// Paste this whole file into the engine262 devtools and run it. It is a SCRIPT -
-// no imports, no exports, no host hooks - so nothing outside it is needed.
+// Run the `jsx.js` snippet first, then this one as a MODULE.
 //
-// -----------------------------------------------------------------------------
-// WHY THE `@jsx { }` SOURCE ITSELF CANNOT BE PASTED
+// The import below is what makes it work, and both halves of it matter:
 //
-// Two things are required to compile a `@jsx { }` region, and neither is
-// available to a pasted script:
+//   - the `mode: "jsx"` attribute declares the lexical mode. It is found by a
+//     TEXTUAL prescan of this source before parsing, so the specifier is never
+//     fetched for that purpose - any string would do, and "./jsx.js" is only the
+//     honest one. But the declaration must be a STATIC import, which is why this
+//     file is a module and cannot be a bare script.
 //
-//   1. A MODULE. The mode is declared by an import attribute -
-//      `import { jsx } from "./jsx.js" with { preprocessor: "true", mode: "jsx" }`
-//      - which a script has no way to write. Without it there is no `jsx` mode,
-//      so `<inventory-grid columns="8">` is lexed as ordinary ECMAScript and
-//      `grid columns` is two adjacent identifiers. That is the SyntaxError.
+//   - the engine then asks the host for the macro by NAME, through
+//     `HostResolveReplacementDecorator(name, specifier)`. It never loads the
+//     module itself. The hook receives the CONSUMING module's specifier rather
+//     than the import's, so it cannot discover where a preprocessor came from
+//     and must map names to functions:
 //
-//   2. A HOST HOOK. The engine never loads `./jsx.js`. It calls
-//      `HostResolveReplacementDecorator(name, specifier)` and uses whatever
-//      function the host returns, so the devtools must supply the macro.
+//         HostResolveReplacementDecorator: (name) =>
+//           realm.GlobalObject.__preprocessors?.[name]
 //
-// So this file contains what the macro EMITS for the view below, taken verbatim
-// from the engine, plus a runtime to execute it against. It uses `constant { }`
-// and `do { }`, which this engine has.
-//
-// -----------------------------------------------------------------------------
-// THE SOURCE THIS CORRESPONDS TO
-//
-//   const Inventory = ({ items, character, capacity, showEmpty }) => @jsx {
-//     const visible = items.filter((i) => i.qty > 0);
-//     const used = visible.length;
-//     <panel layout="stack">
-//       @match all (character) {
-//         when 1: { <status-dot color="red" />; }
-//         when 2: { <status-dot color="amber" />; }
-//       };
-//       <inventory-grid columns="8">
-//         @for (const item of visible) @key(item.id) {
-//           match (item.kind) {
-//             when "weapon": <item-slot icon={item.icon} count={item.qty} />;
-//             when _: <item-slot icon={item.icon} />;
-//           };
-//         }
-//         @if (showEmpty) { <item-slot empty />; } else { <label text="hidden" />; }
-//       </inventory-grid>
-//       @match (used) {
-//         when 0: <label text="Empty" />;
-//         when _: <label text={used} />;
-//       };
-//     </panel>;
-//   };
-//
-// Three rules the source above follows, each established by running it:
-//   - a construct between tags takes the `@` sigil; inside a block it does not,
-//     because there is no text there to be ambiguous with;
-//   - a `match` needs a trailing `;`, being an expression statement where `if`
-//     and `for` are statements;
-//   - `@key(item.id)` names the loop binding directly, because the decorated
-//     position is the loop BODY and the binding is already in scope there.
+// Change the specifier to whatever your devtools uses for the jsx.js snippet.
 // =============================================================================
+
+import { jsx } from "./jsx.js" with { preprocessor: "true", mode: "jsx" };
 
 // -----------------------------------------------------------------------------
 // 1. SIGNALS
@@ -1095,7 +1060,7 @@ function jsxTemplate(template, ...dynamics) {
 }
 
 /** The dispatch a control-flow construct compiles to. */
-function jsx(type, props) {
+function jsxCreate(type, props) {
   switch (type) {
     case 'if': return createIf(props);
     case 'for': return createFor(props);
@@ -1164,90 +1129,57 @@ function createMatch(props, all) {
   }, [props.on]);
 }
 
+// The macro emits bare `jsxTemplate(...)` and `jsx(...)` calls. `jsx` is the
+// imported decorator name in this scope, so the runtime's dispatch is bound
+// globally under the name the emitted code uses. A production runtime would
+// export it as `jsx` and this line would not exist.
+globalThis.jsx = jsxCreate;
+globalThis.jsxTemplate = jsxTemplate;
+globalThis.jsxAttr = jsxAttr;
+globalThis.jsxEscape = jsxEscape;
+
 // =============================================================================
-// 4. THE VIEW, EXACTLY AS THE MACRO EMITS IT
+// 4. THE VIEW - the real thing, compiled by the macro at parse time
 // =============================================================================
 
 const Inventory = ({
   items, character, capacity, showEmpty,
-}) => do {
+}) => @jsx {
+  // Ordinary JavaScript: a region is a Block, so a view may compute before it
+  // builds, and the region's value is the last expression.
   const visible = items.filter((i) => i.qty > 0);
   const used = visible.length;
-  jsxTemplate(constant {
-    const $e1 = { type: 'panel', constants: { layout: 'stack' }, children: [], attrSlots: [] };
-    $e1.children.push({ slotIndex: 0 });
-    const $e5 = { type: 'inventory-grid', constants: { columns: '8' }, children: [], attrSlots: [] };
-    $e5.children.push({ slotIndex: 1 });
-    $e5.children.push({ slotIndex: 2 });
-    $e1.children.push($e5);
-    $e1.children.push({ slotIndex: 3 });
-    ({
-      id: 0, root: $e1, slotCount: 4, slotKinds: ['child', 'child', 'child', 'child'], slotTargets: [$e1, $e5, $e5, $e1],
-    });
-  },
-  jsx('matchAll', {
-    on: character,
-    children: [[
-      [($s) => ($s === 1), () => jsxTemplate(constant {
-        const $e2 = { type: 'status-dot', constants: { color: 'red' }, children: [], attrSlots: [] };
-        ({ id: 0, root: $e2, slotCount: 0, slotKinds: [], slotTargets: [] });
-      })],
-      [($s) => ($s === 2), () => jsxTemplate(constant {
-        const $e3 = { type: 'status-dot', constants: { color: 'amber' }, children: [], attrSlots: [] };
-        ({ id: 0, root: $e3, slotCount: 0, slotKinds: [], slotTargets: [] });
-      })],
-    ]],
-  }),
-  jsx('for', {
-    items: visible,
-    key: (item) => item.id,
-    children: [(item) => jsx('match', {
-      on: item.kind,
-      children: [[
-        [($s) => ($s === 'weapon'), () => jsxTemplate(constant {
-          const $e7 = { type: 'item-slot', constants: {}, children: [], attrSlots: [0, 1] };
-          ({
-            id: 0, root: $e7, slotCount: 2, slotKinds: ['attr', 'attr'], slotTargets: [$e7, $e7],
-          });
-        }, jsxAttr('icon', item.icon), jsxAttr('count', item.qty))],
-        [($s) => (true), () => jsxTemplate(constant {
-          const $e8 = { type: 'item-slot', constants: {}, children: [], attrSlots: [0] };
-          ({
-            id: 0, root: $e8, slotCount: 1, slotKinds: ['attr'], slotTargets: [$e8],
-          });
-        }, jsxAttr('icon', item.icon))],
-      ]],
-    })],
-  }),
-  jsx('if', {
-    when: () => showEmpty,
-    children: [
-      () => jsxTemplate(constant {
-        const $e9 = { type: 'item-slot', constants: { empty: true }, children: [], attrSlots: [] };
-        ({ id: 0, root: $e9, slotCount: 0, slotKinds: [], slotTargets: [] });
-      }),
-      () => jsxTemplate(constant {
-        const $e10 = { type: 'label', constants: { text: 'hidden' }, children: [], attrSlots: [] };
-        ({ id: 0, root: $e10, slotCount: 0, slotKinds: [], slotTargets: [] });
-      }),
-    ],
-  }),
-  jsx('match', {
-    on: used,
-    children: [[
-      [($s) => ($s === 0), () => jsxTemplate(constant {
-        const $e11 = { type: 'label', constants: { text: 'Empty' }, children: [], attrSlots: [] };
-        ({ id: 0, root: $e11, slotCount: 0, slotKinds: [], slotTargets: [] });
-      })],
-      [($s) => (true), () => jsxTemplate(constant {
-        const $e12 = { type: 'label', constants: {}, children: [], attrSlots: [0] };
-        ({
-          id: 0, root: $e12, slotCount: 1, slotKinds: ['attr'], slotTargets: [$e12],
-        });
-      }, jsxAttr('text', used))],
-    ]],
-  }));
+
+  <panel layout="stack">
+    @match all (character) {
+      when 1: { <status-dot color="red" />; }
+      when 2: { <status-dot color="amber" />; }
+    };
+    <inventory-grid columns="8">
+      @for (const item of visible) @key(item.id) {
+        match (item.kind) {
+          when "weapon": <item-slot icon={item.icon} count={item.qty} />;
+          when _: <item-slot icon={item.icon} />;
+        };
+      }
+      @if (showEmpty) { <item-slot empty />; } else { <label text="hidden" />; }
+    </inventory-grid>
+    @match (used) {
+      when 0: <label text="Empty" />;
+      when _: <label text={used} />;
+    };
+  </panel>;
 };
+
+// Three rules the view above follows, each established by running the macro:
+//
+//   - a construct BETWEEN TAGS takes the `@` sigil, because child text is
+//     possible there and a bare `if (` could be either. Inside a block there is
+//     no text to be ambiguous with, so the `match` in the loop body has none.
+//   - a `match` needs a trailing `;`, being an expression statement where `if`
+//     and `for` are statements.
+//   - `@key(item.id)` names the loop binding directly: the decorated position is
+//     the loop BODY, so the binding is already in scope where the key is written.
 
 // =============================================================================
 // 5. RUN IT
@@ -1266,36 +1198,32 @@ function render(el, depth = 0) {
 }
 
 const character = createSignal(1);
-const items = createSignal([
+const items = [
   { id: 'a', kind: 'weapon', icon: 'sword', qty: 1 },
   { id: 'b', kind: 'potion', icon: 'flask', qty: 3 },
   { id: 'c', kind: 'armor', icon: 'shield', qty: 0 },
-]);
+];
 
 const tree = Inventory({
-  items: items(), character, capacity: 8, showEmpty: true,
+  items, character, capacity: 8, showEmpty: true,
 });
 
 console.log('--- initial tree ---');
 console.log(render(tree));
 
-// The template is a `constant { }`, so it is the SAME object on every call -
-// allocated once per SITE for the life of the realm, whatever reaches it.
-const a = Inventory({
-  items: items(), character, capacity: 8, showEmpty: true,
-});
-const b = Inventory({
-  items: items(), character, capacity: 8, showEmpty: true,
-});
-console.log('\n--- checks ---');
+// Each static subtree is a `constant { }`, allocated once per SITE for the life
+// of the realm - so repeated calls build trees over the same templates.
+const a = Inventory({ items, character, capacity: 8, showEmpty: true });
+const b = Inventory({ items, character, capacity: 8, showEmpty: true });
+console.log('');
+console.log('--- checks ---');
 console.log('two renders, same shape :', render(a) === render(b));
-console.log('weapon slot has count   :',
-  render(a).indexOf('count=1') >= 0);
-console.log('zero-qty item filtered  :',
-  render(a).indexOf('shield') === -1);
+console.log('weapon slot has count   :', render(a).indexOf('count=1') >= 0);
+console.log('zero-qty item filtered  :', render(a).indexOf('shield') === -1);
 
-// A signal drives the controllers: changing it rebuilds only what depends on it.
-console.log('\n--- character 1 -> 2, matchAll re-evaluates ---');
+// A signal drives the controllers: changing it rebuilds only what reads it.
+console.log('');
+console.log('--- character 1 -> 2, matchAll re-evaluates ---');
 console.log('before:', render(tree).indexOf('"red"') >= 0 ? 'red' : 'none');
 character.set(2);
 console.log('after :', render(tree).indexOf('"amber"') >= 0 ? 'amber' : 'none');
