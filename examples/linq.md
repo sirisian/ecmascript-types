@@ -236,15 +236,24 @@ Re-iterating a ```Query.<T>``` re-runs the pipeline. Java Streams throw on reuse
 The macro is an ordinary preprocessor module. It receives the region's tokens, folds the clause list into a call chain, and returns tokens.
 
 ```js
-export function linq(tokens: TokenStream, args?: TokenStream): TokenStream {
-  const clauses = parseQuery(tokens.group());
+function linq(tokens: TokenStream, args?: TokenStream): TokenStream {
+  const clauses = parseQuery(tokens);
   return args === undefined
     ? emitCalls(clauses)
     : emitPlan(clauses, args);
 }
+
+// A query is not ECMAScript grammatically, so the region is CAPTURED and this
+// macro reads its text. Without this the region would be parsed as a Block and
+// refused at `from p`, which is two adjacent identifiers.
+linq.capture = true;
+
+export { linq };
 ```
 
-`parseQuery` is a fold over the clause list, and each clause is a rewrite of the stream built so far:
+`parseQuery` scans the region's text for clause keywords and hands each operand back to the engine with ```tokens.parse(start, end, "expression")```. That is the only thing it cannot do itself: whether `/` in `where /^a/.test(x)` begins a regular expression or a division is not decidable lexically. Everything else - which words are clauses, what may follow each - is this macro's to decide, and a query dialect with different keywords is a different macro rather than a different engine.
+
+`emitCalls` is a fold over the clause list, and each clause is a rewrite of the stream built so far:
 
 ```js
 function emitCalls(clauses: [].<Clause>): TokenStream {
