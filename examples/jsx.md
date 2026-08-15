@@ -49,7 +49,13 @@ HostResolveReplacementDecorator: (name) => realm.GlobalObject.__preprocessors?.[
 
 With that in place:
 
-1. **Create a devtools snippet named `jsx.js`** containing the macro below, and run it once. It is a script - no imports, no exports - and it registers itself on `globalThis.__preprocessors`.
+1. **Create a devtools snippet named `jsx.js`** containing the macro below. It is written as a module, so if snippets are evaluated as scripts, replace its one `export function jsx` with `function jsx` and append
+
+   ```js
+   globalThis.__preprocessors = Object.assign(globalThis.__preprocessors || {}, { jsx });
+   ```
+
+   which is what the name-keyed hook above reads. Run it once; the registry persists for the realm.
 2. **Create a second snippet** containing the demo below, and run it. It prints the tree, checks that two renders share their templates, and changes a signal to show the controllers re-evaluating.
 
 A region cannot be pasted as a bare script, because the mode is declared by an import attribute and only a module may carry one. Without it `<inventory-grid columns="8">` lexes as ECMAScript and `grid columns` is two adjacent identifiers. The demo therefore contains what the macro EMITS, so it runs with nothing but itself.
@@ -161,7 +167,7 @@ The first snippet. It parses the region's tokens into a node tree and emits toke
 
 const CONTROL_WORDS = new Set(['if', 'else', 'for', 'match', 'while', 'switch']);
 
-function jsx(tokens, args) {
+export function jsx(tokens, args) {
   const region = firstGroup(tokens);
   const emitter = new Emitter(region ? region.span : tokens[0] && tokens[0].span);
   const nodes = new Parser(region ? region.tokens : tokens, emitter).parseChildren(null);
@@ -918,24 +924,6 @@ function splitRange(tokens) {
   }
   return null;
 }
-
-// -----------------------------------------------------------------------------
-// REGISTRATION
-//
-// The engine never loads this file. It calls
-// `HostResolveReplacementDecorator(name, specifier)` and uses whatever the host
-// returns - and the hook is given the decorator's NAME and the CONSUMING
-// module's specifier, so it cannot discover where a preprocessor came from. A
-// name-keyed registry is therefore the shape that works:
-//
-//     HostResolveReplacementDecorator: (name) =>
-//       realm.GlobalObject.__preprocessors?.[name]
-//
-// Declared without `export` so this file is a SCRIPT, which is what a devtools
-// snippet is. Wrap it in a module and add `export { jsx }` if you need one.
-// -----------------------------------------------------------------------------
-
-globalThis.__preprocessors = Object.assign(globalThis.__preprocessors || {}, { jsx });
 ```
 
 ## The Demo
