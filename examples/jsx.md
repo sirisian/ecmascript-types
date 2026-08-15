@@ -1,9 +1,9 @@
 # Reactive Views
 
-A `jsx` lexical mode: markup and control flow written as a decorated region, compiled by a replacement decorator into calls on a reactive runtime before the program is checked.
+Markup and control flow written as a captured region, compiled by a replacement decorator into calls on a reactive runtime before the program is checked. The engine knows nothing about JSX: the macro reads its own syntax and delegates only the ranges that are ECMAScript.
 
 ```js
-import { jsx } from "./jsx.js" with { preprocessor: "true", mode: "jsx" };
+import { jsx } from "./jsx.js" with { preprocessor: "true" };
 
 const Inventory = ({ items, character, showEmpty }) => @jsx {
   const visible = items.filter((i) => i.qty > 0);
@@ -25,13 +25,13 @@ const Inventory = ({ items, character, showEmpty }) => @jsx {
 };
 ```
 
-`<` cannot begin an expression, so a program containing markup does not parse at all - which is why a [scoped lexical mode](../decoratorreplacement.md) is what admits it, rather than a global grammar change. Outside a region nothing moves: `a < b` is a comparison and a type argument list is a type argument list.
+`<` cannot begin an expression, so a program containing markup does not parse at all - which is why a [captured region](../decoratorreplacement.md) is what admits it, rather than a global grammar change. Outside a region nothing moves: `a < b` is a comparison and a type argument list is a type argument list.
 
 The whole of the mode is one extra production. `jsx` is ECMAScript with a JSX element admitted where a |PrimaryExpression| is expected - which is to say, exactly where a |RegularExpressionLiteral| may begin - so a region is an ordinary Block parsed with that production enabled. No second parser, and no scanner: the tokens come from the parse like every other token, so a template literal in a prop is one token rather than a backtick and an identifier that exists in no source.
 
 Features exercised:
 
-- A declared lexical mode, so markup parses inside a region and nowhere else.
+- A captured region, so markup is read inside one and nowhere else. The macro declares ```capture``` and scans the text itself - tags, attributes, children, the sigil - so a VARIANT of this syntax is a different macro rather than a different engine.
 - Statements and markup in one region, because a region is a Block: a view may compute before it builds, and its value is the last expression.
 - ```constant { }``` for each static subtree, so a template is built once per SITE for the life of the realm rather than once per render.
 - Block decorators - ```@key(item.id)```, ```@persist``` - carrying the metadata a tag would have carried as attributes, in a position where the loop binding is already in scope.
@@ -104,605 +104,410 @@ Three things in that output are the design rather than an accident.
 The first snippet. It parses the region's tokens into a node tree and emits tokens back.
 
 ```js
-/**
- * jsx.js - the `@jsx { }` replacement decorator.
- *
- * A preprocessor module for proposal-runtime-types. It receives the tokens of a
- * moded region scanned in `jsx` mode and returns tokens that call the reactive
- * framework's runtime.
- *
- * Import it as:
- *
- *     import { jsx } from "./jsx.js" with { preprocessor: "true", mode: "jsx" };
- *
- * and write views as:
- *
- *     const TreeNode = defineView((ctx) => {
- *       const expanded = ctx.signal(true);
- *       return ({ label, children: childItems }) => @jsx {
- *         <panel>
- *           <label text={label} />
- *           if (expanded) {
- *             for (const child of childItems) @key(child.id) {
- *               <TreeNode label={child.label} children={child.children} />
- *             }
- *           }
- *         </panel>
- *       };
- *     });
- *
- * ---------------------------------------------------------------------------
- * WHAT IT EMITS, AND WHY
- *
- * Three decisions were taken from the framework's source rather than guessed,
- * and each shapes the output:
- *
- * 1. A SIGNAL PROP IS FORWARDED UNCHANGED. `ClientContext.#createLayoutElement`
- *    partitions props with `isSignal(value)`, which tests for the SIGNAL symbol
- *    that `createSignal` puts on the function it returns. Wrapping a prop in a
- *    thunk would defeat that test and drop the prop into the
- *    `typeof value !== 'function'` branch, which discards it. So `text={label}`
- *    emits `text: label`.
- *
- * 2. A CONDITION IS EMITTED AS A THUNK. `IfBranch.when` is
- *    `Signal<unknown> | (() => unknown)` and `readSignal` is `signal()`, so a
- *    thunk and a signal are read identically. A thunk is the one that works for
- *    both `if (expanded)` and `if (x() > 5)`, so conditions always get one.
- *
- * 3. A BRANCH IS A FACTORY. `IfController` holds `branches[i].factory` and calls
- *    it when the condition changes, keeping the built subtree when `persist` is
- *    set. So lifting `if (c) { ... }` into `() => ...` produces exactly what
- *    `#createIf` already expects - no controller changes.
- *
- * A static subtree becomes a ParsedTemplate hoisted into a `constant { }`, which
- * is allocated once per SITE for the life of the realm. That removes
- * `parseTemplateStrings` and `globalTemplateCache` entirely: the string
- * round-trip existed only because a syntactic transform could not hand the
- * runtime a tree, and a macro can.
- */
+// jsx.js - a JSX macro that owns its grammar.
+//
+// The region is CAPTURED, so the engine parses none of it. This macro scans the
+// text, decides every syntax question itself, and delegates exactly one thing:
+// ranges that are ECMAScript go back to the engine through
+// `stream.parse(start, end, goal)`, which answers tokens threaded from that
+// parse. That is the only thing a macro cannot do for itself - whether `/`
+// begins a regular expression or a division is not decidable lexically.
+//
+// Everything else here is a choice, not a rule. A variant wanting `{#if}`
+// instead of `@if`, or a different interpolation delimiter, changes this file
+// and nothing else.
 
-// ===========================================================================
-// Token helpers
-// ===========================================================================
-
-const CONTROL_WORDS = new Set(['if', 'else', 'for', 'match', 'while', 'switch']);
-
-export function jsx(tokens, args) {
-  const region = firstGroup(tokens);
-  const emitter = new Emitter(region ? region.span : tokens[0] && tokens[0].span);
-  const nodes = new Parser(region ? region.tokens : tokens, emitter).parseChildren(null);
-  return emitter.emitRoot(nodes, args);
+function jsx(stream) {
+  const text = String(stream);
+  const open = text.indexOf('{');
+  const close = text.lastIndexOf('}');
+  if (open < 0 || close < open) { throw new SyntaxError('a jsx region is a block'); }
+  const span = stream[0] ? stream[0].span : undefined;
+  const out = new Out(stream, span);
+  const nodes = new Scanner(text, open + 1, close, out).scanRegion();
+  return out.emitRegion(nodes);
 }
 
-function firstGroup(tokens) {
-  for (const t of tokens) {
-    if (t.kind === 'group' && t.value === '{') {
-      return t;
-    }
-  }
-  return undefined;
-}
-
-const isPunct = (t, v) => t && t.kind === 'punctuator' && t.value === v;
-const isWord = (t, v) => t && t.kind === 'identifier' && t.value === v;
-const isGroup = (t, v) => t && t.kind === 'group' && t.value === v;
-
 // ===========================================================================
-// Parser - region tokens to a node tree
+// Scanner - text to nodes. Every syntax decision lives here.
 // ===========================================================================
 
-/**
- * Node kinds:
- *   { k: 'el',    tag, props: [{ name, value }], children, isComponent }
- *   { k: 'text',  value }
- *   { k: 'expr',  tokens }
- *   { k: 'if',    branches: [{ cond, body, deco }], elseBody, elseDeco }
- *   { k: 'for',   binding, iterable, body, deco }
- *   { k: 'match', subject, all, arms: [{ pattern, guard, body, deco }] }
- */
-class Parser {
-  constructor(tokens, emitter) {
-    this.ts = tokens;
-    this.i = 0;
-    this.em = emitter;
+const CONSTRUCTS = ['if', 'for', 'match'];
+
+class Scanner {
+  constructor(text, from, to, out) {
+    this.text = text;
+    this.i = from;
+    this.end = to;
+    this.out = out;
   }
 
-  peek(o = 0) { return this.ts[this.i + o]; }
-  next() { return this.ts[this.i++]; }
-  done() { return this.i >= this.ts.length; }
+  ws() { while (this.i < this.end && /\s/.test(this.text[this.i])) { this.i += 1; } }
 
-  /** Children of an element, or the region's top level when `closing` is null. */
-  parseChildren(closing) {
-    const out = [];
-    while (!this.done()) {
-      const t = this.peek();
+  at(s) { return this.text.startsWith(s, this.i); }
 
-      // `</tag>` ends the current element.
-      if (isPunct(t, '<') && isPunct(this.peek(1), '/')) {
-        if (closing === null) {
-          throw new SyntaxError('unexpected closing tag at the top of a jsx region');
-        }
-        this.next(); this.next();
-        const name = this.readTagName();
-        if (name !== closing) {
-          throw new SyntaxError(`closing tag </${name}> does not match <${closing}>`);
-        }
-        this.expect('>');
-        return out;
+  /** The region's top level: statements, with markup where a `<` begins one. */
+  scanRegion() {
+    const nodes = [];
+    for (;;) {
+      this.ws();
+      if (this.i >= this.end) { return nodes; }
+      if (this.at('<')) { nodes.push(this.element()); continue; }
+      if (this.at('@') && this.construct(1)) { nodes.push(this.constructNode(1)); continue; }
+      // Ordinary JavaScript. Collected to the end of the statement and handed
+      // BACK to the engine - the macro does not parse JS, it delegates it.
+      const start = this.i;
+      const stop = this.statementEnd();
+      // A run that is only whitespace or a stray `;` is not a statement. Emitting
+      // it anyway put an empty statement at the head of every region - harmless
+      // and wrong, and it makes the output unreadable.
+      if (this.text.slice(start, stop).replace(/[\s;]/g, '') !== '') {
+        nodes.push({ k: 'js', from: start, to: stop });
       }
-
-      // A parsed region delivers each JSX element as a GROUP whose value is the
-      // element's text and whose tokens are its structure, so it is unwrapped
-      // and parsed from the inside.
-      if (t.kind === 'group' && isPunct(t.tokens && t.tokens[0], '<')) {
-        out.push(new Parser(this.next().tokens, this.em).parseElementOnly());
-        continue;
-      }
-      if (isPunct(t, '<')) { out.push(this.parseElement()); continue; }
-      // A parsed region logs child text RAW, with its own kind - the source
-      // slice rather than a quoted string, so the macro quotes it when emitting
-      // and nothing decides for it which whitespace mattered.
-      if (t.kind === 'jsxtext') { out.push({ k: 'text', value: String(this.next().value) }); continue; }
-      if (t.kind === 'string') { out.push({ k: 'text', value: JSON.parse(String(this.next().value)) }); continue; }
-      if (isGroup(t, '{')) { out.push({ k: 'expr', tokens: this.next().tokens }); continue; }
-      if (isPunct(t, '@')) { out.push(this.parseDecorated()); continue; }
-      if (isWord(t, 'if')) { out.push(this.parseIf(null)); continue; }
-      if (isWord(t, 'for')) { out.push(this.parseFor(null)); continue; }
-      if (isWord(t, 'match')) { out.push(this.parseMatch()); continue; }
-      if (isPunct(t, ';')) { this.next(); continue; }
-
-      // ORDINARY JAVASCRIPT, at the region's statement level.
-      //
-      // A region is a Block, so a view may compute before it builds:
-      // `const visible = items.filter(...)` ahead of the markup is the commonest
-      // shape a real view has. Anything that is not markup or control flow is
-      // passed through to the emitted code untouched, and the region's value is
-      // the last expression - the do-block completion semantics the region
-      // already carries.
-      if (closing === null) {
-        out.push({ k: 'stmt', tokens: this.takeStatement() });
-        continue;
-      }
-
-      throw new SyntaxError(`unexpected ${t.kind} \`${String(t.value)}\` in a jsx region`);
+      this.i = stop === start ? stop + 1 : stop;
     }
-    if (closing !== null) {
-      throw new SyntaxError(`unclosed <${closing}>`);
-    }
-    return out;
   }
 
-  /**
-   * A decoration on a control-flow construct: `@key(expr)`, `@persist`.
-   *
-   * The proposal decorates a construct's BLOCK, and the decorated position sits
-   * inside the construct's scope - which is why `@key(slot.id)` needs no lambda:
-   * the loop binding is already in scope where it is written, and the macro
-   * knows its name from the head it just parsed.
-   */
-  /**
-   * `@` in child position is either a SIGIL on a construct or a decoration.
-   *
-   * A sigil is needed here and not at the region's statement level because child
-   * TEXT is possible between tags: a bare `if (` could be either, and the parser
-   * would have to guess. Angular 17 reached the same answer with the same
-   * spelling. They never collide - a sigil is followed by a construct keyword, a
-   * decoration by an ordinary name.
-   */
-  parseDecorated() {
-    const after = this.peek(1);
-    if (isWord(after, 'if') || isWord(after, 'for') || isWord(after, 'match')) {
-      this.next();
-      const t = this.peek();
-      if (isWord(t, 'if')) { return this.parseIf(null); }
-      if (isWord(t, 'for')) { return this.parseFor(null); }
-      return this.parseMatch(null);
+  /** A statement ends at its `;`, or where markup begins at brace depth 0. */
+  statementEnd() {
+    let depth = 0;
+    let i = this.i;
+    while (i < this.end) {
+      const c = this.text[i];
+      if (c === '"' || c === "'" || c === '`') { i = this.skipString(i); continue; }
+      if (c === '(' || c === '[' || c === '{') { depth += 1; i += 1; continue; }
+      if (c === ')' || c === ']' || c === '}') { depth -= 1; i += 1; continue; }
+      if (depth === 0 && c === ';') { return i + 1; }
+      if (depth === 0 && c === '<' && /[A-Za-z]/.test(this.text[i + 1] || '')) { return i; }
+      // A sigil'd construct ends the run before it, or the whole construct is
+      // swallowed into a statement and handed to the engine, which cannot parse
+      // `@if` in that position.
+      if (depth === 0 && c === '@' && CONSTRUCTS.some((w) => new RegExp(`^${w}\\b`).test(this.text.slice(i + 1)))) { return i; }
+      i += 1;
     }
-    const deco = this.readDecorations();
-    const t = this.peek();
-    if (isWord(t, 'if')) { return this.parseIf(deco); }
-    if (isWord(t, 'for')) { return this.parseFor(deco); }
-    if (isWord(t, 'match')) { return this.parseMatch(deco); }
-    throw new SyntaxError('a decoration here must precede `if`, `for` or `match`');
+    return this.end;
   }
 
-  /** One statement's tokens, to the `;` that ends it or the block that does. */
-  takeStatement() {
-    const out = [];
-    while (!this.done()) {
-      const t = this.peek();
-      if (isPunct(t, ';')) { out.push(this.next()); break; }
-      if (isPunct(t, '<')) { break; }
-      out.push(this.next());
-      const last = out[out.length - 1];
-      if (last.kind === 'group' && last.value === '{') { break; }
+  skipString(i) {
+    const quote = this.text[i];
+    let j = i + 1;
+    while (j < this.text.length) {
+      if (this.text[j] === '\\') { j += 2; continue; }
+      if (this.text[j] === quote) { return j + 1; }
+      j += 1;
     }
-    return out;
+    return this.text.length;
   }
 
-  readDecorations() {
-    const deco = {};
-    while (isPunct(this.peek(), '@')) {
-      this.next();
-      const name = this.next();
-      if (!name || name.kind !== 'identifier') {
-        throw new SyntaxError('a decoration needs a name');
-      }
-      if (isGroup(this.peek(), '(')) {
-        deco[name.value] = this.next().tokens;
-      } else {
-        deco[name.value] = true;
-      }
-    }
-    return deco;
+  construct(offset) {
+    const rest = this.text.slice(this.i + offset);
+    return CONSTRUCTS.some((w) => new RegExp(`^${w}\\b`).test(rest));
   }
 
-  /**
-   * A tag name, which may be hyphenated.
-   *
-   * `status-dot` and `item-slot` are the commonest shape a custom element has,
-   * and the lexer gives `status`, `-`, `dot` as three tokens - so a name that
-   * stops at the first token reads `<status-dot>` as `<status>` and then finds a
-   * `-` where an attribute should be. Dots and colons join for the same reason.
-   */
-  readTagName() {
-    let name = '';
-    while (!this.done() && this.peek().kind === 'identifier') {
-      name += this.next().value;
-      if (isPunct(this.peek(), '-') || isPunct(this.peek(), '.') || isPunct(this.peek(), ':')) {
-        name += this.next().value;
-      } else {
-        break;
-      }
-    }
-    return name;
-  }
+  // -- markup --------------------------------------------------------------
 
-  expect(v) {
-    if (!isPunct(this.peek(), v)) {
-      throw new SyntaxError(`expected \`${v}\``);
-    }
-    return this.next();
-  }
-
-  /** The whole of this token run is one element. */
-  parseElementOnly() {
-    const el = this.parseElement();
-    if (!this.done()) {
-      throw new SyntaxError('trailing tokens after a jsx element');
-    }
-    return el;
-  }
-
-  parseElement() {
-    this.expect('<');
-    // A fragment: `<>...</>`
-    if (isPunct(this.peek(), '>')) {
-      this.next();
-      const children = this.parseChildren('');
-      return { k: 'el', tag: null, props: [], children, isComponent: false };
-    }
-    const tag = this.readTagName();
+  element() {
+    this.i += 1; // `<`
+    if (this.at('>')) { this.i += 1; return { k: 'frag', children: this.children('') }; }
+    const tag = this.name();
     const props = [];
-    while (!this.done() && !isPunct(this.peek(), '>') && !isPunct(this.peek(), '/')) {
-      const nameTok = this.next();
-      if (nameTok.kind !== 'identifier') {
-        throw new SyntaxError(`unexpected ${nameTok.kind} in the attributes of <${tag}>`);
-      }
-      let name = nameTok.value;
-      while (isPunct(this.peek(), '-')) { this.next(); name += `-${this.next().value}`; }
-      if (isPunct(this.peek(), '=')) {
-        this.next();
-        const v = this.next();
-        props.push({ name, value: v.kind === 'group' ? { tokens: v.tokens } : { literal: v } });
-      } else {
-        // A boolean attribute: `<item-slot empty />`
-        props.push({ name, value: { boolean: true } });
-      }
-    }
-    if (isPunct(this.peek(), '/')) {
-      this.next(); this.expect('>');
-      return { k: 'el', tag, props, children: [], isComponent: isComponentName(tag) };
-    }
-    this.expect('>');
-    const children = this.parseChildren(tag);
-    return { k: 'el', tag, props, children, isComponent: isComponentName(tag) };
-  }
-
-  parseIf(deco) {
-    this.next(); // `if`
-    const cond = this.expectGroup('(');
-    // The proposal decorates a construct's BLOCK, so the decoration sits between
-    // the head and the `{`. Reading it here is what puts `@persist` on the
-    // branch it describes rather than on the `if` as a whole - which is finer
-    // than the tag form, where one flag covers every branch.
-    const headDeco = { ...(deco || {}), ...this.readBlockDecorations() };
-    const body = this.expectBlockChildren();
-    const branches = [{ cond, body, deco: headDeco }];
-    let elseBody = null;
-    let elseDeco = {};
-    while (isWord(this.peek(), 'else')) {
-      this.next();
-      let branchDeco = {};
-      if (isWord(this.peek(), 'if')) {
-        this.next();
-        const c = this.expectGroup('(');
-        branchDeco = this.readBlockDecorations();
-        branches.push({ cond: c, body: this.expectBlockChildren(), deco: branchDeco });
-      } else {
-        elseDeco = this.readBlockDecorations();
-        elseBody = this.expectBlockChildren();
-        break;
-      }
-    }
-    return { k: 'if', branches, elseBody, elseDeco };
-  }
-
-  parseFor(deco) {
-    this.next(); // `for`
-    const head = this.expectGroup('(');
-    const { binding, iterable } = splitForHead(head);
-    const blockDeco = { ...(deco || {}), ...this.readBlockDecorations() };
-    const body = this.expectBlockChildren();
-    return {
-      k: 'for', binding, iterable, body, deco: blockDeco,
-    };
-  }
-
-  parseMatch(deco) {
-    this.next(); // `match`
-    const all = isWord(this.peek(), 'all');
-    if (all) { this.next(); }
-    const subject = this.expectGroup('(');
-    const block = this.next();
-    if (!isGroup(block, '{')) {
-      throw new SyntaxError('a `match` needs a block of clauses');
-    }
-    const arms = new Parser(block.tokens, this.em).parseArms();
-    return {
-      k: 'match', subject, all, arms, deco: deco || {},
-    };
-  }
-
-  parseArms() {
-    const arms = [];
-    while (!this.done()) {
-      if (isPunct(this.peek(), ';')) { this.next(); continue; }
-      let pattern = null;
-      if (isWord(this.peek(), 'when')) {
-        this.next();
-        pattern = [];
-        while (!this.done() && !isPunct(this.peek(), ':') && !isWord(this.peek(), 'if')) {
-          pattern.push(this.next());
+    for (;;) {
+      this.ws();
+      if (this.i >= this.end || this.at('>') || this.at('/')) { break; }
+      const name = this.name();
+      this.ws();
+      if (this.at('=')) {
+        this.i += 1;
+        this.ws();
+        if (this.at('{')) {
+          props.push({ name, expr: this.balanced('{', '}') });
+        } else {
+          const q = this.i;
+          this.i = this.skipString(this.i);
+          props.push({ name, literal: this.text.slice(q, this.i) });
         }
-      } else if (this.peek().kind === 'identifier' && this.peek().value === 'default') {
-        this.next();
+      } else {
+        props.push({ name, boolean: true });
+      }
+    }
+    if (this.at('/')) { this.i += 2; return { k: 'el', tag, props, children: [] }; }
+    this.i += 1; // `>`
+    return { k: 'el', tag, props, children: this.children(tag) };
+  }
+
+  name() {
+    const start = this.i;
+    while (this.i < this.end && /[-A-Za-z0-9_$.:]/.test(this.text[this.i])) { this.i += 1; }
+    return this.text.slice(start, this.i);
+  }
+
+  children(tag) {
+    const nodes = [];
+    for (;;) {
+      if (this.i >= this.end) { throw new SyntaxError(`unclosed <${tag}>`); }
+      if (this.at('</')) {
+        this.i += 2;
+        const closing = tag === '' ? '' : this.name();
+        if (closing !== tag) { throw new SyntaxError(`</${closing}> does not close <${tag}>`); }
+        this.ws();
+        this.i += 1; // `>`
+        return nodes;
+      }
+      if (this.at('<')) { nodes.push(this.element()); continue; }
+      if (this.at('{')) { nodes.push({ k: 'expr', range: this.balanced('{', '}') }); continue; }
+      // The `@` sigil. A marker is needed BETWEEN TAGS because child text is
+      // possible there and a bare `if (` could be either - which every framework
+      // that faced this concluded. It is this macro's rule, not the language's.
+      if (this.at('@') && this.construct(1)) { nodes.push(this.constructNode(1)); continue; }
+      const start = this.i;
+      while (this.i < this.end && !this.at('<') && !this.at('{')
+        && !(this.at('@') && this.construct(1))) { this.i += 1; }
+      if (this.i > start) { nodes.push({ k: 'text', value: this.text.slice(start, this.i) }); }
+    }
+  }
+
+  /** `{ ... }` or `( ... )`, answering the range INSIDE the delimiters. */
+  balanced(o, c) {
+    const start = this.i;
+    let depth = 0;
+    while (this.i < this.text.length) {
+      const ch = this.text[this.i];
+      if (ch === '"' || ch === "'" || ch === '`') { this.i = this.skipString(this.i); continue; }
+      if (ch === o) { depth += 1; }
+      if (ch === c) {
+        depth -= 1;
+        if (depth === 0) { this.i += 1; return { from: start + 1, to: this.i - 1 }; }
+      }
+      this.i += 1;
+    }
+    throw new SyntaxError(`unbalanced ${o}`);
+  }
+
+  // -- constructs ----------------------------------------------------------
+
+  constructNode(offset) {
+    this.i += offset;
+    const word = this.name();
+    if (word === 'if') { return this.ifNode(); }
+    if (word === 'for') { return this.forNode(); }
+    return this.matchNode();
+  }
+
+  decorations() {
+    const deco = {};
+    for (;;) {
+      this.ws();
+      if (!this.at('@')) { return deco; }
+      this.i += 1;
+      const name = this.name();
+      deco[name] = this.at('(') ? this.balanced('(', ')') : true;
+    }
+  }
+
+  ifNode() {
+    this.ws();
+    const cond = this.balanced('(', ')');
+    const deco = this.decorations();
+    this.ws();
+    const body = this.blockChildren();
+    let alt = null;
+    let altDeco = {};
+    this.ws();
+    if (/^else\b/.test(this.text.slice(this.i))) {
+      this.i += 4;
+      this.ws();
+      if (/^if\b/.test(this.text.slice(this.i))) { this.i += 2; alt = [this.ifNode()]; } else {
+        altDeco = this.decorations();
+        this.ws();
+        alt = this.blockChildren();
+      }
+    }
+    return {
+      k: 'if', cond, body, deco, alt, altDeco,
+    };
+  }
+
+  forNode() {
+    this.ws();
+    const head = this.balanced('(', ')');
+    const deco = this.decorations();
+    this.ws();
+    const body = this.blockChildren();
+    return {
+      k: 'for', head, body, deco,
+    };
+  }
+
+  matchNode() {
+    this.ws();
+    const all = /^all\b/.test(this.text.slice(this.i));
+    if (all) { this.i += 3; this.ws(); }
+    const subject = this.balanced('(', ')');
+    this.ws();
+    const block = this.balanced('{', '}');
+    const arms = new Scanner(this.text, block.from, block.to, this.out).scanArms();
+    this.i = block.to + 1;
+    this.ws();
+    if (this.at(';')) { this.i += 1; }
+    return { k: 'match', all, subject, arms };
+  }
+
+  blockChildren() {
+    const block = this.balanced('{', '}');
+    const inner = new Scanner(this.text, block.from, block.to, this.out);
+    const nodes = inner.scanRegion();
+    this.i = block.to + 1;
+    return nodes;
+  }
+
+  scanArms() {
+    const arms = [];
+    for (;;) {
+      this.ws();
+      if (this.i >= this.end) { return arms; }
+      if (this.at(';')) { this.i += 1; continue; }
+      let pattern = null;
+      if (/^when\b/.test(this.text.slice(this.i))) {
+        this.i += 4;
+        const start = this.i;
+        while (this.i < this.end && !this.at(':')) { this.i += 1; }
+        pattern = { from: start, to: this.i };
+      } else if (/^default\b/.test(this.text.slice(this.i))) {
+        this.i += 7;
       } else {
         throw new SyntaxError('a match clause begins with `when` or `default`');
       }
-      let guard = null;
-      if (isWord(this.peek(), 'if')) { this.next(); guard = this.expectGroup('('); }
-      this.expect(':');
-      const deco = this.readBlockDecorations();
+      this.i += 1; // `:`
+      const deco = this.decorations();
+      this.ws();
+      // An arm's body is ONE node, and markup is the commonest. `statementEnd`
+      // stops at a `<` because at the region's top level markup begins a new
+      // thing - inside an arm the markup IS the body, so it must not.
       let body;
-      if (isGroup(this.peek(), '{')) {
-        body = new Parser(this.next().tokens, this.em).parseChildren(null);
+      if (this.at('{')) {
+        body = this.blockChildren();
+      } else if (this.at('<')) {
+        body = [this.element()];
+        this.ws();
+        if (this.at(';')) { this.i += 1; }
+      } else if (this.at('@') && this.construct(1)) {
+        body = [this.constructNode(1)];
       } else {
-        const collected = [];
-        while (!this.done() && !isPunct(this.peek(), ';')) { collected.push(this.next()); }
-        body = new Parser(collected, this.em).parseChildren(null);
+        const start = this.i;
+        const stop = this.statementEnd();
+        body = start === stop ? [] : [{ k: 'js', from: start, to: stop }];
+        this.i = stop === start ? stop + 1 : stop;
       }
-      arms.push({ pattern, guard, body, deco });
+      arms.push({ pattern, body, deco });
     }
-    return arms;
   }
-
-  readBlockDecorations() {
-    return isPunct(this.peek(), '@') ? this.readDecorations() : {};
-  }
-
-  expectGroup(open) {
-    const t = this.next();
-    if (!isGroup(t, open)) {
-      throw new SyntaxError(`expected \`${open}\``);
-    }
-    return t.tokens;
-  }
-
-  expectBlockChildren() {
-    const t = this.next();
-    if (!isGroup(t, '{')) {
-      throw new SyntaxError('expected a block');
-    }
-    return new Parser(t.tokens, this.em).parseChildren(null);
-  }
-}
-
-/** A component is capitalised; an element is not. This is JSX's own rule. */
-function isComponentName(tag) {
-  return typeof tag === 'string' && tag.length > 0 && tag[0] >= 'A' && tag[0] <= 'Z';
-}
-
-/** `const x of xs` -> the binding token run and the iterable token run. */
-function splitForHead(head) {
-  let i = 0;
-  if (isWord(head[i], 'const') || isWord(head[i], 'let') || isWord(head[i], 'var')) { i += 1; }
-  const binding = head[i];
-  i += 1;
-  if (!isWord(head[i], 'of')) {
-    throw new SyntaxError('a `for` in a jsx region is a `for...of`');
-  }
-  return { binding, iterable: head.slice(i + 1) };
 }
 
 // ===========================================================================
-// Emitter - node tree to tokens
+// Out - nodes to tokens. Every ECMAScript range goes back to the engine.
 // ===========================================================================
 
-class Emitter {
-  constructor(span) {
+class Out {
+  constructor(stream, span) {
+    this.stream = stream;
     this.span = span;
     this.n = 0;
   }
 
-  /** A name nothing else can collide with, for the frames a macro introduces. */
-  gensym(base) {
-    this.n += 1;
-    return `$${base}${this.n}`;
+  /**
+   * The delegation. A range that is ECMAScript is handed to the engine, and what
+   * comes back is threaded from THAT parse - so a regular expression in a prop
+   * is one token, and a template literal is one token. Re-lexing the slice here
+   * would give four tokens and a backtick, and no way to tell a regular
+   * expression from a division.
+   */
+  parse(range, goal) {
+    return Array.from(this.stream.parse(range.from, range.to, goal || 'expression'));
   }
+
+  gensym(base) { this.n += 1; return `$${base}${this.n}`; }
 
   k(kind, value) { return { kind, value, span: this.span }; }
-  g(value, tokens) {
-    return {
-      kind: 'group', value, span: this.span, tokens,
-    };
-  }
-
-  id(name) { return this.k('identifier', name); }
+  g(value, tokens) { return { kind: 'group', value, span: this.span, tokens }; }
+  id(n) { return this.k('identifier', n); }
   p(v) { return this.k('punctuator', v); }
   str(s) { return this.k('string', JSON.stringify(s)); }
   num(n) { return this.k('numeric', String(n)); }
 
-  /** `name(a, b, c)` */
-  call(name, argLists) {
+  call(name, args) {
     const inner = [];
-    argLists.forEach((a, i) => {
-      if (i > 0) { inner.push(this.p(',')); }
-      inner.push(...a);
-    });
+    args.forEach((a, i) => { if (i > 0) { inner.push(this.p(',')); } inner.push(...a); });
     return [this.id(name), this.g('(', inner)];
   }
 
-  /** `(params) => (body)` */
-  arrow(params, body) {
-    return [
-      this.g('(', params),
-      this.p('=>'),
-      this.g('(', body),
-    ];
-  }
-
-  /** `{ a: x, b: y }` */
   object(entries) {
     const inner = [];
     entries.forEach(([key, value], i) => {
       if (i > 0) { inner.push(this.p(',')); }
-      inner.push(this.k('identifier', key), this.p(':'), ...value);
+      inner.push(this.id(key), this.p(':'), ...value);
     });
     return [this.g('{', inner)];
   }
 
-  /** `[a, b, c]` */
   array(items) {
     const inner = [];
-    items.forEach((item, i) => {
-      if (i > 0) { inner.push(this.p(',')); }
-      inner.push(...item);
-    });
+    items.forEach((item, i) => { if (i > 0) { inner.push(this.p(',')); } inner.push(...item); });
     return [this.g('[', inner)];
   }
 
-  /**
-   * Statements run, then the last value is the region's.
-   *
-   * A region holding `const x = ...;` before its markup must emit the
-   * declaration as a STATEMENT and the markup as the value - which is what a
-   * `do`-block does, and what the region already is.
-   */
-  emitRoot(nodes, args) {
-    void args;
-    const stmts = nodes.filter((n) => n.k === 'stmt');
-    const values = nodes.filter((n) => n.k !== 'stmt').map((n) => this.emitNode(n));
+  arrow(params, body) { return [this.g('(', params), this.p('=>'), this.g('(', body)]; }
+
+  /** Statements run, then the last value is the region's. */
+  emitRegion(nodes) {
+    const stmts = nodes.filter((n) => n.k === 'js');
+    const values = nodes.filter((n) => n.k !== 'js').map((n) => this.emit(n));
     let value;
     if (values.length === 0) { value = [this.id('undefined')]; } else if (values.length === 1) {
       [value] = values;
     } else { value = this.array(values); }
     if (stmts.length === 0) { return value; }
     const inner = [];
-    for (const st of stmts) { inner.push(...st.tokens); }
+    for (const s of stmts) { inner.push(...this.parse(s, 'statements')); }
     inner.push(...value, this.p(';'));
     return [this.id('do'), this.g('{', inner)];
   }
 
-  emitNode(node) {
+  emit(node) {
     switch (node.k) {
-      case 'el': return this.emitElement(node);
+      case 'el': return this.element(node);
+      case 'frag': return this.array(node.children.map((c) => this.emit(c)));
       case 'text': return [this.str(node.value)];
-      case 'expr': return node.tokens.slice();
-      case 'stmt': return node.tokens.slice();
-      case 'if': return this.emitIf(node);
-      case 'for': return this.emitFor(node);
-      case 'match': return this.emitMatch(node);
-      default: throw new SyntaxError(`cannot emit a ${node.k}`);
+      case 'expr': return this.parse(node.range);
+      case 'js': return this.parse(node, 'statements');
+      case 'if': return this.ifCall(node);
+      case 'for': return this.forCall(node);
+      case 'match': return this.matchCall(node);
+      default: throw new SyntaxError(`cannot emit ${node.k}`);
     }
   }
 
-  // -- elements ------------------------------------------------------------
+  templatable(node) { return node.k === 'el' && !/^[A-Z]/.test(node.tag); }
 
-  /**
-   * A subtree with no control flow and no component is STATIC in shape, so it
-   * becomes a ParsedTemplate hoisted into a `constant { }` and instantiated with
-   * the dynamics that remain. Anything else is emitted as a `jsx(...)` call,
-   * which is what the framework's `createElement` dispatch expects.
-   */
-  emitElement(node) {
-    if (node.tag === null) {
-      // A fragment is a list; the framework flattens children.
-      return this.array(node.children.map((c) => this.emitNode(c)));
-    }
-    if (this.isTemplatable(node)) {
-      return this.emitTemplate(node);
-    }
-    return this.emitCreateElement(node);
-  }
-
-  /**
-   * An element is templatable unless it is a component.
-   *
-   * What varies among its children does NOT decide this: a control-flow child is
-   * a DynamicChildSlot exactly as an interpolation is, because the element's
-   * SHAPE is still fixed and what varies is one child - which is precisely what
-   * a slot describes.
-   *
-   * Treating a control-flow child as non-static instead collapses the element
-   * into a `jsx(...)` call and the template disappears - along with the template
-   * of every static ancestor of any control flow in the view. The static
-   * skeleton is the part worth hoisting, and it is the part that would go.
-   */
-  isTemplatable(node) {
-    return node.k === 'el' && node.tag !== null && !node.isComponent;
-  }
-
-  /** Build a ParsedTemplate and emit `jsxTemplate(constant { ... }, ...dynamics)`. */
-  emitTemplate(node) {
+  /** A static subtree becomes a ParsedTemplate hoisted into a `constant { }`. */
+  element(node) {
+    if (!this.templatable(node)) { return this.createElement(node); }
     const dynamics = [];
     const build = [];
     const slotKinds = [];
     const slotTargets = [];
-    const names = new Map();
-
     const walk = (el) => {
       const name = this.gensym('e');
-      names.set(el, name);
       const constants = [];
       const attrSlots = [];
       for (const prop of el.props) {
-        if (prop.value.literal !== undefined) {
-          constants.push([prop.name, [prop.value.literal]]);
-        } else if (prop.value.boolean) {
-          constants.push([prop.name, [this.id('true')]]);
-        } else {
-          // A dynamic prop becomes an attribute slot, and the expression is
-          // FORWARDED UNCHANGED - a signal must arrive as itself for
-          // `isSignal` to see it.
+        if (prop.literal !== undefined) { constants.push([prop.name, [this.k('string', prop.literal)]]); } else if (prop.boolean) { constants.push([prop.name, [this.id('true')]]); } else {
           const idx = dynamics.length;
-          dynamics.push(this.call('jsxAttr', [[this.str(prop.name)], prop.value.tokens]));
+          dynamics.push(this.call('jsxAttr', [[this.str(prop.name)], this.parse(prop.expr)]));
           slotKinds.push('attr');
           slotTargets.push(name);
           attrSlots.push(idx);
         }
       }
-      // const eN = { type, constants, children: [], attrSlots };
       build.push(
         this.id('const'), this.id(name), this.p('='),
         ...this.object([
@@ -714,216 +519,100 @@ class Emitter {
         this.p(';'),
       );
       for (const child of el.children) {
-        if (child.k === 'el' && child.tag !== null && !child.isComponent) {
+        if (child.k === 'text' && child.value.trim() === '') { continue; }
+        if (this.templatable(child)) {
           const childName = walk(child);
-          build.push(
-            this.id(name), this.p('.'), this.id('children'), this.p('.'), this.id('push'),
-            this.g('(', [this.id(childName)]), this.p(';'),
-          );
+          build.push(this.id(name), this.p('.'), this.id('children'), this.p('.'), this.id('push'), this.g('(', [this.id(childName)]), this.p(';'));
         } else {
           const idx = dynamics.length;
-          dynamics.push(this.slotValue(child));
+          dynamics.push(this.emit(child));
           slotKinds.push('child');
           slotTargets.push(name);
-          build.push(
-            this.id(name), this.p('.'), this.id('children'), this.p('.'), this.id('push'),
-            this.g('(', this.object([['slotIndex', [this.num(idx)]]])), this.p(';'),
-          );
+          build.push(this.id(name), this.p('.'), this.id('children'), this.p('.'), this.id('push'), this.g('(', this.object([['slotIndex', [this.num(idx)]]])), this.p(';'));
         }
       }
       return name;
     };
-
-    const rootName = walk(node);
-    // The block's completion value is the ParsedTemplate. `slotTargets` holds
-    // REFERENCES to the same elements that appear in `root.children`, which no
-    // object literal can express - which is why the plan is a block rather than
-    // a literal, and why `constant { }` takes one.
+    const root = walk(node);
     build.push(this.g('(', this.object([
       ['id', [this.num(0)]],
-      ['root', [this.id(rootName)]],
+      ['root', [this.id(root)]],
       ['slotCount', [this.num(dynamics.length)]],
       ['slotKinds', this.array(slotKinds.map((s) => [this.str(s)]))],
       ['slotTargets', this.array(slotTargets.map((t) => [this.id(t)]))],
     ])), this.p(';'));
-
-    // The plan is CLOSED - it names nothing from outside - so it may be hoisted
-    // into a `constant { }`, which is evaluated once per SITE for the life of
-    // the realm. The dynamics are not closed and stay at the call site.
-    const plan = [this.id('constant'), this.g('{', build)];
-    return this.call('jsxTemplate', [plan, ...dynamics]);
+    return this.call('jsxTemplate', [[this.id('constant'), this.g('{', build)], ...dynamics]);
   }
 
-  /** What fills a DynamicChildSlot, by the kind of child that made it. */
-  slotValue(child) {
-    if (child.k === 'text') { return [this.str(child.value)]; }
-    if (child.k === 'expr') { return this.call('jsxEscape', [child.tokens]); }
-    // A control-flow child, or a component - each is an ordinary expression that
-    // evaluates to what the slot holds.
-    return this.emitNode(child);
-  }
-
-  /** `jsx('tag', { ...props, children: [...] })` */
-  emitCreateElement(node) {
+  createElement(node) {
     const entries = [];
     for (const prop of node.props) {
-      if (prop.value.literal !== undefined) {
-        entries.push([prop.name, [prop.value.literal]]);
-      } else if (prop.value.boolean) {
-        entries.push([prop.name, [this.id('true')]]);
-      } else {
-        entries.push([prop.name, prop.value.tokens]);
-      }
+      if (prop.literal !== undefined) { entries.push([prop.name, [this.k('string', prop.literal)]]); } else if (prop.boolean) { entries.push([prop.name, [this.id('true')]]); } else { entries.push([prop.name, this.parse(prop.expr)]); }
     }
     if (node.children.length > 0) {
-      entries.push(['children', this.array(node.children.map((c) => this.emitNode(c)))]);
+      entries.push(['children', this.array(node.children.filter((c) => !(c.k === 'text' && c.value.trim() === '')).map((c) => this.emit(c)))]);
     }
-    const tag = node.isComponent ? [this.id(node.tag)] : [this.str(node.tag)];
+    const tag = /^[A-Z]/.test(node.tag) ? [this.id(node.tag)] : [this.str(node.tag)];
     return this.call('jsx', [tag, this.object(entries)]);
   }
 
-  // -- control flow --------------------------------------------------------
-
-  /**
-   * `jsx('if', { when, children: [factory, ...], persist })`
-   *
-   * The condition is a THUNK: `IfBranch.when` is `Signal | (() => unknown)` and
-   * `readSignal` is `signal()`, so a thunk reads identically to a signal and is
-   * the form that also works for `if (x() > 5)`.
-   *
-   * A branch is a FACTORY, which is what `IfController` calls when the condition
-   * changes and what it keeps when `persist` is set.
-   */
-  emitIf(node) {
-    const first = node.branches[0];
-    const entries = [
-      ['when', this.arrow([], first.cond)],
-      ['children', this.array([
-        this.arrow([], this.childrenValue(first.body)),
-        ...(node.elseBody ? [this.arrow([], this.childrenValue(node.elseBody))] : []),
-      ])],
-    ];
-    if (first.deco.persist) { entries.push(['persist', [this.id('true')]]); }
-    const root = this.call('jsx', [[this.str('if')], this.object(entries)]);
-
-    // `else if` chains are siblings in the framework's model, each with its own
-    // metadata - which the tag form cannot express, since `<elseif>` associates
-    // by position.
-    const rest = node.branches.slice(1).map((b) => {
-      const e = [
-        ['when', this.arrow([], b.cond)],
-        ['children', this.array([this.arrow([], this.childrenValue(b.body))])],
-      ];
-      if (b.deco.persist) { e.push(['persist', [this.id('true')]]); }
-      return this.call('jsx', [[this.str('elseif')], this.object(e)]);
-    });
-    return rest.length === 0 ? root : this.array([root, ...rest]);
-  }
-
-  /**
-   * `jsx('for', { items, key, children: [(item) => ...], persist })`, or
-   * `jsx('forRange', { start, end, ... })` where the iterable is a range.
-   */
-  emitFor(node) {
-    const range = splitRange(node.iterable);
-    const bodyFn = [
-      this.g('(', [node.binding]),
-      this.p('=>'),
-      this.g('(', this.childrenValue(node.body)),
-    ];
-    const entries = [];
-    if (range) {
-      entries.push(['start', this.arrowIfNeeded(range.start)]);
-      entries.push(['end', this.arrowIfNeeded(range.end)]);
-      if (range.inclusive) { entries.push(['inclusive', [this.id('true')]]); }
-    } else {
-      entries.push(['items', node.iterable.slice()]);
-    }
-    if (node.deco.key) {
-      // The loop binding is in scope where `@key(...)` is written, so the macro
-      // lifts the expression into a lambda over it - no lambda is written.
-      entries.push(['key', [
-        this.g('(', [node.binding]), this.p('=>'), this.g('(', node.deco.key),
-      ]]);
-    }
-    entries.push(['children', this.array([bodyFn])]);
-    if (node.deco.persist) { entries.push(['persist', [this.id('true')]]); }
-    return this.call('jsx', [[this.str(range ? 'forRange' : 'for')], this.object(entries)]);
-  }
-
-  /**
-   * `jsx('match', { on, children: [[test, factory], ...] })`, or `'matchAll'`.
-   *
-   * A pattern becomes a predicate over the subject. Literal patterns compare;
-   * a range compares against its bounds; `_` always holds.
-   */
-  emitMatch(node) {
-    const subject = this.gensym('s');
-    const arms = node.arms.map((arm) => {
-      const factory = this.arrow([], this.childrenValue(arm.body));
-      if (arm.pattern === null) { return this.array([factory]); }
-      const test = this.patternTest(arm.pattern, subject, arm.guard);
-      return this.array([
-        [this.g('(', [this.id(subject)]), this.p('=>'), this.g('(', test)],
-        factory,
-      ]);
-    });
-    const entries = [
-      ['on', node.subject.slice()],
-      ['children', this.array([this.array(arms)])],
-    ];
-    if (node.deco && node.deco.persist) { entries.push(['persist', [this.id('true')]]); }
-    return this.call('jsx', [[this.str(node.all ? 'matchAll' : 'match')], this.object(entries)]);
-  }
-
-  /** A pattern as a predicate over `subject`, with the guard folded in. */
-  patternTest(pattern, subject, guard) {
-    let test;
-    if (pattern.length === 1 && isWord(pattern[0], '_')) {
-      test = [this.id('true')];
-    } else {
-      const range = splitRange(pattern);
-      if (range) {
-        test = [
-          this.id(subject), this.p('>='), ...range.start,
-          this.p('&&'), this.id(subject), this.p(range.inclusive ? '<=' : '<'), ...range.end,
-        ];
-      } else {
-        test = [this.id(subject), this.p('==='), ...pattern];
-      }
-    }
-    return guard ? [...test, this.p('&&'), this.g('(', guard)] : test;
-  }
-
-  /** One child is its value; several are a list. */
-  childrenValue(children) {
-    const values = children.map((c) => this.emitNode(c));
+  childrenValue(nodes) {
+    const values = nodes.map((n) => this.emit(n));
     if (values.length === 0) { return [this.id('undefined')]; }
     if (values.length === 1) { return values[0]; }
     return this.array(values);
   }
 
-  /** A range endpoint may be a signal, so it is forwarded rather than thunked. */
-  arrowIfNeeded(tokens) { return tokens.slice(); }
+  ifCall(node) {
+    const entries = [['when', this.arrow([], this.parse(node.cond))]];
+    const branches = [this.arrow([], this.childrenValue(node.body))];
+    if (node.alt) { branches.push(this.arrow([], this.childrenValue(node.alt))); }
+    entries.push(['children', this.array(branches)]);
+    if (node.deco.persist) { entries.push(['persist', [this.id('true')]]); }
+    return this.call('jsx', [[this.str('if')], this.object(entries)]);
+  }
+
+  forCall(node) {
+    // `const x of xs` - split by the macro, and the iterable delegated.
+    const head = this.stream.toString().slice(node.head.from, node.head.to);
+    const of = /\bof\b/.exec(head);
+    if (!of) { throw new SyntaxError('a `for` in a jsx region is a `for...of`'); }
+    const binding = head.slice(0, of.index).replace(/^\s*(const|let|var)\s+/, '').trim();
+    const iterable = { from: node.head.from + of.index + 2, to: node.head.to };
+    const entries = [['items', this.parse(iterable)]];
+    if (node.deco.key) {
+      entries.push(['key', [this.g('(', [this.id(binding)]), this.p('=>'), this.g('(', this.parse(node.deco.key))]]);
+    }
+    entries.push(['children', this.array([[this.g('(', [this.id(binding)]), this.p('=>'), this.g('(', this.childrenValue(node.body))]])]);
+    if (node.deco.persist) { entries.push(['persist', [this.id('true')]]); }
+    return this.call('jsx', [[this.str('for')], this.object(entries)]);
+  }
+
+  matchCall(node) {
+    const subject = this.gensym('s');
+    const arms = node.arms.map((arm) => {
+      const factory = this.arrow([], this.childrenValue(arm.body));
+      if (arm.pattern === null) { return this.array([factory]); }
+      const pattern = this.parse(arm.pattern);
+      return this.array([
+        [this.g('(', [this.id(subject)]), this.p('=>'), this.g('(', [this.id(subject), this.p('==='), ...pattern])],
+        factory,
+      ]);
+    });
+    const entries = [
+      ['on', this.parse(node.subject)],
+      ['children', this.array([this.array(arms)])],
+    ];
+    return this.call('jsx', [[this.str(node.all ? 'matchAll' : 'match')], this.object(entries)]);
+  }
 }
 
-/** `a..<b` and `a..=b` -> endpoints, or null where the tokens are not a range. */
-function splitRange(tokens) {
-  for (let i = 0; i < tokens.length - 1; i += 1) {
-    if (isPunct(tokens[i], '..')) {
-      const next = tokens[i + 1];
-      if (isPunct(next, '<') || isPunct(next, '=')) {
-        return {
-          start: tokens.slice(0, i),
-          end: tokens.slice(i + 2),
-          inclusive: isPunct(next, '='),
-        };
-      }
-      return { start: tokens.slice(0, i), end: tokens.slice(i + 1), inclusive: false };
-    }
-  }
-  return null;
-}
+// The region is CAPTURED: its text is not ECMAScript, so the engine must not try
+// to parse it. That is the whole of what the engine needs to be told - there is
+// no grammar to name, because there is no grammar in the engine to name.
+jsx.capture = true;
+
+export { jsx };
 ```
 
 ## The Demo
@@ -936,27 +625,25 @@ The second snippet, run as a MODULE. Runtime, the view as written, and a driver.
 //
 // Run the `jsx.js` snippet first, then this one as a MODULE.
 //
-// The import below is what makes it work, and both halves of it matter:
+// The import declares no grammar, and there is none to declare: the engine
+// provides no lexical modes. Being a preprocessor decoration is what makes
+// `@jsx { ... }` a region, and the MACRO says whether its text is ECMAScript -
+// `jsx.js` sets `capture: true`, so it reads the region itself and hands the
+// ranges that ARE ECMAScript back through `stream.parse`.
 //
-//   - the `mode: "jsx"` attribute declares the lexical mode. It is found by a
-//     TEXTUAL prescan of this source before parsing, so the specifier is never
-//     fetched for that purpose - any string would do, and "./jsx.js" is only the
-//     honest one. But the declaration must be a STATIC import, which is why this
-//     file is a module and cannot be a bare script.
+// The import must still be STATIC, which is why this file is a module: the
+// preprocessor import is found by a textual prescan before parsing, and a script
+// has no way to write one. The engine then asks the host for the macro by NAME,
+// through `HostResolveReplacementDecorator(name, specifier)`, never loading the
+// module itself - so a host maps names to functions:
 //
-//   - the engine then asks the host for the macro by NAME, through
-//     `HostResolveReplacementDecorator(name, specifier)`. It never loads the
-//     module itself. The hook receives the CONSUMING module's specifier rather
-//     than the import's, so it cannot discover where a preprocessor came from
-//     and must map names to functions:
-//
-//         HostResolveReplacementDecorator: (name) =>
-//           realm.GlobalObject.__preprocessors?.[name]
+//     HostResolveReplacementDecorator: (name) =>
+//       realm.GlobalObject.__preprocessors?.[name]
 //
 // Change the specifier to whatever your devtools uses for the jsx.js snippet.
 // =============================================================================
 
-import { jsx } from "./jsx.js" with { preprocessor: "true", mode: "jsx" };
+import { jsx } from "./jsx.js" with { preprocessor: "true" };
 
 // -----------------------------------------------------------------------------
 // 1. SIGNALS

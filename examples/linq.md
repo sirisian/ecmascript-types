@@ -3,7 +3,7 @@
 A query language written as a decorated region: `from`, `where`, `orderby`, `group by` and `join` in the shape C# gave them, compiled by a replacement decorator into ordinary calls before the program is checked.
 
 ```js
-import { linq } from "./linq.js" with { preprocessor: "true", mode: "linq" };
+import { linq } from "./linq.js" with { preprocessor: "true" };
 
 const senior: Query.<string> = @linq {
   from p in people
@@ -13,12 +13,12 @@ const senior: Query.<string> = @linq {
 };
 ```
 
-This is the case a [scoped lexical mode](../decoratorreplacement.md) exists for, and a sharper one than JSX. JSX fails loudly: `<` cannot begin an expression, so a program containing it does not parse. A query fails *quietly in parts*. `from p` is two adjacent identifiers and an error, but `where p.age >= 18` is a valid expression statement, `orderby a, b` is a comma expression, and `x in xs` is a RelationalExpression that already means something else. A grammar admitting queries everywhere would not reject a malformed one; it would read it as something the author did not write.
+This is the case a [captured region](../decoratorreplacement.md) exists for, and a sharper one than JSX. JSX fails loudly: `<` cannot begin an expression, so a program containing it does not parse. A query fails *quietly in parts*. `from p` is two adjacent identifiers and an error, but `where p.age >= 18` is a valid expression statement, `orderby a, b` is a comma expression, and `x in xs` is a RelationalExpression that already means something else. A grammar admitting queries everywhere would not reject a malformed one; it would read it as something the author did not write.
 
 Features exercised:
 
-- A declared lexical mode, so `from`, `select` and `where` are ordinary identifiers everywhere outside a region and no existing program changes meaning.
-- The mixed mode: a clause's operand is ordinary ECMAScript, parsed by the ordinary parser, so a template literal or a regular expression in a `where` behaves as it does anywhere else.
+- A captured region, so `from`, `select` and `where` are ordinary identifiers everywhere outside one and no existing program changes meaning. The macro declares ```capture``` and reads the text itself; the engine provides no query grammar and needs none.
+- ```stream.parse(start, end, "expression")```: a clause's operand IS ECMAScript, so the macro hands it back to the engine and gets tokens threaded from that parse - a template literal or a regular expression in a `where` arriving as one token rather than as the several a re-lex would give.
 - ```constant { }``` for the query plan, so a comparer or a key list is built once per site rather than once per evaluation.
 - An argumented decoration - ```@linq(sql) { ... }``` - selecting a provider, which is what lets one syntax serve an array and a database.
 - [Higher-kinded types](../higherkindedtypes.md) carrying the element type through a pipeline and deciding which clauses a source admits.
@@ -315,7 +315,7 @@ A ```constant { }``` block must be closed: it reads nothing from outside itself.
 A bare ```@linq { }``` emits calls. An argumented one emits a plan, and the provider translates it:
 
 ```js
-import { linq, sql } from "./linq.js" with { preprocessor: "true", mode: "linq" };
+import { linq, sql } from "./linq.js" with { preprocessor: "true" };
 
 const q = @linq(sql) {
   from o in orders
@@ -360,7 +360,7 @@ Property 'surname' does not exist on type 'Person'
 ## Coverage Notes
 
 - **The mode is what makes the syntax possible - resolved.** Query keywords are contextual inside a region and ordinary identifiers outside one, so `const from = 1` keeps working and no existing program changes meaning. This is stronger than a global grammar would give: `x in xs` already parses as a RelationalExpression, so a query grammar admitted everywhere would silently misread rather than reject.
-- **Clause operands are ordinary ECMAScript - resolved.** The mixed mode parses each operand with the ordinary parser, so a regular expression in a `where` is one token rather than a division, and a template literal is one token rather than a backtick and an identifier.
+- **Clause operands are ordinary ECMAScript - resolved by delegation.** The macro hands each operand back through ```parse```, so a regular expression in a `where` is one token rather than a division, and a template literal is one token rather than a backtick and an identifier.
 - **Deferral is in the type - resolved.** ```Query.<T>``` is not ```[].<T>```. C#'s deferral is famous as a surprise because `IEnumerable<T>` and a materialized list read alike; every language that made the distinction visible - Python's brackets, Kotlin's ```asSequence```, Elixir's `Stream`, Java's terminal operations - is not reported as a gotcha.
 - **Which clauses a source admits - resolved by higher-kinded types.** ```Source<W<_>>``` and its refinements let a `Promise` source be a query source without being a filterable one, and the error lands on the `where` rather than on the source. Without higher kinds the protocol could not be written and the design would collapse to sequences only.
 - **Custom comparers, deliberately narrow.** `using` exists on `Ordering` alone and always means ```(a: T, b: T) => number```. Two surveyed languages put a comparer in the comprehension itself - SQL's `COLLATE` and XQuery's `collation` - and both put it on ordering alone; none of the fourteen has one on grouping, joining or distinctness, because a key does that work and is typeable as ```(value: T) => K``` where a general equality relation is not.

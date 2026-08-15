@@ -383,16 +383,31 @@ GRAMMAR question; `/` after it is a GOAL-SYMBOL question.** This section answers
 the second, in the outgoing direction, by construction. The first has no answer
 in a token-kind distinction, because there are no tokens yet to distinguish.
 
-**The answer is to let the region declare how it is scanned.** A preprocessor
-import may name a lexical mode, and the region its decoration takes is then found
-by delimiter and tokenized by that mode rather than as ECMAScript:
+**The answer is to let the decorator CAPTURE its region and read it itself.** A
+preprocessor decoration followed by `{` takes that brace and its match as a
+region; where the decorator declares `capture`, the region is found by delimiter
+and its text reaches the macro as tokens of the ordinary lexical grammar, for the
+macro to read however its own syntax requires:
 
 ```js
-import { jsx } from "./jsx.js" with { preprocessor: "true", mode: "jsx" };
+import { jsx } from "./jsx.js" with { preprocessor: "true" };
 const el = @jsx do { <div class="a">{name}</div> };
 ```
 
-A mode governs INGESTION only — what a macro returns is ECMAScript however its
+```js
+// in jsx.js
+export const jsx = Object.assign(expand, { capture: true });
+```
+
+The engine provides no grammars, so a decorator is not choosing among them. What
+a macro cannot do for itself is decide whether `/` begins a regular expression or
+a division - undecidable lexically, since after `}` it depends on whether the
+brace closed a block or an object literal - so it hands those ranges back with
+```stream.parse(start, end, goal)``` and gets tokens threaded from that parse. A
+JSX VARIANT with different syntax decisions is therefore a different macro rather
+than a different engine, which naming a grammar could never have given.
+
+A capture governs INGESTION only — what a macro returns is ECMAScript however its
 region was scanned — and the grammar outside a region is untouched, so `a < b`
 and `.<T>` read as they always did. Keeping JSX a macro's business rather than
 the language's is the whole point: TypeScript declines to disambiguate `<` in the
