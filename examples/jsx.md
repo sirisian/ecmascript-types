@@ -41,22 +41,12 @@ Features exercised:
 
 ## Running It
 
-The engine never loads the preprocessor module. It calls `HostResolveReplacementDecorator(name, specifier)` and uses whatever the host returns - and the hook receives the decorator's NAME and the CONSUMING module's specifier, so it cannot discover where a preprocessor came from. A name-keyed registry is the shape that works:
+The engine loads the preprocessor module itself. `sec-preprocessor-modules` says it is fetched and evaluated before the importing module is parsed, so it arrives through the ordinary module loader and its exports are the macros - the host needs no registry and no hook of its own.
 
-```js
-HostResolveReplacementDecorator: (name) => realm.GlobalObject.__preprocessors?.[name]
-```
-
-With that in place:
-
-1. **Create a devtools snippet named `jsx.js`** containing the macro below. It is written as a module, so if snippets are evaluated as scripts, replace its one `export function jsx` with `function jsx` and append
-
-   ```js
-   globalThis.__preprocessors = Object.assign(globalThis.__preprocessors || {}, { jsx });
-   ```
-
-   which is what the name-keyed hook above reads. Run it once; the registry persists for the realm.
+1. **Create a devtools snippet named `jsx.js`** containing the macro below. It is a module, and `export function jsx` is what the import binds.
 2. **Create a second snippet** containing the demo below, and run it. It prints the tree, checks that two renders share their templates, and changes a signal to show the controllers re-evaluating.
+
+The import and the code using the macro must be in the SAME compilation unit. Expansion collects macro names from the parsed body's own imports and runs before evaluation, so a macro imported by one snippet cannot expand a decoration in another - and a dynamic `import()` cannot feed the expander at all, resolving as it does during evaluation, after expansion is over.
 
 A region cannot be a bare SCRIPT: the mode is declared by an import attribute and only a module may carry one. Without it `<inventory-grid columns="8">` lexes as ECMAScript and `grid columns` is two adjacent identifiers, which is the error a paste produces. Run the demo as a module and the import does its work.
 
@@ -681,16 +671,11 @@ The second snippet, run as a MODULE. Runtime, the view as written, and a driver.
 // `jsx.js` sets `capture: true`, so it reads the region itself and hands the
 // ranges that ARE ECMAScript back through `stream.parse`.
 //
-// The import must still be STATIC, which is why this file is a module: the
+// The import must be STATIC, which is why this file is a module: the
 // preprocessor import is found by a textual prescan before parsing, and a script
-// has no way to write one. The engine then asks the host for the macro by NAME,
-// through `HostResolveReplacementDecorator(name, specifier)`, never loading the
-// module itself - so a host maps names to functions:
-//
-//     HostResolveReplacementDecorator: (name) =>
-//       realm.GlobalObject.__preprocessors?.[name]
-//
-// Change the specifier to whatever your devtools uses for the jsx.js snippet.
+// has no way to write one. The engine loads the module named there through the
+// ordinary loader and reads the macro out of its exports, so the specifier is
+// whatever your devtools calls the jsx.js snippet and nothing else is needed.
 // =============================================================================
 
 import { jsx } from "./jsx.js" with { preprocessor: "true" };
