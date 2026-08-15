@@ -118,12 +118,19 @@ The first snippet. It parses the region's tokens into a node tree and emits toke
 // and nothing else.
 
 function jsx(stream) {
-  const text = String(stream);
+  // The SOURCE text, not `String(stream)`. `toString` renders the TOKENS, so it
+  // differs from the source by whatever is not a token - a comment, most
+  // obviously - and `stream.parse(start, end)` indexes the source. Scanning the
+  // rendering while delegating against the source is off by exactly those
+  // characters, and the delegated range then starts mid-comment.
+  const span = stream[0] ? stream[0].span : undefined;
+  const text = span && span.source && typeof span.source.text === 'string'
+    ? span.source.text
+    : String(stream);
   const open = text.indexOf('{');
   const close = text.lastIndexOf('}');
   if (open < 0 || close < open) { throw new SyntaxError('a jsx region is a block'); }
-  const span = stream[0] ? stream[0].span : undefined;
-  const out = new Out(stream, span);
+  const out = new Out(stream, span, text);
   const nodes = new Scanner(text, open + 1, close, out).scanRegion();
   return out.emitRegion(nodes);
 }
@@ -142,7 +149,30 @@ class Scanner {
     this.out = out;
   }
 
-  ws() { while (this.i < this.end && /\s/.test(this.text[this.i])) { this.i += 1; } }
+  /**
+   * Whitespace AND comments.
+   *
+   * A region is source, so it has comments in it - and skipping only whitespace
+   * left `// like this` at the head of a statement run, which was then delegated
+   * to the engine starting mid-comment and refused. Comments are trivia to every
+   * consumer here: a statement run must not begin with one, and a construct must
+   * be findable past one.
+   */
+  ws() {
+    for (;;) {
+      while (this.i < this.end && /\s/.test(this.text[this.i])) { this.i += 1; }
+      if (this.at('//')) {
+        while (this.i < this.end && this.text[this.i] !== '\n') { this.i += 1; }
+        continue;
+      }
+      if (this.at('/*')) {
+        const close = this.text.indexOf('*/', this.i + 2);
+        this.i = close < 0 ? this.end : close + 2;
+        continue;
+      }
+      return;
+    }
+  }
 
   at(s) { return this.text.startsWith(s, this.i); }
 
@@ -154,6 +184,11 @@ class Scanner {
       if (this.i >= this.end) { return nodes; }
       if (this.at('<')) { nodes.push(this.element()); continue; }
       if (this.at('@') && this.construct(1)) { nodes.push(this.constructNode(1)); continue; }
+      // A BARE construct, inside a block. No sigil is needed here - there is no
+      // child text to be ambiguous with - and it must be recognised rather than
+      // swallowed into a statement run: its arms and branches hold markup, which
+      // the engine does not parse and would refuse.
+      if (this.construct(0)) { nodes.push(this.constructNode(0)); continue; }
       // Ordinary JavaScript. Collected to the end of the statement and handed
       // BACK to the engine - the macro does not parse JS, it delegates it.
       const start = this.i;
@@ -177,6 +212,14 @@ class Scanner {
       if (c === '"' || c === "'" || c === '`') { i = this.skipString(i); continue; }
       if (c === '(' || c === '[' || c === '{') { depth += 1; i += 1; continue; }
       if (c === ')' || c === ']' || c === '}') { depth -= 1; i += 1; continue; }
+      if (c === '/' && (this.text[i + 1] === '/' || this.text[i + 1] === '*')) {
+        // A comment inside a statement run is fine - it is the engine's to skip -
+        // but one that STARTS a run is not, and `ws` has already handled that.
+        i = this.text[i + 1] === '/'
+          ? (this.text.indexOf('\n', i) < 0 ? this.end : this.text.indexOf('\n', i))
+          : (this.text.indexOf('*/', i + 2) < 0 ? this.end : this.text.indexOf('*/', i + 2) + 2);
+        continue;
+      }
       if (depth === 0 && c === ';') { return i + 1; }
       if (depth === 0 && c === '<' && /[A-Za-z]/.test(this.text[i + 1] || '')) { return i; }
       // A sigil'd construct ends the run before it, or the whole construct is
@@ -408,9 +451,10 @@ class Scanner {
 // ===========================================================================
 
 class Out {
-  constructor(stream, span) {
+  constructor(stream, span, text) {
     this.stream = stream;
     this.span = span;
+    this.text = text;
     this.n = 0;
   }
 
@@ -574,7 +618,7 @@ class Out {
 
   forCall(node) {
     // `const x of xs` - split by the macro, and the iterable delegated.
-    const head = this.stream.toString().slice(node.head.from, node.head.to);
+    const head = this.text.slice(node.head.from, node.head.to);
     const of = /\bof\b/.exec(head);
     if (!of) { throw new SyntaxError('a `for` in a jsx region is a `for...of`'); }
     const binding = head.slice(0, of.index).replace(/^\s*(const|let|var)\s+/, '').trim();
@@ -593,6 +637,12 @@ class Out {
     const arms = node.arms.map((arm) => {
       const factory = this.arrow([], this.childrenValue(arm.body));
       if (arm.pattern === null) { return this.array([factory]); }
+      // `when _:` is the wildcard, not a reference to a binding called `_`.
+      // Emitting it as one produced `"_" is not defined` at RUN time - the arm
+      // compiled, and failed when the controller tested it.
+      if (this.text.slice(arm.pattern.from, arm.pattern.to).trim() === '_') {
+        return this.array([[this.g('(', []), this.p('=>'), this.g('(', [this.id('true')])], factory]);
+      }
       const pattern = this.parse(arm.pattern);
       return this.array([
         [this.g('(', [this.id(subject)]), this.p('=>'), this.g('(', [this.id(subject), this.p('==='), ...pattern])],
@@ -916,7 +966,7 @@ character.set(2);
 console.log('after :', render(tree).indexOf('"amber"') >= 0 ? 'amber' : 'none');
 ```
 
-Running it prints:
+Verified end to end: the module compiles - which is what runs the macro over the real `@jsx { }` source - and its expansion executes to the tree below, including the signal change that makes the `matchAll` controller re-evaluate. Running it prints:
 
 ```
 <panel layout="stack">
@@ -1017,4 +1067,5 @@ const Grid = ({ slots }) => @jsx {
 - **Per-site templates - resolved by ```constant { }```.** Each static subtree is allocated once for the life of the realm, keyed on the Parse Node, so a template inside a loop body's lambda is hoisted once however many times the lambda runs - and a component built inside a factory shares it across calls, which a hoisted `const` could not.
 - **What the caching does not do.** The runtime re-walks the template on every render and memoises nothing against its identity. What ```constant { }``` removes is the allocation and the string round-trip a syntactic transform needed, not the walk. The template's identity is now a stable key to memoise against, which it was not before.
 - **Narrowing does not survive the lift - open.** `match (user) { when let u: ... }` narrows at the source, but the macro rewrites the arms into thunks and the checker then sees calls, so the binding is typed by the runtime's signature rather than by the pattern. Typing the runtime generically covers literal and type patterns, which is most of what a view dispatches on; a destructuring pattern with bindings stays opaque. Closing it properly wants a construct that yields its arms rather than evaluating one, which is reification, and belongs with the same question in the [query example](linq.md).
+- **Four of this macro's bugs were found by RUNNING it, not by compiling it.** A `//` comment in a region was swallowed into a statement run and delegated mid-comment; a bare `match` inside a `@for` body was handed to the engine, whose arms hold markup it does not parse; `when _:` emitted `_` as a reference and failed at run time with `"_" is not defined`; and the macro scanned `String(stream)` while `parse` indexes the source, which is a silent misdelegation rather than an error. Compiling a view exercises none of them.
 - **Whitespace between tags reaches the macro - deliberately.** Every run is kept, including runs that are only spaces, because which whitespace is significant is the consumer's rule and not the parser's. The macro drops whitespace-only runs between elements, which is JSX's own convention; a different consumer may not.
