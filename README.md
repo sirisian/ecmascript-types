@@ -473,29 +473,18 @@ Layout follows the same rule as a class: a tuple of value types is itself a valu
 
 ### Array length Type And Operations
 
-Valid types for defining the length of an array are ```int8```, ```int16```, ```int32```, ```int64```, ```uint8```, ```uint16```, ```uint32```, and ```uint64```.
+An array type takes one type argument, its element. The type of a length - and of an index, a ```capacity```, and a view's length - is the language's *index type*, fixed for every array rather than declared per array.
 
 ```js
-[].<T, Length = uint32>
-```
-
-Syntax uses the second parameter for the generic:
-
-```js
-let a: [].<uint8, int8>  = [0, 1, 2, 3, 4];
-let b = a.length; // length is type int8
+[].<T>
 ```
 
 ```js
-let a: [5].<uint8, uint64> = [0, 1, 2, 3, 4];
-let b = a.length; // length is type uint64 with value 5
+let a: [].<uint8> = [0, 1, 2, 3, 4];
+let b = a.length; // the index type, with value 5
 ```
 
-```js
-let n = 5;
-let a: [n].<uint8, uint64> = [0, 1, 2, 3, 4];
-let b = a.length; // length is type uint64 with value 5
-```
+An earlier draft of this design read a second type argument as the length type, written ```[].<T, Length = uint32>```. It was never implemented: the argument parsed and was discarded, so every such array got the default length type regardless of what was written, which made a typo indistinguishable from a feature. An array type with more than one type argument is now refused. Should a per-array index type be wanted later, an optional second argument defaulting to the index type can be added without changing the meaning of anything written today.
 
 Setting the ```length``` reallocates the array truncating when applicable.
 
@@ -510,7 +499,7 @@ out.capacity; // >= 1024
 out.reserve(4096); // Grow the allocation; length unchanged
 ```
 
-Capacity never shrinks implicitly; only ```length =``` or an explicit shrink releases it. A fixed ```[N].<T>``` has no allocation distinct from its type: its capacity is exactly ```N``` for the life of the array, a ```reserve``` within ```N``` is a no-op, and a ```reserve``` past ```N``` is a TypeError - the same refusal a ```push``` or a ```length =``` gets, since the storage is the extent and the extent is part of the type. A ```reserve``` that reallocates invalidates every reference into the array, so the next read or write through one is a TypeError - the relocation half of the [liveness rules](references.md), which is the half that exists because a ```reserve``` changes capacity without changing length and no length check could see it. Because a fixed ```[N].<T>``` never reallocates, a reference into one is never invalidated by a ```reserve```. ```withCapacity``` reserves rather than fills - a zero-filled array of a known length is a fixed ```[N].<T>```.
+Capacity never shrinks implicitly; ```length =``` releases it. A fixed ```[N].<T>``` has no allocation distinct from its type: its capacity is exactly ```N``` for the life of the array, a ```reserve``` within ```N``` is a no-op, and a ```reserve``` past ```N``` is a TypeError - the same refusal a ```push``` or a ```length =``` gets, since the storage is the extent and the extent is part of the type. A ```reserve``` that reallocates invalidates every reference into the array, so the next read or write through one is a TypeError - the relocation half of the [liveness rules](references.md), which is the half that exists because a ```reserve``` changes capacity without changing length and no length check could see it. Because a fixed ```[N].<T>``` never reallocates, a reference into one is never invalidated by a ```reserve```. ```withCapacity``` reserves rather than fills - a zero-filled array of a known length is a fixed ```[N].<T>```.
 
 ```js
 let a: [].<uint8> = [0, 1, 2, 3, 4];
