@@ -510,7 +510,7 @@ out.capacity; // >= 1024
 out.reserve(4096); // Grow the allocation; length unchanged
 ```
 
-Capacity never shrinks implicitly; only ```length =``` or an explicit shrink releases it. A ```reserve``` that reallocates invalidates every reference into the array, so the next read or write through one is a TypeError - the relocation half of the [liveness rules](references.md), which is the half that exists because a ```reserve``` changes capacity without changing length and no length check could see it. ```withCapacity``` reserves rather than fills - a zero-filled array of a known length is a fixed ```[N].<T>```.
+Capacity never shrinks implicitly; only ```length =``` or an explicit shrink releases it. A fixed ```[N].<T>``` has no allocation distinct from its type: its capacity is exactly ```N``` for the life of the array, a ```reserve``` within ```N``` is a no-op, and a ```reserve``` past ```N``` is a TypeError - the same refusal a ```push``` or a ```length =``` gets, since the storage is the extent and the extent is part of the type. A ```reserve``` that reallocates invalidates every reference into the array, so the next read or write through one is a TypeError - the relocation half of the [liveness rules](references.md), which is the half that exists because a ```reserve``` changes capacity without changing length and no length check could see it. Because a fixed ```[N].<T>``` never reallocates, a reference into one is never invalidated by a ```reserve```. ```withCapacity``` reserves rather than fills - a zero-filled array of a known length is a fixed ```[N].<T>```.
 
 ```js
 let a: [].<uint8> = [0, 1, 2, 3, 4];
