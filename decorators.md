@@ -291,21 +291,28 @@ A **replacement decorator** - one imported with `with { preprocessor: true }`, s
 
 Every decorable position can be syntax-replaced, including every position the value table excludes. The constraint is grammatical rather than typed:
 
-| Context | Replacement must parse as | Also value-replaceable |
-|---|---|---|
-| `Reflect.Class` | a class declaration or expression, as the position was | yes |
-| `Reflect.ClassField` | a class field definition | yes |
-| `Reflect.ClassMethod` | a method definition | yes |
-| `Reflect.ClassAccessor` | an `accessor` field definition | yes |
-| `Reflect.ClassGetter` / `Reflect.ClassSetter` | a getter / setter definition | yes |
-| `Reflect.ClassOperator` | an operator definition | yes |
-| `Reflect.Function` | a function declaration or expression, as the position was | yes |
-| `Reflect.ObjectMethod` / `ObjectGetter` / `ObjectSetter` | the corresponding object member | yes |
-| `Reflect.ClassMethodParameter` and the other parameter contexts | a formal parameter | no |
-| `Reflect.ClassMethodReturn` and the other return contexts | a type annotation | no |
-| `Reflect.Block` and the eleven other block contexts | the statement form decorated | only `DoBlock` and `DoGeneratorBlock` |
-| `Reflect.Enum` / `Reflect.Tuple` / `Reflect.Record` | the corresponding declaration | no |
-| `Reflect.Let` / `Reflect.Const` | a lexical declaration | no |
+Each row's context reports its own name as `kind`, the same string the reflection
+carries, so a replacement decorator dispatches on the position exactly as a
+runtime one does. `Reflect.Region` is the one context that is not a reflection
+above: a captured region is a position this table has and the reflection list
+does not.
+
+| Context | `kind` | Replacement must parse as | Also value-replaceable |
+|---|---|---|---|
+| `Reflect.Region` | `'Region'` | any statement list, since the region is replaced whole | no |
+| `Reflect.Class` | `'Class'` | a class declaration or expression, as the position was | yes |
+| `Reflect.ClassField` | `'ClassField'` | a class field definition | yes |
+| `Reflect.ClassMethod` | `'ClassMethod'` | a method definition | yes |
+| `Reflect.ClassAccessor` | `'ClassAccessor'` | an `accessor` field definition | yes |
+| `Reflect.ClassGetter` / `Reflect.ClassSetter` | `'ClassGetter'` / `'ClassSetter'` | a getter / setter definition | yes |
+| `Reflect.ClassOperator` | `'ClassOperator'` | an operator definition | yes |
+| `Reflect.Function` | `'Function'` | a function declaration or expression, as the position was | yes |
+| `Reflect.ObjectMethod` / `ObjectGetter` / `ObjectSetter` | the matching name | the corresponding object member | yes |
+| `Reflect.ClassMethodParameter` and the other parameter contexts | the matching name | a formal parameter | no |
+| `Reflect.ClassMethodReturn` and the other return contexts | the matching name | a type annotation | no |
+| `Reflect.Block` and the eleven other block contexts | the matching name | the statement form decorated | only `DoBlock` and `DoGeneratorBlock` |
+| `Reflect.Enum` / `Reflect.Tuple` / `Reflect.Record` | the matching name | the corresponding declaration | no |
+| `Reflect.Let` / `Reflect.Const` | `'Let'` / `'Const'` | a lexical declaration | no |
 
 An EMPTY replacement needs no separate permission: it is legal exactly where an empty token stream parses, so `@cfg` removing a statement or a class member works and removing a parameter from the middle of a list does not.
 
