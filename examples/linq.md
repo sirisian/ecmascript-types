@@ -236,7 +236,7 @@ Re-iterating a ```Query.<T>``` re-runs the pipeline. Java Streams throw on reuse
 The macro is an ordinary preprocessor module. It receives the region's tokens, folds the clause list into a call chain, and returns tokens.
 
 ```js
-function linq(tokens: TokenStream, context: Reflect.Region, args?: TokenStream): TokenStream {
+function linq(tokens: TokenStream, context: Reflect.Region) {
   const clauses = parseQuery(tokens);
   return args === undefined
     ? emitCalls(clauses)
@@ -250,6 +250,12 @@ linq.capture = true;
 
 export { linq };
 ```
+
+The return carries NO annotation, and that is not an omission. A macro answers an
+ARRAY of token records - the shape every macro in these documents builds - and
+`TokenStream` is the nominal type of what it RECEIVES. Annotating the return
+with it is refused, correctly: the two are different types, and one of them
+does not have a name yet.
 
 `parseQuery` scans the region's text for clause keywords and hands each operand back to the engine with ```tokens.parse(start, end, "expression")```. That is the only thing it cannot do itself: whether `/` in `where /^a/.test(x)` begins a regular expression or a division is not decidable lexically. Everything else - which words are clauses, what may follow each - is this macro's to decide, and a query dialect with different keywords is a different macro rather than a different engine.
 
