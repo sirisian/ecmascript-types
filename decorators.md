@@ -311,6 +311,13 @@ does not.
 | `Reflect.ClassMethodParameter` and the other parameter contexts | the matching name | a formal parameter | no |
 | `Reflect.ClassMethodReturn` and the other return contexts | the matching name | a type annotation | no |
 | `Reflect.Block` and the eleven other block contexts | the matching name | the statement form decorated | only `DoBlock` and `DoGeneratorBlock` |
+
+Two of those block rows are unreachable by a REPLACEMENT decorator, though a
+runtime one reaches them normally. A preprocessor name's `{` always begins a
+region, so `@m { ... }` reports `Region` and not `Block`, and `@m do { ... }`
+reports `Region` and not `DoBlock`. That is the same rule that makes
+`@m { a: 1 }` a region rather than an object literal, and it is stated here
+because the rows otherwise read as available.
 | `Reflect.Enum` / `Reflect.Tuple` / `Reflect.Record` | the matching name | the corresponding declaration | no |
 | `Reflect.Let` / `Reflect.Const` | `'Let'` / `'Const'` | a lexical declaration | no |
 
@@ -328,7 +335,13 @@ parameter declares where the decorator applies, and is optional.
 
 The following `<Context>Reflection` types define the data that is returned when reflecting a specific target. When reflecting a `class` one can access the `name`, `type`, and `metadata`.
 
-Every `type` field below holds a type object - interned by structural identity, the same value `Reflect.typeOf` returns for a value of that type. Those type objects are opaque to property access; to walk a type's own structure (a union's arms, an array's element and extent, an object type's properties, a function's overload signatures) reflect it with the `Reflect.Type` context defined at the end of this section. `Reflect.Type` is the one reflection target that is not also a decorator context - a bare type expression carries no decorator - so it appears in the reflection structures and `getReflection` signatures but not in the replacement, `addInitializer`, or decorator-context tables.
+Every `type` field below holds a type object - interned by structural identity, the same value `Reflect.typeOf` returns for a value of that type. Those type objects are opaque to property access; to walk a type's own structure (a union's arms, an array's element and extent, an object type's properties, a function's overload signatures) reflect it with the `Reflect.Type` context defined at the end of this section. `Reflect.Region` runs the other way: it is a decorator CONTEXT that is not a
+reflection target, because nothing reflects on a region at run time - a region
+does not survive to run time, being replaced by whatever its decorator returns.
+It therefore appears in the replacement table above and in no reflection
+structure below.
+
+`Reflect.Type` is the one reflection target that is not also a decorator context - a bare type expression carries no decorator - so it appears in the reflection structures and `getReflection` signatures but not in the replacement, `addInitializer`, or decorator-context tables.
 
 Every reflection below carries a `kind`, a string naming the context it came from - `'ClassField'`, `'FunctionParameter'`, and so on. A reader that is handed a reflection can dispatch on it rather than inferring which context it holds from which fields happen to be present, which matters most for a decorator whose parameter is a union of contexts.
 

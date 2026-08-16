@@ -1269,18 +1269,17 @@ restriction whose reason does not apply.
 
 #### The syntax replacement table
 
-Its shape, with the rows that matter; the full enumeration is specification work.
+
+**The table lives in [decorators.md](decorators.md), and only there.** A copy
+here is a second thing that must agree with it forever, which this document
+names as the shape the project is bitten by most — and it had already drifted:
+the copy that stood here lacked the `kind` column and the `Reflect.Region` row
+that decorators.md gained, so a reader consulting whichever they found first got
+different answers. What matters HERE is the argument for a second table at all,
+which the rows below make and the enumeration does not:
 
 | Position | Replacement must parse as | Also value-replaceable |
 |---|---|---|
-| `Reflect.Class` | a class declaration or expression, as the position was | yes |
-| `Reflect.ClassField` | a class field definition | yes |
-| `Reflect.ClassMethod` | a method definition | yes |
-| `Reflect.ClassAccessor` | an `accessor` field definition | yes |
-| `Reflect.ClassGetter` / `ClassSetter` | a getter / setter definition | yes |
-| `Reflect.ClassOperator` | an operator definition | yes |
-| `Reflect.Function` | a function declaration or expression, as the position was | yes |
-| `Reflect.ObjectMethod` / `ObjectGetter` / `ObjectSetter` | the corresponding object member | yes |
 | `Reflect.ClassMethodParameter` | a formal parameter | **no** |
 | `Reflect.ClassMethodReturn` | a type annotation | **no** |
 | `Reflect.Block` and the eleven other block forms | the statement form it decorates | only `DoBlock`, `DoGeneratorBlock` |
