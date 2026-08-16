@@ -316,6 +316,12 @@ does not.
 
 An EMPTY replacement needs no separate permission: it is legal exactly where an empty token stream parses, so `@cfg` removing a statement or a class member works and removing a parameter from the middle of a list does not.
 
+A replacement decorator is called `(tokens, context, args)`. Its context carries
+`kind` and nothing else: it receives the TOKENS of what it decorates, so a name,
+`static`, a binding and a pattern are already in them, and a runtime decorator
+needs them in its context only because it is handed no tokens. Typing that
+parameter declares where the decorator applies, and is optional.
+
 `DoBlock` and `DoGeneratorBlock` appear in both tables. What a return means at those positions is decided by WHICH KIND of decorator returned it, which the import that introduced its name settles.
 
 ## Reflection

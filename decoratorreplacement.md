@@ -249,17 +249,36 @@ from. The same span shape serves both parts — §7.1 settled hygiene on a minting
 primitive rather than on span contexts, so there is nothing extra for Part B to
 carry.
 
-**A replacement decorator receives TOKENS AND NOTHING ELSE**, which follows from
-§7.6. A runtime decorator is handed a context object carrying `type`, `metadata`,
-`addInitializer` and the rest — all of which need either a resolved type or a
-runtime, and expansion has neither. So the two decorator kinds differ in what
-they RECEIVE as sharply as in what they return:
+**A replacement decorator receives TOKENS AND A `{ kind }` CONTEXT** —
+`(tokens, context, args)`. The type-dependent half of a runtime context is
+absent and §7.6 is why: `type`, `metadata`, `access` and `addInitializer` each
+need a resolved type or a running program, and expansion has neither.
+
+**The SYNTACTIC half is absent for a different reason, and §3.1 already gave
+it.** A `source` field beside a token stream was rejected there as "two ways to
+say one thing", and the same argument disposes of `name`, `static`, `private`, a
+`for`'s binding and a match arm's pattern: a replacement decorator receives the
+TOKENS OF WHAT IT DECORATES, so all of them are in those tokens already. A
+runtime decorator needs them in its context because it is handed no tokens.
+
+What is left is the one thing the tokens cannot say — WHICH POSITION they came
+from — and that is `kind`, whose values are decorators.md's reflection names.
+The object is frozen: a context is a report, not a channel.
 
 | | runtime decorator | replacement decorator |
 | --- | --- | --- |
-| receives | a context object — `type`, `metadata`, `access`, … | a token stream |
+| receives | a context object — `type`, `metadata`, `access`, … | a token stream and `{ kind }` |
 | returns | a value (decorators.md's table) | a token stream (§7.7) |
 | runs | at definition time, after checking | before parsing completes |
+
+**Typing the context parameter declares WHERE a decorator applies** —
+`(tokens: TokenStream, context: Reflect.Region)` is refused on a class, at the
+decoration rather than inside the macro. It is optional, and has to be: the
+specification lets one decorator serve several positions without being told
+which it is in, and a required parameter would force every macro to enumerate
+positions including the ones that work anywhere. **(measured)** the existing
+checker enforces it with nothing added, the context being assignable to the
+`Reflect.*` context types already.
 
 **This is why Part A matters to both.** A runtime decorator gets its context AND,
 with Part A, the tokens of what it decorates — types and syntax together, because
@@ -1415,10 +1434,25 @@ exist.** A macro receives its arguments as tokens and can count them itself.
 a crude structural match that looks like overload resolution and is not would
 mislead by resemblance.
 
-**(c) No overloading — one function per replacement decorator name.**
+**(c) No overloading ON ARGUMENTS — one function per name per POSITION.**
 **Recommended.** With arguments as tokens (i), every argument has the same type,
 so type-directed selection has nothing to select on. The macro branches on its
 own arguments, which is where a token-level decision belongs.
+
+**This rules out overloading on ARGUMENTS and not on the CONTEXT**, and the
+distinction matters. A decoration's position is decided by lookahead at the
+decoration site — before any checking, without reading the region — so selecting
+on the context type is decidable exactly when the position is, which is always:
+
+```js
+export function jsx(tokens: TokenStream, context: Reflect.Region): TokenStream;
+export function jsx(tokens: TokenStream, context: Reflect.ClassMethod): TokenStream;
+```
+
+Two functions chosen by position, neither branching. A union of contexts and a
+`switch` on `kind` remains available and is what decorators.md already describes
+for a decorator "whose parameter is a union of contexts" — the same choice a
+runtime decorator author has.
 
 This is a second carve-out from decorators.md, and a smaller one: its overload
 rule and its ambiguity TypeError are runtime-decorator rules, and §7.2 already

@@ -236,7 +236,7 @@ Re-iterating a ```Query.<T>``` re-runs the pipeline. Java Streams throw on reuse
 The macro is an ordinary preprocessor module. It receives the region's tokens, folds the clause list into a call chain, and returns tokens.
 
 ```js
-function linq(tokens: TokenStream, args?: TokenStream): TokenStream {
+function linq(tokens: TokenStream, context: Reflect.Region, args?: TokenStream): TokenStream {
   const clauses = parseQuery(tokens);
   return args === undefined
     ? emitCalls(clauses)

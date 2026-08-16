@@ -107,7 +107,7 @@ The first snippet. It parses the region's tokens into a node tree and emits toke
 // instead of `@if`, or a different interpolation delimiter, changes this file
 // and nothing else.
 
-function jsx(stream) {
+function jsx(stream, context: Reflect.Region) {
   // The SOURCE text, not `String(stream)`. `toString` renders the TOKENS, so it
   // differs from the source by whatever is not a token - a comment, most
   // obviously - and `stream.parse(start, end)` indexes the source. Scanning the
@@ -646,6 +646,15 @@ class Out {
     return this.call('jsx', [[this.str(node.all ? 'matchAll' : 'match')], this.object(entries)]);
   }
 }
+
+// `context: Reflect.Region` declares WHERE this macro applies: `@jsx class C {}`
+// is refused at the decoration rather than failing inside the scanner. It is
+// optional - a macro declaring no context works in any position - and this one
+// only ever means anything on a region.
+//
+// The context carries `kind` and nothing else, because a replacement decorator
+// receives the tokens of what it decorates: everything else a runtime context
+// carries syntactically is already in them.
 
 // The region is CAPTURED: its text is not ECMAScript, so the engine must not try
 // to parse it. That is the whole of what the engine needs to be told - there is
