@@ -173,7 +173,10 @@ const m: Meter = 5; // float32.<{ m: 1 }>
 m instanceof float32; // true, a parameterization is a subtype of its base
 
 const arr: [4].<uint8> = [0, 0, 0, 0];
-arr instanceof [].<uint8>; // true, fixed-length is assignable to variable-length
+arr is [4].<uint8>;   // true
+arr is [].<uint8>;    // false - a fixed-length array cannot be grown, and [].<uint8> says it can
+arr : Span.<uint8>;   // a fixed array IS assignable to a window, which is how a
+                      // function accepts "any array of uint8, however long"
 ```
 
 **A known element type supplies the sort order.** ```sort``` and ```toSorted``` compare by text when given no comparator, which is why ```[10, 9, 1].sort()``` is ```[1, 10, 9]``` in JavaScript. Where the element type is declared, that type's own order is used instead, so a typed array agrees with the corresponding ```TypedArray``` rather than contradicting it:
