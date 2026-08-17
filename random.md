@@ -267,7 +267,7 @@ Note the distinction this buys and the one it doesn't. Saving state gets you res
 
 ```js
 socket.send(prng.state.toBytes()); // A binary frame
-const restored = Math.PRNGState.fromBytes([].<uint8>(event.data));
+const restored = Math.PRNGState.fromBytes(Span.<uint8>(event.data));
 ```
 
 The [binary packet](examples/binarypacket.md) example writes one with ```write.<uint16>(bytes.length)``` followed by the bytes.

@@ -512,6 +512,12 @@ out.reserve(4096); // Grow the allocation; length unchanged
 
 Capacity never shrinks implicitly, and shortening the array does not release it either - a ```length =``` or a ```pop``` changes the length and leaves the allocation where it is. ```shrinkToFit()``` is what releases it, down to the length. Asking to release room the array does not have is a no-op, so a caller need not know the capacity to ask, and a fixed ```[N].<T>``` is always already at fit. A fixed ```[N].<T>``` has no allocation distinct from its type: its capacity is exactly ```N``` for the life of the array, a ```reserve``` within ```N``` is a no-op, and a ```reserve``` past ```N``` is a TypeError - the same refusal a ```push``` or a ```length =``` gets, since the storage is the extent and the extent is part of the type. A ```reserve``` that reallocates invalidates every reference into the array, so the next read or write through one is a TypeError - the relocation half of the [liveness rules](references.md), which is the half that exists because a ```reserve``` changes capacity without changing length and no length check could see it. Because a fixed ```[N].<T>``` never reallocates, a reference into one is never invalidated by a ```reserve```. ```withCapacity``` reserves rather than fills - a zero-filled array of a known length is a fixed ```[N].<T>```.
 
+A ```shrinkToFit``` that actually releases relocates too, and it invalidates MORE than a shortening does. Removing an element invalidates the reference to the element removed and leaves the rest readable, because that storage has not moved; releasing capacity moves all of it, so every live reference goes, including ones to elements that remain. The release is binding rather than a request an implementation may decline - an optional relocation would make an optional invalidation, and a program correct on one implementation would raise on another.
+
+These three members live on the prototype of an array that HAS an element type, which inherits from ```Array.prototype```. Every array method reaches a typed array unchanged, and ```capacity```, ```reserve```, and ```shrinkToFit``` reach only an array with an element type - ```'capacity' in []``` is false for an ordinary array. Putting them on ```Array.prototype``` would add three members to every array in the language that exist to refuse the receiver they will usually have.
+
+A count passed to one of these is CHECKED rather than coerced. ```a.reserve("4")``` is refused, because ```length``` and ```capacity``` read at the index type and an operation that accepted a String as a count would disagree with the operations that report one. The ceiling is the range of the index type, not the maximum length of an ordinary ```Array```.
+
 ```js
 let a: [].<uint8> = [0, 1, 2, 3, 4];
 a.length = 4; // [0, 1, 2, 3]
@@ -646,6 +652,29 @@ rows[entityIndex * 8]; // 1, the same storage
 
 rows.window(0, 8); // a Span.<uint32>, length 8
 ```
+
+### Relationship to TypedArray
+
+```%TypedArray%``` and its constructors are DEPRECATED in favour of these types, and their semantics are untouched. A ```Uint8Array``` reports its ```length``` as a Number, wraps a store that does not fit, and behaves in every respect as it does today. Nothing here changes an object that already exists.
+
+Those two are not in tension, and the distinction is what makes the deprecation safe: deprecated says a program SHOULD move, untouched says no program BREAKS by not moving.
+
+Where the proposal is active, an implementation should report the deprecation once per agent on first use of a ```%TypedArray%``` constructor or its prototype - once, not per call site, because a diagnostic that fires inside a loop over binary data is noise. Nothing about the notice is observable to a program: no new property, no altered return value, no thrown completion.
+
+The two are SEPARATE ARRAY SYSTEMS rather than one system with two spellings, and they do not mix directly. A ```Uint8Array``` is not a ```[].<uint8>``` and does not coerce to one - its elements are Numbers rather than values of a numeric value type. ```%TypedArray%``` is the system for byte-oriented work against existing APIs; these are the system for typed storage. A program picks one per data structure rather than converting between them.
+
+Where they meet is a buffer, which both understand:
+
+```js
+const u = new Uint8Array([1, 2, 3]);
+const w = Span.<uint8>(u.buffer);  // the same bytes, at the element type
+w[0] = 9;
+u[0];                              // 9
+```
+
+The alternative was to give ```%TypedArray%``` the counts and the growth of an array type, so the two families were interchangeable. It was measured and declined. A ```length``` at the index type is a value of a numeric value type, and an untyped operand meeting one is a type error - so ```for (let i = 0; i < u.length; i++)``` and ```total += u.length``` would raise in existing programs, and ```u.length === n``` against an untyped binding would silently answer false rather than raise. The first two are the ordinary way binary data is processed; the third reports nothing at all.
+
+One gap is open and worth stating rather than discovering. ```Uint8ClampedArray``` CLAMPS a store where a ```[].<uint8>``` refuses it and typed arithmetic wraps - three answers to one operation, and the clamping one has no spelling here yet. The capability exists in the numeric library, where ```Math.addSaturating``` saturates, so an element type whose STORE saturates is the shape a solution would take. Until there is one, a program using ```Uint8ClampedArray``` for ```ImageData``` has no replacement.
 
 ### Bounds Checks
 
@@ -2320,7 +2349,7 @@ class Header {
   c: HeaderSection;
 }
 const buffer: [100].<uint8>; // Pretend this has data
-const ref header = [].<Header>(buffer)[0]; // Create a view over the bytes using the [].<Header> and get a reference to the first element
+const ref header = Span.<Header>(buffer)[0]; // A window over the bytes, and a ref into iterence to the first element
 header.c.a = 10;
 buffer[3]; // 10, since c starts at byte 3
 ```
@@ -2330,7 +2359,7 @@ Without ```@packed``` the same declarations align ```b``` to byte 2 and ```c``` 
 When using value type classes in typed arrays it's beneficial to be able to reference individual elements. The example above uses this syntax. Refer to the references section on the syntax for this. Attempting to assign a value type to a variable would copy it creating a new instance.
 
 ```js
-const header = [].<Header>(buffer)[0];
+const header = Span.<Header>(buffer)[0];
 header.c.a = 10;
 buffer[3]; // 0
 ```

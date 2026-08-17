@@ -39,7 +39,7 @@ The alternative that other languages reach for, and this one shouldn't, is the *
 class SoA<T, Length: uint32 = 0> {
 	constructor();
 	constructor(length: uint32); // Growable arrays only
-	// A call on the type is a view over existing bytes, as [N].<T>(buffer) is, and takes the
+	// A call on the type is a view over existing bytes, as Span.<T>(buffer, ...) is, and takes the
 	// same arguments. Fixed Length only:
 	//   SoA.<T, Length>(buffer: ArrayBuffer | SharedArrayBuffer | [].<any>, byteOffset: uint32 = 0)
 
@@ -127,7 +127,7 @@ A reference into an ```SoA``` pins the container as well as the element: a ```pu
 
 ## Fields
 
-```fields``` projects each of ```T```'s immediate fields as an array view aliasing that field's column. The views are live: writes through them are visible through the element API and the reverse.
+```fields``` projects each of ```T```'s immediate fields as a ```Span.<F>``` over that field's column. A projection is a window in the ordinary sense - it is live, so writes through it are visible through the element API and the reverse, and it follows the same rules any window does. A growth that reallocates invalidates it, exactly as it invalidates a reference into the same ```SoA```, and that is one rule rather than a second copy of it.
 
 ```js
 class Vertex {
@@ -142,10 +142,10 @@ mesh.fields.color; // [65536].<uint32>
 mesh.fields.color.fill(0xFFFFFFFF); // Writes one column across every element
 
 // Upload one attribute with no gather and no staging copy:
-device.queue.writeBuffer(positionBuffer, 0, [].<uint8>(mesh.fields.position));
+device.queue.writeBuffer(positionBuffer, 0, Span.<uint8>(mesh.fields.position));
 ```
 
-A growable ```SoA.<T>``` projects growable ```[].<F>``` views; a fixed ```SoA.<T, N>``` projects ```[N].<F>```. Nested value type fields project as columns of that type, so ```p.fields.origin``` is a ```[].<Vec2>``` and ```p.fields.origin.x``` doesn't exist; flatten the class if that's what's wanted.
+A growable ```SoA.<T>``` projects a ```Span.<F>``` whose length follows the container; a fixed ```SoA.<T, N>``` projects a ```Span.<F, N>```, whose length is in its type. Nested value type fields project as columns of that type, so ```p.fields.origin``` is a ```Span.<Vec2>``` and ```p.fields.origin.x``` doesn't exist; flatten the class if that's what's wanted.
 
 The projections live under ```fields``` rather than on the container so a field named ```length``` or ```push``` collides with nothing.
 
@@ -173,7 +173,7 @@ particles.fields.x; // [65536].<float32> over the caller's bytes
 const ref p = particles[10]; // A column set and an index, as always
 ```
 
-The form is the array view's. It is a call on the type rather than a ```new```, because nothing is constructed, and the buffer argument accepts what ```[].<T>```'s does - an ```ArrayBuffer```, a ```SharedArrayBuffer```, or any typed array - so an ```SoA``` view and a ```[].<uint8>``` over the same bytes alias the same memory. This is the form an embedding needs: a host that lays out columns by the rule above hands over one buffer, and the script iterates the host's storage with no copy, no marshaling, and no per-field binding code.
+The form is the array view's. It is a call on the type rather than a ```new```, because nothing is constructed, and the buffer argument accepts what ```Span.<T>```'s does - an ```ArrayBuffer```, a ```SharedArrayBuffer```, or any typed array - so an ```SoA``` view and a ```Span.<uint8>``` over the same bytes alias the same memory. This is the form an embedding needs: a host that lays out columns by the rule above hands over one buffer, and the script iterates the host's storage with no copy, no marshaling, and no per-field binding code.
 
 Only the fixed form is viewable, and the reason is the layout rather than caution. A ```[].<T>``` view can track a resizable buffer because growth appends past the end. An ```SoA```'s capacity is baked into every column's offset, so growth moves every column after the first, and a length-tracking ```SoA``` view would be describing a layout that is no longer there. The fixed form is exactly the subset with nothing to reallocate: ```push```, ```pop```, and ```reserve``` are already absent from an ```SoA.<T, N>``` as they are from a ```[N].<T>```, so viewing gives up nothing that was on offer.
 
@@ -213,7 +213,7 @@ for (let i: uint32 = 0; i < xs.length; ++i) {
 // Or explicitly. A column of float32 viewed as float32x4 needs no new API:
 // it's an array view, and `window` takes the four-aligned prefix.
 const whole = xs.length - xs.length % 4;
-const lanes = [].<float32x4>(xs.window(0, whole));
+const lanes = Span.<float32x4>(xs.window(0, whole));
 const factor: float32x4 = scale; // Implicit SIMD constructor broadcasts
 for (let j: uint32 = 0; j < lanes.length; ++j) {
 	lanes[j] *= factor;

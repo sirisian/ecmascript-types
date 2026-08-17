@@ -394,7 +394,7 @@ const head: [3].<uint8> = bytes[0..<3]; // The length is known
 And the SIMD pass in the [entity component system](examples/ecs.md) example loses its last piece of arithmetic:
 
 ```js
-const lanes = [].<float32x4>(vx[0..<whole]);
+const lanes = Span.<float32x4>(vx[0..<whole]);
 ```
 
 A runtime start with a compile-time length still wants ```window.<N>(start)```, since ```start..<start + Words``` requires symbolic arithmetic to see that the length is constant. That is an honest limit, not a gap: the two forms coexist.
