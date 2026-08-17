@@ -529,15 +529,15 @@ const d = a.toSpliced(1, 2); // [].<uint8> [3, 0]
 Like ```TypedArray``` views, this array syntax allows any array, even arrays of typed objects to be viewed as different objects. 
 
 ```js
-let view = [].<Type>(buffer [, byteOffset [, byteElementLength]]);
+let view = Span.<Type>(buffer [, byteOffset [, count [, byteElementLength]]]);
 ```
 
 ```js
-let a: [].<uint64> = [1];
-let b = [].<uint32>(a, 0, 8);
+const buffer = new ArrayBuffer(32);
+let b = Span.<uint32>(buffer, 0, 8); // 8 ELEMENTS, as `new Uint32Array(buffer, 0, 8)` is
 ```
 
-By default ```byteElementLength``` is the size of the array's type. So ```[].<uint32>(...)``` would be 4 bytes. The ```byteElementLength``` can be less than or greater than the actual size of the type. For example (refer to the Class section):
+The third argument is the ```count```, as it is for ```TypedArray``` and ```DataView```: give one and the view is FIXED at that many elements, omit it and the view tracks its buffer. The fourth, ```byteElementLength```, is the stride and defaults to the size of the element type. So ```Span.<uint32>(...)``` reads 4 bytes per element. The ```byteElementLength``` can be less than or greater than the actual size of the type. For example (refer to the Class section):
 
 ```js
 class A {
@@ -547,9 +547,9 @@ class A {
     this.b = value;
   }
 }
-const a: [].<A> = [0, 1, 2];
-const b = [].<uint16>(a, 1, 3); // Offset of 1 byte into the array and 3 byte length per element
-b[2]; // 2
+const buffer = new ArrayBuffer(9);
+const b = Span.<uint16>(buffer, 1, undefined, 3); // 1-byte offset, 3-byte stride per element
+b.length; // 2
 ```
 
 The ```buffer``` argument accepts any typed array as well as existing ```TypedArray```, ```ArrayBuffer```, and ```SharedArrayBuffer``` instances, so a ```[].<uint8>``` and a ```Uint8Array``` viewing the same buffer alias the same memory. Views read and write using platform byte order, matching ```TypedArray```. Individual class members can fix their byte order for parsing wire formats with the ```@endian``` decorator described in the [memory layout](memorylayout.md) extension.
@@ -560,12 +560,15 @@ Views over resizable buffers follow ```TypedArray``` semantics. A ```[].<T>``` v
 
 ```js
 const buffer = new ArrayBuffer(4, { maxByteLength: 16 });
-const tracking = [].<uint8>(buffer); // length 4
+const tracking = Span.<uint8>(buffer); // no count, so length-tracking: length 4
 buffer.resize(8);
 tracking.length; // 8
-const fixed = [8].<uint8>(buffer);
+const fixed = Span.<uint8>(buffer, 0, 8); // a count, so fixed at 8
 buffer.resize(4);
+fixed.length; // 0 - the bytes it was fixed over are gone
 // fixed[0]; // TypeError: the view's extent exceeds the resized buffer
+buffer.resize(8);
+fixed.length; // 8 again - it recovers when the bytes come back
 ```
 
 The view constructor takes a byte offset, which is the right unit for parsing a wire format and the wrong one for indexing a table. ```window``` takes element indices instead:
@@ -574,7 +577,7 @@ A class listing that gives member signatures with no bodies, like the one below,
 
 ```js
 class Array<T> {
-  window(start: uint32, end: uint32 = this.length): [].<T>;
+  window(start: uint64, end: uint64 = this.length): Span.<T>;
   window<Length: uint32>(start: uint32): [Length].<T>;
 }
 ```
@@ -582,12 +585,12 @@ class Array<T> {
 The overload with a value generic returns a fixed extent view, so a row of a table has a type that says how long it is. A window aliases the array it came from, as any view does.
 
 ```js
-const rows: [].<uint32> = new [64].<uint32>();
-const row = rows.window.<8>(entityIndex * 8); // [8].<uint32>, no byte arithmetic
+const rows: [64].<uint32> = new [64].<uint32>();
+const row = rows.window.<8>(entityIndex * 8); // a Span.<uint32> of 8, no byte arithmetic
 row[0] = 1;
 rows[entityIndex * 8]; // 1, the same storage
 
-rows.window(0, 8); // [].<uint32>, length 8
+rows.window(0, 8); // a Span.<uint32>, length 8
 ```
 
 ### Bounds Checks
@@ -596,7 +599,7 @@ Indexed access into a typed array is bounds-checked, as it is today. The type sy
 
 - ```for (const ref p of a)``` performs no per-element check. The length is pinned for the loop's duration - changing it is a TypeError, per the [references and borrowing](references.md) extension - and the induction variable is the engine's own, in range by construction.
 - Indexing a fixed-length ```[N].<T>``` with an index the compiler knows is below ```N``` - a value generic that a ```where``` clause constrains below ```N```, or the counter of a ```for``` over a range from the [ranges](ranges.md) extension whose members all fall below ```N``` - needs no runtime check, because ```N``` is a compile-time constant and the bound is proven statically.
-- ```window.<N>(start)``` checks once that ```start + N``` fits and returns a ```[N].<T>``` whose own accesses are then the case above, so a fixed-size window hoists a single check to cover ```N``` of them.
+- ```window.<N>(start)``` checks once that ```start + N``` fits and returns a ```Span.<T>``` of N whose own accesses are then the case above, so a fixed-size window hoists a single check to cover ```N``` of them.
 
 A value generic alone is not enough, which is why the ```where``` clause is part of the case rather than an alternative to it. Inside a generic body the parameter's *value* is not yet bound, so ```a[I]``` in a function over ```[N].<T>``` says nothing about how ```I``` relates to ```N``` and may index 9 into a ```[4]```. The ```where``` clause supplies the relation and is checked at each specialization, so the body can assume it without being re-checked per application.
 
@@ -606,7 +609,7 @@ Which range it is matters only in that its members stay below ```N```. ```0..<N`
 
 These are the guarantees Rust's slice and iterator code leans on: the checked operation is the default, and the idioms that let the compiler discharge the check are the ones performance-critical code already uses. Where the bound cannot be proven - a runtime index into a variable-length array - the check stays, and a program that wants it gone makes either the extent or the index statically known.
 
-Without it the same window is spelled with the element size folded in by hand, ```[8].<uint32>(rows, entityIndex * 8 * uint32.byteLength)```, which is correct and repeats the element type three times.
+Without it the same window is spelled with the element size folded in by hand, ```Span.<uint32>(rows, entityIndex * 8 * uint32.byteLength)```, which is correct and repeats the element type three times.
 
 With the [ranges](ranges.md) extension the index operator takes a range, so ```rows[start..<end]``` is the same view and is the form to prefer. ```window``` remains for a fixed length over a runtime start.
 
@@ -3234,7 +3237,7 @@ Instances of typed classes and typed arrays are backed by memory layouts rather 
 ```js
 class A { a: uint8; }
 // new Proxy(new A(), {}); // TypeError: A is a typed class
-// new Proxy([].<uint8>([0]), {}); // TypeError: a typed array is layout-backed
+// new Proxy(Span.<uint8>(new ArrayBuffer(1)), {}); // TypeError: a typed array is layout-backed
 new Proxy({ a: 0 }, {}); // Unchanged, an untyped object
 ```
 

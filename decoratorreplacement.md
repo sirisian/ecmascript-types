@@ -288,11 +288,11 @@ by then both exist.
 interface Token {
 	kind: 'identifier' | 'punctuator' | 'numeric' | 'string' | 'template' | 'regexp' | 'group';
 	value: string;
-	span: Span;
+	span: SourceSpan;
 	tokens?: Token[];   // `group` only: a delimited run, with its delimiter in `value`
 }
 
-interface Span {
+interface SourceSpan {
 	source: SourceRef;   // which buffer — the module, or a macro's output
 	start: number;       // inclusive character index in that buffer
 	end: number;         // exclusive
@@ -499,7 +499,7 @@ an outer macro unable to see what it contains. **Outside-in is settled**,
 matching attribute macros in Rust, with the consequence written down rather than
 discovered.
 
-### 5.3 Spans compose themselves — and this is why tokens won
+### 5.3 SourceSpans compose themselves — and this is why tokens won
 
 Nesting is where a string protocol becomes expensive, and where tokens stop
 being a preference and start being the answer.
@@ -613,7 +613,7 @@ transparency.
 
 #### (c) Token streams with spans
 
-Spans carry hygiene context, so an identifier a macro CREATES is distinguishable
+SourceSpans carry hygiene context, so an identifier a macro CREATES is distinguishable
 from one it RECEIVED, and the two cannot collide.
 
 **Solves:** both failures, properly — and, per §5.3, the span-composition
@@ -1556,7 +1556,7 @@ decoration site far from the mistake.
 | --- | --- |
 | Macro output may contain macros | **settled** — §5 |
 | Order is outside-in | **settled** — §5.2 |
-| Spans compose themselves; there is no map protocol | **settled** — §5.3 |
+| SourceSpans compose themselves; there is no map protocol | **settled** — §5.3 |
 | New macro names cannot appear mid-expansion — now a CONSEQUENCE | **settled** — §5.4 |
 | Pre-parse for boundaries; nothing is re-lexed | **settled** — §7.3 |
 

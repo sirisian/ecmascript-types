@@ -59,7 +59,7 @@ and two errors of a different kind:
   re-lexing), §5.2's outside-in argument, §7.6's "it sees text", and §7.7's
   "text replacement" throughout. All reconciled.
 - **The summary table CONTRADICTED ITSELF.** It carried both "Engine composes
-  the map chain" and "Spans compose themselves; no map protocol" — the first a
+  the map chain" and "SourceSpans compose themselves; no map protocol" — the first a
   survivor of the protocol §5.3 deleted. Rebuilt and grouped by part.
 - **Two quotations had been silently lowercased** to fit a sentence. Both are
   now exact and attributed. A quotation altered for flow is a small thing in
@@ -167,7 +167,7 @@ Every quotation re-checked verbatim (6/6), every **(measured)** claim re-run
 against the implementation (9/9), all cross-references resolving, and the
 twenty-two `Expression` fields recounted.
 
-**One contradiction, from locking §7.1.** §4.2's `Span` interface still declared
+**One contradiction, from locking §7.1.** §4.2's `SourceSpan` interface still declared
 `context: HygieneContext` — **the mechanism §7.1 had ruled out** — and §2, §3 and
 §3.2 all described Part B as carrying hygiene contexts. Removing them simplified
 Part A: there is no reading-only subset of the span to carve out, because the
@@ -426,7 +426,7 @@ for.
   able to say so, and no section said how. Settled as throwing — §7.8(vi) — which
   is what a JavaScript function does to reject arguments, and which spans already
   locate.
-- **`SourceRef` was used and never defined.** It appeared in `Span` from the
+- **`SourceRef` was used and never defined.** It appeared in `SourceSpan` from the
   first token draft and no revision noticed, because every consistency sweep
   looked for CONTRADICTIONS and this was an absence.
 - **§5.4 had no home in the plan.** Settled in the design as a consequence of
@@ -524,7 +524,7 @@ never defined, caught the same way, by checking a table's fields against their
 assignments rather than reading the prose.
 
 Closing it settled something the prose had implied and never said: a token a
-decorator COPIED keeps the Span it arrived with, and only a token it CREATED is
+decorator COPIED keeps the SourceSpan it arrived with, and only a token it CREATED is
 attributed to the decorator. That is what makes a diagnostic inside generated
 code point at the macro rather than at the splice.
 
