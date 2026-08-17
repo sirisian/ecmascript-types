@@ -487,6 +487,14 @@ let a: [].<uint8> = [0, 1, 2, 3, 4];
 let b = a.length; // the index type, with value 5
 ```
 
+The index type is ```uint64```, and its full range is allocatable and usable: an array type is not bounded by the maximum length of an ordinary ```Array```. A count type wider than what the container can hold would be a fiction, describing lengths no program could reach. An instance is an ```Array``` in its methods and its element behaviour, and not in its extent limit.
+
+The width is ```uint64``` rather than ```uint32``` because a view's length comes from its buffer rather than from an allocation the language caps. One type describes every count an array reports or accepts - a ```length```, a ```capacity```, an index, and a view's length - so the range that only a view can reach is still the range they all share.
+
+An array with no element type is untouched by any of this. A plain ```[1, 2, 3]``` reports a ```length``` that is a Number, exactly as it does today, and no program that does not use these types can observe the index type at all.
+
+An implementation may be unable to reach the full range - a host whose arrays are ordinary ```Array``` objects, or whose counts are doubles, cannot. It reports such a count as unimplemented rather than as a range violation, because a ```RangeError``` would say the language forbids the value and a reader would conclude the range does not exist.
+
 An earlier draft of this design read a second type argument as the length type, written ```[].<T, Length = uint32>```. It was never implemented: the argument parsed and was discarded, so every such array got the default length type regardless of what was written, which made a typo indistinguishable from a feature. An array type with more than one type argument is now refused. Should a per-array index type be wanted later, an optional second argument defaulting to the index type can be added without changing the meaning of anything written today.
 
 Setting the ```length``` reallocates the array truncating when applicable.
@@ -523,6 +531,52 @@ const b = a.toSorted(); // [4].<uint8> [0, 1, 2, 3]
 const c = a.with(0, 9); // [4].<uint8> [9, 1, 2, 0]
 const d = a.toSpliced(1, 2); // [].<uint8> [3, 0]
 ```
+
+### Windows
+
+A ```Span.<T>``` is a fixed-length window over a run of elements it does not own. Its elements can be read and written; its length cannot change.
+
+```js
+let owned: [].<uint32> = [1, 2, 3];
+function sum(xs: Span.<uint32>): uint32 { /* reads xs */ }
+sum(owned);                       // an owned array coerces
+sum(fixed);                       // a [4].<uint32> coerces too
+```
+
+The brackets of an array type say what is known about its EXTENT: ```[N].<T>``` states one and ```[].<T>``` says it varies. Whether a value owns its storage is a different question, and this is the type that answers it. That is why it is a name rather than a bracket form - a bracket carrying both would make ```[].<T>``` differ from ```[N].<T>``` on one axis and from a window on another, and ```let buf: [].<uint32> = []``` would stop meaning what it obviously means.
+
+A window is what a function writes when it wants "any array of T, however long". A ```[N].<T>``` is NOT assignable to a ```[].<T>``` - the extents have to agree, because ```[].<T>``` promises growth and a fixed array cannot grow - so a parameter that accepts either is a ```Span.<T>```.
+
+Coercion runs one way. An owned array becomes a window; a window never becomes an owned array, since neither the storage nor the right to grow it is the window's to give. Obtaining an owned array from a window is explicit - ```[...window]``` copies the elements into a new one.
+
+```js
+let w: Span.<uint32> = owned;
+w[0] = 9;                         // writes through to `owned`
+w.push(1);                        // not a member: a window cannot grow
+w.capacity;                       // not a member: a window owns no allocation
+[...w];                           // a new owned array, explicitly
+```
+
+A window has the array methods that do not change a length, and iterates. It has no ```push```, ```pop```, ```shift```, ```unshift```, ```splice```, ```capacity```, ```reserve```, or ```shrinkToFit```.
+
+An optional second argument fixes the length in the type. ```Span.<T>``` is a window of unknown length and ```Span.<T, N>``` one of exactly N, which is what lets ```window.<N>``` check once and leave the accesses inside unchecked.
+
+Element access is bounds-checked in both directions. A read past the end raises, and so does a WRITE - unlike an owned ```[].<T>```, where a write past the end grows the array, and unlike a ```[N].<T>```, where it is an attempted growth and refused. A window's length is fixed, so a write past it has nowhere to go.
+
+#### Windows and the arrays beneath them
+
+A window names storage it does not own, so it is a reference in the sense of [references.md](references.md) and follows those rules. Growing the array beneath it invalidates it:
+
+```js
+let a: [].<uint32> = [1, 2, 3];
+let w: Span.<uint32> = a;
+a.push(4);                        // the allocation may relocate
+w[0];                             // TypeError: the window outlived its allocation
+```
+
+An operation that does not relocate does not invalidate: a ```reserve``` for room the array already has, and a ```shrinkToFit``` on an array already at fit, leave every window over it valid. A window over a ```[N].<T>``` is never invalidated, a fixed extent having nothing that relocates.
+
+Two things in this design were already windows before the type had a name. An array view over a buffer is one, and an ```SoA``` column projection is one - which is why their invalidation rule is this rule rather than a second copy of it.
 
 ### Array Views
 
