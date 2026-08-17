@@ -638,11 +638,11 @@ A class listing that gives member signatures with no bodies, like the one below,
 ```js
 class Array<T> {
   window(start: uint64, end: uint64 = this.length): Span.<T>;
-  window<Length: uint32>(start: uint32): [Length].<T>;
+  window<Length: uint64>(start: uint64): Span.<T, Length>;
 }
 ```
 
-The overload with a value generic returns a fixed extent view, so a row of a table has a type that says how long it is. A window aliases the array it came from, as any view does.
+The overload with a value generic returns a window whose length is in its type, so a row of a table has a type that says how long it is - which is what lets its accesses skip the per-element check. A window aliases the array it came from, as any view does.
 
 ```js
 const rows: [64].<uint32> = new [64].<uint32>();
