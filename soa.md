@@ -218,7 +218,7 @@ const factor: float32x4 = scale; // Implicit SIMD constructor broadcasts
 for (let j: uint64 = 0; j < lanes.length; ++j) {
 	lanes[j] *= factor;
 }
-for (let i: uint32 = whole; i < xs.length; ++i) {
+for (let i: uint64 = whole; i < xs.length; ++i) {
 	xs[i] *= scale; // Tail
 }
 ```
