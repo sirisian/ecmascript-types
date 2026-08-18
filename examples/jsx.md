@@ -50,7 +50,7 @@ The import and the code using the macro must be in the SAME compilation unit. Ex
 
 A region cannot be a bare SCRIPT: the mode is declared by an import attribute and only a module may carry one. Without it `<inventory-grid columns="8">` lexes as ECMAScript and `grid columns` is two adjacent identifiers, which is the error a paste produces. Run the demo as a module and the import does its work.
 
-## Three Rules
+## Four Rules
 
 Each was established by running the macro rather than by designing it.
 
@@ -59,6 +59,8 @@ Each was established by running the macro rather than by designing it.
 **A `match` needs a trailing `;`.** It is an expression statement where `if` and `for` are statements, so without a terminator the parser reads on into the next tag and lexes its `/` as a regular expression.
 
 **A decoration goes on the BLOCK.** `for (const slot of slots) @key(slot.id) { ... }` - the decorated position is the loop body, so the binding is in scope where the key is written and no lambda is needed. `@persist` lands per branch and per arm, which is finer than a tag's single flag.
+
+**A macro cannot emit a call to its own name.** The runtime dispatch here is `jsxCreate`, not `jsx`, and the name is forced rather than chosen. `import { jsx } from "./jsx.js" with { preprocessor: "true" }` is an ordinary import that happens to carry an attribute: it binds `jsx` in module scope, that binding is the macro function, and [`sec-replacement-decorators`](../decoratorreplacement.md) makes it a Syntax Error for anything else in the module to bind the same name. So `jsx` inside this module is the macro, at run time as much as at parse time - emitting `jsx("matchAll", ...)` calls the MACRO with a string, and publishing a runtime `jsx` on `globalThis` does not help, the import binding shadowing the global like any other. React's automatic runtime imports its dispatch as `_jsx` for the same reason, and arrives at the same shape from the other direction.
 
 ## What It Compiles To
 
@@ -75,8 +77,8 @@ do {
     $e1.children.push($e5);
     ({ id: 0, root: $e1, slotCount: 4, slotKinds: [...], slotTargets: [$e1, $e5, ...] });
   },
-  jsx("matchAll", { on: character, children: [[...]] }),
-  jsx("for", { items: visible, key: (item) => item.id, children: [(item) => ...] }),
+  jsxCreate("matchAll", { on: character, children: [[...]] }),
+  jsxCreate("for", { items: visible, key: (item) => item.id, children: [(item) => ...] }),
   ...);
 }
 ```
@@ -587,7 +589,7 @@ class Out {
       entries.push(['children', this.array(node.children.filter((c) => !(c.k === 'text' && c.value.trim() === '')).map((c) => this.emit(c)))]);
     }
     const tag = /^[A-Z]/.test(node.tag) ? [this.id(node.tag)] : [this.str(node.tag)];
-    return this.call('jsx', [tag, this.object(entries)]);
+    return this.call('jsxCreate', [tag, this.object(entries)]);
   }
 
   childrenValue(nodes) {
@@ -603,7 +605,7 @@ class Out {
     if (node.alt) { branches.push(this.arrow([], this.childrenValue(node.alt))); }
     entries.push(['children', this.array(branches)]);
     if (node.deco.persist) { entries.push(['persist', [this.id('true')]]); }
-    return this.call('jsx', [[this.str('if')], this.object(entries)]);
+    return this.call('jsxCreate', [[this.str('if')], this.object(entries)]);
   }
 
   forCall(node) {
@@ -619,7 +621,7 @@ class Out {
     }
     entries.push(['children', this.array([[this.g('(', [this.id(binding)]), this.p('=>'), this.g('(', this.childrenValue(node.body))]])]);
     if (node.deco.persist) { entries.push(['persist', [this.id('true')]]); }
-    return this.call('jsx', [[this.str('for')], this.object(entries)]);
+    return this.call('jsxCreate', [[this.str('for')], this.object(entries)]);
   }
 
   matchCall(node) {
@@ -643,7 +645,7 @@ class Out {
       ['on', this.parse(node.subject)],
       ['children', this.array([this.array(arms)])],
     ];
-    return this.call('jsx', [[this.str(node.all ? 'matchAll' : 'match')], this.object(entries)]);
+    return this.call('jsxCreate', [[this.str(node.all ? 'matchAll' : 'match')], this.object(entries)]);
   }
 }
 
@@ -860,14 +862,12 @@ function createMatch(props, all) {
   }, [props.on]);
 }
 
-// The macro emits bare `jsxTemplate(...)` and `jsx(...)` calls. `jsx` is the
-// imported decorator name in this scope, so the runtime's dispatch is bound
-// globally under the name the emitted code uses. A production runtime would
-// export it as `jsx` and this line would not exist.
-globalThis.jsx = jsxCreate;
-globalThis.jsxTemplate = jsxTemplate;
-globalThis.jsxAttr = jsxAttr;
-globalThis.jsxEscape = jsxEscape;
+// The macro emits bare `jsxCreate(...)`, `jsxTemplate(...)`, `jsxAttr(...)` and
+// `jsxEscape(...)` calls, and each is a module-scope declaration above - so the
+// emitted code resolves them the way it resolves any other name in the module,
+// and nothing has to be published anywhere for it to work.
+//
+// The dispatch is NOT called `jsx`. It cannot be: see the fourth rule.
 
 // =============================================================================
 // 4. THE VIEW - the real thing, compiled by the macro at parse time
