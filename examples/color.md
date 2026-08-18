@@ -47,8 +47,8 @@ An array of colors is therefore contiguous, and reinterpreting it costs nothing 
 
 ```js
 const pixels: [1920 * 1080].<Color>; // ~8 MB, zero-filled (transparent black)
-const bytes = [].<uint8>(pixels);    // r, g, b, a per pixel: the upload path
-const words = [].<uint32>(pixels);   // One packed word per pixel: fast fills and copies
+const bytes = Span.<uint8>(pixels);    // r, g, b, a per pixel: the upload path
+const words = Span.<uint32>(pixels);   // One packed word per pixel: fast fills and copies
 ```
 
 ## Constructors
@@ -86,7 +86,7 @@ function mix(a: Color, b: Color, t: float32.<{ minimum: 0, maximum: 1 }>): Color
 // Fill one row of a framebuffer left-to-right, then let the byte view upload it.
 function gradientRow(row: [].<Color>, left: Color, right: Color) {
 	const last = float32(row.length - 1);
-	for (let x: uint32 = 0; x < row.length; ++x) {
+	for (let x: uint64 = 0; x < row.length; ++x) {
 		row[x] = mix(left, right, float32(x) / last);
 	}
 }

@@ -67,7 +67,7 @@ Reference iteration is direct, index-based element access: it does not go throug
 
 ```js
 function zip<T, U>(a: [].<T>, b: [].<U>, callback: (ref x: T, ref y: U) => void) {
-  for (let i: uint32 = 0; i < a.length; ++i) {
+  for (let i: uint64 = 0; i < a.length; ++i) {
     callback(ref a[i], ref b[i]);
   }
 }

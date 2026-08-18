@@ -375,7 +375,7 @@ class Node {
 }
 
 function updateWorlds(nodes: SoA.<Node>, worlds: [].<Matrix4>) {
-	for (let i: uint32 = 0; i < nodes.length; ++i) {
+	for (let i: uint64 = 0; i < nodes.length; ++i) {
 		const ref node = nodes[i];
 		worlds[i] = node.parent < 0 ? node.local : worlds[uint32(node.parent)] * node.local;
 	}

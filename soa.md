@@ -206,7 +206,7 @@ A ```fields``` projection is an ordinary typed array. Everything that vectorizes
 ```js
 // Autovectorizable: a dense read and a dense write, unit stride.
 const xs = transforms.fields.x;
-for (let i: uint32 = 0; i < xs.length; ++i) {
+for (let i: uint64 = 0; i < xs.length; ++i) {
 	xs[i] *= scale;
 }
 
@@ -215,7 +215,7 @@ for (let i: uint32 = 0; i < xs.length; ++i) {
 const whole = xs.length - xs.length % 4;
 const lanes = Span.<float32x4>(xs.window(0, whole));
 const factor: float32x4 = scale; // Implicit SIMD constructor broadcasts
-for (let j: uint32 = 0; j < lanes.length; ++j) {
+for (let j: uint64 = 0; j < lanes.length; ++j) {
 	lanes[j] *= factor;
 }
 for (let i: uint32 = whole; i < xs.length; ++i) {

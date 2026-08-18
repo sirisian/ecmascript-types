@@ -96,7 +96,7 @@ export class ParticleSystem<Capacity: uint32 = 65536> {
 
 	@doc('The pool as raw bytes for the GPU: positions and sizes are already interleaved.')
 	get vertexBytes(): [].<uint8> {
-		return [].<uint8>(this.#particles).slice(0, this.#alive * Particle.byteLength);
+		return Span.<uint8>(this.#particles).slice(0, this.#alive * Particle.byteLength);
 	}
 }
 ```

@@ -115,7 +115,7 @@ Live-slot iteration is the ECS inner loop, so it takes the reference-callback fo
 // store.js
 partial class Store<T> {
 	each(cb: (ref value: T, handle: Handle.<T>) => void) {
-		for (let i: uint32 = 0; i < this.#values.length; i++) {
+		for (let i: uint64 = 0; i < this.#values.length; i++) {
 			const generation = this.#generations[i];
 			if ((generation & 1) == 1) {
 				cb(ref this.#values[i], { slot: i, generation } := Handle.<T>);
@@ -124,7 +124,7 @@ partial class Store<T> {
 	}
 
 	*operator...(): T { // Value copies, for consumers that want a plain for...of
-		for (let i: uint32 = 0; i < this.#values.length; i++) {
+		for (let i: uint64 = 0; i < this.#values.length; i++) {
 			if ((this.#generations[i] & 1) == 1) {
 				yield this.#values[i];
 			}

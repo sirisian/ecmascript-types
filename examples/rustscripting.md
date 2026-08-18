@@ -54,7 +54,7 @@ function check<C>(block: { offset: uint32, byteLength: uint32, fields: [].<{ nam
 	if (fields.length != block.fields.length) {
 		throw new TypeError(`${typename(C)}: host declares ${block.fields.length} fields, script declares ${fields.length}`);
 	}
-	for (let i: uint32 = 0; i < fields.length; ++i) {
+	for (let i: uint64 = 0; i < fields.length; ++i) {
 		const [name, field] = fields[i];
 		if (name != block.fields[i].name) { // Order is layout, so a swap is drift even when the set matches
 			throw new TypeError(`${typename(C)}: field ${i} is '${name}' here and '${block.fields[i].name}' in the host`);
@@ -97,7 +97,7 @@ class WorldHeader {
 	commandHead: uint32; commandTail: uint32; // Script writes tail, host consumes head
 	eventHead: uint32; eventTail: uint32;     // Host writes tail, script consumes head
 }
-const ref header = [].<WorldHeader>(buffer)[0]; // The header is at offset 0; a ref names the storage
+const ref header = Span.<WorldHeader>(buffer)[0]; // The header is at offset 0; a ref names the storage
 header.entityCount; // Reads the host's count out of the host's memory
 ```
 
@@ -132,9 +132,9 @@ export function applyGravity(dt: float32): void {
 	const vy = world.Velocity.vy;
 	const count = header.entityCount;
 	const whole = count - count % 4;
-	const lanes = [].<float32x4>(vy.window(0, whole)); // Same storage, four lanes
+	const lanes = Span.<float32x4>(vy.window(0, whole)); // Same storage, four lanes
 	const dv: float32x4 = Gravity * dt;                // A scalar assigned to a SIMD binding broadcasts
-	for (let j: uint32 = 0; j < lanes.length; ++j) {
+	for (let j: uint64 = 0; j < lanes.length; ++j) {
 		lanes[j] += dv;
 	}
 	for (let i: uint32 = whole; i < count; ++i) { // Tail
@@ -231,7 +231,7 @@ class Command {
 }
 
 const RingSize: uint32 = 4096; // Power of two; the host sized the region for it
-const commands = [RingSize].<Command>(buffer, schema.commandRing.offset);
+const commands = Span.<Command>(buffer, schema.commandRing.offset, RingSize);
 
 export function enqueue(command: Command): boolean {
 	if (header.commandTail - header.commandHead == RingSize) return false; // Full: the host drains between phases
@@ -260,7 +260,7 @@ class GameEvent {
 	amount: float32;
 }
 
-const events = [RingSize].<GameEvent>(buffer, schema.eventRing.offset);
+const events = Span.<GameEvent>(buffer, schema.eventRing.offset, RingSize);
 
 export function pump(): void {
 	const health = world.Health;

@@ -328,7 +328,7 @@ class PreparedQuery {
 		for (const archetype of this.archetypes) {
 			const columnA = archetype.column.<C1>();
 			const entities = archetype.entities;
-			for (let i: uint32 = 0; i < archetype.length; ++i) {
+			for (let i: uint64 = 0; i < archetype.length; ++i) {
 				callback(entities[i], ref columnA[i]);
 			}
 		}
@@ -338,7 +338,7 @@ class PreparedQuery {
 			const columnA = archetype.column.<C1>();
 			const columnB = archetype.column.<C2>();
 			const entities = archetype.entities;
-			for (let i: uint32 = 0; i < archetype.length; ++i) {
+			for (let i: uint64 = 0; i < archetype.length; ++i) {
 				callback(entities[i], ref columnA[i], ref columnB[i]);
 			}
 		}
@@ -742,7 +742,7 @@ class EventBus {
 	emit<T>(event: T) {
 		let channel = this.#channels.get(T);
 		if (channel == null) {
-			channel = new [].<T>();
+			channel = Span.<T>();
 			this.#channels.set(T, channel);
 		}
 		channel.push(event);
@@ -847,7 +847,7 @@ class SystemRunner {
 	addSystem(system: System) {
 		let systems = this.#phases.get(system.phase);
 		if (systems == null) {
-			systems = new [].<System>();
+			systems = Span.<System>();
 			this.#phases.set(system.phase, systems);
 		}
 		systems.push(system);
@@ -963,9 +963,9 @@ class GravitySystem implements System {
 			const whole = count - count % 4;
 
 			// Four elements per iteration. The view aliases the column.
-			const vxLanes = [].<float32x4>(vx.window(0, whole));
-			const vyLanes = [].<float32x4>(vy.window(0, whole));
-			for (let j: uint32 = 0; j < vxLanes.length; ++j) {
+			const vxLanes = Span.<float32x4>(vx.window(0, whole));
+			const vyLanes = Span.<float32x4>(vy.window(0, whole));
+			for (let j: uint64 = 0; j < vxLanes.length; ++j) {
 				vxLanes[j] += dvx;
 				vyLanes[j] += dvy;
 			}

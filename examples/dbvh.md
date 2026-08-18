@@ -803,7 +803,7 @@ partial class World {
 		}
 		for (const e of this.#moved) {
 			let w: uint32 = 0;
-			for (let j: uint32 = 0; j < e.pairs.length; j++) {
+			for (let j: uint64 = 0; j < e.pairs.length; j++) {
 				const pair = e.pairs[j];
 				if (!nodes[pair.a.node].aabb.overlaps(nodes[pair.b.node].aabb)) {
 					this.#tracked.delete(pairKey(pair.a, pair.b));

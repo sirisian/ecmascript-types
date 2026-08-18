@@ -20,9 +20,9 @@ Little machinery: a growable byte buffer with scalar writers, and its mirror rea
 export class Writer {
 	#out: [].<uint8> = [].<uint8>.withCapacity(1024);
 	#f64: [1].<float64>;
-	#f64Bytes: [].<uint8> = new [].<uint8>(this.#f64); // Aliases #f64's storage
+	#f64Bytes: [].<uint8> = Span.<uint8>(this.#f64); // Aliases #f64's storage
 	#f32: [1].<float32>;
-	#f32Bytes: [].<uint8> = new [].<uint8>(this.#f32);
+	#f32Bytes: [].<uint8> = Span.<uint8>(this.#f32);
 
 	u8(value: uint8) { this.#out.push(value); }
 	u16(value: uint16) {
@@ -47,7 +47,7 @@ export class Writer {
 	}
 	str(value: string) {
 		this.u32(value.length);
-		for (let i: uint32 = 0; i < value.length; i++) {
+		for (let i: uint64 = 0; i < value.length; i++) {
 			this.u16(uint16(value.charCodeAt(i)));
 		}
 	}
@@ -71,13 +71,13 @@ export class Reader {
 	u64(): uint64 { return uint64(this.u32()) | (uint64(this.u32()) << 32); }
 	f32(): float32 {
 		const scratch: [1].<float32>;
-		const view = new [].<uint8>(scratch);
+		const view = Span.<uint8>(scratch);
 		for (let i: uint32 = 0; i < 4; i++) { view[i] = this.u8(); }
 		return scratch[0];
 	}
 	f64(): float64 {
 		const scratch: [1].<float64>;
-		const view = new [].<uint8>(scratch);
+		const view = Span.<uint8>(scratch);
 		for (let i: uint32 = 0; i < 8; i++) { view[i] = this.u8(); }
 		return scratch[0];
 	}
@@ -182,13 +182,13 @@ export function deriveClass<T>(): Codec.<T> {
 
 	const codec = new Codec.<T>(fixed,
 		(value, w) => {
-			for (let i: uint32 = 0; i < names.length; i++) {
+			for (let i: uint64 = 0; i < names.length; i++) {
 				fieldCodec(i).encode(value[names[i]], w);
 			}
 		},
 		r => {
 			const o = {};
-			for (let i: uint32 = 0; i < names.length; i++) {
+			for (let i: uint64 = 0; i < names.length; i++) {
 				o[names[i]] = fieldCodec(i).decode(r);
 			}
 			return T(o); // Cast fills the class layout; no constructor runs
@@ -291,7 +291,7 @@ export function encodeColumn<T>(values: [].<T>, w: Writer) {
 	const c = codecFor.<T>();
 	w.u32(values.length);
 	if (c.fixedSize != 0) {
-		w.raw(new [].<uint8>(values)); // One contiguous copy of the whole column
+		w.raw(Span.<uint8>(values)); // One contiguous copy of the whole column
 	} else {
 		for (const v of values) {
 			c.encode(v, w);
@@ -304,7 +304,7 @@ export function decodeColumn<T>(r: Reader): [].<T> {
 	const length = r.u32();
 	const out = [].<T>.withCapacity(length);
 	if (c.fixedSize != 0) {
-		const view = new [].<T>(r.raw(length * c.fixedSize)); // Reinterpret the wire bytes as elements
+		const view = Span.<T>(r.raw(length * c.fixedSize)); // Reinterpret the wire bytes as elements
 		for (let i: uint32 = 0; i < length; i++) {
 			out.push(view[i]);
 		}

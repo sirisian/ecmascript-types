@@ -33,7 +33,7 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 
 	@doc('The written packet as bytes, sized to the bits actually used.')
 	get bytes(): [].<uint8> {
-		return [].<uint8>(this.#buffer).slice(0, (this.#maximumBitIndex + 7) / 8);
+		return Span.<uint8>(this.#buffer).slice(0, (this.#maximumBitIndex + 7) / 8);
 	}
 
 	@doc('Reserves the header. Call before writing values.')
@@ -113,7 +113,7 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	@doc('Writes an exact 32-bit float by reinterpreting its bits through a view.')
 	write<float32>(value: float32): PacketWriter {
 		const scratch: [1].<float32> = [value];
-		return this.write.<uint32>([].<uint32>(scratch)[0]);
+		return this.write.<uint32>(Span.<uint32>(scratch)[0]);
 	}
 
 	@doc('Writes a float quantized onto [0, maximum] with the given bit budget.')
@@ -135,7 +135,7 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	@doc('Writes an exact 64-bit float by reinterpreting its bits through a view.')
 	write<float64>(value: float64): PacketWriter where BufferBits >= 64 {
 		const scratch: [1].<float64> = [value];
-		return this.write.<uint64>([].<uint64>(scratch)[0]);
+		return this.write.<uint64>(Span.<uint64>(scratch)[0]);
 	}
 
 	@doc('Writes an unsigned integer with a variable-width encoding. Each continuation bit adds `bits` more value bits; size `bits` for the typical value.')
@@ -160,7 +160,7 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	@doc('Writes a length-prefixed ASCII string. A non-ASCII character fails the uint.<7> cast with a TypeError.')
 	write<string, LengthType extends uint = uint16>(value: string): PacketWriter {
 		this.write.<LengthType>(LengthType(value.length));
-		for (let index: uint32 = 0; index < value.length; ++index) {
+		for (let index: uint64 = 0; index < value.length; ++index) {
 			this.write.<uint.<7>>(uint.<7>(value.charCodeAt(index)));
 		}
 		return this;
@@ -204,7 +204,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 		// Copy into whole words so the shift math never runs off the end.
 		const words: uint32 = (uint32(buffer.length) + BufferBits / 8 - 1) / (BufferBits / 8);
 		this.#buffer = new [words].<uint.<BufferBits>>();
-		[].<uint8>(this.#buffer).set(buffer);
+		Span.<uint8>(this.#buffer).set(buffer);
 		this.readHeader();
 	}
 
@@ -271,7 +271,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	read<float32>(): float32 {
 		let scratch: [1].<uint32>; // Defaults to [0]
 		scratch[0] = uint32(this.#readBits(32));
-		return [].<float32>(scratch)[0];
+		return Span.<float32>(scratch)[0];
 	}
 
 	@doc('Reads a float quantized onto [0, maximum].')
@@ -292,7 +292,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	read<float64>(): float64 where BufferBits >= 64 {
 		let scratch: [1].<uint64>;
 		scratch[0] = this.#readBits(64);
-		return [].<float64>(scratch)[0];
+		return Span.<float64>(scratch)[0];
 	}
 
 	@doc('Reads an unsigned integer written with the variable-width encoding.')
@@ -327,7 +327,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 			throw new Error('Packet expected');
 		}
 		// The constructor's own header read is discarded by the explicit cursor below.
-		const value = new PacketReader.<Size, HeaderSize, BufferBits>([].<uint8>(this.#buffer));
+		const value = new PacketReader.<Size, HeaderSize, BufferBits>(Span.<uint8>(this.#buffer));
 		value.#bitIndex = this.#bitIndex;
 		value.#maximumBitIndex = this.#bitIndex + maximumBitIndex - HeaderSize;
 		this.#bitIndex += maximumBitIndex - HeaderSize;
@@ -411,7 +411,7 @@ function sendMovement(sequence: uint16, x: float32, y: float32) {
 }
 
 socket.onmessage = (event) => {
-	const packet = new PacketReader([].<uint8>(event.data)); // View over the ArrayBuffer
+	const packet = new PacketReader(Span.<uint8>(event.data)); // View over the ArrayBuffer
 	const sequence = packet.read.<uint16>();
 	const x = packet.read.<float32, -1024, 1024, 18>();
 	const y = packet.read.<float32, -1024, 1024, 18>();
@@ -439,7 +439,7 @@ function sendMovement(sequence: uint16, x: float32, y: float32) {
 
 let lastSequence: uint16 = 0;
 for await (const datagram of transport.datagrams.readable) {
-	const packet = new PacketReader([].<uint8>(datagram));
+	const packet = new PacketReader(Span.<uint8>(datagram));
 	const sequence = packet.read.<uint16>();
 	// Drop stale packets; datagrams arrive out of order.
 	if (sequence <= lastSequence) continue;
