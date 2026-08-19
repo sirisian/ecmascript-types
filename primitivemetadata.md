@@ -794,6 +794,52 @@ The compiler invokes implicit cast operators at these boundaries:
 - **Return statement:** `return 9.80665;` where return type is typed
 - **Array element:** `const forces: [].<Newton> = [10, 20, 30];`
 - **Constructor:** `Meter(100)` invokes the same cast as `const m: Meter = 100;`
+- **Uninitialized declaration:** `let d: Meter;` invokes it on the base's zero
+
+### Defaults of Metadata-Bearing Types
+
+A declaration without an initializer holds its type's default, and a
+metadata-bearing type's default is its base's zero **having crossed into it** —
+the same crossing an initializer of the base's type makes, through the same
+cast. `let d: Meter;` and `let d: Meter = 0;` therefore succeed together and
+fail together, and which it is follows from what the program has declared:
+
+```js
+type Dimensions = { m: number, kg: number, s: number, /* ... */ };
+meta Dimensions {
+  default = { m: 0, kg: 0, s: 0 };
+  subtype(a, b) { return a.m === b.m && a.kg === b.kg && a.s === b.s; }
+  // No validate — dimensions constrain type compatibility, not value ranges.
+}
+
+// With the cast declared, a unit type has a zero.
+primitive float32 { operator float32.<Dimensions>() { return this; } }
+let d: Meter;                  // 0 m
+class Vector3 { x: Meter; y: Meter; z: Meter; }
+let field: [10].<Vector3>;     // ten zero-filled vectors
+
+// Without it, nothing crosses from an unconstrained value, so there is no zero.
+let e: Meter;                  // TypeError: needs an initializer
+```
+
+Two consequences worth stating outright, because both are load-bearing
+elsewhere in the design.
+
+**Declaring the cast is what makes unit types zero-fillable.** The memory
+layout extension needs `let d: [10].<Vector3>;` to hold ten zero-filled
+instances, and an aggregate has a default exactly where each of its parts does.
+A `Vector3` of `Meter` fields therefore has a zero exactly where `float32`
+declares the cast into `Dimensions` — which the section above declares anyway,
+for `const v: Velocity = 10;` to compile. A design that ships unit types ships
+that cast, and gets zero-filling with it.
+
+**A meta type that declares no cast is how a type says it has no meaningful
+zero.** `NumberBounds { bounds: 1.. }` has no zero because `validate` refuses
+one — the crossing runs `validate`, so a cast is a way *in*, not a way past a
+bound. A brand into which no cast is declared has none either, its values
+arriving only through the operators that produce them. A value type class
+holding such a field has no zero-filled form, which is the design's way of
+saying that an instance must be constructed rather than defaulted.
 
 ## Examples
 
