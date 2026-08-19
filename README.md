@@ -970,13 +970,40 @@ if (a != null) {
 
 ### Function signatures with constraints
 
-A typed function without an explicit return type defaults to a return type of ```void```, meaning it returns no value. ```void``` can also be written explicitly. ```undefined``` is not allowed as a return type.
+A typed function without an explicit return type has one inferred from what its body returns, and that inferred type is the function's return type for every purpose a written one serves. ```void``` may still be written, and is what a body infers when nothing it returns carries a value.
+
 ```js
 function f() {} // untyped function, return type any
-// function f(a: int32) { return 10; } // TypeError: Function signature for f, void, does not match return type, number.
-function g(a: int32) {} // return type void
+function f2(a: int32) { return 10; }  // typed by its parameter, so the return is inferred: number
+function g(a: int32) {} // nothing returned carries a value: void
 function h(a: int32): void {} // identical behavior to g with the return type written explicitly
-// function i(a: int32): undefined {} // TypeError: undefined is not a valid return type. Use void.
+```
+
+An earlier form of this design defaulted the return type to ```void``` instead, which made the second line above an error at the declaration. Two things are wrong with that. It breaks the gradual path in the one direction the design is built around — adding a type to one parameter of a working function would reject the ```return``` statements it already had — and it splits the language against itself, since an arrow already infers its result and a refactor from arrow to declaration would have to add an annotation to keep compiling.
+
+Inference is bounded by what the program annotated. A function participates when its signature declares a type, or when what it returns derives from one; a function with neither returns ```any``` as it always has, so a source text with no annotations computes nothing and means exactly what it meant before. What an annotation buys is reach: the type travels as far through returns as the returns carry it.
+
+```js
+function first(): uint32 { return 5; }
+function wrap() { return first(); }   // anchored through first: uint32
+const n: number = wrap();             // TypeError, before the program runs
+
+function legacy() { return 'foo'; }   // no annotation anywhere: stays any
+const s: number = legacy();           // no early error; the boundary still checks at run time
+
+function either(b) { return b ? first() : legacy(); } // uint32 | string
+```
+
+The inferred type is enforced where the function returns, which is what keeps it from being a promise the body can quietly break: if ```first``` is later reassigned to something returning a string, ```wrap``` throws at its own ```return``` rather than handing the string to its caller. A function that means to promise nothing writes ```: any``` and is back to legacy behavior.
+
+```void``` and ```undefined``` are both writable as return types and they say different things. ```void``` says the result must not be depended on, so no binding may hold it; ```undefined``` says the result is the value ```undefined```, which a binding may hold. Inference produces ```void``` for a body whose returns all carry no value, because that is the annotation such a function would have been given, and produces ```undefined``` only as a member of a union — a body that returns a ```uint32``` on one path and falls off the end on another infers ```uint32 | undefined```, which is a type an annotation can write.
+
+```js
+function q(a: int32): void { }        // the result must not be depended on
+// const x: undefined = q(1);         // TypeError: void is not assignable to undefined
+function r(a: int32): undefined { }   // the result is undefined, and may be held
+const y: undefined = r(1);
+function t(b, a: int32) { if (b) { return a; } }  // inferred: int32 | undefined
 ```
 A function that takes no parameters is made a typed function by writing the return type:
 ```js
