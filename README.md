@@ -773,6 +773,17 @@ let e: uint8 = Number(read());      // also fine: Number(s) is written, and is n
 
 **The ```string``` type takes what has a canonical text.** A number, a bigint, and a boolean each have exactly one text that denotes them, and ToString of them is total and loses nothing, so they convert without ceremony. ```undefined```, ```null```, an object, and a symbol have only a diagnostic text, and are refused: those are the language's best known silent failures, the ```"undefined"``` that reaches a user and the ```"[object Object]"``` where a field was meant. A program that wants one writes ```String(v)```. The asymmetry with the numeric rule is deliberate: ToString of a number cannot fail, while ToNumber of a string can, so the safe direction is implicit and the unsafe one is written.
 
+The leniency is the primitive's, and a codebase that wants the stricter boundary writes one rather than arguing with this rule. A brand over ```string``` admits only what its own construction admits, so a field annotated with it refuses the number that ```string``` would have taken:
+
+```js
+type Text = string.<{ strict: true }>; // a brand: no cast from number is declared
+let a: string = 42;                    // 42, converted, by the rule above
+// let b: Text = 42;                   // TypeError: nothing says how a number becomes a Text
+let c: Text = Text(String(42));        // written, and therefore said
+```
+
+That asymmetry of recourse is the reason the lenient rule is the right primitive: strictness is one declaration away, while a strict primitive could not be loosened at all without a second conversion rule that this design does not have.
+
 ```js
 let a: string = 5;     // "5"
 let b: string = 5n;    // "5"
@@ -781,7 +792,11 @@ let c: string = true;  // "true"
 // let e: string = {};        // TypeError
 ```
 
-**The ```boolean``` type takes every value**, and that is deliberate rather than an omission. ToBoolean is total, every value has a defined truthiness, and ```if (v)``` is the language's own idiom for asking. There is no lost value to warn about.
+**The ```boolean``` type takes a boolean.** A value of any other type is refused at the boundary, and a program that means the truthiness writes ```Boolean(v)``` or ```!!v```. An earlier form of this design converted here, reasoning that ToBoolean is total, that every value has a defined truthiness, and that ```if (v)``` is the language's own idiom for asking. The flaw in that reasoning is that a boundary is a *store* and not a question: ```if (v)``` interrogates a value in place and moves on, while an annotation mints a durable answer that no longer carries what it was made from.
+
+Totality is what disqualifies the conversion rather than what recommends it, and the rule is this design's own. The numeric rule refuses a string source because a read that cannot fail would let a missing field become a NaN that surfaces far from the annotation that admitted it. ToBoolean cannot fail at all either, so at a ```boolean``` boundary a missing field became ```false``` and the string ```'false'``` became ```true``` — absence and its opposite laundered into legitimate-looking answers, at the very position that was annotated to catch them. What is lost is not the value's bit but everything else about it: the difference between a string that said ```'false'``` and one that said ```'yes'```, and the difference between a field that was ```false``` and one that was never there.
+
+A **cast still converts**, because a cast is an instruction rather than a boundary: ```v := boolean``` gives the truthiness, exactly as ```v := number``` wraps and truncates where an annotated binding would throw.
 
 Four things remain implicit, and none of them is a conversion between two typed values.
 
