@@ -1783,6 +1783,17 @@ Note that since ```b``` isn't overloaded, defining the type of the member functi
 
 Once a class implements an interface it cannot remove that contract. Attempting to delete the member ```a``` or the method ```b``` would throw a TypeError.
 
+Declaring ```implements``` is also what lets a class be USED as the interface. A class that merely happens to have the members does not satisfy an interface-typed binding or parameter: a class states a construction and an identity as well as a shape, and it is the identity its type is for. The shape without the identity is written as an object type, and that satisfies structurally everywhere.
+
+```js
+interface Small { m(): uint8; }
+class Rich { m(): uint8 { return (0 := uint8); } }   // no implements clause
+// let s: Small = new Rich();                        // TypeError: Rich is not assignable to Small
+let s: Small = (new Rich() := Small);                // stated, and therefore allowed
+```
+
+The value question is separate and is answered structurally: ```new Rich() is Small``` is ```true```, because that asks whether the value has the members rather than whether a declaration promised them. This is the same split as a numeric boundary - what a checker can see it holds to the stricter rule, and what arrives untyped is checked on the way in.
+
 ### Typed Assignment
 
 A variable by default is typed ```any``` meaning it's dynamic and its type changes depending on the last assigned value. As an example one can write:
