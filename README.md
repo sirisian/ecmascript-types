@@ -981,6 +981,17 @@ function h(a: int32): void {} // identical behavior to g with the return type wr
 
 An earlier form of this design defaulted the return type to ```void``` instead, which made the second line above an error at the declaration. Two things are wrong with that. It breaks the gradual path in the one direction the design is built around — adding a type to one parameter of a working function would reject the ```return``` statements it already had — and it splits the language against itself, since an arrow already infers its result and a refactor from arrow to declaration would have to add an annotation to keep compiling.
 
+Extracting a subexpression into a local does not lose the type. A ```const```, or a ```let``` that is never assigned, is a name for its initializer's value, and a return that reads one carries what the initializer had:
+
+```js
+function first(): uint32 { return 5; }
+function wrap()  { return first(); }        // uint32
+function wrap2() { const v = first(); return v; }   // uint32, the same
+function wrap3() { let v = first(); v = 7; return v; }  // nothing: `v` may change
+```
+
+This gives the local no type of its own: ```v``` is still ```any``` where anything else asks, so an annotation over it is checked at the boundary as before, and ```Reflect.typeOf``` still reads the value.
+
 Inference is bounded by what the program annotated. A function participates when its signature declares a type, or when what it returns derives from one; a function with neither returns ```any``` as it always has, so a source text with no annotations computes nothing and means exactly what it meant before. What an annotation buys is reach: the type travels as far through returns as the returns carry it.
 
 ```js
