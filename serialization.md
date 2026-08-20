@@ -192,8 +192,8 @@ Host APIs that produce values from bytes should adopt the same overload shape ra
 
 ```js
 class Response {
-	json<T = any>(): Promise.<T, SyntaxError | TypeError>;
-	text(): Promise.<string, any>;
+	json<T = any>(): Promise.<T, SyntaxError | TypeError> { /* … */ return undefined; }
+	text(): Promise.<string, any> { /* … */ return undefined; }
 }
 
 const config = await (await fetch('/config.json')).json.<ServerConfig>();

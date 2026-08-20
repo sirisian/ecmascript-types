@@ -637,8 +637,8 @@ A class listing that gives member signatures with no bodies, like the one below,
 
 ```js
 class Array<T> {
-  window(start: uint64, end: uint64 = this.length): Span.<T>;
-  window<Length: uint64>(start: uint64): Span.<T, Length>;
+  window(start: uint64, end: uint64 = this.length): Span.<T> { /* … */ return []; }
+  window<Length: uint64>(start: uint64): Span.<T, Length> { /* … */ return []; }
 }
 ```
 
@@ -2127,9 +2127,9 @@ type IteratorResult<Y, R> = {
 };
 
 class Generator<Y, R = void, N = void> {
-  next(value: N): IteratorResult.<Y, R>;
-  return(value: R): IteratorResult.<Y, R>;
-  throw(exception: any): IteratorResult.<Y, R>;
+  next(value: N): IteratorResult.<Y, R> { /* … */ return undefined; }
+  return(value: R): IteratorResult.<Y, R> { /* … */ return undefined; }
+  throw(exception: any): IteratorResult.<Y, R> { /* … */ return undefined; }
 }
 ```
 
@@ -3494,23 +3494,23 @@ Weak references require identity. ```WeakRef```, ```WeakMap``` keys, ```WeakSet`
 ```js
 class WeakRef<T extends object | symbol> {
   constructor(target: T);
-  deref(): T | undefined;
+  deref(): T | undefined { /* … */ return undefined; }
 }
 class WeakMap<K extends object | symbol, V> {
-  get(key: K): V | undefined;
-  set(key: K, value: V): WeakMap.<K, V>;
-  has(key: K): boolean;
-  delete(key: K): boolean;
+  get(key: K): V | undefined { /* … */ return undefined; }
+  set(key: K, value: V): WeakMap.<K, V> { /* … */ return undefined; }
+  has(key: K): boolean { /* … */ return false; }
+  delete(key: K): boolean { /* … */ return false; }
 }
 class WeakSet<T extends object | symbol> {
-  add(value: T): WeakSet.<T>;
-  has(value: T): boolean;
-  delete(value: T): boolean;
+  add(value: T): WeakSet.<T> { /* … */ return undefined; }
+  has(value: T): boolean { /* … */ return false; }
+  delete(value: T): boolean { /* … */ return false; }
 }
 class FinalizationRegistry<T> {
   constructor(callback: (heldValue: T) => void);
-  register(target: object | symbol, heldValue: T, unregisterToken?: object | symbol): void;
-  unregister(unregisterToken: object | symbol): boolean;
+  register(target: object | symbol, heldValue: T, unregisterToken?: object | symbol): void { /* … */ }
+  unregister(unregisterToken: object | symbol): boolean { /* … */ return false; }
 }
 ```
 

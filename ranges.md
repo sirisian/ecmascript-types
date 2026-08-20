@@ -145,23 +145,23 @@ interface Arithmetic<T> {
 interface RangeBounds<T: Ordered.<T>> {
 	// The shape-independent view: an endpoint and its bound, or null where the
 	// shape has neither. This is what code over an arbitrary range reads.
-	get start(): T | null;
-	get end(): T | null;
-	get startBound(): Bound | null;
-	get endBound(): Bound | null;
+	get start(): T | null { /* … */ return undefined; }
+	get end(): T | null { /* … */ return undefined; }
+	get startBound(): Bound | null { /* … */ return undefined; }
+	get endBound(): Bound | null { /* … */ return undefined; }
 
 	get isEmpty(): boolean; // No value falls within it
 	get isFull(): boolean;  // Every value of T does
-	contains(value: T): boolean;
-	contains(range: RangeBounds.<T>): boolean;
-	intersect(other: RangeBounds.<T>): RangeBounds.<T>;
+	contains(value: T): boolean { /* … */ return false; }
+	contains(range: RangeBounds.<T>): boolean { /* … */ return false; }
+	intersect(other: RangeBounds.<T>): RangeBounds.<T> { /* … */ return undefined; }
 }
 
 // Scaling needs arithmetic, and ordering does not imply it: Temporal.Instant is
 // Ordered and cannot be multiplied. So scale exists on the instantiations whose
 // element type scales, by the partial specialization rule in generics.md.
 partial interface RangeBounds<T: Scalable.<T>> {
-	scale(factor: float64): RangeBounds.<T>;
+	scale(factor: float64): RangeBounds.<T> { /* … */ return undefined; }
 }
 
 // Interval arithmetic, on the ranges whose element type has arithmetic. The
@@ -179,11 +179,11 @@ partial interface RangeBounds<T: Arithmetic.<T>> {
 class Range<T: Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bound.Open> implements RangeBounds.<T> {
 	readonly start: T;
 	readonly end: T;
-	get length(): uint32;
+	get length(): uint32 { /* … */ return 0; }
 	get interval(): Interval; // Derived from S and E, never a parameter
-	contains(value: T): boolean;
-	step(by: T): Iterator.<T>;
-	reverse(): Iterator.<T>;
+	contains(value: T): boolean { /* … */ return false; }
+	step(by: T): Iterator.<T> { /* … */ return undefined; }
+	reverse(): Iterator.<T> { /* … */ return undefined; }
 	*operator...(): Iterator.<T>;
 
 	// The bounds are value generics, not arguments. A runtime bound would

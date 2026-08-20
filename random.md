@@ -192,21 +192,21 @@ class PRNGState {  // Exposed as Math.PRNGState
 	readonly version: uint8; // The layout version of that algorithm's state
 	readonly words: [].<uint8>; // The algorithm's state, big-endian
 
-	toBytes(): [].<uint8>; // Self-describing, for a socket or a file
-	static fromBytes(value: [].<uint8>): PRNGState;
+	toBytes(): [].<uint8> { /* … */ return []; } // Self-describing, for a socket or a file
+	static fromBytes(value: [].<uint8>): PRNGState { /* … */ return undefined; }
 
 	toJSON(): { method: string, version: uint8, state: string }; // state is base64
 	operator PRNGState(value: string); // Cast from base64, for JSON.parse
 }
 
 class SeededPRNG<T, Method: Math.PRNG> {
-	random(): T;
+	random(): T { /* … */ return undefined; }
 	random<R extends RangeBounds.<T>>(range: R): T;
-	random(array: [].<T>): [].<T>;
+	random(array: [].<T>): [].<T> { /* … */ return []; }
 	random<R extends RangeBounds.<T>>(array: [].<T>, range: R): [].<T>;
-	get state(): PRNGState;
+	get state(): PRNGState { /* … */ return undefined; }
 	set state(value: PRNGState);
-	jump(): SeededPRNG.<T, Method>;
+	jump(): SeededPRNG.<T, Method> { /* … */ return undefined; }
 }
 ```
 

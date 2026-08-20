@@ -46,18 +46,18 @@ The helpers are defined on the ```Iterator``` class, which declares that it impl
 
 ```js
 class Iterator<T, R = void, N = void> implements IterableIterator<T, R, N> {
-	map<U>(callback: (value: T, index: uint32) => U): Iterator.<U>;
-	filter(callback: (value: T, index: uint32) => boolean): Iterator.<T>;
-	take(limit: uint32): Iterator.<T>;
-	drop(limit: uint32): Iterator.<T>;
-	flatMap<U>(callback: (value: T, index: uint32) => Iterable.<U>): Iterator.<U>;
-	reduce<U>(callback: (accumulator: U, value: T, index: uint32) => U, initial: U): U;
-	reduce(callback: (accumulator: T, value: T, index: uint32) => T): T;
-	toArray(): [].<T>;
-	forEach(callback: (value: T, index: uint32) => void): void;
-	some(callback: (value: T, index: uint32) => boolean): boolean;
-	every(callback: (value: T, index: uint32) => boolean): boolean;
-	find(callback: (value: T, index: uint32) => boolean): T | undefined;
+	map<U>(callback: (value: T, index: uint32) => U): Iterator.<U> { /* … */ return undefined; }
+	filter(callback: (value: T, index: uint32) => boolean): Iterator.<T> { /* … */ return undefined; }
+	take(limit: uint32): Iterator.<T> { /* … */ return undefined; }
+	drop(limit: uint32): Iterator.<T> { /* … */ return undefined; }
+	flatMap<U>(callback: (value: T, index: uint32) => Iterable.<U>): Iterator.<U> { /* … */ return undefined; }
+	reduce<U>(callback: (accumulator: U, value: T, index: uint32) => U, initial: U): U { /* … */ return undefined; }
+	reduce(callback: (accumulator: T, value: T, index: uint32) => T): T { /* … */ return undefined; }
+	toArray(): [].<T> { /* … */ return []; }
+	forEach(callback: (value: T, index: uint32) => void): void { /* … */ }
+	some(callback: (value: T, index: uint32) => boolean): boolean { /* … */ return false; }
+	every(callback: (value: T, index: uint32) => boolean): boolean { /* … */ return false; }
+	find(callback: (value: T, index: uint32) => boolean): T | undefined { /* … */ return undefined; }
 }
 ```
 
@@ -101,13 +101,13 @@ The result element type follows where elements can come from: ```intersection```
 
 ```js
 class Set<T> {
-	union<U>(other: Set.<U>): Set.<T | U>;
-	intersection<U>(other: Set.<U>): Set.<T>;
-	difference<U>(other: Set.<U>): Set.<T>;
-	symmetricDifference<U>(other: Set.<U>): Set.<T | U>;
-	isSubsetOf<U>(other: Set.<U>): boolean;
-	isSupersetOf<U>(other: Set.<U>): boolean;
-	isDisjointFrom<U>(other: Set.<U>): boolean;
+	union<U>(other: Set.<U>): Set.<T | U> { /* … */ return undefined; }
+	intersection<U>(other: Set.<U>): Set.<T> { /* … */ return undefined; }
+	difference<U>(other: Set.<U>): Set.<T> { /* … */ return undefined; }
+	symmetricDifference<U>(other: Set.<U>): Set.<T | U> { /* … */ return undefined; }
+	isSubsetOf<U>(other: Set.<U>): boolean { /* … */ return false; }
+	isSupersetOf<U>(other: Set.<U>): boolean { /* … */ return false; }
+	isDisjointFrom<U>(other: Set.<U>): boolean { /* … */ return false; }
 }
 ```
 
@@ -131,10 +131,10 @@ class Promise<R, E> {
 		reject: (reason: E) => void
 	};
 	static try<R, E>(callback: (...args: [].<any>) => R | Promise.<R, E>, ...args: [].<any>): Promise.<R, E>;
-	static all<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<[].<R>, E>;
-	static allSettled<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<[].<PromiseSettledResult.<R, E>>, undefined>;
-	static any<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<R, AggregateError>;
-	static race<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<R, E>;
+	static all<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<[].<R>, E> { /* … */ return undefined; }
+	static allSettled<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<[].<PromiseSettledResult.<R, E>>, undefined> { /* … */ return undefined; }
+	static any<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<R, AggregateError> { /* … */ return undefined; }
+	static race<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<R, E> { /* … */ return undefined; }
 }
 ```
 

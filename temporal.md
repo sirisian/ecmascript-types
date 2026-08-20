@@ -33,20 +33,20 @@ The time units, ```Nanosecond``` through ```Hour```, denote fixed spans. The cal
 ```js
 class Temporal.Instant {
 	#epochNanoseconds: int128; // Storage: the whole instant, exactly; the public accessor returns bigint
-	static from(value: string | Temporal.Instant): Temporal.Instant;
-	static fromEpochNanoseconds(value: bigint): Temporal.Instant;
-	static compare(a: Temporal.Instant, b: Temporal.Instant): int32;
+	static from(value: string | Temporal.Instant): Temporal.Instant { /* … */ return undefined; }
+	static fromEpochNanoseconds(value: bigint): Temporal.Instant { /* … */ return undefined; }
+	static compare(a: Temporal.Instant, b: Temporal.Instant): int32 { /* … */ return 0; }
 
-	get epochNanoseconds(): bigint;
-	get epochMilliseconds(): int64;
+	get epochNanoseconds(): bigint { /* … */ return 0; }
+	get epochMilliseconds(): int64 { /* … */ return 0; }
 
-	add(duration: Temporal.Duration): Temporal.Instant;
-	subtract(duration: Temporal.Duration): Temporal.Instant;
-	since(other: Temporal.Instant): Temporal.Duration;
-	until(other: Temporal.Instant): Temporal.Duration;
-	equals(other: Temporal.Instant): boolean;
-	toZonedDateTimeISO(timeZone: string): Temporal.ZonedDateTime;
-	toJSON(): string;
+	add(duration: Temporal.Duration): Temporal.Instant { /* … */ return undefined; }
+	subtract(duration: Temporal.Duration): Temporal.Instant { /* … */ return undefined; }
+	since(other: Temporal.Instant): Temporal.Duration { /* … */ return undefined; }
+	until(other: Temporal.Instant): Temporal.Duration { /* … */ return undefined; }
+	equals(other: Temporal.Instant): boolean { /* … */ return false; }
+	toZonedDateTimeISO(timeZone: string): Temporal.ZonedDateTime { /* … */ return undefined; }
+	toJSON(): string { /* … */ return ""; }
 }
 
 class Temporal.Duration {
@@ -61,19 +61,19 @@ class Temporal.Duration {
 	microseconds: int64;
 	nanoseconds: int64;
 
-	get sign(): int32;
-	get blank(): boolean;
+	get sign(): int32 { /* … */ return 0; }
+	get blank(): boolean { /* … */ return false; }
 
-	add(other: Temporal.Duration): Temporal.Duration;
-	subtract(other: Temporal.Duration): Temporal.Duration;
-	negated(): Temporal.Duration;
-	abs(): Temporal.Duration;
+	add(other: Temporal.Duration): Temporal.Duration { /* … */ return undefined; }
+	subtract(other: Temporal.Duration): Temporal.Duration { /* … */ return undefined; }
+	negated(): Temporal.Duration { /* … */ return undefined; }
+	abs(): Temporal.Duration { /* … */ return undefined; }
 }
 
 class Temporal.Now {
-	static instant(): Temporal.Instant;
-	static zonedDateTimeISO(timeZone?: string): Temporal.ZonedDateTime;
-	static plainDateISO(timeZone?: string): Temporal.PlainDate;
+	static instant(): Temporal.Instant { /* … */ return undefined; }
+	static zonedDateTimeISO(timeZone?: string): Temporal.ZonedDateTime { /* … */ return undefined; }
+	static plainDateISO(timeZone?: string): Temporal.PlainDate { /* … */ return undefined; }
 }
 ```
 
@@ -110,7 +110,7 @@ partial class Temporal.Duration {
 		where U <= Temporal.Unit.Hour;
 
 	// Calendar units need a reference point and produce a plain count.
-	total(options: { unit: Temporal.Unit, relativeTo: Temporal.ZonedDateTime | Temporal.PlainDate }): float64;
+	total(options: { unit: Temporal.Unit, relativeTo: Temporal.ZonedDateTime | Temporal.PlainDate }): float64 { /* … */ return 0; }
 }
 ```
 
