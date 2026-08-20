@@ -2200,10 +2200,10 @@ The async protocols mirror the synchronous ones, with the result wrapped:
 
 ```js
 interface AsyncIterator<T, R = void, N = void> {
-  next(value?: N): Promise.<IteratorResult<T, R>, any>;
+  next(value?: N): Promise.<IteratorResult.<T, R>, any>;
 }
 interface AsyncIterable<T> {
-  [Symbol.asyncIterator](): AsyncIterator<T>;   // declared as async *operator...()
+  [Symbol.asyncIterator](): AsyncIterator.<T>;   // declared as async *operator...()
 }
 interface AsyncIterableIterator<T, R = void, N = void> extends AsyncIterable<T>, AsyncIterator<T, R, N> {}
 ```
@@ -2218,12 +2218,12 @@ The protocols are interfaces, so a value satisfies them by having the members. T
 type IteratorResult<T, R> = { value: T; done: false } | { value: R; done: true };
 
 interface Iterator<T, R = void, N = void> {
-  next(value?: N): IteratorResult<T, R>;
-  return?(value?: R): IteratorResult<T, R>;
-  throw?(e?: any): IteratorResult<T, R>;
+  next(value?: N): IteratorResult.<T, R>;
+  return?(value?: R): IteratorResult.<T, R>;
+  throw?(e?: any): IteratorResult.<T, R>;
 }
 interface Iterable<T> {
-  [Symbol.iterator](): Iterator<T>;   // a class declares this as *operator...()
+  [Symbol.iterator](): Iterator.<T>;   // a class declares this as *operator...()
 }
 interface IterableIterator<T, R = void, N = void> extends Iterable<T>, Iterator<T, R, N> {}
 ```
@@ -2233,8 +2233,8 @@ A bare argument is the element type, as it is for a generator: ```Iterator.<uint
 ```Iterator``` is also a class - the one iterator helpers put ```map```, ```filter```, and ```take``` on - and it declares that it implements ```IterableIterator```. A class that declares an interface is checked once at its declaration and by brand afterwards, so the common path costs a prototype check and only a hand-written object pays a member walk.
 
 ```js
-class Cursor implements Iterator<uint8> {   // checked here, by brand at every use
-  next(): IteratorResult<uint8, void> { … }
+class Cursor implements Iterator.<uint8> {   // checked here, by brand at every use
+  next(): IteratorResult.<uint8, void> { … }
 }
 function drain(it: Iterator.<uint8>): void {}
 drain(new Cursor());

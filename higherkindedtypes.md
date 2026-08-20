@@ -107,7 +107,7 @@ Putting it last is not a style preference — it is what the ordinary rule require
 The asynchronous form is then a name rather than a second declaration:
 
 ```js
-type AsyncIterator<T, R = void, N = void> = Iterator<T, R, N, Promise>;
+type AsyncIterator<T, R = void, N = void> = Iterator.<T, R, N, Promise>;
 ```
 
 which keeps ```AsyncIterator.<uint8>``` writable while the members it describes are declared once. The duplication this extension removes is of *content*, not of names — names are cheap, and a reader looking for ```AsyncIterator``` should find it.

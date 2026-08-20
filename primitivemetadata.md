@@ -73,7 +73,7 @@ meta T {
 It's possible to hold a reference to a meta protocol:
 
 ```js
-interface MetaProtocol.<T> {
+interface MetaProtocol<T> {
 	default: T;
 	subtype(sub: T, sup: T): boolean;
 	validate?(value: any, constraint: T): boolean;
