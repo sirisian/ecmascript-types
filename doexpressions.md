@@ -1,6 +1,6 @@
 # do Expressions
 
-A block that produces a value. `do { … }` evaluates its statements and yields the value of the last one that ran, so a computation needing a temporary, a branch, or a `try` can stay an expression instead of being hoisted into a statement above the thing that wanted it.
+A block that produces a value. `do { â€¦ }` evaluates its statements and yields the value of the last one that ran, so a computation needing a temporary, a branch, or a `try` can stay an expression instead of being hoisted into a statement above the thing that wanted it.
 
 ```js
 const size: uint8 = do {
@@ -35,7 +35,7 @@ Three shapes are errors, and each because its completion value would not be what
 
 - **A declaration.** `do { 'before'; let x = 'after'; }` would be `'before'`, because a declaration's completion is empty and the value falls back to the statement before it. That is indefensible, so it is refused.
 - **An `if` without an `else`.** `do { if (foo) bar }` is `bar` or `undefined` depending on a condition the reader has to trace, and the missing branch is invisible.
-- **A loop.** `do { while (c) { … } }` is the last iteration's value, or `undefined` for zero iterations, which is a value nobody writes on purpose.
+- **A loop.** `do { while (c) { â€¦ } }` is the last iteration's value, or `undefined` for zero iterations, which is a value nobody writes on purpose.
 
 The rule is on the *completion*, not on the syntax, so it reaches through nesting: an `if`/`else` one branch of which ends in a loop is refused too, since that branch's value would be the loop's. A labelled block whose `break` leaves it holding a declaration is refused for the same reason.
 
@@ -122,7 +122,7 @@ Two restrictions follow the same reasoning that gives the Early Errors. An unlab
 
 ## do * Generators
 
-`do * { … }` is the generator form. Its value is a generator object, and the body is a generator body, so `yield` inside it belongs to the do-generator rather than to the enclosing function.
+`do * { â€¦ }` is the generator form. Its value is a generator object, and the body is a generator body, so `yield` inside it belongs to the do-generator rather than to the enclosing function.
 
 It exists to delete an IIFE that is otherwise unavoidable:
 
@@ -156,7 +156,7 @@ for (const v of do * { yield* head(); yield* tail(); }) { use(v); }
 
 The `.call(this)` above is what the syntax exists to remove, so `do *` binds `this` lexically, and `arguments` and `new.target` are the enclosing function's - it is to `function*` what an arrow is to `function`. But its body is a generator body, and that is not a preference: a construct that yields has to be one. So four keywords part company between two forms that differ by a single token:
 
-| | ```do { … }``` | ```do * { … }``` |
+| | ```do { â€¦ }``` | ```do * { â€¦ }``` |
 |---|---|---|
 | value | the completion value | a generator object |
 | ```return``` | returns from the **enclosing function** | sets the **generator's** return value |
@@ -197,7 +197,7 @@ A contextual type flows into the `yield` operands, which is the same mechanism t
 
 That is what the typed version buys over the IIFE. `Promise.all` takes an iterable of promises, so `Y` is checked against what it will await - the `channel.update()` above has to yield a promise, and the checker says so at the yield rather than at the `await`. Through `function* () {}.call(this)` the same relation exists but has to be read through a call whose `this` is supplied separately.
 
-`async do * { … }` is the async generator form, an `AsyncGenerator.<Y, R, N>`, with `await` and `yield` both belonging to it. The three forms cover the three function bodies the language has.
+`async do * { â€¦ }` is the async generator form, an `AsyncGenerator.<Y, R, N>`, with `await` and `yield` both belonging to it. The three forms cover the three function bodies the language has.
 
 ## Pattern Matching Arms
 

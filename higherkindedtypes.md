@@ -1,6 +1,6 @@
 # Higher-Kinded Types
 
-A generic parameter normally stands for a type: ```Box<T>``` where ```T``` is ```uint8```. A **higher-kinded** parameter stands for something that *becomes* a type once applied — a generic declaration awaiting its own arguments. This extension adds them, so that one declaration can serve a family that differs only in a wrapper.
+A generic parameter normally stands for a type: ```Box<T>``` where ```T``` is ```uint8```. A **higher-kinded** parameter stands for something that *becomes* a type once applied â€” a generic declaration awaiting its own arguments. This extension adds them, so that one declaration can serve a family that differs only in a wrapper.
 
 It builds on [generics](generics.md) and changes nothing about first-order parameters, which behave exactly as they did.
 
@@ -20,13 +20,13 @@ interface AsyncIterator<T, R = void, N = void> {
 **They differ on two axes, and a higher-kinded parameter addresses one of them.** Saying so plainly is more useful than a motivating example that does not survive being checked:
 
 1. `next`'s **return is wrapped** in a promise. This is the axis a kind removes, and the unified declaration below is what removes it.
-2. The **member key** differs — ```[Symbol.iterator]``` against ```[Symbol.asyncIterator]```. A kind abstracts over the *type* a member has and never over the *key* it is stored under, so ```Iterable``` and ```AsyncIterable``` do not unify by this feature — and because ```IterableIterator``` extends one while ```AsyncIterableIterator``` extends the other, that pair does not either.
+2. The **member key** differs â€” ```[Symbol.iterator]``` against ```[Symbol.asyncIterator]```. A kind abstracts over the *type* a member has and never over the *key* it is stored under, so ```Iterable``` and ```AsyncIterable``` do not unify by this feature â€” and because ```IterableIterator``` extends one while ```AsyncIterableIterator``` extends the other, that pair does not either.
 
 **So the family goes from six declarations to five: one merge, in the smallest of the three pairs.** That is the honest measure of what this buys, and a reader deciding whether the feature is worth its weight should have it rather than an estimate.
 
-A third difference is often listed and is not one. The synchronous ```Iterator``` declares optional ```return``` and ```throw``` where the asynchronous one declares neither — but they are *optional*, so an interface declaring them is satisfied by a value with neither, and the asynchronous form's omission is a gap in its description rather than a difference in the protocol.
+A third difference is often listed and is not one. The synchronous ```Iterator``` declares optional ```return``` and ```throw``` where the asynchronous one declares neither â€” but they are *optional*, so an interface declaring them is satisfied by a value with neither, and the asynchronous form's omission is a gap in its description rather than a difference in the protocol.
 
-The larger deduplication here is not this feature's. Abstracting over the member key would collapse all six to two, and it needs a **value** generic rather than a kind — a symbol parameter, as ```interface Iterable<K: symbol, W<_>, T> { [K](): Iterator.<W, T>; }```. That form is unwritten and would cost the use site its readability, since ```Iterable.<Symbol.iterator, Identity, uint8>``` stands where ```Iterable.<uint8>``` did, and defaults cannot rescue it because the defaultable parameters come first. It is recorded here because a reader who sees ```Iterable``` left un-unified will ask why, and because it is the larger prize.
+The larger deduplication here is not this feature's. Abstracting over the member key would collapse all six to two, and it needs a **value** generic rather than a kind â€” a symbol parameter, as ```interface Iterable<K: symbol, W<_>, T> { [K](): Iterator.<W, T>; }```. That form is unwritten and would cost the use site its readability, since ```Iterable.<Symbol.iterator, Identity, uint8>``` stands where ```Iterable.<uint8>``` did, and defaults cannot rescue it because the defaultable parameters come first. It is recorded here because a reader who sees ```Iterable``` left un-unified will ask why, and because it is the larger prize.
 
 ## The declaration
 
@@ -38,7 +38,7 @@ interface Iterator<W<_>, T, R = void, N = void> {
 }
 ```
 
-The declaration above is the unification, and it is worth reading against the two it replaces: `next`, `return`, and `throw` are written once, with `W.<…>` where the synchronous form had a bare result and the asynchronous form a promise. `Iterator.<Identity, T>` is the first and `Iterator.<Promise, T>` the second.
+The declaration above is the unification, and it is worth reading against the two it replaces: `next`, `return`, and `throw` are written once, with `W.<â€¦>` where the synchronous form had a bare result and the asynchronous form a promise. `Iterator.<Identity, T>` is the first and `Iterator.<Promise, T>` the second.
 
 ```W<_>``` takes one argument. ```W<_, _>``` takes two. **Arity is written, never inferred**, so a declaration says how it will use its parameter and a reader need not scan the body to find out.
 
@@ -61,7 +61,7 @@ function drain(it: Iterator.<Identity, uint8>): [].<uint8> {}
 function drainAsync(it: Iterator.<Promise, uint8>): Promise.<[].<uint8>, any> {}
 ```
 
-A bare ```W``` — before it is applied — is **not a type**. It is a constructor of one, and it may only appear where this extension expects a constructor: as an argument to a higher-kinded parameter, or applied. Writing ```const x: W = …``` is an error, and the message says that ```W``` takes an argument.
+A bare ```W``` â€” before it is applied â€” is **not a type**. It is a constructor of one, and it may only appear where this extension expects a constructor: as an argument to a higher-kinded parameter, or applied. Writing ```const x: W = â€¦``` is an error, and the message says that ```W``` takes an argument.
 
 ## What may be supplied
 
@@ -90,7 +90,7 @@ Nothing else is required. A generic alias may already be applied, so ```Identity
 
 ## Defaults, and where the parameter goes
 
-A higher-kinded parameter may carry a default like any other, and doing so decides where it sits in the list. The wrapper is the *least* interesting parameter at most use sites — almost every annotation wants the synchronous form — so it goes **last** and defaults to ```Identity```:
+A higher-kinded parameter may carry a default like any other, and doing so decides where it sits in the list. The wrapper is the *least* interesting parameter at most use sites â€” almost every annotation wants the synchronous form â€” so it goes **last** and defaults to ```Identity```:
 
 ```js
 interface Iterator<T, R = void, N = void, W<_> = Identity> {
@@ -102,15 +102,16 @@ interface Iterator<T, R = void, N = void, W<_> = Identity> {
 
 ```Iterator.<uint8>``` therefore reads exactly as it did before this extension existed, which matters more than it sounds: the alternative is that every annotation naming an iteration type in the standard library grows a wrapper argument to say what it already said.
 
-Putting it last is not a style preference — it is what the ordinary rule requires. A parameter carrying a default may not precede one that does not, so a leading ```W<_> = Identity``` followed by a required ```T``` would be ill-formed. **This extension adds no exception to that rule**, and a design needing one should be read as a sign the parameter is in the wrong position.
+Putting it last is not a style preference â€” it is what the ordinary rule requires. A parameter carrying a default may not precede one that does not, so a leading ```W<_> = Identity``` followed by a required ```T``` would be ill-formed. **This extension adds no exception to that rule**, and a design needing one should be read as a sign the parameter is in the wrong position.
 
 The asynchronous form is then a name rather than a second declaration:
 
 ```js
+type AsyncIterator<T, R = void, N = void> = Iterator<T, R, N, Promise>;
 type AsyncIterator<T, R = void, N = void> = Iterator.<T, R, N, Promise>;
 ```
 
-which keeps ```AsyncIterator.<uint8>``` writable while the members it describes are declared once. The duplication this extension removes is of *content*, not of names — names are cheap, and a reader looking for ```AsyncIterator``` should find it.
+which keeps ```AsyncIterator.<uint8>``` writable while the members it describes are declared once. The duplication this extension removes is of *content*, not of names â€” names are cheap, and a reader looking for ```AsyncIterator``` should find it.
 
 ## Constraints
 
@@ -121,13 +122,13 @@ function collect<W<_>, T>(it: Iterator.<W, T>): [].<T>
   where W.<T> is Iterable.<T> {}
 ```
 
-What may not be written is a constraint quantified over every argument — "any ```W``` such that ```W.<X>``` is ```Ordered<X>``` for every ```X```". That is refused, and the reason is not that it is hard.
+What may not be written is a constraint quantified over every argument â€” "any ```W``` such that ```W.<X>``` is ```Ordered<X>``` for every ```X```". That is refused, and the reason is not that it is hard.
 
-Type-level evaluation in this design is **metered**: a budget of evaluation steps and constructed types bounds every type-position evaluation, and exhausting it fails compilation rather than hanging. A budget bounds a *computation* — it stops and reports. A quantified constraint is not a computation but a *search* over every type that could be supplied, and a budget that truncates a search yields a **wrong answer** rather than no answer: whether the constraint held would depend on how much budget was left when the search stopped. That turns a limit on time into a bug in meaning, which is why the refusal is a rule and not a caution.
+Type-level evaluation in this design is **metered**: a budget of evaluation steps and constructed types bounds every type-position evaluation, and exhausting it fails compilation rather than hanging. A budget bounds a *computation* â€” it stops and reports. A quantified constraint is not a computation but a *search* over every type that could be supplied, and a budget that truncates a search yields a **wrong answer** rather than no answer: whether the constraint held would depend on how much budget was left when the search stopped. That turns a limit on time into a bug in meaning, which is why the refusal is a rule and not a caution.
 
 ## Variance
 
-A higher-kinded parameter carries the same variance annotations a first-order one may, meaning the same thing at the applied form, and is **invariant** where it carries none — the same default and the same reasoning as [generics](generics.md).
+A higher-kinded parameter carries the same variance annotations a first-order one may, meaning the same thing at the applied form, and is **invariant** where it carries none â€” the same default and the same reasoning as [generics](generics.md).
 
 ```js
 class Shape {} class Circle extends Shape {}
@@ -141,7 +142,7 @@ The wrapper parameter is invariant on the same terms: an ```Iterator.<Identity, 
 
 A higher-kinded parameter is **always supplied explicitly**. It is never inferred from an argument, and this is a decision rather than an unimplemented case.
 
-Inferring ```W``` and ```T``` together from one argument means searching for a decomposition — given a ```Promise.<uint8>```, deciding whether ```W``` is ```Promise``` and ```T``` is ```uint8```, or ```W``` is ```Identity``` and ```T``` is the whole promise. Both are consistent. Choosing needs a search, and the argument of the previous section applies unchanged: this design meters computation and cannot meter a search without making the answer depend on the budget.
+Inferring ```W``` and ```T``` together from one argument means searching for a decomposition â€” given a ```Promise.<uint8>```, deciding whether ```W``` is ```Promise``` and ```T``` is ```uint8```, or ```W``` is ```Identity``` and ```T``` is the whole promise. Both are consistent. Choosing needs a search, and the argument of the previous section applies unchanged: this design meters computation and cannot meter a search without making the answer depend on the budget.
 
 Every language that infers higher-kinded parameters pays for it in checking time, and the languages that decline are declining this. Explicit application costs a reader one type argument at the call site and buys a checker that always terminates with the same answer.
 

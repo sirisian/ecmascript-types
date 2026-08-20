@@ -9,9 +9,9 @@ const size: uint8 = width
   |> clamp(%, 0, 255);
 ```
 
-Written without it, that is either nested — `clamp(Math.round(width * devicePixelRatio), 0, 255)` — which reads inside out, or a chain of temporaries whose names exist only to be read once. Method chaining reads correctly but is available only when the operations happen to be methods of the value, which is why `map` and `filter` compose and `Math.round` and `clamp` do not.
+Written without it, that is either nested â€” `clamp(Math.round(width * devicePixelRatio), 0, 255)` â€” which reads inside out, or a chain of temporaries whose names exist only to be read once. Method chaining reads correctly but is available only when the operations happen to be methods of the value, which is why `map` and `filter` compose and `Math.round` and `clamp` do not.
 
-This document does three things. It records what a type system changes about the proposal's longest-running argument, because the answer is not the one an erased language has to give. It states the type of the topic and the handful of rules that follow from it. And it says what a pipeline does *not* do — the two refusals matter more than any of the rules, because both are things a reader will otherwise assume.
+This document does three things. It records what a type system changes about the proposal's longest-running argument, because the answer is not the one an erased language has to give. It states the type of the topic and the handful of rules that follow from it. And it says what a pipeline does *not* do â€” the two refusals matter more than any of the rules, because both are things a reader will otherwise assume.
 
 ## The Expression
 
@@ -25,7 +25,7 @@ value |> % + 1            // nor an argument at all
 value |> [%, %]           // it may appear more than once
 ```
 
-The topic is a binding, not a textual substitution. It is evaluated once however many times it appears, so `expensive() |> [%, %]` calls `expensive` once, and it is **immutable** — `value |> (% = 1)` is an error, because a pipeline step that reassigns the thing being piped is a step whose input the next step cannot predict.
+The topic is a binding, not a textual substitution. It is evaluated once however many times it appears, so `expensive() |> [%, %]` calls `expensive` once, and it is **immutable** â€” `value |> (% = 1)` is an error, because a pipeline step that reassigns the thing being piped is a step whose input the next step cannot predict.
 
 ```%``` is meaningful only inside a pipeline's right operand. Outside one it is the remainder operator and nothing else, and a bare ```%``` where no pipeline encloses it is a syntax error rather than a reference to something.
 
@@ -33,13 +33,13 @@ A nested pipeline rebinds it. In `a |> f(b |> g(%))`, the ```%``` inside `g` is 
 
 ## Why the Topic Is Explicit
 
-The proposal's longest argument is between this form, where a step names its input, and the tacit form — `x |> f`, calling `f` with the value and no placeholder — which reads better in the case where the step is exactly a unary call and cannot express any other case.
+The proposal's longest argument is between this form, where a step names its input, and the tacit form â€” `x |> f`, calling `f` with the value and no placeholder â€” which reads better in the case where the step is exactly a unary call and cannot express any other case.
 
 The case against tacit calls in JavaScript has always rested on the language not knowing what a function expects. `x |> f` where `f` takes two parameters is a call with one, silently, and the failure arrives somewhere else. `await` and `yield` have no tacit form at all, so a pipeline containing one needs a placeholder anyway. And making the tacit form useful in general needs partial application, which is a second proposal.
 
 **A typed language answers the first of those.** A function here has a declared signature: `x |> f` could be checked, the topic tested against the first parameter, and a signature requiring more arguments than the pipe supplies rejected at the pipe rather than at the eventual call. That is worth stating because the argument against tacit calls is usually made as though it were about JavaScript rather than about erasure, and here it is about erasure. The other two objections survive: `await` is not a function, and no amount of type information makes `x |> await` mean anything.
 
-So the explicit topic is the right form, and the reason is narrower than it is usually given. It is not that a tacit call cannot be checked — it can be, here. It is that a tacit call cannot express the steps that are not calls, and a pipeline whose steps are sometimes tacit and sometimes not is two features wearing one operator.
+So the explicit topic is the right form, and the reason is narrower than it is usually given. It is not that a tacit call cannot be checked â€” it can be, here. It is that a tacit call cannot express the steps that are not calls, and a pipeline whose steps are sometimes tacit and sometimes not is two features wearing one operator.
 
 ## The Token
 
@@ -50,12 +50,12 @@ An expression language with operator overloading has fewer free tokens than one 
 | Token | Spent on |
 |---|---|
 | ```#``` | private fields |
-| ```?``` | optional chaining, and optional parameters and members — ```a?: T``` |
+| ```?``` | optional chaining, and optional parameters and members â€” ```a?: T``` |
 | ```@``` | decorators, in about twenty positions rather than the base proposal's five |
 | ```_``` | the [pattern matching](patternmatching.md) wildcard |
 | ```%```, ```^``` | binary operators a class or a primitive may **declare** |
 
-The last row is the one that matters. ```%``` parses unambiguously — a nullary ```%``` sits where an operand is expected and a binary one between two operands, and a declared `operator %` supplies a meaning for the binary form without ever supplying a new arity. What suffers is reading, in the one case where both appear together:
+The last row is the one that matters. ```%``` parses unambiguously â€” a nullary ```%``` sits where an operand is expected and a binary one between two operands, and a declared `operator %` supplies a meaning for the binary form without ever supplying a new arity. What suffers is reading, in the one case where both appear together:
 
 ```js
 total |> compute(% % divisor)   // topic, then a remainder that a type may have redefined
@@ -67,7 +67,7 @@ That is legal and it is not good. It is also rare enough to be a reason to revis
 
 ## The Type of the Topic
 
-The topic has the type of the left operand, and it is a binding in every sense the type system cares about — scoped to the right operand, immutable, shadowed by an inner pipeline.
+The topic has the type of the left operand, and it is a binding in every sense the type system cares about â€” scoped to the right operand, immutable, shadowed by an inner pipeline.
 
 ```js
 const n: uint32 = xs.length |> % * 2;   // % is uint32; the pipeline is uint32
@@ -130,7 +130,7 @@ Three things that are ordinary once said and confusing if left unsaid, because a
 
 **Overloads resolve on the topic's type.** `x |> f(%)` chooses among `f`'s signatures by what the topic is, the same as any argument. **Generic parameters infer through it**, so `x |> identity(%)` takes its parameter from the topic and `x |> f.<uint8>(%)` supplies it explicitly. And the topic goes wherever an expression goes, including a spread or a [rest position](README.md): `xs |> f(...%)` spreads it, and `x |> f(a, %, ...rest)` places it among the arguments the rest assignment then distributes.
 
-Two smaller confirmations. A step that diverges makes the pipeline `never` — a call returning `never`, or a `throw` in a step once throw expressions exist — by the same divergence analysis a `switch` and a `match` use. And a pipeline is compile-time evaluable exactly when its operands are, so it may appear inside a [type builder](typeprogramming.md) on the same terms as any other expression; it introduces a binding and substitutes, and reads nothing the surrounding code could not.
+Two smaller confirmations. A step that diverges makes the pipeline `never` â€” a call returning `never`, or a `throw` in a step once throw expressions exist â€” by the same divergence analysis a `switch` and a `match` use. And a pipeline is compile-time evaluable exactly when its operands are, so it may appear inside a [type builder](typeprogramming.md) on the same terms as any other expression; it introduces a binding and substitutes, and reads nothing the surrounding code could not.
 
 ## What It Composes With
 
@@ -148,9 +148,9 @@ const label: string = response
 
 The subject is the topic, the arms narrow it, and the `match` is exhaustive or it is an error. Written without the pipe this is a `match` whose subject is a nested call, or three temporaries; written with a ternary, which is how it is usually written today, it is neither exhaustive nor readable.
 
-**`do` expressions**, for a step that needs statements. `x |> do { … }` is a step whose value is the block's completion value, so a step that needs a temporary or a `try` does not have to become a function.
+**`do` expressions**, for a step that needs statements. `x |> do { â€¦ }` is a step whose value is the block's completion value, so a step that needs a temporary or a `try` does not have to become a function.
 
-**Errors.** A pipeline over a value that is either a success or a failure is the pattern the pipe proposal calls railway-oriented, and its own issue tracker records as far-future because JavaScript lacks the pieces. Some of those pieces are here: [typed `catch`](errorhandling.md) filters by type, `match` discriminates a result without a library, and `do` gives a step statements. What is not here is a pipe that *knows* about the failure track — `value |maybe> f(%)` — and this document does not propose one. It is worth knowing how much of the distance is already covered.
+**Errors.** A pipeline over a value that is either a success or a failure is the pattern the pipe proposal calls railway-oriented, and its own issue tracker records as far-future because JavaScript lacks the pieces. Some of those pieces are here: [typed `catch`](errorhandling.md) filters by type, `match` discriminates a result without a library, and `do` gives a step statements. What is not here is a pipe that *knows* about the failure track â€” `value |maybe> f(%)` â€” and this document does not propose one. It is worth knowing how much of the distance is already covered.
 
 **Ranges and the numeric types.** `x |> clamp(%, 0..=255)` and `n |> Math.mod(%, len)` are the small everyday case, and they are where the contextual type matters most, since the literals in a step should be the type the step expects rather than Numbers that happen to fit.
 
