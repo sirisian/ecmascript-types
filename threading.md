@@ -22,7 +22,7 @@ a; // 15
 
 Its signature places an optional options bag before the forwarded arguments:
 
-```js
+```ts
 // On any function; Return is the function's own return type.
 callThread(options?: { signal?: AbortSignal }, ...args): Promise.<Return, any>;
 ```

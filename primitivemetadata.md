@@ -33,7 +33,7 @@ const a: float32.<{ part: 1 }> = 1;
 The metadata protocol defines how a primitive with a metadata type propagates through the language at compile time and runtime. This protocol is defined in meta blocks that define the semantic hooks for a metadata type. All hooks are pure functions that can be evaluated at both compile time and runtime.
 
 ```js
-meta T {
+interface MetaProtocol<T> {
 	// Required: the "unconstrained" / "not specified" value.
 	// Used when a value has no fields belonging to this meta type.
 	default: T;
@@ -45,7 +45,7 @@ meta T {
 
 	// Optional: does a concrete value satisfy the constraint?
 	// Used for runtime validation when subtype() can't prove compatibility at compile time. Also used by type constructors.
-	validate?(value: primitive, constraint: T): boolean;
+	validate?(value: any, constraint: T): boolean;
 
 	// Optional: single-branch control flow narrowing.
 	// Called by the compiler when it encounters a comparison in an if/while/ternary condition.
@@ -54,7 +54,7 @@ meta T {
 	// >   to  <=
 	// ==  to  !=
 	// Returns only meaningful fields, absence means unconstrained.
-	narrow?(current: T, op: string, value: primitive): T;
+	narrow?(current: T, op: string, value: any): T;
 
 	// Optional: linear conversion between two subtype-compatible parameterizations of this meta type. Returns the factor the value is multiplied by when converting `from` to `to`. Applied at assignment boundaries, including operator parameters (see composition rules).
 	conversionFactor?(from: T, to: T): float64;
@@ -63,7 +63,7 @@ meta T {
 	rescale?(constraint: T, factor: float64): T;
 
 	// Optional: map a value onto the representation this constraint requires, such as rounding a decimal to a fixed scale. Applied at assignment, argument, and return boundaries after `subtype` passes and after any `conversionFactor` scaling, so intermediate results within an expression keep full precision.
-	quantize?(value: primitive, constraint: T): primitive;
+	quantize?(value: any, constraint: T): any;
 
 	// Optional: human-readable description for error messages.
 	describe?(constraint: T): string;
@@ -91,9 +91,9 @@ interface MetaProtocol<T> {
 type NumberBounds<T: Ordered.<T>> = { bounds?: RangeBounds.<T>, nonZero?: boolean };
 
 meta NumberBounds<T: Ordered.<T>> {
-	default: NumberBounds.<T>;
-	subtype(sub: NumberBounds.<T>, sup: NumberBounds.<T>): boolean;
-	validate?(value: T, constraint: NumberBounds.<T>): boolean;
+	default = {};
+	subtype(sub: NumberBounds.<T>, sup: NumberBounds.<T>): boolean { /* … */ return true; }
+	validate(value: T, constraint: NumberBounds.<T>): boolean { /* … */ return true; }
 	// ... and so on for each hook, with `T` where `primitive` stood
 }
 ```

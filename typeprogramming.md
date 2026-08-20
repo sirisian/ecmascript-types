@@ -153,7 +153,7 @@ Two small conveniences round this out. Type objects get a canonical `toString` (
 
 Identity is already solved by interning: `A === B` is structural equality (nominal for classes and enums), which single-handedly replaces one of TypeScript's ugliest idioms (§4.8). The missing relation is the checker's assignability judgment as a callable, evaluable predicate:
 
-```js
+```ts
 Reflect.isAssignable(source: type, target: type): boolean;
 ```
 

@@ -32,9 +32,9 @@ The larger deduplication here is not this feature's. Abstracting over the member
 
 A parameter is higher-kinded when its own parameter list is written with holes:
 
-```js
+```ts
 interface Iterator<W<_>, T, R = void, N = void> {
-  next(value?: N): W.<IteratorResult<T, R>>;
+  next(value?: N): W.<IteratorResult.<T, R>>;
 }
 ```
 
