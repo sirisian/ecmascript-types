@@ -107,7 +107,6 @@ Putting it last is not a style preference — it is what the ordinary rule requi
 The asynchronous form is then a name rather than a second declaration:
 
 ```js
-type AsyncIterator<T, R = void, N = void> = Iterator<T, R, N, Promise>;
 type AsyncIterator<T, R = void, N = void> = Iterator.<T, R, N, Promise>;
 ```
 
