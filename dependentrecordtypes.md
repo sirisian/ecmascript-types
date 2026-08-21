@@ -1,5 +1,19 @@
 # Dependent Record Types
 
+> **This document describes an EXTENSION.** The `where` clause it uses - a
+> predicate over a record's own fields, as `} where this.country == 'US' { … }` -
+> is not part of the core specification, which places it with "the dependent
+> record type extension, checked at the boundaries `#table-check-sites`
+> enumerates rather than at specialization" and lists it among "the obligations
+> this specification has incurred outward, not a specification of the extensions
+> themselves". An engine implementing only the core will refuse these examples,
+> and that refusal is correct rather than a defect.
+>
+> The two `where` forms the core DOES specify - a compile-time bound over generic
+> parameters, and a contract naming `return` - are unrelated to this one beyond
+> sharing the keyword: they are checked at specialization and at evaluation
+> respectively, and a shared keyword is not a shared rule.
+
 In addition to [primitive metadata](https://github.com/sirisian/ecmascript-types/blob/master/primitivemetadata.md) it's possible to have minimal syntax to define dependent record types and further improve refinement typing. Taken from JSON Schema the goal is to support dependentRequired, dependentSchemas, and if/then/else. Consider the following examples:
 
 ```js

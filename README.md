@@ -3160,7 +3160,7 @@ Level.Low < Level.High; // true, by underlying value
 enum Unit: string { Nanosecond = 'nanosecond', Microsecond = 'microsecond', Second = 'second', Minute = 'minute', Hour = 'hour', Day = 'day' };
 Unit.Second < Unit.Hour; // true, by declaration order — not the strings, where 'hour' < 'second'
 
-function total<U: Unit>(unit: U): float64 where U <= Unit.Hour; // Fixed time units only
+function total<U: Unit>(unit: U): float64 where U <= Unit.Hour { return 0; } // Fixed time units only
 ```
 
 An enumeration over an unordered type, such as one of functions or symbols, supports only ```==``` and ```!=```.

@@ -239,7 +239,7 @@ class Pcg32State {
 } where this.inc % 2 == 1;
 ```
 
-The class-level ```where``` clause is checked at the construction and restore boundaries, following the placement rule in [dependent record types](dependentrecordtypes.md).
+The class-level ```where``` clause is from the [dependent record types](dependentrecordtypes.md) extension rather than the core specification, so an engine implementing only the core refuses it. It is checked at the construction and restore boundaries, following the placement rule in [dependent record types](dependentrecordtypes.md).
 
 An unknown method name, a state length that doesn't match the named method, or a version this implementation doesn't know are each a ```TypeError```: the bytes are not a state of the kind they claim to be.
 

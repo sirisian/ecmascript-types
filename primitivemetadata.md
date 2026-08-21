@@ -1480,7 +1480,7 @@ function cross<D: Dimensions, D2: Dimensions>(
 // sqrt(m**2/s**2) = m/s, Valid (2/2 = 1, -2/2 = -1)
 // sqrt(m) = ???, Invalid (1/2 not int32)
 function Math.sqrt<D: Dimensions>(x: float32.<D>): float32.<halveDimensions(D)>
-	where evenDimensions(D);
+	where evenDimensions(D) { /* … */ return x; }
 
 // Propagate Dimensions metadata
 function Math.hypot<D: Dimensions>(...args: [].<float32.<D>>): float32.<D>;
