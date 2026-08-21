@@ -3,7 +3,7 @@
 Markup and control flow written as a captured region, compiled by a replacement decorator into calls on a reactive runtime before the program is checked. The engine knows nothing about JSX: the macro reads its own syntax and delegates only the ranges that are ECMAScript.
 
 ```js
-import { jsx } from "./jsx.js" with { preprocessor: "true" };
+import jsx from "./jsx.js" with { preprocessor: "true" };
 
 const Inventory = ({ items, character, showEmpty }) => @jsx {
   const visible = items.filter((i) => i.qty > 0);
@@ -663,7 +663,7 @@ class Out {
 // no grammar to name, because there is no grammar in the engine to name.
 jsx.capture = true;
 
-export { jsx };
+export default jsx;
 ```
 
 ## The Demo
@@ -689,7 +689,7 @@ The second snippet, run as a MODULE. Runtime, the view as written, and a driver.
 // whatever your devtools calls the jsx.js snippet and nothing else is needed.
 // =============================================================================
 
-import { jsx } from "./jsx.js" with { preprocessor: "true" };
+import jsx from "./jsx.js" with { preprocessor: "true" };
 
 // -----------------------------------------------------------------------------
 // 1. SIGNALS
