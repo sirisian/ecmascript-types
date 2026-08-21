@@ -147,7 +147,7 @@ Notes on the additions:
 - **`readonly`, `initial`, `indexSignatures`** exist in the type grammar (readonly fields, `a?: T = []` optional defaults, `[T, U = d]` trailing tuple defaults, index signatures) and merely weren't surfaced. The same completion pass adds `rest: boolean` to `FunctionParameterReflection` — a rest parameter is currently indistinguishable from a plain one, which `parameters` (§4.3) needs — and `optional` and `thisType` (to `FunctionParameterReflection` and `FunctionSignatureReflection` respectively), without which optional-parameter builders and `withThisType`/`thisParameterType` (§4.5) have nothing to read or write. Construct signatures need no context of their own: the constructor is the method named `'constructor'`, so `Reflect.ClassMethod` returns its overload list and `Reflect.ClassMethodParameter` its parameters, which is how [decorators.md](decorators.md)'s dependency-injection example reads them. Without `readonly` in the node, `Readonly`/`Mutable` builders are unwritable and every mapped builder would silently strip the flag — the completeness of this record is exactly what makes builders homomorphic by default (§4.2).
 - Constructed nodes never contain `reference` nodes; cycles in *construction* come from the fixpoint mechanism in §3.4, and `reference` remains what a *reader* sees when walking an already-cyclic type.
 
-Two small conveniences round this out. Type objects get a canonical `toString` (the canonical source form — `String(type 'a' | 'b')` is `"'a' | 'b'"`), because builders throwing authored `TypeError`s need to print types. And `Reflect.never` names the empty union (§3.3) so kit code doesn't spell it as a construction.
+Two small conveniences round this out. Type objects get a canonical `toString` (the canonical source form — `String(type 'a' | 'b')` is `"'a' | 'b'"`), because builders throwing authored `TypeError`s need to print types. And `type never` names the empty union (§3.3) so kit code doesn't spell it as a construction.
 
 ### 3.2 Relations: identity and assignability
 
@@ -161,7 +161,7 @@ This is the same coinductive judgment the checker runs on every assignment, expo
 
 ### 3.3 `never` as a real, computable type
 
-The empty union is admitted as a type object: `Reflect.makeType({ kind: 'union', arms: [] })` returns it, `Reflect.never` names it, and canonicalization gives it the algebra the utility library needs — it is the identity of union (`union([T, never]) === T`), it annihilates intersection, it is assignable to every type, and no value inhabits it. The checker already has this type internally (divergence satisfies any return type by producing it), so this is a naming decision plus one question the main proposal must answer: whether `never` becomes *writable* in annotations, or remains reachable only by computation. Since a computed type is a valid annotation, builders make it writable indirectly anyway (`let x: exclude(T, T)` would be legal and uninhabitable); the recommendation (§7, R3) is to admit it openly with the standard meaning rather than pretend otherwise, while keeping the existing stance that `switch` exhaustiveness stays reserved to enums and sealed classes.
+The empty union is admitted as a type object: `Reflect.makeType({ kind: 'union', arms: [] })` returns it, `type never` names it, and canonicalization gives it the algebra the utility library needs — it is the identity of union (`union([T, never]) === T`), it annihilates intersection, it is assignable to every type, and no value inhabits it. The checker already has this type internally (divergence satisfies any return type by producing it), so this is a naming decision plus one question the main proposal must answer: whether `never` becomes *writable* in annotations, or remains reachable only by computation. Since a computed type is a valid annotation, builders make it writable indirectly anyway (`let x: exclude(T, T)` would be legal and uninhabitable); the recommendation (§7, R3) is to admit it openly with the standard meaning rather than pretend otherwise, while keeping the existing stance that `switch` exhaustiveness stays reserved to enums and sealed classes.
 
 ### 3.4 Evaluation semantics
 
@@ -184,16 +184,16 @@ The empty union is admitted as a type object: `Reflect.makeType({ kind: 'union',
 Everywhere a type may: variable and field annotations, parameter and return types, generic argument lists (`Map.<string, partial(User)>`), the right side of `is` and `as`, alias declarations (`type Draft = partial(User)`), and — the one placement that needs a sentence of new specification — **generic constraints**. A constraint may be a compile-time call over *earlier* parameters in the same list, evaluated left to right:
 
 ```js
-function pluck<T, K: keysOf(T)>(o: T, key: K): indexed(T, K) {
+function pluck<T, K: keyof T>(o: T, key: K): indexed(T, K) {
   return o[key];
 }
 ```
 
-`keysOf(T)` evaluates once `T` is bound (inferred from `o`), and the resulting union-of-literals constraint does double duty: it checks `key`, and it drives *literal inference* for `K` — an argument `'name'` binds `K` to the literal type `'name'` rather than widening to `string`, exactly as `K extends keyof T` cues TypeScript to keep the literal. That inference rule (a parameter constrained to a union of literals infers literally) is recommendation R5 and is the only inference change builders ask for.
+`keyof T` evaluates once `T` is bound (inferred from `o`), and the resulting union-of-literals constraint does double duty: it checks `key`, and it drives *literal inference* for `K` — an argument `'name'` binds `K` to the literal type `'name'` rather than widening to `string`, exactly as `K extends keyof T` cues TypeScript to keep the literal. That inference rule (a parameter constrained to a union of literals infers literally) is recommendation R5 and is the only inference change builders ask for.
 
 ### 3.6 The standard kit ships as JavaScript
 
-Everything in §4 is written against `Reflect.makeType`, `Reflect.getReflection.<Reflect.Type>`, `Reflect.isAssignable`, and `Reflect.never` — no construct below is engine magic. That is the point: the entire TypeScript utility library, plus the mapped/conditional/template machinery it is built from, lands as roughly two hundred lines of ordinary evaluable JavaScript. The recommendation (R6) is to ship those two hundred lines as a standard module (spelled `import { partial, pick, keysOf, ... } from 'std:types';` below, final home to be decided with [standardlibrary.md](standardlibrary.md)) so the ecosystem shares one interned vocabulary, but nothing prevents user-space from writing every one of them today — which is also the compatibility story: a codebase can polyfill the kit itself.
+Everything in §4 is written against `Reflect.makeType`, `Reflect.getReflection.<Reflect.Type>`, `Reflect.isAssignable`, and `type never` — no construct below is engine magic. That is the point: the entire TypeScript utility library, plus the mapped/conditional/template machinery it is built from, lands as roughly two hundred lines of ordinary evaluable JavaScript. The recommendation (R6) is to ship those two hundred lines as a standard module (spelled `import { partial, pick, indexed, ... } from 'std:types';` below, final home to be decided with [standardlibrary.md](standardlibrary.md)) so the ecosystem shares one interned vocabulary, but nothing prevents user-space from writing every one of them today — which is also the compatibility story: a codebase can polyfill the kit itself.
 
 ## 4. The catalog
 
@@ -207,7 +207,6 @@ Fifteen lines of helpers the rest of the catalog reuses. This is the bottom of t
 export function reflect(T: type): Reflect.TypeReflection {
   return Reflect.getReflection.<Reflect.Type>(T);
 }
-export const never: type = Reflect.never;
 
 export function literal(value: string | number | boolean | bigint): type {
   return Reflect.makeType({ kind: 'literal', value, base: Reflect.typeOf(value) });
@@ -325,43 +324,8 @@ type Common = keyof (A | B);                   // keyof A & keyof B
 declare function pluck<T, K extends keyof T>(o: T, key: K): T[K];
 ```
 
-```js
-// Builder
-export function keysOf(T: type): type {
-  const node = reflect(T);
-  switch (node.kind) {
-    case 'object':       return union([
-      ...node.properties.map(p => literal(p.name)),                     // string and symbol keys alike (§6.6)
-      ...node.indexSignatures.map(s => s.key),   // keyof { [key: string]: T } includes string itself
-    ]);
-    case 'intersection': return union(node.members.map(keysOf));
-    case 'union': {                                // common keys: intersect the per-arm key unions
-      const keyUnions = node.arms.map(keysOf);
-      if (keyUnions.length === 0) return union([]);              // keyof never: state the empty case, as union's [] -> never does
-      return keyUnions.reduce((acc, next) => extract(acc, next)); // extract (§4.3): keeps 'x' against 'x', and 'x' against string
-    }
-    default: throw new TypeError(`keysOf: ${String(T)} has no keys`);
-  }
-}
 
-export function indexed(T: type, K: type): type {   // TypeScript's T[K]
-  return union(arms(T).flatMap(t => {
-    const node = reflect(t);
-    return literalValues(K).map(key => {
-      const p = node.properties.find(p => p.name === key);
-      if (!p) throw new TypeError(`${String(t)} has no property '${String(key)}'`);
-      return p.optional ? union([p.type, type undefined]) : p.type;  // policy: optional access admits undefined
-    });
-  }));
-}
-
-function pluck<T, K: keysOf(T)>(o: T, key: K): indexed(T, K) {
-  return o[key];
-}
-const name = pluck(user, 'name'); // K = 'name' (literal inference via the computed constraint, §3.5)
-```
-
-Two things worth noticing. The `undefined`-on-optional-access decision that TypeScript gates behind a compiler flag is a one-line, readable *policy choice* inside `indexed`, and a codebase that wants the other policy writes the other line. And symbol keys: property records carry `name: string | symbol`, so `pick`/`omit`/`mapProperties` handle symbol-keyed members by identity, and since §6.6 admits symbol literal types, `keysOf` mints a literal type for a symbol key like any other, so symbol keys appear in `keyof`-style unions too. The definition above folds index-signature *key types* in wholesale, mirroring TypeScript's `keyof { [k: string]: T } = string`.
+Two things worth noticing. The `undefined`-on-optional-access decision that TypeScript gates behind a compiler flag is a one-line, readable *policy choice* inside `indexed`, and a codebase that wants the other policy writes the other line. And symbol keys: property records carry `name: string | symbol`, so `pick`/`omit`/`mapProperties` handle symbol-keyed members by identity, and since §6.6 admits symbol literal types, `keyof` mints a literal type for a symbol key like any other, so symbol keys appear in `keyof`-style unions too. The definition above folds index-signature *key types* in wholesale, mirroring TypeScript's `keyof { [k: string]: T } = string`.
 
 `typeof x` needs no builder: types are values, so `Reflect.typeOf(x)` in type position is the type query, and for a binding whose declared type you want without a value, the declared name itself is already the type object.
 
@@ -409,7 +373,7 @@ type Scores     = Record<string, uint32>;
 // Builder
 export function pick(T: type, K: type | [].<string | symbol>): type {
   const wanted = new Set(Array.isArray(K) ? K : literalValues(K));
-  const have = new Set(literalValues(keysOf(T))); // union/intersection-safe key set (§4.1)
+  const have = new Set(literalValues(type keyof T)); // union/intersection-safe key set (§4.1)
   for (const key of wanted) if (!have.has(key))
     throw new TypeError(`pick: ${String(T)} has no property '${String(key)}'`); // TS: an opaque constraint failure
   return mapProperties(T, p => wanted.has(p.name) ? p : null);
@@ -954,7 +918,7 @@ The comparison table marks several TypeScript constructs **obviated**; the build
 
 | TypeScript construct | Status under builders | Where |
 |---|---|---|
-| `keyof T` | built-in already; `keysOf` for computed operands | §4.1 |
+| `keyof T` | built-in already; `type keyof T` for a value-position result | §4.1 |
 | `typeof x` | `Reflect.typeOf` (existing) | §4.1 |
 | Indexed access `T[K]` | `indexed(T, K)` | §4.1 |
 | Mapped types, modifiers `±?`/`±readonly` | `mapProperties` + record edits | §4.2 |
@@ -1058,7 +1022,7 @@ Builders construct *structural* types. They cannot declare a class, an enum, or 
 
 ### 5.6 Symbol keys in computed key sets
 
-Property records carry symbol names, so shape transformations handle them, and §6.6 admits symbol literal types, so `keysOf`-style unions include them too; the comparison table's `unique symbol` row closes with it. Severity: zero.
+Property records carry symbol names, so shape transformations handle them, and §6.6 admits symbol literal types, so `keyof`-style unions include them too; the comparison table's `unique symbol` row closes with it. Severity: zero.
 
 ### 5.7 Termination, resources, and supply-chain exposure
 
@@ -1248,7 +1212,7 @@ Unlike TypeScript's `unique symbol` intersection trick, the brand is not a lie t
 
 ### 6.6 Symbol literal types — adopt them
 
-The clean resolution to §5.6 is to stop treating it as open: admit `symbol` into the literal kind (`{ kind: 'literal', value: symbol, base: symbol }`), identity-compared like every other literal value. `keysOf` becomes total over symbol-keyed shapes, `pick`/`omit` accept symbol keys through the same overloads, and the comparison table's `unique symbol` row closes — a declared `const s = Symbol()` used in type position *is* the unique symbol type, without a keyword. Two consequences to specify rather than discover: canonical ordering (symbols sort after strings, by first-interning order within the agent — stable per session, which is all interning needs), and serialization (`Symbol.for` keys round-trip through the wire format by key; a type mentioning a unique symbol is agent-local, and the serializer says so by naming the symbol rather than failing opaquely).
+The clean resolution to §5.6 is to stop treating it as open: admit `symbol` into the literal kind (`{ kind: 'literal', value: symbol, base: symbol }`), identity-compared like every other literal value. `keyof` becomes total over symbol-keyed shapes, `pick`/`omit` accept symbol keys through the same overloads, and the comparison table's `unique symbol` row closes — a declared `const s = Symbol()` used in type position *is* the unique symbol type, without a keyword. Two consequences to specify rather than discover: canonical ordering (symbols sort after strings, by first-interning order within the agent — stable per session, which is all interning needs), and serialization (`Symbol.for` keys round-trip through the wire format by key; a type mentioning a unique symbol is agent-local, and the serializer says so by naming the symbol rather than failing opaquely).
 
 ### 6.7 Budgets — one hard rule
 
@@ -1274,13 +1238,13 @@ The design that threads the needle is **provenance, not payload**: property reco
 
 **R2 — Expose assignability: `Reflect.isAssignable(source, target)`.** The existing coinductive judgment as an evaluable predicate. With interned `===` already covering identity, this completes the relations builders branch on.
 
-**R3 — Admit `never`.** The empty union as a real, interned type object named `Reflect.never`, with the standard algebra (identity of union, annihilator of intersection, assignable to all, uninhabited), writable in annotations for honesty since computation makes it reachable regardless. Explicitly preserve the rule that `switch` exhaustiveness remains reserved to enums and sealed classes.
+**R3 — Admit `never`.** The empty union as a real, interned type object named `never`, reached in expression position as `type never`, with the standard algebra (identity of union, annihilator of intersection, assignable to all, uninhabited), writable in annotations for honesty since computation makes it reachable regardless. Explicitly preserve the rule that `switch` exhaustiveness remains reserved to enums and sealed classes.
 
 **R4 — Specify builder evaluation semantics.** In [typeobjects.md](typeobjects.md)'s compile-time type expression section: evaluation at specialization with *type* generic parameters named alongside value generics; memoization keyed on (function identity, SameValue/interned arguments); unevaluated applications carried as interned deferred types; the in-flight fixpoint with the unproductive-recursion `TypeError` and the reference-position validity check; the evaluation budget with spec'd defaults, host override, and attributed diagnostics; thrown exceptions surfacing as compile-time diagnostics prefixed by the originating type-position expression.
 
-**R5 — Computed constraints, and literal inference through them.** A generic constraint may be a compile-time expression over earlier parameters in its list (`<T, K: keysOf(T)>`), and a value or type parameter constrained to a union of literal types infers *literally* from its argument. This is the only inference rule builders request and it mirrors the cue `K extends keyof T` gives TypeScript.
+**R5 — Computed constraints, and literal inference through them.** A generic constraint may be a compile-time expression over earlier parameters in its list (`<T, K: keyof T>`), and a value or type parameter constrained to a union of literal types infers *literally* from its argument. This is the only inference rule builders request and it mirrors the cue `K extends keyof T` gives TypeScript.
 
-**R6 — Ship the kit as a standard module of plain evaluable JavaScript.** The §4 definitions — `keysOf`, `indexed`, `mapProperties`, `partial`, `required`, `readonly`, `mutable`, `pick`, `omit`, `record`, `exclude`, `extract`, `nonNullable`, `returnType`, `parameters`, `constructorParameters`, `awaited`, `flatten`, the tuple set, `mapLiterals` and the four case functions, `listeners`-style helpers, `deepPartial`, `paths`, `discriminants`/`byKind`/`handlers`, `mapUnion`, `compose`, `traverse`, the corpus-driven prelude of `tupleElements`/`elementTypes`/`intersection`/`genericApplication`/`propertyType`/`literalValue`/`mapPropertyTypes`/`mapElements` with `merge`, `renameProperties`, and `instanceType` (§4.0–§4.3), and §6's `noInfer`, `brand`, `stringPattern`, `options`, `thisParameterType`, and `omitThisParameter` — under a `std:types`-style specifier reconciled with [standardlibrary.md](standardlibrary.md). Shipping it *as source* is the dogfood proof that no construct is engine magic, gives the ecosystem one interned vocabulary, and doubles as the reference documentation for R1's API.
+**R6 — Ship the kit as a standard module of plain evaluable JavaScript.** The §4 definitions — `indexed`, `mapProperties`, `partial`, `required`, `readonly`, `mutable`, `pick`, `omit`, `record`, `exclude`, `extract`, `nonNullable`, `returnType`, `parameters`, `constructorParameters`, `awaited`, `flatten`, the tuple set, `mapLiterals` and the four case functions, `listeners`-style helpers, `deepPartial`, `paths`, `discriminants`/`byKind`/`handlers`, `mapUnion`, `compose`, `traverse`, the corpus-driven prelude of `tupleElements`/`elementTypes`/`intersection`/`genericApplication`/`propertyType`/`literalValue`/`mapPropertyTypes`/`mapElements` with `merge`, `renameProperties`, and `instanceType` (§4.0–§4.3), and §6's `noInfer`, `brand`, `stringPattern`, `options`, `thisParameterType`, and `omitThisParameter` — under a `std:types`-style specifier reconciled with [standardlibrary.md](standardlibrary.md). Shipping it *as source* is the dogfood proof that no construct is engine magic, gives the ecosystem one interned vocabulary, and doubles as the reference documentation for R1's API.
 
 **R7 — Route infinite string types to pattern metadata.** Specify a `StringPattern` meta type over the [regexp](regexp.md) extension: `validate` by matching; `subtype` conservative (syntactic containment for literal/class concatenations, reflexive otherwise), with the conservatism documented as intentional. Provide `suffixed`/`prefixed`-style kit builders. Do not add a structural template-literal type kind.
 
@@ -1300,7 +1264,7 @@ The design that threads the needle is **provenance, not payload**: property reco
 
 **R15 — Add declared, verified inverses, last and opt-in.** An `@inverse(fn)` decorator on the builder declaration — standalone functions are already decoratable with a `FunctionMetadata` slot in [decorators.md](decorators.md) — rather than any imperative registry: the association is part of the declaration, has one possible author, and cannot vary with module evaluation order. Consulted only after ordinary inference and R14 trials fail; the proposal is confirmed by forward evaluation and assignability before it binds, so an incorrect inverse can only fail inference, never mislead it. Multi-slot builders propose via a record keyed by parameter name, verified jointly. Adopt when `.d.ts` porting demonstrates need.
 
-**R16 — Admit symbol literal types.** `{ kind: 'literal', value: symbol, base: symbol }`, identity-compared; `keysOf` becomes total; the `unique symbol` comparison-table row closes. Specify canonical ordering (after strings, by first-interning order per agent) and serialization behavior (`Symbol.for` round-trips by key; unique-symbol types are agent-local with a named diagnostic). Supersedes the former open question.
+**R16 — Admit symbol literal types.** `{ kind: 'literal', value: symbol, base: symbol }`, identity-compared; `keyof` becomes total; the `unique symbol` comparison-table row closes. Specify canonical ordering (after strings, by first-interning order per agent) and serialization behavior (`Symbol.for` round-trips by key; unique-symbol types are agent-local with a named diagnostic). Supersedes the former open question.
 
 **R17 — Generalize `parameterized` to any base type, and ship `brand`.** Metadata parameterization over objects, classes, functions — not only primitives — with the default relation being the branding rule (parameterized-to-base free, base-to-parameterized only through the metadata boundary) and hooks able to admit more. Layout-transparent by specification: metadata never changes representation. The kit gains `brand(T, tag)` and `stringPattern(regex)`.
 
@@ -1332,7 +1296,7 @@ The design that threads the needle is **provenance, not payload**: property reco
 
 **`fn`'s parameter records.** §4.12 leaves the kit's function constructor taking bare parameter types, so the record fields (`rest`, `optional`, `initial`, names) and a signature's `thisType` are reachable only through `Reflect.makeType`. Widening `fn` to accept records and an options object is compatible and would retire the last common reason to hand-build a function node; the argument against is that two entry points for one node kind is exactly the kind of surface the catalog otherwise avoids. Decide with usage.
 
-**`keyof` in expression position.** `type keyof Point` works; should `keysOf` be spelled `keyof` uniformly (operator accepting a type-object operand) instead of shipping a kit function? Pure surface decision.
+**`keyof` in expression position — RESOLVED.** `type keyof Point` works, and it works over a type object held in a variable, so the operator reaches every position a kit function would have. `keyof` is therefore the only spelling and no `keysOf` ships: one name, and the primitive the kit would have been written over is the primitive programs write directly. Passing the operation itself as a value is the one uncovered case, and is the one-line `(t) => type keyof t`.
 
 **Metadata inside walks.** `deepPartial` over a field typed `float32.<{ m: 1 }>` currently passes the parameterization through untouched (a `parameterized` node hits the default arm). Confirm that is the wanted default and that meta types can veto structural edits where they must (e.g., a builder should not be able to strip `nonZero` from a type used as a divisor without the change being an ordinary — checked — assignability question, which it is).
 
