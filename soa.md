@@ -43,20 +43,20 @@ class SoA<T, Length: uint32 = 0> {
 	// same arguments. Fixed Length only:
 	//   SoA.<T, Length>(buffer: ArrayBuffer | SharedArrayBuffer | [].<any>, byteOffset: uint32 = 0)
 
-	get length(): uint32 { /* … */ return 0; }
+	get length(): uint32 { /* â€¦ */ return 0; }
 	get capacity(): uint32; // Growable arrays; the allocation backing every column
-	get byteLength(): uint32 { /* … */ return 0; }
-	get fields(): Fields.<T> { /* … */ return undefined; }
+	get byteLength(): uint32 { /* â€¦ */ return 0; }
+	get fields(): Fields.<T> { /* â€¦ */ return undefined; }
 
-	push(value: T): uint32 { /* … */ return 0; }
-	pop(): T | undefined { /* … */ return undefined; }
-	reserve(n: uint32): void { /* … */ } // Grow every column to hold at least n elements
-	fill(value: T): SoA.<T, Length> { /* … */ return undefined; }
+	push(value: T): uint32 { /* â€¦ */ return 0; }
+	pop(): T | undefined { /* â€¦ */ return undefined; }
+	reserve(n: uint32): void { /* â€¦ */ } // Grow every column to hold at least n elements
+	fill(value: T): SoA.<T, Length> { /* â€¦ */ return undefined; }
 	*operator...(): T;
 
-	static from<T>(values: [].<T>): SoA.<T> { /* … */ return undefined; }
+	static from<T>(values: [].<T>): SoA.<T> { /* â€¦ */ return undefined; }
 	static withCapacity<T>(n: uint32): SoA.<T>; // Empty, capacity >= n
-	toArray(): [].<T> { /* … */ return []; }
+	toArray(): [].<T> { /* â€¦ */ return []; }
 
 	static get elementByteLength(): uint32; // Per element, summed over the columns
 	static get alignment(): uint32;

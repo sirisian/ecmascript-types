@@ -78,10 +78,10 @@ const year = /(?<year>\d{4})/.exec(input)?.groups.year ?? '0000';
 
 ```js
 class String {
-	match<C extends [], G, F: string>(pattern: RegExp.<C, G, F>): F.includes('g') ? [].<string> | null : RegExpExecArray.<C, G, F> | null { /* … */ return undefined; }
-	matchAll<C extends [], G, F: string>(pattern: RegExp.<C, G, F>): Iterator.<RegExpExecArray.<C, G, F>> { /* … */ return undefined; }
-	search(pattern: RegExp): int32 { /* … */ return 0; }
-	split<C extends [], G>(pattern: RegExp.<C, G>, limit?: uint32): [].<string> { /* … */ return []; }
+	match<C extends [], G, F: string>(pattern: RegExp.<C, G, F>): F.includes('g') ? [].<string> | null : RegExpExecArray.<C, G, F> | null { /* â€¦ */ return undefined; }
+	matchAll<C extends [], G, F: string>(pattern: RegExp.<C, G, F>): Iterator.<RegExpExecArray.<C, G, F>> { /* â€¦ */ return undefined; }
+	search(pattern: RegExp): int32 { /* â€¦ */ return 0; }
+	split<C extends [], G>(pattern: RegExp.<C, G>, limit?: uint32): [].<string> { /* â€¦ */ return []; }
 }
 ```
 
