@@ -312,7 +312,7 @@ export function mapElements(T: type, f: (type) => type): type {        // the ho
 }
 ```
 
-### 4.1 The operators: `keyof`, `typeof`, indexed access
+### 4.1 The operators: `keyof` and indexed access
 
 `keyof` already exists as a built-in over syntactic type expressions. Builders need the same operation over a type object held in a variable, which is a four-line function rather than new syntax — and it doubles as the specification of what `keyof` means on unions and intersections (TypeScript: keys of a union are the *common* keys; keys of an intersection are the union of keys):
 
@@ -327,7 +327,15 @@ declare function pluck<T, K extends keyof T>(o: T, key: K): T[K];
 
 Two things worth noticing. The `undefined`-on-optional-access decision that TypeScript gates behind a compiler flag is a one-line, readable *policy choice* inside `indexed` — though for the `T[K]` SYNTAX it is now settled rather than choosable, since [sec-indexed-access-types](https://sirisian.github.io/proposal-runtime-types/#sec-indexed-access-types) states that reading an optional property yields the union with `undefined`. A codebase wanting the other policy writes its own builder and calls that; it cannot change what the operator means. And symbol keys: property records carry `name: string | symbol`, so `pick`/`omit`/`mapProperties` handle symbol-keyed members by identity, and since §6.6 admits symbol literal types, `keyof` mints a literal type for a symbol key like any other, so symbol keys appear in `keyof`-style unions too. The definition above folds index-signature *key types* in wholesale, mirroring TypeScript's `keyof { [k: string]: T } = string`.
 
-`typeof x` needs no builder: types are values, so `Reflect.typeOf(x)` in type position is the type query, and for a binding whose declared type you want without a value, the TYPE's name — not the binding's — is already the type object, since a binding that holds an ordinary value is not itself a type.
+TypeScript's third operator, `typeof x`, has **no counterpart here, and needs none.** It is not an operator of this proposal, and a bare `typeof` in a type position is a syntax error: JavaScript's `typeof` is untouched and still reports the underlying language type as a string. The three things it is reached for are each spelled directly:
+
+| what you want | how it is written |
+| --- | --- |
+| the type of a VALUE | `Reflect.typeOf(x)`, which works in a type position because types are values |
+| a type object from a TYPE, in expression position | `type uint8` — the `type` operator, e.g. `const T = type uint8;` |
+| the type a binding was declared with | the TYPE's name, not the binding's — a binding that holds an ordinary value is not itself a type |
+
+The last row is worth stating because the engine once admitted the other reading: a binding holding a typed value could be used as a type, so `const q: uint8 = 1; let v: q = 2;` resolved. It does not, and does not now: a type position names a type.
 
 ### 4.2 Mapped types
 
@@ -919,7 +927,7 @@ The comparison table marks several TypeScript constructs **obviated**; the build
 | TypeScript construct | Status under builders | Where |
 |---|---|---|
 | `keyof T` | built-in already; `type keyof T` for a value-position result | §4.1 |
-| `typeof x` | `Reflect.typeOf` (existing) | §4.1 |
+| `typeof x` | `Reflect.typeOf` (existing); no `typeof` type operator here | §4.1 |
 | Indexed access `T[K]` | native syntax, specified as `indexed(T, K)` | §4.1 |
 | Mapped types, modifiers `±?`/`±readonly` | `mapProperties` + record edits | §4.2 |
 | Key remapping (`as`, `as never` deletion) | computed `name`, `null` deletion | §4.2 |
