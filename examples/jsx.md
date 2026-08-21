@@ -109,7 +109,7 @@ The first snippet. It parses the region's tokens into a node tree and emits toke
 // instead of `@if`, or a different interpolation delimiter, changes this file
 // and nothing else.
 
-function jsx(stream: TokenStream, context: Reflect.Region) {
+function jsx(stream: TokenStream, context: Reflect.Region): [].<Token> {
   // The SOURCE text, not `String(stream)`. `toString` renders the TOKENS, so it
   // differs from the source by whatever is not a token - a comment, most
   // obviously - and `stream.parse(start, end)` indexes the source. Scanning the
