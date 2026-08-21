@@ -325,7 +325,7 @@ declare function pluck<T, K extends keyof T>(o: T, key: K): T[K];
 ```
 
 
-Two things worth noticing. The `undefined`-on-optional-access decision that TypeScript gates behind a compiler flag is a one-line, readable *policy choice* inside `indexed`, and a codebase that wants the other policy writes the other line. And symbol keys: property records carry `name: string | symbol`, so `pick`/`omit`/`mapProperties` handle symbol-keyed members by identity, and since §6.6 admits symbol literal types, `keyof` mints a literal type for a symbol key like any other, so symbol keys appear in `keyof`-style unions too. The definition above folds index-signature *key types* in wholesale, mirroring TypeScript's `keyof { [k: string]: T } = string`.
+Two things worth noticing. The `undefined`-on-optional-access decision that TypeScript gates behind a compiler flag is a one-line, readable *policy choice* inside `indexed` — though for the `T[K]` SYNTAX it is now settled rather than choosable, since [sec-indexed-access-types](https://sirisian.github.io/proposal-runtime-types/#sec-indexed-access-types) states that reading an optional property yields the union with `undefined`. A codebase wanting the other policy writes its own builder and calls that; it cannot change what the operator means. And symbol keys: property records carry `name: string | symbol`, so `pick`/`omit`/`mapProperties` handle symbol-keyed members by identity, and since §6.6 admits symbol literal types, `keyof` mints a literal type for a symbol key like any other, so symbol keys appear in `keyof`-style unions too. The definition above folds index-signature *key types* in wholesale, mirroring TypeScript's `keyof { [k: string]: T } = string`.
 
 `typeof x` needs no builder: types are values, so `Reflect.typeOf(x)` in type position is the type query, and for a binding whose declared type you want without a value, the TYPE's name — not the binding's — is already the type object, since a binding that holds an ordinary value is not itself a type.
 
@@ -920,7 +920,7 @@ The comparison table marks several TypeScript constructs **obviated**; the build
 |---|---|---|
 | `keyof T` | built-in already; `type keyof T` for a value-position result | §4.1 |
 | `typeof x` | `Reflect.typeOf` (existing) | §4.1 |
-| Indexed access `T[K]` | `indexed(T, K)` | §4.1 |
+| Indexed access `T[K]` | native syntax, specified as `indexed(T, K)` | §4.1 |
 | Mapped types, modifiers `±?`/`±readonly` | `mapProperties` + record edits | §4.2 |
 | Key remapping (`as`, `as never` deletion) | computed `name`, `null` deletion | §4.2 |
 | Homomorphic modifier preservation | default (records are copied) | §4.0, §4.2 |
