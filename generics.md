@@ -243,7 +243,7 @@ b.shuffle.<0, 1, 4, 5>(c);
 
 The pack is a tuple, so ```I.length``` is a value generic and the result type ```vector.<T, I.length>``` depends on how many indices were passed. Bounds on the individual values use a ```where``` clause, checked at compile time because every element is a constant:
 
-```js
+```ts
 swizzle<...I: [].<uint32>>(): vector.<T, I.length> where I.every(i => i < N);
 ```
 

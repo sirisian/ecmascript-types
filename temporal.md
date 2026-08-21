@@ -107,7 +107,7 @@ function unitRatio(unit: Temporal.Unit): rational {
 partial class Temporal.Duration {
 	// Fixed time units carry a dimension.
 	total<U: Temporal.Unit>(unit: U): float64.<{ s: 1, ratio: unitRatio(U) }>
-		where U <= Temporal.Unit.Hour;
+		where U <= Temporal.Unit.Hour { /* … */ return 0; }
 
 	// Calendar units need a reference point and produce a plain count.
 	total(options: { unit: Temporal.Unit, relativeTo: Temporal.ZonedDateTime | Temporal.PlainDate }): float64 { /* … */ return 0; }
@@ -158,7 +158,7 @@ Because the ratio rides along, mixing scales stays correct without the programme
 ```js
 partial class Temporal.Duration {
 	total<U: Temporal.Unit>(unit: U): decimal128.<{ s: 1, ratio: unitRatio(U) }>
-		where U <= Temporal.Unit.Hour;
+		where U <= Temporal.Unit.Hour { /* … */ return 0; }
 }
 const exact: decimal128.<{ s: 1 }> = elapsed.total(Temporal.Unit.Second);
 ```
