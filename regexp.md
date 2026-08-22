@@ -103,11 +103,11 @@ class String {
 	replace<C extends [], G>(
 		pattern: RegExp.<C, G>,
 		replacement: string | ((match: string, ...captures: C, offset: uint32, input: string, groups: G) => string)
-	): string;
+	): string { /* … */ return ""; }
 	replaceAll<C extends [], G>(
 		pattern: RegExp.<C, G>,
 		replacement: string | ((match: string, ...captures: C, offset: uint32, input: string, groups: G) => string)
-	): string;
+	): string { /* … */ return ""; }
 }
 ```
 

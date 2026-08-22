@@ -130,7 +130,7 @@ class Promise<R, E> {
 		resolve: (value: R) => void,
 		reject: (reason: E) => void
 	};
-	static try<R, E>(callback: (...args: [].<any>) => R | Promise.<R, E>, ...args: [].<any>): Promise.<R, E>;
+	static try<R, E>(callback: (...args: [].<any>) => R | Promise.<R, E>, ...args: [].<any>): Promise.<R, E> { /* … */ return undefined; }
 	static all<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<[].<R>, E> { /* … */ return undefined; }
 	static allSettled<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<[].<PromiseSettledResult.<R, E>>, undefined> { /* … */ return undefined; }
 	static any<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<R, AggregateError> { /* … */ return undefined; }
