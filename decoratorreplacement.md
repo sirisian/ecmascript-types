@@ -280,6 +280,40 @@ positions including the ones that work anywhere. **(measured)** the existing
 checker enforces it with nothing added, the context being assignable to the
 `Reflect.*` context types already.
 
+**A name may carry BOTH roles.** The same `jsx` can be a replacement decorator
+and an ordinary one, told apart by their signatures rather than by their
+arguments — the replacement is the overload taking a `TokenStream` and returning
+a token sequence, and an ordinary decorator is any other. The replacement runs at
+expansion and the ordinary one at decoration, in that order, so one name can
+transform a construct and then decorate what it produced:
+
+```js
+function jsx(tokens: TokenStream, context: Reflect.Block, args?): [].<Token> { ... }
+function jsx(target: Reflect.Class) { ... }
+export { jsx };
+
+@jsx { <div/> }        // the replacement half expands it
+@jsx class C { }       // the ordinary half decorates it
+```
+
+**A replacement decorator DECLINES a position it does not take.** Where a name
+declares several and none accepts where a decoration is written, there is no
+replacement to apply there: the decoration is left as written, for an ordinary
+decorator of that name at decoration time. That is not the macro rejecting its
+input — no macro ran — and it is not an error. It is decided by resolution before
+the call, so a macro's own "no overload matches" failure stays a real failure.
+
+**`args` is optional where a macro is written both ways.** `@jsx { ... }` passes
+two arguments and `@jsx(1) { ... }` passes three, so a required third parameter
+leaves the bare form matching no signature.
+
+**Nothing declares that a region is CAPTURED.** It follows from being a
+replacement decorator: what such a decorator receives is a `TokenStream`, and the
+text of what it decorates is the only thing that can be. A macro wanting a range
+of its region read as ECMAScript asks for it through `stream.parse`, which
+returns exactly what a parsed region would have given — the parser's reading of
+an ambiguous `/` included.
+
 **This is why Part A matters to both.** A runtime decorator gets its context AND,
 with Part A, the tokens of what it decorates — types and syntax together, because
 by then both exist.
