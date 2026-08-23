@@ -236,10 +236,10 @@ Re-iterating a ```Query.<T>``` re-runs the pipeline. Java Streams throw on reuse
 The macro is an ordinary preprocessor module, and the one below RUNS: everything in
 this section was executed against engine262 and its output is reproduced verbatim.
 
-It implements a subset of the grammar above — `from`, `where`, `orderby` (several keys,
+It implements a subset of the grammar above - `from`, `where`, `orderby` (several keys,
 `ascending`/`descending`), and `select`. The clauses the grammar describes and this macro
-does not — `let`, `join`, `group by`, continuations, `distinct`, `take`/`skip`,
-`index` — are the design's, not the example's.
+does not - `let`, `join`, `group by`, continuations, `distinct`, `take`/`skip`,
+`index` - are the design's, not the example's.
 
 ```js
 // =============================================================================
@@ -311,7 +311,7 @@ export default function linq(stream: TokenStream, context: Reflect.Block, args?)
     return stream.parse(lo, hi, 'expression');
   };
 
-  // `from <binding> in <source>` — the binding is one identifier here.
+  // `from <binding> in <source>` - the binding is one identifier here.
   const inWord = words.find((w) => w.word === 'in');
   if (inWord === undefined || inWord.at !== words[0].at + 2) {
     throw new SyntaxError('`from` takes a binding and `in`');
@@ -348,7 +348,7 @@ export default function linq(stream: TokenStream, context: Reflect.Block, args?)
     if (c.word === 'where') {
       out = call(out, 'filter', arrow(binding, between(c.from, c.to)));
     } else if (c.word === 'orderby') {
-      // `orderby a, b descending, c` — each key in turn, the first non-zero
+      // `orderby a, b descending, c` - each key in turn, the first non-zero
       // comparison winning. Split the range on top-level commas.
       let start = c.from;
       for (let i = c.from; i <= c.to; i += 1) {
@@ -422,7 +422,7 @@ That is what `TokenStream.prototype.parse` is for, and it is why the macro is sh
 Nothing declares that the region is CAPTURED. `sec-preprocessor-modules`: "A replacement
 decorator's region is captured, always, because it is a replacement decorator ... Capture
 is not a mode a macro selects; it follows from what a replacement decorator is." The
-signature — a `TokenStream` in, a `[].<Token>` out — is the whole declaration.
+signature - a `TokenStream` in, a `[].<Token>` out - is the whole declaration.
 
 ### A Working Example
 
@@ -512,7 +512,7 @@ query must not touch what it reads. The last line asserts it.
 
 ### Delegation, demonstrated
 
-The claim that clause operands are ordinary ECMAScript is not an assertion here — the three
+The claim that clause operands are ordinary ECMAScript is not an assertion here - the three
 cases that would break a hand-written scanner all run:
 
 ```js

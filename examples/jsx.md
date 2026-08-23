@@ -43,7 +43,7 @@ Features exercised:
 
 The engine loads the preprocessor module itself. `sec-preprocessor-modules` says it is fetched and evaluated before the importing module is parsed, so it arrives through the ordinary module loader and its exports are the macros - the host needs no registry and no hook of its own.
 
-1. **Create a devtools snippet named `jsx.js`** containing the macro below. It is a module, and `export default function jsx` is what the import binds — `sec-static-semantics-replacementdecoratornames` reads a default import's binding as well as a named one, and a preprocessor module providing a single macro is what a default export is for.
+1. **Create a devtools snippet named `jsx.js`** containing the macro below. It is a module, and `export default function jsx` is what the import binds - `sec-static-semantics-replacementdecoratornames` reads a default import's binding as well as a named one, and a preprocessor module providing a single macro is what a default export is for.
 2. **Create a second snippet** containing the demo below, and run it. It prints the tree, checks that two renders share their templates, and changes a signal to show the controllers re-evaluating.
 
 The import and the code using the macro must be in the SAME compilation unit. Expansion collects macro names from the parsed body's own imports and runs before evaluation, so a macro imported by one snippet cannot expand a decoration in another - and a dynamic `import()` cannot feed the expander at all, resolving as it does during evaluation, after expansion is over.
