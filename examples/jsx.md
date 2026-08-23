@@ -109,7 +109,7 @@ The first snippet. It parses the region's tokens into a node tree and emits toke
 // instead of `@if`, or a different interpolation delimiter, changes this file
 // and nothing else.
 
-export default function jsx(stream: TokenStream, context: Reflect.Region): [].<Token> {
+export default function jsx(stream: TokenStream, context: Reflect.Block): [].<Token> {
   // The SOURCE text, not `String(stream)`. `toString` renders the TOKENS, so it
   // differs from the source by whatever is not a token - a comment, most
   // obviously - and `stream.parse(start, end)` indexes the source. Scanning the
@@ -649,19 +649,20 @@ class Out {
   }
 }
 
-// `context: Reflect.Region` declares WHERE this macro applies: `@jsx class C {}`
-// is refused at the decoration rather than failing inside the scanner. It is
-// optional - a macro declaring no context works in any position - and this one
-// only ever means anything on a region.
+// `context: Reflect.Block` declares WHERE this macro applies. It is OPTIONAL - a
+// macro declaring no context takes any position - and this one only ever means
+// anything on a block, so it says so and `@jsx class C {}` is refused at the
+// decoration rather than failing inside the scanner.
 //
 // The context carries `kind` and nothing else, because a replacement decorator
 // receives the tokens of what it decorates: everything else a runtime context
 // carries syntactically is already in them.
-
-// The region is CAPTURED: its text is not ECMAScript, so the engine must not try
-// to parse it. That is the whole of what the engine needs to be told - there is
-// no grammar to name, because there is no grammar in the engine to name.
-jsx.capture = true;
+//
+// Nothing declares that the region is CAPTURED, because nothing needs to.
+// `sec-preprocessor-modules`: "A replacement decorator's region is captured,
+// always, because it is a replacement decorator ... Capture is not a mode a
+// macro selects; it follows from what a replacement decorator is." The signature
+// above - a `TokenStream` in, a `[].<Token>` out - is the whole declaration.
 ```
 
 ## The Demo
@@ -676,8 +677,8 @@ The second snippet, run as a MODULE. Runtime, the view as written, and a driver.
 //
 // The import declares no grammar, and there is none to declare: the engine
 // provides no lexical modes. Being a preprocessor decoration is what makes
-// `@jsx { ... }` a region, and the MACRO says whether its text is ECMAScript -
-// `jsx.js` sets `capture: true`, so it reads the region itself and hands the
+// `@jsx { ... }` a region, and being a REPLACEMENT DECORATOR is what makes its
+// text the macro's to read: `jsx.js` scans the region itself and hands the
 // ranges that ARE ECMAScript back through `stream.parse`.
 //
 // The import must be STATIC, which is why this file is a module: the

@@ -293,13 +293,12 @@ Every decorable position can be syntax-replaced, including every position the va
 
 Each row's context reports its own name as `kind`, the same string the reflection
 carries, so a replacement decorator dispatches on the position exactly as a
-runtime one does. `Reflect.Region` is the one context that is not a reflection
-above: a captured region is a position this table has and the reflection list
-does not.
+runtime one does. Every context here is a reflection above: a captured region is
+NOT a position of its own, being a `Reflect.Block` whose text the engine does not
+parse, and that is a fact about the decorator rather than about where it sits.
 
 | Context | `kind` | Replacement must parse as | Also value-replaceable |
 |---|---|---|---|
-| `Reflect.Region` | `'Region'` | any statement list, since the region is replaced whole | no |
 | `Reflect.Class` | `'Class'` | a class declaration or expression, as the position was | yes |
 | `Reflect.ClassField` | `'ClassField'` | a class field definition | yes |
 | `Reflect.ClassMethod` | `'ClassMethod'` | a method definition | yes |

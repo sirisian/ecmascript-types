@@ -236,17 +236,21 @@ Re-iterating a ```Query.<T>``` re-runs the pipeline. Java Streams throw on reuse
 The macro is an ordinary preprocessor module. It receives the region's tokens, folds the clause list into a call chain, and returns tokens.
 
 ```js
-function linq(tokens: TokenStream, context: Reflect.Region) {
+function linq(tokens: TokenStream, context: Reflect.Block, args?): [].<Token> {
   const clauses = parseQuery(tokens);
   return args === undefined
     ? emitCalls(clauses)
     : emitPlan(clauses, args);
 }
 
-// A query is not ECMAScript grammatically, so the region is CAPTURED and this
-// macro reads its text. Without this the region would be parsed as a Block and
-// refused at `from p`, which is two adjacent identifiers.
-linq.capture = true;
+// A query is not ECMAScript grammatically, and this macro reads the region's text
+// itself. Nothing declares that: `sec-preprocessor-modules` says a replacement
+// decorator's region is captured BECAUSE it is one, and the signature above - a
+// `TokenStream` in, a `[].<Token>` out - is what says it is one.
+//
+// `args` is optional because `@linq { ... }` and `@linq(plan) { ... }` are both
+// written: the first passes two arguments and the second three, and a required
+// third parameter would leave the bare form matching no signature.
 
 export { linq };
 ```

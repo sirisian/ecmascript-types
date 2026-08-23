@@ -272,7 +272,7 @@ The object is frozen: a context is a report, not a channel.
 | runs | at definition time, after checking | before parsing completes |
 
 **Typing the context parameter declares WHERE a decorator applies** —
-`(tokens: TokenStream, context: Reflect.Region)` is refused on a class, at the
+`(tokens: TokenStream, context: Reflect.Block)` is refused on a class, at the
 decoration rather than inside the macro. It is optional, and has to be: the
 specification lets one decorator serve several positions without being told
 which it is in, and a required parameter would force every macro to enumerate
@@ -404,9 +404,11 @@ in a token-kind distinction, because there are no tokens yet to distinguish.
 
 **The answer is to let the decorator CAPTURE its region and read it itself.** A
 preprocessor decoration followed by `{` takes that brace and its match as a
-region; where the decorator declares `capture`, the region is found by delimiter
-and its text reaches the macro as tokens of the ordinary lexical grammar, for the
-macro to read however its own syntax requires:
+region. Because the decorator is a REPLACEMENT decorator - a `TokenStream` in, a
+`[].<Token>` out - that region is found by delimiter and its text reaches the
+macro as tokens of the ordinary lexical grammar, for the macro to read however
+its own syntax requires. Nothing declares it; it follows from what the decorator
+is:
 
 ```js
 import { jsx } from "./jsx.js" with { preprocessor: "true" };
@@ -415,7 +417,7 @@ const el = @jsx do { <div class="a">{name}</div> };
 
 ```js
 // in jsx.js
-export const jsx = Object.assign(expand, { capture: true });
+export const jsx = expand;
 ```
 
 The engine provides no grammars, so a decorator is not choosing among them. What
@@ -1273,7 +1275,7 @@ restriction whose reason does not apply.
 **The table lives in [decorators.md](decorators.md), and only there.** A copy
 here is a second thing that must agree with it forever, which this document
 names as the shape the project is bitten by most — and it had already drifted:
-the copy that stood here lacked the `kind` column and the `Reflect.Region` row
+the copy that stood here lacked the `kind` column and the region row
 that decorators.md gained, so a reader consulting whichever they found first got
 different answers. What matters HERE is the argument for a second table at all,
 which the rows below make and the enumeration does not:
@@ -1444,8 +1446,8 @@ decoration site — before any checking, without reading the region — so selec
 on the context type is decidable exactly when the position is, which is always:
 
 ```js
-export function jsx(tokens: TokenStream, context: Reflect.Region): TokenStream;
-export function jsx(tokens: TokenStream, context: Reflect.ClassMethod): TokenStream;
+export function jsx(tokens: TokenStream, context: Reflect.Block): [].<Token>;
+export function jsx(tokens: TokenStream, context: Reflect.ClassMethod): [].<Token>;
 ```
 
 Two functions chosen by position, neither branching. A union of contexts and a
