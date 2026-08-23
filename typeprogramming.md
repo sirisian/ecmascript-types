@@ -598,12 +598,15 @@ export function instanceType(C: type): type {
   const node = reflect(C);
   if (node.kind === 'function' && node.signatures.length > 0)
     return returnType(C);                                          // String, Number: the call signature names the primitive
-  const { signatures } = Reflect.getReflection.<Reflect.ClassMethod, C>('constructor');
-  return signatures[0].return.type;                                // a class constructs its own type object: identity, made derivable
+  return C;                                                        // a class IS its instance type - §4.11's "a class is its own"
 }
 ```
 
-`instanceType` completes the pairing the TypeScript block promised. For a class it returns what the caller already holds, because the construct signature's return *is* the class's type object; its work is the other half of the constructible world — constructor functions like `String`, whose call signature names the primitive. That call-signature-first policy is exactly the `props: { type: String }` inference of challenge 213 in [typechallenges.md](typechallenges.md), which had to inline it.
+The class branch was previously written as `signatures[0].return.type`, reading a slot that does not exist: a constructor's reflected signature carries **no return entry**, because [#sec-published-return-types](https://sirisian.github.io/proposal-runtime-types/#sec-published-return-types) says a constructor has none to infer and [#sec-typed-classes](https://sirisian.github.io/proposal-runtime-types/#sec-typed-classes) now refuses any annotation that would supply one. The correct spelling is the identity, which is what §4.11's coverage table said all along.
+
+`instanceType` completes the pairing the TypeScript block promised. For a class it returns what the caller already holds, because the class name *is* its instance type; its work is the other half of the constructible world — constructor functions like `String`, whose call signature names the primitive. That call-signature-first policy is exactly the `props: { type: String }` inference of challenge 213 in [typechallenges.md](typechallenges.md), which had to inline it.
+
+**Whether it should ship at all is open.** Half of it is the identity, and this document says so twice; the other half is `returnType` under a second name. §4.12 declined `isEqual` on exactly this reasoning — `===` is the operator, and a function form would imply it is not — and the same argument applies here: exporting `instanceType` advertises a constructor-type / instance-type split this proposal deliberately does not have, and a reader arriving from TypeScript will reach for it expecting one. Tracked as OQ10 in the kit's implementation plan; the recommendation there is to retire it and let `returnType` serve the factory case.
 
 **The residual `infer`: pattern matching as an API, not a keyword.** After reflection and `generic` access, what is left of `infer` is matching an *abstract pattern* against an unknown structure — rare in practice, but for completeness a library-level unifier covers it (recommendation R8):
 
