@@ -20,8 +20,8 @@ Several challenges surfaced questions the type programming document implies but 
 ## Preamble
 
 ```js
-import { arms, arrayOf, awaited, firstParameter, fn, keysOf, literal, literalValues, mapProperties,
-         never, objectOf, partial, prop, readonly, reflect, required, returnType, stringPattern,
+import { arms, arrayOf, awaited, firstParameter, fn, keys, literal, literalValues, mapProperties,
+         objectOf, partial, prop, readonly, reflect, required, returnType,
          tupleElements, tupleOf, union, withThisType } from 'std:types';
 import * as std from 'std:types';
 
@@ -88,7 +88,7 @@ std.pick(Todo, type 'title' | 'completed') === TodoPreview;
 std.pick(Todo, type 'title' | 'invalid');   // TypeError: pick: Todo has no property 'invalid'
 ```
 
-Keeping the property *records* rather than rebuilding from key and type is what makes this preserve `readonly`, defaults, and provenance for free. The `K extends keyof T` constraint has two counterparts: the thrown error above at the call, or, when `myPick` appears in a signature, the computed constraint `<T, K: keysOf(T)>` which checks at the declaration.
+Keeping the property *records* rather than rebuilding from key and type is what makes this preserve `readonly`, defaults, and provenance for free. The `K extends keyof T` constraint has two counterparts: the thrown error above at the call, or, when `myPick` appears in a signature, the computed constraint `<T, K: keys(T)>` which checks at the declaration.
 
 ## 7 · Readonly
 
@@ -236,7 +236,7 @@ myExclude(type 'a', type 'a') === never;
 
 ```js
 // With std:types
-std.exclude(type string | uint32 | (() => void), Function) === type string | uint32;
+std.exclude(type string | uint32 | (() => void), type Function) === type string | uint32;
 ```
 
 The whole challenge is distribution, which is TypeScript's implicit behavior when `T` is a naked type parameter and its best-known foot-gun when it isn't. Here the distribution is the `.filter`, and `never` is what a union with no arms interns to, so the last case needs no rule of its own.
@@ -278,7 +278,7 @@ myAwaited(uint32);                        // TypeError: myAwaited: uint32 is not
 
 ```js
 // With std:types
-std.awaited(Promise.<Promise.<string | uint32>>) === type string | uint32;
+std.awaited(type Promise.<Promise.<string | uint32>>) === type string | uint32;
 std.awaited(uint32) === uint32;   // a policy difference worth knowing: the library passes a non-thenable through, where the exercise throws
 ```
 
@@ -531,9 +531,9 @@ type MyReadonly2<T, K extends keyof T = keyof T> = Omit<T, K> &
 
 ```js
 // Builder
-function myReadonly2(T: type, K: type = keysOf(T)): type {
+function myReadonly2(T: type, K: type = keys(T)): type {
   const keys = new Set(literalValues(K));
-  const have = new Set(literalValues(keysOf(T)));
+  const have = new Set(literalValues(keys(T)));
   for (const k of keys) if (!have.has(k))
     throw new TypeError(`myReadonly2: ${String(T)} has no property '${String(k)}'`);
   return mapProperties(T, p => keys.has(p.name) ? { ...p, readonly: true } : p);
@@ -1208,7 +1208,7 @@ diff(Foo, Coo) === type { age: string, gender: uint32 };
 
 ```js
 // With std:types
-std.merge(std.omit(Foo, std.keysOf(Coo)), std.omit(Coo, std.keysOf(Foo))) === type { age: string, gender: uint32 };
+std.merge(std.omit(Foo, std.keys(Coo)), std.omit(Coo, std.keys(Foo))) === type { age: string, gender: uint32 };
 ```
 
 `Omit<O & O1, keyof (O | O1)>` is the sharpest one-liner in the set, and it is worth understanding rather than dismissing: `O & O1` has every key, `keyof (O | O1)` is the *common* keys because a union's keys are the ones every arm has, and omitting the second from the first leaves the symmetric difference. It is exact, it is four tokens, and it relies on the reader knowing that `keyof` inverts across union and intersection. The builder is longer and says what it does.
@@ -1347,7 +1347,7 @@ removeIndexSignature(FooBar) === type { [foobar](): void };   // the symbol-keye
 
 The best single vindication of a node model decision in the whole document. TypeScript's `keyof T` *merges* index signature keys and declared keys into one union, so `'foo' | string` collapses to `string` and the information about which key came from where is destroyed. Recovering it requires `P extends K`, which asks "is `K` so wide that `PropertyKey` fits inside it", because being wide is the only surviving trace of having come from an index signature. Then `K extends P` handles the symbol case, and the double conditional is really a hand-rolled discriminator for a distinction the type language threw away.
 
-In the reflection model, `properties` and `indexSignatures` are separate fields on the object node. They were never merged, so nothing needs recovering: pass the properties, pass an empty signature list. This is also why `keysOf` has to fold signature key types in explicitly, which looked like a wart when it was written and is the same fact seen from the other side.
+In the reflection model, `properties` and `indexSignatures` are separate fields on the object node. They were never merged, so nothing needs recovering: pass the properties, pass an empty signature list. This is also why `keys` has to fold signature key types in explicitly, which looked like a wart when it was written and is the same fact seen from the other side.
 
 ## 1978 · Percentage Parser
 
@@ -1513,7 +1513,7 @@ type PartialByKeys<T, K extends keyof T = keyof T> = Flatten<
 
 ```js
 // Builder
-function partialByKeys(T: type, K: type = keysOf(T)): type {
+function partialByKeys(T: type, K: type = keys(T)): type {
   const keys = new Set(literalValues(K));
   return mapProperties(T, p => keys.has(p.name) ? { ...p, optional: true } : p);
 }
@@ -1547,7 +1547,7 @@ type RequiredByKeys<
 
 ```js
 // Builder
-function requiredByKeys(T: type, K: type = keysOf(T)): type {
+function requiredByKeys(T: type, K: type = keys(T)): type {
   const keys = new Set(literalValues(K));
   return mapProperties(T, p => keys.has(p.name) ? { ...p, optional: false } : p);
 }
@@ -1616,7 +1616,7 @@ omitByType(Model, boolean) === type { name: string, count: uint32 };
 
 ```js
 // With std:types
-std.omit(Model, std.keysOf(std.pickByValue(Model, boolean))) === type { name: string, count: uint32 };
+std.omit(Model, std.keys(std.pickByValue(Model, boolean))) === type { name: string, count: uint32 };
 ```
 
 `pickByType` with the branches swapped, in both languages.
@@ -2545,8 +2545,8 @@ parseUrlParams('posts/:id/:user/like') === type 'id' | 'user';
 
 ```js
 // With std:types
-std.keysOf(std.routeParams('posts/:id/:user/like')) === type 'id' | 'user';   // routeParams builds { id: string, user: string }; this challenge wants its keys
-std.keysOf(std.routeParams('')) === never;
+std.keys(std.routeParams('posts/:id/:user/like')) === type 'id' | 'user';   // routeParams builds { id: string, user: string }; this challenge wants its keys
+std.keys(std.routeParams('')) === never;
 ```
 
 `split`, `filter`, `map`. The empty case is `never` because the union of no arms is `never`, which is what the challenge asks for and what the TypeScript version needs an explicit branch to say.
@@ -4760,7 +4760,7 @@ type ClassPublicKeys<A> = keyof A
 ```js
 // Builder
 function classPublicKeys(A: type): type {
-  return keysOf(A);
+  return keys(A);
 }
 
 class A {
@@ -4773,7 +4773,7 @@ classPublicKeys(A) === type 'str' | 'getNum';
 
 A draw, and the funniest answer in the repository: nineteen votes and a smiley, because `keyof` already excludes private members and there is nothing to do. Worth including precisely because it is a challenge where the language's built-in is right.
 
-One honest note. The harness's class has a `protected num` and expects it excluded, and JavaScript has no `protected`: `#bool` is genuinely private and never appears in reflection, but a field that TypeScript would mark `protected` is just a field, and `keysOf` would return it. The challenge tests an access modifier that exists only in TypeScript's static layer, so the builder above uses `#bool` and answers the same question honestly rather than pretending the third case exists.
+One honest note. The harness's class has a `protected num` and expects it excluded, and JavaScript has no `protected`: `#bool` is genuinely private and never appears in reflection, but a field that TypeScript would mark `protected` is just a field, and `keys` would return it. The challenge tests an access modifier that exists only in TypeScript's static layer, so the builder above uses `#bool` and answers the same question honestly rather than pretending the third case exists.
 
 ## 2857 · IsRequiredKey
 
@@ -5441,7 +5441,7 @@ type OptionalUndefined<
 
 ```js
 // Builder
-function optionalUndefined(T: type, keys: type = keysOf(T)): type {
+function optionalUndefined(T: type, keys: type = keys(T)): type {
   const names = new Set(literalValues(keys));
   return mapProperties(T, p => {
     if (!names.has(p.name) || !arms(p.type).includes(type undefined)) return p;
@@ -6578,7 +6578,7 @@ The `With std:types` blocks above are the answer to a question the exercises del
 | `std.partial` / `std.required` | set or clear `optional` on every property | 2757, 2759 |
 | `std.readonly` / `std.mutable` | set or clear `readonly` on every property | 7, 8, 2793 |
 | `std.pickByValue` | keep the properties whose type fits, the `filter` behind `as T[K] extends V ? K : never` | 2595, 2852 |
-| `std.keysOf` | the key union, union and intersection safe | 645, 2852, 9616 |
+| `std.keys` | the key union, union and intersection safe | 645, 2852, 9616 |
 | `std.objectOf` / `std.prop` | build an object type from property records | 62 |
 | `std.mapPropertyTypes` | map a function over every property's type | 6 |
 | `std.traverse` | one structural recursion with `leaf`, `property`, and `element` hooks | 9, 1383, 9775, 16259, 17973 |
@@ -6601,7 +6601,7 @@ The `With std:types` blocks above are the answer to a question the exercises del
 | `std.routeParams` | a path's `:param` segments as an object type | 9616 |
 | `std.reflect` | the node behind a type object, for the cases the helpers do not cover | 16259 |
 
-Reading the table the other way is the more useful direction. Four rows account for over half the entries, and they are the four operations this corpus does constantly: split a type apart (`arms`, `elementTypes`, `keysOf`), edit its records (`mapProperties`, `traverse`), put it back together (`objectOf`, `tupleOf`, `union`, `intersection`), and, when someone else already wrote that loop, call it (`pick`, `merge`, `partial`).
+Reading the table the other way is the more useful direction. Four rows account for over half the entries, and they are the four operations this corpus does constantly: split a type apart (`arms`, `elementTypes`, `keys`), edit its records (`mapProperties`, `traverse`), put it back together (`objectOf`, `tupleOf`, `union`, `intersection`), and, when someone else already wrote that loop, call it (`pick`, `merge`, `partial`).
 
 The other hundred and forty-four challenges were checked against the library too, and the reasons they carry no block are worth stating, because they are the same reasons the library stops where it does. Most of the tuple challenges are `elementTypes` and then an ordinary array method: Includes (898) is `.includes`, All (18142) is `.every`, IndexOf and LastIndexOf (5153, 5317) are `.indexOf` and `.lastIndexOf`, Slice (216) and Take (34286) are `.slice`, Unique (5360) is `new Set`, and a dozen more are the same shape. Nothing ships for them because nothing should: the array methods already work on types, since interning makes `===` the identity test they need. Challenge 15 shows the shape once and says so. The arithmetic challenges, all twenty-three of them, dissolve into a JavaScript number and want no library at all; the combinatorial ones share the preamble's `perms`, which stays userland because combinatorics is a domain rather than a type operation; the string challenges operate on string *values*, where JavaScript's own standard library is the answer and `mapLiterals` (19458) is only for the union-of-literal-types case; and the property-flag filters (57, 59, 89, 90, 2857, 5181, and 5) are `mapProperties` and a predicate, which is the primitive doing exactly its job.
 
@@ -6720,7 +6720,7 @@ And then there is challenge 5, which is the same question inverted and is rated 
 
 **Intersections versus flat objects.** Challenge 8 weakens its assertions from `Equal` to `Alike` because `Omit<T, K> & Readonly<Pick<T, K>>` is inter-assignable with the intended object but not identical to it. The builder edits records in place, returns the flat object, and passes the stronger assertion. That the harness had to weaken a test to accommodate the idiomatic TypeScript answer is small but telling: the type language's shape leaks into what the test is allowed to say.
 
-**Constraints versus checks.** These challenges are stated as generic *aliases* with constraints (`MyPick<T, K extends keyof T>`), and the builders are *functions*, so a bad argument is a thrown `TypeError` at the call rather than a constraint violation at the declaration. The two are not far apart: when a builder appears in a signature, the computed constraint form (`<T, K: keysOf(T)>`) restores the declaration-site check, and the thrown message is available in both cases. What the builder gives up is being checkable before its arguments are known; what it gains is saying which property was missing.
+**Constraints versus checks.** These challenges are stated as generic *aliases* with constraints (`MyPick<T, K extends keyof T>`), and the builders are *functions*, so a bad argument is a thrown `TypeError` at the call rather than a constraint violation at the declaration. The two are not far apart: when a builder appears in a signature, the computed constraint form (`<T, K: keys(T)>`) restores the declaration-site check, and the thrown message is available in both cases. What the builder gives up is being checkable before its arguments are known; what it gains is saying which property was missing.
 
 **Where TypeScript wins, or draws.** Concat, Push, and Unshift: three of a hundred and ninety, and all three the same win. Variadic tuple spread is purpose-built syntax, `[U, ...T]` says it in six characters, and no reflection call will be shorter. Two more are honest draws. Absolute (529) stringifies and strips a minus in both languages, because the challenge specifies a string result and neither is doing arithmetic. AnyOf (949) is the more interesting one: truthiness is a property of values, but the challenge has no values, so the falsy set is enumerated by hand either way and all that differs is `.some` against recursion. When a problem is genuinely about types rather than about values wearing types, the two models converge, and that is worth knowing about the ones where they do not. The far end of the same scale is MinusOne (2257), where the encoding costs five helper types, a digit lookup table, and three passes over a reversed string to compute `n - 1`, and buys no range for the trouble, since the input literal is a float64 in both languages before either solution starts.
 
