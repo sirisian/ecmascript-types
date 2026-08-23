@@ -182,7 +182,7 @@ first(type 'notArray');                       // TypeError: first: 'notArray' is
 // With std:types
 std.head(type [3, 2, 1]) === type 3;
 std.head(type []) === never;
-std.head([].<string>);   // TypeError: expected a tuple type: head is tuple-only, where first also takes arrays
+std.head(type [].<string>);   // TypeError: expected a tuple type: head is tuple-only, where first also takes arrays
 ```
 
 `infer A` here is destructuring, and reflection is the accessor, so the conditional evaporates into an array index. The `[undefined]` case is the one that catches naive solutions in both languages, and `?.` plus `??` says exactly what is meant: the element record is missing, not the element's type.
@@ -480,13 +480,13 @@ function myReturnType(F: type): type {
 
 myReturnType(type () => string) === string;
 myReturnType(type () => 123) === type 123;
-myReturnType(type () => Promise.<boolean>) === Promise.<boolean>;
+myReturnType(type () => Promise.<boolean>) === type Promise.<boolean>;
 myReturnType(type () => () => 'foo') === type () => 'foo';
 ```
 
 ```js
 // With std:types
-std.returnType(type () => Promise.<boolean>) === Promise.<boolean>;
+std.returnType(type () => Promise.<boolean>) === type Promise.<boolean>;
 ```
 
 A field read. Note what the `signatures[0]` is quietly deciding: on an overloaded function, this takes the *first* overload, where TypeScript's `infer R` takes the last. Neither is obviously right, but only one of them is written down where a reader can see it. The `std:types` `returnType` takes the union of all overloads instead, which is a third answer, and the fact that all three are one line apart is the point.
@@ -756,9 +756,9 @@ promiseAll.<[].<uint32 | Promise.<string>>>;        // returns Promise.<[].<uint
 
 ```js
 // With std:types
-std.genericApplication(Promise, [std.mapElements(type [1, 2, Promise.<uint32>], std.awaited)])
+std.genericApplication(type Promise, [std.mapElements(type [1, 2, Promise.<uint32>], std.awaited)])
   === type Promise.<[1, 2, uint32]>;
-std.mapElements([].<uint32 | Promise.<string>>, std.awaited) === [].<uint32 | string>;
+std.mapElements(type [].<uint32 | Promise.<string>>, std.awaited) === [].<uint32 | string>;
 ```
 
 `{ [K in keyof T]: ... }` over a tuple is TypeScript's most surprising rule: a mapped type over an array or tuple is special-cased to produce an array or tuple rather than an object with numeric keys, which is why this signature works at all and why nothing in the syntax says so. The builder's `switch` says so. Note also that `awaited` already means "unwrap if thenable, else pass through", so the answer's recursive helper `Awaited<T> = T extends Promise<infer R> ? Awaited<R> : T` is a call rather than a declaration.
