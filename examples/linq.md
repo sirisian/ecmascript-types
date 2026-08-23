@@ -233,66 +233,320 @@ Re-iterating a ```Query.<T>``` re-runs the pipeline. Java Streams throw on reuse
 
 ## The Decorator
 
-The macro is an ordinary preprocessor module. It receives the region's tokens, folds the clause list into a call chain, and returns tokens.
+The macro is an ordinary preprocessor module, and the one below RUNS: everything in
+this section was executed against engine262 and its output is reproduced verbatim.
+
+It implements a subset of the grammar above — `from`, `where`, `orderby` (several keys,
+`ascending`/`descending`), and `select`. The clauses the grammar describes and this macro
+does not — `let`, `join`, `group by`, continuations, `distinct`, `take`/`skip`,
+`index` — are the design's, not the example's.
 
 ```js
-function linq(tokens: TokenStream, context: Reflect.Block, args?): [].<Token> {
-  const clauses = parseQuery(tokens);
-  return args === undefined
-    ? emitCalls(clauses)
-    : emitPlan(clauses, args);
-}
-
-// A query is not ECMAScript grammatically, and this macro reads the region's text
-// itself. Nothing declares that: `sec-preprocessor-modules` says a replacement
-// decorator's region is captured BECAUSE it is one, and the signature above - a
-// `TokenStream` in, a `[].<Token>` out - is what says it is one.
+// =============================================================================
+// linq.js - a query comprehension as a replacement decorator.
 //
-// `args` is optional because `@linq { ... }` and `@linq(plan) { ... }` are both
-// written: the first passes two arguments and the second three, and a required
-// third parameter would leave the bare form matching no signature.
+// `@linq { from p in people where p.age >= 18 orderby p.age descending select p.name }`
+// becomes ordinary array calls, at PARSE time. The query is not ECMAScript
+// grammatically - `from p in people` is three adjacent identifiers - so the
+// region's text is the macro's to read.
+//
+// Nothing declares that. `sec-preprocessor-modules`: "A replacement decorator's
+// region is captured, always, because it is a replacement decorator ... Capture
+// is not a mode a macro selects; it follows from what a replacement decorator
+// is." The signature below - a `TokenStream` in, a `[].<Token>` out - is the
+// whole declaration.
+//
+// What the macro does NOT do is interpret the expressions. `p.age >= 18` is
+// ECMAScript, and it is handed back to the parser through `stream.parse`, which
+// returns exactly the tokens a parsed region would have given. The macro reads
+// only its own keywords and the ranges between them.
+// =============================================================================
 
-export { linq };
-```
+const KEYWORDS = ['from', 'in', 'where', 'orderby', 'select', 'ascending', 'descending'];
 
-The return carries NO annotation, and that is not an omission. A macro answers an
-ARRAY of token records - the shape every macro in these documents builds - and
-`TokenStream` is the nominal type of what it RECEIVES. Annotating the return
-with it is refused, correctly: the two are different types, and one of them
-does not have a name yet.
+export default function linq(stream: TokenStream, context: Reflect.Block, args?): [].<Token> {
+  const span = stream[0].span;
 
-`parseQuery` scans the region's text for clause keywords and hands each operand back to the engine with ```tokens.parse(start, end, "expression")```. That is the only thing it cannot do itself: whether `/` in `where /^a/.test(x)` begins a regular expression or a division is not decidable lexically. Everything else - which words are clauses, what may follow each - is this macro's to decide, and a query dialect with different keywords is a different macro rather than a different engine.
+  // The region arrives as ONE `group` token - the brace and its match - whose
+  // contents are its `tokens`. Reading the query means reading inside it.
+  const body = stream[0].kind === 'group' ? stream[0].tokens : stream;
 
-`emitCalls` is a fold over the clause list, and each clause is a rewrite of the stream built so far:
+  // ---------------------------------------------------------------------------
+  // Emitters. A token is `{ kind, value, span }`; a GROUP carries its own
+  // `tokens`, which is how a call's parentheses and an arrow's body are built.
+  // ---------------------------------------------------------------------------
+  const k = (kind, value) => ({ kind, value, span, tokens: undefined });
+  const id = (name) => k('identifier', name);
+  const p = (value) => k('punctuator', value);
+  const g = (value, tokens) => ({ kind: 'group', value, span, tokens });
 
-```js
-function emitCalls(clauses: [].<Clause>): TokenStream {
-  let source = clauses[0].source;
-  let frame = Frame.of(clauses[0].binding);
+  /** `(binding) => (body)` */
+  const arrow = (binding, body) => [g('(', [id(binding)]), p('=>'), g('(', body)];
 
-  for (const clause of clauses.slice(1)) {
-    switch (clause.kind) {
-      case ClauseKind.Where:
-        source = call("_filter", source, lambda(frame, clause.predicate));
-        break;
-      case ClauseKind.Let:
-        frame = frame.extend(clause.binding);
-        source = call("_map", source, lambda(frame.previous, frame.build(clause.value)));
-        break;
-      case ClauseKind.OrderBy:
-        source = call("_order", source, plan(clause.orderings, frame));
-        break;
-      case ClauseKind.Select:
-        source = call("_map", source, lambda(frame, clause.projection));
-        break;
-      // ... one arm per clause kind
+  /** `receiver.name(...args)` as a token run. */
+  const call = (receiver, name, args_) => [...receiver, p('.'), id(name), g('(', args_)];
+
+  // ---------------------------------------------------------------------------
+  // The parse. Every clause's payload is a token RANGE, delegated rather than
+  // read: the macro finds where a range starts and ends and asks the engine what
+  // it means.
+  // ---------------------------------------------------------------------------
+  const words = [];
+  for (let i = 0; i < body.length; i += 1) {
+    const t = body[i];
+    if (t.kind === 'identifier' && KEYWORDS.indexOf(String(t.value)) >= 0) {
+      words.push({ word: String(t.value), at: i });
     }
   }
-  return source;
+  if (words.length === 0 || words[0].word !== 'from') {
+    throw new SyntaxError('a query begins with `from`');
+  }
+
+  /** The source text between two token indexes, parsed as an expression. */
+  const between = (fromToken, toToken) => {
+    const lo = body[fromToken].span.start;
+    const hi = toToken < body.length
+      ? body[toToken].span.start
+      : body[body.length - 1].span.end;
+    return stream.parse(lo, hi, 'expression');
+  };
+
+  // `from <binding> in <source>` — the binding is one identifier here.
+  const inWord = words.find((w) => w.word === 'in');
+  if (inWord === undefined || inWord.at !== words[0].at + 2) {
+    throw new SyntaxError('`from` takes a binding and `in`');
+  }
+  const binding = String(body[words[0].at + 1].value);
+
+  // The clauses that follow, in source order.
+  const rest = words.filter((w) => ['where', 'orderby', 'select'].indexOf(w.word) >= 0);
+  const selectWord = rest[rest.length - 1];
+  if (selectWord === undefined || selectWord.word !== 'select') {
+    throw new SyntaxError('a query ends with `select`');
+  }
+
+  const endOf = (index) => {
+    const next = rest.find((w) => w.at > words.filter((x) => x.at === index)[0].at);
+    return next === undefined ? body.length : next.at;
+  };
+
+  const clauses = rest.map((w, i) => ({
+    word: w.word,
+    from: w.at + 1,
+    to: i + 1 < rest.length ? rest[i + 1].at : body.length,
+  }));
+
+  // `from`'s source expression runs from after `in` to the first clause.
+  const sourceEnd = rest.length > 0 ? rest[0].at : body.length;
+  let out = between(inWord.at + 1, sourceEnd);
+
+  // ---------------------------------------------------------------------------
+  // The emit. `where` filters, `orderby` sorts a COPY, `select` projects.
+  // ---------------------------------------------------------------------------
+  const orderings = [];
+  for (const c of clauses) {
+    if (c.word === 'where') {
+      out = call(out, 'filter', arrow(binding, between(c.from, c.to)));
+    } else if (c.word === 'orderby') {
+      // `orderby a, b descending, c` — each key in turn, the first non-zero
+      // comparison winning. Split the range on top-level commas.
+      let start = c.from;
+      for (let i = c.from; i <= c.to; i += 1) {
+        const atEnd = i === c.to;
+        const isComma = !atEnd && body[i].kind === 'punctuator' && String(body[i].value) === ',';
+        if (!atEnd && !isComma) {
+          continue;
+        }
+        let end = i;
+        let descending = false;
+        const last = body[end - 1];
+        if (last !== undefined && last.kind === 'identifier'
+            && (String(last.value) === 'descending' || String(last.value) === 'ascending')) {
+          descending = String(last.value) === 'descending';
+          end -= 1;
+        }
+        orderings.push({ key: between(start, end), descending });
+        start = i + 1;
+      }
+    }
+  }
+
+  if (orderings.length > 0) {
+    // `.slice()` first: `sort` mutates, and a query must not touch its source.
+    out = call(out, 'slice', []);
+    const comparator = [];
+    orderings.forEach((o, i) => {
+      const lhs = o.descending ? 'b' : 'a';
+      const rhs = o.descending ? 'a' : 'b';
+      // `(la < ra) ? -1 : (la > ra) ? 1 : <the next key, or 0>`
+      //
+      // The ternaries CHAIN: each key's `else` branch is the next comparison,
+      // and the last one's is `0`. An earlier version emitted a `:` before every
+      // key after the first, which doubled the separator the previous key had
+      // already written - `... ? 1 : : (b.age) < ...`.
+      comparator.push(
+        g('(', [id(lhs), p('.'), ...keyOf(o.key, binding, lhs)]), p('<'),
+        g('(', [id(rhs), p('.'), ...keyOf(o.key, binding, rhs)]), p('?'), k('numeric', '-1'), p(':'),
+        g('(', [id(lhs), p('.'), ...keyOf(o.key, binding, lhs)]), p('>'),
+        g('(', [id(rhs), p('.'), ...keyOf(o.key, binding, rhs)]), p('?'), k('numeric', '1'), p(':'),
+      );
+    });
+    comparator.push(k('numeric', '0'));
+    out = call(out, 'sort', [g('(', [id('a'), p(','), id('b')]), p('=>'), g('(', comparator)]);
+  }
+
+  const selectClause = clauses[clauses.length - 1];
+  out = call(out, 'map', arrow(binding, between(selectClause.from, selectClause.to)));
+  return [...out, p(';')];
+}
+
+/**
+ * An ordering key written against the query's binding, re-pointed at a
+ * comparator parameter: `p.age` under binding `p` becomes `age` after `a.`.
+ */
+function keyOf(keyTokens, binding, _parameter) {
+  const first = keyTokens[0];
+  if (first !== undefined && first.kind === 'identifier' && String(first.value) === binding) {
+    // Drop `p` and the `.` that follows it; the caller emitted `a.` already.
+    return keyTokens.slice(2);
+  }
+  return keyTokens;
 }
 ```
 
+It reads its OWN keywords and nothing else. Everything between them is a token RANGE handed
+back to the engine through `stream.parse(lo, hi, "expression")`: `p.age >= 18` is never
+interpreted by the macro, and the tokens the engine returns splice into the emitted call.
+That is what `TokenStream.prototype.parse` is for, and it is why the macro is short.
+
+Nothing declares that the region is CAPTURED. `sec-preprocessor-modules`: "A replacement
+decorator's region is captured, always, because it is a replacement decorator ... Capture
+is not a mode a macro selects; it follows from what a replacement decorator is." The
+signature — a `TokenStream` in, a `[].<Token>` out — is the whole declaration.
+
+### A Working Example
+
+```js
+import linq from "./linq.js" with { preprocessor: "true" };
+
+const people = [
+  { name: "Ada",       age: 36, city: "London",    role: "engineer" },
+  { name: "Grace",     age: 45, city: "New York",  role: "admiral" },
+  { name: "Alan",      age: 17, city: "London",    role: "student" },
+  { name: "Katherine", age: 41, city: "Hampton",   role: "engineer" },
+  { name: "Edsger",    age: 22, city: "Rotterdam", role: "engineer" },
+];
+
+// Filter, sort descending, project one field.
+const adults = @linq {
+  from p in people
+  where p.age >= 18
+  orderby p.age descending
+  select p.name
+};
+
+// TWO ordering keys, the second descending.
+const byCityThenAge = @linq {
+  from p in people
+  where p.age >= 18
+  orderby p.city, p.age descending
+  select p.city + ":" + p.name
+};
+
+// A different predicate; ascending is the default.
+const engineers = @linq {
+  from p in people
+  where p.role === "engineer"
+  orderby p.name
+  select p.name
+};
+
+// TWO `where` clauses, which compose as chained filters.
+const londoners = @linq {
+  from p in people
+  where p.age >= 18
+  where p.city === "London"
+  select p.name
+};
+
+// No `where` at all.
+const ages = @linq {
+  from p in people
+  orderby p.age
+  select p.age
+};
+
+// Several FIELDS. The parentheses are ECMAScript's, not the query's: a `{` that
+// begins an expression reads as a block, so an object literal is written
+// `({ ... })` here exactly as it would be anywhere else a block could be read.
+const cards = @linq {
+  from p in people
+  where p.age >= 18
+  orderby p.age descending
+  select ({ who: p.name, from: p.city })
+};
+
+console.log("adults, oldest first :", adults.join(", "));
+console.log("by city then age     :", byCityThenAge.join(" | "));
+console.log("engineers by name    :", engineers.join(", "));
+console.log("adult Londoners      :", londoners.join(", "));
+console.log("every age, ascending :", ages.join(", "));
+console.log("a few fields         :", JSON.stringify(cards));
+console.log("source untouched     :", people.length === 5 && people[0].name === "Ada");
+```
+
+Its output:
+
+```
+adults, oldest first : Grace, Katherine, Ada, Edsger
+by city then age     : Hampton:Katherine | London:Ada | New York:Grace | Rotterdam:Edsger
+engineers by name    : Ada, Edsger, Katherine
+adult Londoners      : Ada
+every age, ascending : 17, 22, 36, 41, 45
+a few fields         : [{"who":"Grace","from":"New York"},{"who":"Katherine","from":"Hampton"},{"who":"Ada","from":"London"},{"who":"Edsger","from":"Rotterdam"}]
+source untouched     : true
+```
+
+`orderby` emits `.slice().sort(...)` rather than `.sort(...)`, because `sort` mutates and a
+query must not touch what it reads. The last line asserts it.
+
+### Delegation, demonstrated
+
+The claim that clause operands are ordinary ECMAScript is not an assertion here — the three
+cases that would break a hand-written scanner all run:
+
+```js
+const words = [{ w: "alpha" }, { w: "beta" }, { w: "gamma" }];
+
+@linq { from x in words where /^a/.test(x.w) select x.w }      // alpha
+@linq { from x in words where x.w.length > 4 select `<${x.w}>` } // <alpha>, <gamma>
+@linq { from x in words select x.w.length / 2 }                // 2.5, 2, 2.5
+```
+
+A regular expression is one token rather than a division, a template literal is one token
+rather than a backtick and an identifier, and a real division is still a division. The
+macro does none of that work: it hands the range to `stream.parse` and the engine decides,
+which is the same decision it would make anywhere else in the program.
+
+### Two limitations of this example
+
+**A query is bound, not used inline.** `const q = @linq { ... }; q.join(", ")` works;
+`@linq { ... }.join(", ")` does not, and neither does parenthesising it. A decoration is a
+statement-position construct, and nothing written after its region attaches to what the
+macro returns.
+
+**`select` takes a parenthesised object literal.** `select ({ who: p.name })` works and
+`select { who: p.name }` does not: a range beginning with `{` parses as a block, which is
+ECMAScript's ordinary block-versus-object ambiguity and has ECMAScript's ordinary
+workaround. The object arrives as one group token, so a `from:` KEY inside it is never
+mistaken for the query's `from`.
+
 ### Transparent Identifiers
+
+> The sections below describe the DESIGN, beyond what the example above implements. They
+> use the `_map`/`_filter`/`_order` source protocol of "The Source Protocol"; the working
+> macro emits array methods directly, which is the same shape with the protocol's names
+> resolved to `Array.prototype`'s.
 
 After a `let` or a `join`, two range variables are in scope and every later clause closes over both. The frame is an object and the lambdas destructure it:
 
