@@ -1444,7 +1444,7 @@ function pickByType(T: type, U: type): type {
   return mapProperties(T, p => Reflect.isAssignable(p.type, U) ? p : null);
 }
 
-interface Model { name: string; count: uint32; isReadonly: boolean; isEnable: boolean }
+type Model = { name: string, count: uint32, isReadonly: boolean, isEnable: boolean };
 pickByType(Model, boolean) === type { isReadonly: boolean, isEnable: boolean };
 pickByType(Model, string) === type { name: string };
 ```
@@ -1518,7 +1518,7 @@ function partialByKeys(T: type, K: type = keys(T)): type {
   return mapProperties(T, p => keys.has(p.name) ? { ...p, optional: true } : p);
 }
 
-interface User { name: string; age: uint32; address: string }
+type User = { name: string, age: uint32, address: string };
 partialByKeys(User, type 'name') === type { name?: string, age: uint32, address: string };
 partialByKeys(User, type 'name' | 'age') === type { name?: string, age?: uint32, address: string };
 partialByKeys(User) === partial(User);
@@ -1552,7 +1552,7 @@ function requiredByKeys(T: type, K: type = keys(T)): type {
   return mapProperties(T, p => keys.has(p.name) ? { ...p, optional: false } : p);
 }
 
-interface User { name?: string; age?: uint32; address?: string }
+type User = { name?: string, age?: uint32, address?: string };
 requiredByKeys(User, type 'name') === type { name: string, age?: uint32, address?: string };
 requiredByKeys(User) === required(User);
 ```
@@ -1610,7 +1610,7 @@ function omitByType(T: type, U: type): type {
   return mapProperties(T, p => Reflect.isAssignable(p.type, U) ? null : p);
 }
 
-interface Model { name: string; count: uint32; isReadonly: boolean; isEnable: boolean }
+type Model = { name: string, count: uint32, isReadonly: boolean, isEnable: boolean };
 omitByType(Model, boolean) === type { name: string, count: uint32 };
 ```
 
