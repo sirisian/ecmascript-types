@@ -230,13 +230,13 @@ function myExclude(T: type, U: type): type {
 
 myExclude(type 'a' | 'b' | 'c', type 'a') === type 'b' | 'c';
 myExclude(type 'a' | 'b' | 'c', type 'a' | 'b') === type 'c';
-myExclude(type string | uint32 | (() => void), Function) === type string | uint32;
+myExclude(type string | uint32 | (() => void), type (...a: [].<any>) => any) === type string | uint32;
 myExclude(type 'a', type 'a') === never;
 ```
 
 ```js
 // With std:types
-std.exclude(type string | uint32 | (() => void), type Function) === type string | uint32;
+std.exclude(type string | uint32 | (() => void), type (...a: [].<any>) => any) === type string | uint32;
 ```
 
 The whole challenge is distribution, which is TypeScript's implicit behavior when `T` is a naked type parameter and its best-known foot-gun when it isn't. Here the distribution is the `.filter`, and `never` is what a union with no arms interns to, so the last case needs no rule of its own.
@@ -2706,7 +2706,7 @@ function toPrimitive(T: type): type {
     case 'literal':  return node.base;
     case 'object':   return objectOf(node.properties.map(p => ({ ...p, type: toPrimitive(p.type) })), node.indexSignatures);
     case 'tuple':    return Reflect.makeType({ ...node, elements: node.elements.map(e => ({ ...e, type: toPrimitive(e.type) })) });
-    case 'function': return Function;
+    case 'function': return type (...a: [].<any>) => any;
     default:         return T;
   }
 }
@@ -2719,7 +2719,7 @@ type PersonInfo = {
 toPrimitive(PersonInfo) === type {
   name: string, age: float64, married: boolean,
   addr: { home: string, phone: string },
-  hobbies: [string, string], fn: Function,
+  hobbies: [string, string], fn: type (...a: [].<any>) => any,
 };
 ```
 
@@ -2727,7 +2727,7 @@ toPrimitive(PersonInfo) === type {
 // With std:types
 std.traverse(PersonInfo, { leaf: t => {
   const node = std.reflect(t);
-  return node.kind === 'literal' ? node.base : node.kind === 'function' ? Function : t;
+  return node.kind === 'literal' ? node.base : node.kind === 'function' ? type (...a: [].<any>) => any : t;
 } }) === toPrimitive(PersonInfo);
 ```
 
@@ -3224,7 +3224,7 @@ function cartesianProduct(T: type, U: type): type {
 
 cartesianProduct(type 1 | 2, type 'a' | 'b') === type [1, 'a'] | [1, 'b'] | [2, 'a'] | [2, 'b'];
 cartesianProduct(type 1 | 2, type 'a' | never) === type [1, 'a'] | [2, 'a'];
-cartesianProduct(type 'a', type Function | string) === type ['a', Function] | ['a', string];
+cartesianProduct(type 'a', type ((...a: [].<any>) => any) | string) === type ['a', (...a: [].<any>) => any] | ['a', string];
 ```
 
 Two `T extends T` tautologies, one per axis, because a nested loop over two unions needs distribution triggered twice and that is how you trigger it. The comments in the published answer are doing the work the code cannot: they explain that `Union<T>` means "distribute", which is not visible in `T extends T ? [T] : never`. `flatMap` over `map` is the nested loop.
