@@ -1321,6 +1321,10 @@ The design that threads the needle is **provenance, not payload**: property reco
 
 **Metadata inside walks.** `deepPartial` over a field typed `float32.<{ m: 1 }>` currently passes the parameterization through untouched (a `parameterized` node hits the default arm). Confirm that is the wanted default and that meta types can veto structural edits where they must (e.g., a builder should not be able to strip `nonZero` from a type used as a divisor without the change being an ordinary — checked — assignability question, which it is).
 
+**Answered in part.** A walk that passes a parameterization through untouched is safe, and that is the current default. What is *not* free is a walk that **rebuilds** one: `Reflect.makeType(Reflect.getReflection(T))` is specified to be `T` — an identity, not an equivalence — and until recently it was not, for a parameterized type. A metadata record reached the write side as an ECMAScript object and was reconstructed one level deep, so a pattern's structural marker came back as an object rather than a record and the rebuilt type was a *second* Type Object for the same type. It answered correctly to every question except `===`: same kind, same base, same field values, and stable under further round trips.
+
+The lesson for a kit author is narrow and worth stating: **a builder that rebuilds a metadata-carrying type must produce the same Type Object, not an equal one**, and nothing except `===` will tell you which you have. The engine now reconstructs metadata structurally to full depth; a walker that constructs its own `parameterized` nodes should compare with `===` in its tests for the same reason.
+
 **Budget defaults.** Concrete numbers for the step and construction budgets, and whether they scale per module, per top-level evaluation, or per program. TypeScript's depth-50/count-5,000,000 style limits are prior art to calibrate against. R18's automaton size tier and R14's trial ceiling need the same treatment: one spec'd constant each.
 
 ## 9. Verdict
