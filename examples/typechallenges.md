@@ -1583,7 +1583,7 @@ function mutable(T: type): type {
   return mapProperties(T, p => ({ ...p, readonly: false }));
 }
 
-interface Todo { title: string; description: string; completed: boolean }
+type Todo = { title: string, description: string, completed: boolean };
 mutable(readonly(Todo)) === Todo;
 ```
 
@@ -4109,7 +4109,7 @@ vueBasicProps({
 
 ```js
 // With std:types
-std.instanceType(type (v: any) => string) === string;
+std.returnType(type (v: any) => string) === string;
    // `each`, in one call: a constructor's call signature names the primitive, which is what makes `type: String` infer `string`
 ```
 
