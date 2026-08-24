@@ -35,7 +35,8 @@ namespace Reflect {
     | { kind: 'cycle'; name: string; };                               // recursive back-edge
 
   type TypeTupleElement = { type: type; rest: boolean; };
-  type TypePropertyReflection = { name: string | symbol; type: type; optional: boolean; };
+  type TypePropertyReflection = { name: string | symbol; type: type; optional: boolean;
+    readonly: boolean; initial: any; };
 }
 ```
 
@@ -219,11 +220,18 @@ export function arms(T: type): [].<type> {
   return node.kind === 'union' ? node.arms : [T];
 }
 export function literalValues(T: type): [].<string | number | boolean | bigint> {
-  return arms(T).map(arm => {
+  // A `.map` infers the element type from the callback, and an array is
+  // INVARIANT in its element (#sec-issubtype: "Element invariance is
+  // untouched"), so a union of string literals produced `[].<string>`, which is
+  // not an `[].<string | number | boolean | bigint>`. Accumulating establishes
+  // the declared element type where the array is built.
+  const out = [];
+  for (const arm of arms(T)) {
     const node = reflect(arm);
     if (node.kind !== 'literal') throw new TypeError(`expected a union of literals, got ${String(arm)}`);
-    return node.value;
-  });
+    out.push(node.value);
+  }
+  return out;
 }
 export function prop(name: string | symbol, type: type,
     { optional = false, readonly = false, initial = undefined } = {}): Reflect.TypePropertyReflection {
