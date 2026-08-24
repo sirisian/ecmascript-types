@@ -659,7 +659,8 @@ interface Chainable<T = type {}> {
   get(): T;
 }
 
-declare const a: Chainable;
+function chainable(): Chainable { /* implementation elsewhere */ return undefined; }
+let a: Chainable = chainable();   // an annotated binding: the type is checked where the value arrives
 const result = a
   .option('foo', 123)
   .option('bar', { value: 'Hello World' })
@@ -747,7 +748,7 @@ function settled(T: type): type {
   }
 }
 
-declare function promiseAll<T>(values: T): Promise.<settled(T)>;
+function promiseAll<T>(values: T): Promise.<settled(T)> { /* implementation elsewhere */ return undefined; }
 
 promiseAll.<type [1, 2, 3]>;                        // returns Promise.<[1, 2, 3]>
 promiseAll.<type [1, 2, Promise.<uint32>]>;         // returns Promise.<[1, 2, uint32]>
@@ -3738,7 +3739,7 @@ function vueOptions(D: type, C: type, M: type): type {
   ]);
 }
 
-declare function simpleVue<D, C, M>(options: vueOptions(D, C, M)): any;
+function simpleVue<D, C, M>(options: vueOptions(D, C, M)): any { /* implementation elsewhere */ return undefined; }
 
 simpleVue({
   data() { return { firstname: 'Type', lastname: 'Challenges', amount: 10 }; },
@@ -3801,7 +3802,7 @@ function curried(F: type): type {
   }] });
 }
 
-declare function currying<T>(f: T): curried(T);
+function currying<T>(f: T): curried(T) { /* implementation elsewhere */ return undefined; }
 
 const curried1 = currying((a: string, b: float64, c: boolean) => true);
 Reflect.typeOf(curried1) === type (a: string) => (b: float64) => (c: boolean) => true;
@@ -4088,7 +4089,7 @@ function vueProps(Props: type, D: type, C: type, M: type): type {
   ]);
 }
 
-declare function vueBasicProps<P, D, C, M>(options: vueProps(P, D, C, M)): any;
+function vueBasicProps<P, D, C, M>(options: vueProps(P, D, C, M)): any { /* implementation elsewhere */ return undefined; }
 
 class ClassA {}
 vueBasicProps({
@@ -4491,8 +4492,8 @@ declare function join<D extends string>(delimiter: D): <P extends Tuple>(...part
 
 ```js
 // Builder
-declare function join<D extends string>(delimiter: D):
-  <P extends [].<string>>(...parts: P) => literal(tupleElements(P).map(e => literalValues(e.type)[0]).join(delimiter));
+function join<D extends string>(delimiter: D):
+  <P extends [].<string>>(...parts: P) => literal(tupleElements(P).map(e => literalValues(e.type)[0]).join(delimiter)) { /* implementation elsewhere */ return undefined; }
 
 Reflect.typeOf(join('-')('a', 'b', 'c')) === type 'a-b-c';
 Reflect.typeOf(join('-')()) === type '';
@@ -4592,7 +4593,7 @@ function store(S: type, G: type, A: type): type {
   return all(A, S, computedResults(G));
 }
 
-declare function defineStore<S, G, A>(options: storeOptions(S, G, A)): store(S, G, A);
+function defineStore<S, G, A>(options: storeOptions(S, G, A)): store(S, G, A) { /* implementation elsewhere */ return undefined; }
 ```
 
 The third `ThisType` challenge and the one where the pattern has clearly become a library. Both sides say the same four things: getters see their own results plus readonly state, actions see themselves plus state plus readonly getter results, the store is all of it merged, and `ComputedGetters` is `ReturnType` mapped over the getters. `computedResults` and `withThisOnMethods` were written back at challenge 6 and are reused here unchanged, which is the whole argument in one line: the builder's helpers compose because they are functions.
@@ -6058,7 +6059,7 @@ function curry(Params: type, R: type): type {
   })});
 }
 
-declare function dynamicParamsCurrying<A, R>(f: (...args: A) => R): curry(A, R);
+function dynamicParamsCurrying<A, R>(f: (...args: A) => R): curry(A, R) { /* implementation elsewhere */ return undefined; }
 
 const curried = dynamicParamsCurrying((a: string, b: number, c: boolean) => true);
 curried('a')(1)(true) === true;
