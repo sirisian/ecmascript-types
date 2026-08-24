@@ -1806,7 +1806,7 @@ Build `block__element--modifier` strings from a block, a list of elements, and a
 
 ```ts
 // TypeScript, issue #5369 (+30)
-type BEM<B extends string, E extends string[],M extends string[]> = `${B}${E extends [] ? '' : `__${E[number]}`}${M extends [] ? '' : `--${M[number]}`}`
+type BEM<B extends string, E extends string[],M extends string[]> = `${B}${E extends [].<any> ? '' : `__${E[number]}`}${M extends [].<any> ? '' : `--${M[number]}`}`
 ```
 
 ```js
@@ -2054,7 +2054,7 @@ Swap['length'] extends N
   ? [Swap, ...Chunk<T, N>]
   : T extends [infer K, ...infer L]
     ? Chunk<L, N, [...Swap, K]>
-    : Swap extends [] ? Swap : [Swap]
+    : Swap extends [].<any> ? Swap : [Swap]
 ```
 
 ```js
@@ -2073,7 +2073,7 @@ chunk(type [1, 2, 3, 4], 2) === type [[1, 2], [3, 4]];
 chunk(type [1, 2, 3, 4], 5) === type [[1, 2, 3, 4]];
 ```
 
-`Swap` is an accumulator holding the chunk under construction, and `Swap['length'] extends N` is the only way to ask whether it is full. The trailing `Swap extends [] ? Swap : [Swap]` handles the final partial chunk, and it must distinguish "empty accumulator, emit nothing" from "partial accumulator, emit it", which `slice` does by producing a shorter last slice and nothing at all when the input is empty.
+`Swap` is an accumulator holding the chunk under construction, and `Swap['length'] extends N` is the only way to ask whether it is full. The trailing `Swap extends [].<any> ? Swap : [Swap]` handles the final partial chunk, and it must distinguish "empty accumulator, emit nothing" from "partial accumulator, emit it", which `slice` does by producing a shorter last slice and nothing at all when the input is empty.
 
 ## 4518 · Fill
 
@@ -2220,7 +2220,7 @@ type Stringifiable = string | number | bigint | boolean | null | undefined;
 type Join<
   T extends readonly Stringifiable[],
   U extends Stringifiable = ",",
-> = T extends []
+> = T extends [].<any>
   ? ""
   : T extends [infer First extends Stringifiable]
   ? `${First}`
@@ -3465,7 +3465,7 @@ type Pascal<
   PrevRow extends any[][] = [],
 > = Result["length"] extends N
   ? Result
-  : Result extends []
+  : Result extends [].<any>
     ? Pascal<N, [[1]], [[any]]>
     : [[any], ...RowMiddle<PrevRow>, [any]] extends infer newRow extends any[][]
       ? Pascal<N, [...Result, Lengths<newRow>], newRow>
@@ -5117,7 +5117,7 @@ assign(type { a: 'a', b: 'b' }, [type { a: 1 }, type { c: 'c' }]) === type { a: 
 // TypeScript, issue #21928 (+8)
 // " 1|20|200|150 extends 20 ? never : U " ==>> " 1|200|150 "
 type Maximum<T extends any[], U = T[number], N extends any[] = []>
-    = T extends [] ? never
+    = T extends [].<any> ? never
     : Equal<U, N['length']> extends true ? U
     : Maximum<T, (U extends N['length'] ? never : U), [...N, unknown]>
 ```
@@ -5220,13 +5220,13 @@ std.mapUnion(type float64 | string, arm => arm === string ? type null : arm) ===
 ```ts
 // TypeScript, issue #24661 (+5)
 type IsDivByThree<T extends unknown[]> = T extends [...infer Start, unknown, unknown, unknown]
-? Start extends []
+? Start extends [].<any>
   ? 'Fizz'
   : IsDivByThree<Start>
 : false
 
 type IsDivByFive<T extends unknown[]> = T extends [...infer Start, unknown, unknown, unknown, unknown, unknown]
-? Start extends []
+? Start extends [].<any>
   ? 'Buzz'
   : IsDivByFive<Start>
 : false
@@ -5709,7 +5709,7 @@ type Bit = 1 | 0
 
 type LastBit<T extends Bit[]> = T extends [...Bit[], infer B extends Bit] ? B : never
 type PoppedBits<T extends Bit[]> = T extends [...infer Rest extends Bit[], Bit] ? Rest : never
-type FilterOne<T extends Bit[]> = T extends [] ? [] : [...(LastBit<T> extends 0 ? [] : [1]), ...FilterOne<PoppedBits<T>>]
+type FilterOne<T extends Bit[]> = T extends [].<any> ? [] : [...(LastBit<T> extends 0 ? [] : [1]), ...FilterOne<PoppedBits<T>>]
 type NumOfOne<T extends Bit[]> = FilterOne<T>['length']
 
 type BinaryAdd<
@@ -5721,8 +5721,8 @@ type BinaryAdd<
   CurrentBitA extends Bit = LastBit<A>,
   CurrentBitB extends Bit = LastBit<B>,
   CurrentBitResult extends Bit = NumOfOne<[CurrentBitA, CurrentBitB, Carry]> extends (0 | 2) ? 0 : 1,
-  NextA extends Bit[] = PoppedBits<A> extends [] ? [0] : PoppedBits<A>,
-  NextB extends Bit[] = PoppedBits<B> extends [] ? [0] : PoppedBits<B>,
+  NextA extends Bit[] = PoppedBits<A> extends [].<any> ? [0] : PoppedBits<A>,
+  NextB extends Bit[] = PoppedBits<B> extends [].<any> ? [0] : PoppedBits<B>,
   NextCarry extends Bit = NumOfOne<[CurrentBitA, CurrentBitB, Carry]> extends (2 | 3) ? 1 : 0,
 > = [A, B, Carry] extends [[0], [0], 0]
   ? Result
@@ -6039,7 +6039,7 @@ Curry with any argument split.
 // TypeScript, issue #3697 (+16)
 type Curry<A, R, D extends unknown[] = []> =
     A extends [infer H, ...infer T]
-      ? T extends []
+      ? T extends [].<any>
         ? (...args: [...D, H]) => R
         : ((...args: [...D, H]) => Curry<T, R>) & Curry<T, R, [...D, H]>
       : () => R

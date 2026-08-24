@@ -362,7 +362,7 @@ What literal types deliberately do not do is drive ```switch``` exhaustiveness. 
 
 ### any Type
 
-Using ```any | null``` would result in a syntax error since ```any``` already includes nullable types. Arrays of ```any``` are written ```[]``` for short, and ```[].<any>``` is the explicit spelling of the same type, so generic code that fills in ```any``` for an element parameter is fine. A fixed-length array of ```any```, ```[N].<any>```, is a length-N array of reference slots. For example:
+Using ```any | null``` would result in a syntax error since ```any``` already includes nullable types. Arrays of ```any``` are written ```[].<any>```, so generic code that fills in ```any``` for an element parameter is fine. (```[]``` alone is the *empty tuple*, not an array — the terse bracket pair went to the meaning that is actually written.) A fixed-length array of ```any```, ```[N].<any>```, is a length-N array of reference slots. For example:
 
 ```js
 let a: [];
@@ -472,7 +472,7 @@ type Match = [string, ...[].<string>] & { index: uint32, input: string };
 
 The homogeneous counterpart of that, an array with named properties, is equally an ```interface X extends [].<E>``` as the tagged-template section writes ```TemplateStringsArray```; the intersection form is the general spelling when the positions differ.
 
-Layout follows the same rule as a class: a tuple of value types is itself a value type laid out contiguously, and a tuple containing a reference position is a reference type. Every tuple is an array, so the array-of-any type ```[]``` doubles as the bound of the tuple family: a type parameter written ```T extends []``` is satisfied by any tuple or array, which is the bound the [RegExp](regexp.md) and [binary packet](examples/binarypacket.md) documents use to accumulate element types.
+Layout follows the same rule as a class: a tuple of value types is itself a value type laid out contiguously, and a tuple containing a reference position is a reference type. Every tuple is an array, so the array-of-any type ```[].<any>``` doubles as the bound of the tuple family: a type parameter written ```T extends [].<any>``` is satisfied by any tuple or array, which is the bound the [RegExp](regexp.md) and [binary packet](examples/binarypacket.md) documents use to accumulate element types. That bound was spelled ```[]``` in an earlier draft. It moved because the short form was never actually used for it — across this document, the other design documents and the 190-program challenge corpus, ```[]``` in bound position appeared zero times while ```[]``` meaning the *empty tuple* appeared about thirty, and the empty tuple had no spelling at all. The old reading also failed silently: ```[]``` was not an error, it was a different type, so a reader who wrote it expecting TypeScript's meaning got a program that compiled and meant something else.
 
 ### Array length Type And Operations
 

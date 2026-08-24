@@ -341,7 +341,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 A reader can accumulate the values it reads into a tuple: an extra tuple generic collects the types read so far, each ```read``` returns ```this``` reparameterized with the tuple grown by one, and a cast operator hands the tuple to typed destructuring, which selects it by shape.
 
 ```js
-export class AccumulatingPacketReader<ReadTypes extends [] = []> extends PacketReader {
+export class AccumulatingPacketReader<ReadTypes extends [].<any> = []> extends PacketReader {
 	#values: ReadTypes = [];
 
 	@doc('Reads a value and accumulates it, returning this with the tuple type grown.')

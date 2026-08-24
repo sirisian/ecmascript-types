@@ -38,13 +38,13 @@ The rule is syntactic and decidable from the pattern alone: a group is non-optio
 ## Match Results
 
 ```js
-type RegExpExecArray<Captures extends [] = [], Groups = {}, Flags: string = ''> = [string, ...Captures] & {
+type RegExpExecArray<Captures extends [].<any> = [], Groups = {}, Flags: string = ''> = [string, ...Captures] & {
 	index: uint32,
 	input: string,
 	groups: Groups
 } & (Flags.includes('d') ? { indices: RegExpIndices.<Captures, Groups> } : {});
 
-class RegExp<Captures extends [] = [], Groups = {}, Flags: string = ''> {
+class RegExp<Captures extends [].<any> = [], Groups = {}, Flags: string = ''> {
 	exec(value: string): RegExpExecArray.<Captures, Groups, Flags> | null;
 	test(value: string): boolean;
 	get source(): string;
@@ -78,10 +78,10 @@ const year = /(?<year>\d{4})/.exec(input)?.groups.year ?? '0000';
 
 ```js
 class String {
-	match<C extends [], G, F: string>(pattern: RegExp.<C, G, F>): F.includes('g') ? [].<string> | null : RegExpExecArray.<C, G, F> | null { /* … */ return undefined; }
-	matchAll<C extends [], G, F: string>(pattern: RegExp.<C, G, F>): Iterator.<RegExpExecArray.<C, G, F>> { /* … */ return undefined; }
+	match<C extends [].<any>, G, F: string>(pattern: RegExp.<C, G, F>): F.includes('g') ? [].<string> | null : RegExpExecArray.<C, G, F> | null { /* … */ return undefined; }
+	matchAll<C extends [].<any>, G, F: string>(pattern: RegExp.<C, G, F>): Iterator.<RegExpExecArray.<C, G, F>> { /* … */ return undefined; }
 	search(pattern: RegExp): int32 { /* … */ return 0; }
-	split<C extends [], G>(pattern: RegExp.<C, G>, limit?: uint32): [].<string> { /* … */ return []; }
+	split<C extends [].<any>, G>(pattern: RegExp.<C, G>, limit?: uint32): [].<string> { /* … */ return []; }
 }
 ```
 
@@ -100,11 +100,11 @@ The callback form of ```replace``` currently receives the whole match, then one 
 
 ```js
 class String {
-	replace<C extends [], G>(
+	replace<C extends [].<any>, G>(
 		pattern: RegExp.<C, G>,
 		replacement: string | ((match: string, ...captures: C, offset: uint32, input: string, groups: G) => string)
 	): string { /* … */ return ""; }
-	replaceAll<C extends [], G>(
+	replaceAll<C extends [].<any>, G>(
 		pattern: RegExp.<C, G>,
 		replacement: string | ((match: string, ...captures: C, offset: uint32, input: string, groups: G) => string)
 	): string { /* … */ return ""; }
@@ -134,7 +134,7 @@ Flags that change the shape of a result are reflected in the type. The ```d``` f
 // indexPairs rebuilds a tuple or object, replacing each member's string type with
 // its index pair [uint32, uint32] and preserving optionality, so a capture typed
 // string | undefined yields [uint32, uint32] | undefined.
-type RegExpIndices<Captures extends [], Groups> = [[uint32, uint32], ...indexPairs(Captures)] & {
+type RegExpIndices<Captures extends [].<any>, Groups> = [[uint32, uint32], ...indexPairs(Captures)] & {
 	groups: indexPairs(Groups)
 };
 ```
@@ -218,7 +218,7 @@ const optional = RegExp.template`(?:${year})?`;
 Because the capture tuples concatenate, a function can wrap an arbitrary pattern and pass its type through:
 
 ```js
-function anchored<C extends [], G>(pattern: RegExp.<C, G>): RegExp.<C, G> {
+function anchored<C extends [].<any>, G>(pattern: RegExp.<C, G>): RegExp.<C, G> {
 	return RegExp.template`^${pattern}$`;
 }
 anchored(year).exec('2026')?.groups.year; // string | undefined
