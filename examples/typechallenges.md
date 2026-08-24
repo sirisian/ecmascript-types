@@ -532,11 +532,11 @@ type MyReadonly2<T, K extends keyof T = keyof T> = Omit<T, K> &
 ```js
 // Builder
 function myReadonly2(T: type, K: type = keys(T)): type {
-  const keys = new Set(literalValues(K));
+  const wanted = new Set(literalValues(K));
   const have = new Set(literalValues(keys(T)));
-  for (const k of keys) if (!have.has(k))
+  for (const k of wanted) if (!have.has(k))
     throw new TypeError(`myReadonly2: ${String(T)} has no property '${String(k)}'`);
-  return mapProperties(T, p => keys.has(p.name) ? { ...p, readonly: true } : p);
+  return mapProperties(T, p => wanted.has(p.name) ? { ...p, readonly: true } : p);
 }
 
 type Todo = { title: string, description?: string, completed: boolean };
@@ -759,7 +759,7 @@ promiseAll.<[].<uint32 | Promise.<string>>>;        // returns Promise.<[].<uint
 // With std:types
 std.genericApplication(type Promise, [std.mapElements(type [1, 2, Promise.<uint32>], std.awaited)])
   === type Promise.<[1, 2, uint32]>;
-std.mapElements(type [].<uint32 | Promise.<string>>, std.awaited) === [].<uint32 | string>;
+std.mapElements(type [].<uint32 | Promise.<string>>, std.awaited) === type [].<uint32 | string>;
 ```
 
 `{ [K in keyof T]: ... }` over a tuple is TypeScript's most surprising rule: a mapped type over an array or tuple is special-cased to produce an array or tuple rather than an object with numeric keys, which is why this signature works at all and why nothing in the syntax says so. The builder's `switch` says so. Note also that `awaited` already means "unwrap if thenable, else pass through", so the answer's recursive helper `Awaited<T> = T extends Promise<infer R> ? Awaited<R> : T` is a call rather than a declaration.
