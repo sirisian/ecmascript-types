@@ -258,7 +258,7 @@ type MyAwaited<T extends PromiseLike<any>> = T extends PromiseLike<infer U>
 // Builder
 function thenValue(T: type): type | null {
   const node = reflect(T);
-  if (node.kind === 'primitive' && node.generic?.base === Promise)
+  if (node.kind === 'primitive' && node.generic?.base === type Promise)
     return node.generic.arguments[0];
   const then = node.kind === 'object' && node.properties.find(p => p.name === 'then');
   return then ? firstParameter(reflect(then.type).signatures[0].parameters[0].type) : null;
@@ -2340,7 +2340,7 @@ function mapTypes(T: type, R: type): type {
 
 mapTypes(type { stringToNumber: string, skipParsingMe: boolean }, type { mapFrom: string, mapTo: uint32 })
   === type { stringToNumber: uint32, skipParsingMe: boolean };
-mapTypes(type { date: string }, type { mapFrom: string, mapTo: Date } | { mapFrom: string, mapTo: null })
+mapTypes(type { date: string }, type { mapFrom: string, mapTo: type Date } | { mapFrom: string, mapTo: null })
   === type { date: Date | null };
 mapTypes(type { name: string }, type { mapFrom: boolean, mapTo: never }) === type { name: string };
 ```
@@ -2797,7 +2797,7 @@ all(type [1, 1, 1], type 1) === type true;
 all(type [1, 1, 2], type 1) === type false;
 all(type ['1', '1', '1'], type 1) === type false;
 all(type [never], never) === type true;
-all(type [any], unknown) === type false;   // assignable both ways, identical neither
+all(type [any], any) === type false;   // assignable both ways, identical neither
 all(type [1, 1, 2], type 1 | 2) === type false;
 ```
 
@@ -3831,7 +3831,9 @@ function unionToIntersection(U: type): type {
 }
 
 unionToIntersection(type 'foo' | 42 | true) === type 'foo' & 42 & true;
-unionToIntersection(type (() => 'foo') | ((i: 42) => true)) === type (() => 'foo') & ((i: 42) => true);
+type Foo55 = () => 'foo';
+type Bar55 = (i: 42) => true;
+unionToIntersection(type Foo55 | Bar55) === type Foo55 & Bar55;   // aliased: a union LEADING with a parenthesised function type does not parse (F140)
 ```
 
 ```js
@@ -5202,8 +5204,8 @@ function unionReplace(T: type, pairs: [].<[type, type]>): type {
 }
 
 unionReplace(type float64 | string, [[string, type null]]) === type float64 | null;
-unionReplace(type float64 | string, [[string, type null], [Date, Function]]) === type float64 | null;
-unionReplace(type Function | Date | object, [[Date, string], [Function, type undefined]])
+unionReplace(type float64 | string, [[string, type null], [type Date, type (...a: [].<any>) => any]]) === type float64 | null;
+unionReplace(type ((...a: [].<any>) => any) | Date | object, [[type Date, string], [type (...a: [].<any>) => any, type undefined]])
   === type undefined | string | object;
 ```
 
@@ -5681,7 +5683,7 @@ function unbox(T: type, depth: uint32 = 0): type {
     const node = reflect(t);
     if (node.kind === 'function') return node.signatures[0].return.type;
     if (node.kind === 'array' || node.kind === 'tuple') return node.element ?? union(node.elements.map(e => e.type));
-    if (node.generic?.base === Promise) return node.generic.arguments[0];
+    if (node.generic?.base === type Promise) return node.generic.arguments[0];
     return undefined;
   };
   let out = T;
@@ -5786,8 +5788,8 @@ unionToObjectFromKey(type Foo | Bar, type 'common') === type Foo | Bar;
 
 ```js
 // With std:types
-std.extract(type Foo | Bar, type { foo: unknown }) === Foo;              // the same probe-object trick as challenge 62, without a discriminant
-std.extract(type Foo | Bar, type { common: unknown }) === type Foo | Bar;
+std.extract(type Foo | Bar, type { foo: any }) === Foo;              // the same probe-object trick as challenge 62, without a discriminant
+std.extract(type Foo | Bar, type { common: any }) === type Foo | Bar;
 ```
 
 `Union extends Union` one more time, and by now it needs no explanation: a `filter` over a union is spelled as a tautology plus a conditional, because distribution is the only iteration a union has. The dropped arms become `never` and vanish when the results are re-unioned, which is why the filter works at all.
