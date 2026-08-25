@@ -684,18 +684,20 @@ declare function get<P extends string>(
 
 ```js
 // Builder
-export function routeParams(path: string): type {
+export function routeParams(P: type): type {
+  // A path arrives here as a TYPE, because this runs in a type position.
+  const path = literalValue(P);
   return objectOf(path.split('/')
     .filter(segment => segment.startsWith(':'))
     .map(segment => prop(segment.slice(1), string)));
 }
 
-function get<P: string>(path: P, handler: (params: routeParams(P)) => Response): void {}
+function get<P extends '/users/:id/posts/:postId'>(path: P, handler: (params: routeParams(P)) => Response): void {}
 
 get('/users/:id/posts/:postId', ({ id, postId }) => { ... }); // id: string, postId: string
 ```
 
-`P` is a value generic bound implicitly from the first argument (the argument-binding rule in [generics.md](generics.md)), so the handler's parameter type is computed from the actual route string at the call. And because `routeParams` is real code, the version every router actually wants — typed segments like `'/users/:id(uint32)'` mapping `id` to `uint32` — is a `Map` lookup away, where in TypeScript it is another research project. The same argument applies to every parse-shaped problem the TypeScript community has heroically encoded (SQL result types, printf argument checking, JSON path access): builders reduce them from encodings to programs.
+`P` is a TYPE parameter whose bound is a literal type, and that is what makes this work: [generics.md](generics.md) infers *the literal type of the argument's value, not the widened base*, where a parameter's bound is a literal type or a union of them. So the handler's parameter type is computed from the actual route string at the call. Two spellings that look equivalent are not: `<P: string>` declares a **value** parameter, whose binding reads as its value where `routeParams` needs a type, and `<P extends string>` widens to `string`, leaving nothing to read the path from. A union bound — `<P extends '/a/:x' | '/b/:y'>` — carries several routes through one signature, each computing its own parameter shape. And because `routeParams` is real code, the version every router actually wants — typed segments like `'/users/:id(uint32)'` mapping `id` to `uint32` — is a `Map` lookup away, where in TypeScript it is another research project. The same argument applies to every parse-shaped problem the TypeScript community has heroically encoded (SQL result types, printf argument checking, JSON path access): builders reduce them from encodings to programs.
 
 **Infinite string sets: a different mechanism, on purpose.** `` `${number}px` `` and `` `on${string}` `` denote *infinite* languages; no finite union of literals expresses them, and this is the one part of template-literal types a builder over today's type kinds cannot produce. The proposal already contains the right home for it: a refined string is a [primitive metadata](primitivemetadata.md) parameterization, and the [regexp](regexp.md) extension supplies typed patterns. A `StringPattern` meta type — `string.<{ pattern: /^\d+px$/ }>` — gives assignment-time and runtime validation through the standard `validate` hook, and its `subtype` hook decides pattern-vs-pattern assignability. That last judgment is where honesty is required: regular-language inclusion is decidable but expensive in general and undecidable once patterns exceed regular power, so `subtype` should be conservative (syntactic containment for the concatenation-of-literals-and-classes forms template types use; otherwise only reflexive), with `validate` carrying the rest at runtime. That trade — a slightly conservative static judgment for a strictly more expressive pattern language plus real runtime enforcement — is a better deal than template-literal types, which validate nothing at runtime and cap out at concatenation grammar. Builders interoperate directly, since `parameterized` nodes round-trip:
 
