@@ -472,6 +472,8 @@ type Match = [string, ...[].<string>] & { index: uint32, input: string };
 
 The homogeneous counterpart of that, an array with named properties, is equally an ```interface X extends [].<E>``` as the tagged-template section writes ```TemplateStringsArray```; the intersection form is the general spelling when the positions differ.
 
+The same reading gives each parameterized family its top: ```Set.<any>``` is a set of some element type and ```Map.<any, any>``` a map of some key and value types, and every specialization is assignable to its family's top. Element invariance is untouched for every other argument, for the reason it is untouched for arrays - what makes ```any``` admissible where general covariance is not is that a store is checked against the receiver's own element type at run time, so writing through the wider view is refused whatever the static type permitted. A BARE ```Map``` or ```Set``` is not the top; the top has a spelling, and it is the one that composes, as ```Map.<string, Set.<any>>``` does.
+
 Layout follows the same rule as a class: a tuple of value types is itself a value type laid out contiguously, and a tuple containing a reference position is a reference type. Every tuple is an array, so the array-of-any type ```[].<any>``` doubles as the bound of the tuple family: a type parameter written ```T extends [].<any>``` is satisfied by any tuple or array, which is the bound the [RegExp](regexp.md) and [binary packet](examples/binarypacket.md) documents use to accumulate element types. That bound was spelled ```[]``` in an earlier draft. It moved because the short form was never actually used for it — across this document, the other design documents and the 190-program challenge corpus, ```[]``` in bound position appeared zero times while ```[]``` meaning the *empty tuple* appeared about thirty, and the empty tuple had no spelling at all. The old reading also failed silently: ```[]``` was not an error, it was a different type, so a reader who wrote it expecting TypeScript's meaning got a program that compiled and meant something else.
 
 ### Array length Type And Operations
@@ -490,6 +492,8 @@ let b = a.length; // the index type, with value 5
 The index type is ```uint64```, and its full range is allocatable and usable: an array type is not bounded by the maximum length of an ordinary ```Array```. A count type wider than what the container can hold would be a fiction, describing lengths no program could reach. An instance is an ```Array``` in its methods and its element behaviour, and not in its extent limit.
 
 The width is ```uint64``` rather than ```uint32``` because a view's length comes from its buffer rather than from an allocation the language caps. One type describes every count an array reports or accepts - a ```length```, a ```capacity```, an index, and a view's length - so the range that only a view can reach is still the range they all share.
+
+One type describes every count a **container** reports, not only an array's: a ```Map```'s and a ```Set```'s ```size``` is the index type too. The width argument above does not reach them, a collection having no view form, but the other property does and is the one that matters here - counts from different containers have to be comparable. ```map.size < array.length``` is a sentence a program wants to write, and it is unwriteable if the two are different types, exactly as *a capacity is at least a length* is unwriteable if those two are. The [standard library](standardlibrary.md) extension gives the collections' full signatures.
 
 An array with no element type is untouched by any of this. A plain ```[1, 2, 3]``` reports a ```length``` that is a Number, exactly as it does today, and no program that does not use these types can observe the index type at all.
 
@@ -3440,6 +3444,8 @@ The ```Reflect``` methods mirror the operations above. ```Reflect.get``` and ```
 ### Keyed Collections
 
 ```Map``` and ```Set``` compare keys with SameValueZero, which for a primitive is value equality and for an object is identity. A value type class instance is neither, so it needs a rule of its own: **value type keys compare structurally**, field by field with SameValueZero, which is what ```==``` on them already does.
+
+Everything in this section is about a collection that HAS type arguments. **A ```Map``` or ```Set``` written without them is an ordinary JavaScript ```Map``` or ```Set``` and stays one**: ```size``` is a Number, keys and values are unconstrained, and no program that does not use these types can observe any of it. This is the carve-out an array already has, where a plain ```[1, 2, 3]``` reports a ```length``` that is a Number, and the two forms coexist in one program without interacting.
 
 Comparison and hashing are defined over a type's fields, never its byte image, because alignment padding is not observable. Each field compares by its own kind: a value type field recursively and structurally, a fixed-length array field element by element, since it's inline storage, and a reference field by identity. That last distinction is the same one that decides whether the containing class is a value type at all.
 

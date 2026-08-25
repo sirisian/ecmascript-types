@@ -95,6 +95,67 @@ const groups = Object.groupBy([1, 2, 3, 4], (n: uint32) => n % 2 == 0 ? 'even' :
 // groups: { [key: string]: [].<uint32> }
 ```
 
+## Keyed Collections
+
+The keyed collections take type arguments and every member follows from them. Earlier drafts of this document typed only the set-algebra methods below, which left ```Map.<K, V>``` used in a dozen places across these documents and defined in none of them, and left ```size``` as the one count in the language with no type.
+
+```js
+class Map<K, V> implements Iterable<[K, V]> {
+	constructor(entries?: Iterable.<[K, V]>);
+	get size(): uint64;
+	get(key: K): V | undefined { /* … */ return undefined; }
+	set(key: K, value: V): Map.<K, V> { /* … */ return undefined; }
+	has(key: K): boolean { /* … */ return false; }
+	delete(key: K): boolean { /* … */ return false; }
+	clear(): void { /* … */ }
+	getOrInsert(key: K, value: V): V { /* … */ return undefined; }
+	getOrInsertComputed(key: K, callback: (key: K) => V): V { /* … */ return undefined; }
+	keys(): Iterator.<K> { /* … */ return undefined; }
+	values(): Iterator.<V> { /* … */ return undefined; }
+	entries(): Iterator.<[K, V]> { /* … */ return undefined; }
+	forEach(callback: (value: V, key: K, map: Map.<K, V>) => void, thisArg?: any): void { /* … */ }
+	*operator...(): [K, V];
+}
+
+class Set<T> implements Iterable<T> {
+	constructor(values?: Iterable.<T>);
+	get size(): uint64;
+	add(value: T): Set.<T> { /* … */ return undefined; }
+	has(value: T): boolean { /* … */ return false; }
+	delete(value: T): boolean { /* … */ return false; }
+	clear(): void { /* … */ }
+	keys(): Iterator.<T> { /* … */ return undefined; }
+	values(): Iterator.<T> { /* … */ return undefined; }
+	entries(): Iterator.<[T, T]> { /* … */ return undefined; }
+	forEach(callback: (value: T, value2: T, set: Set.<T>) => void, thisArg?: any): void { /* … */ }
+	*operator...(): T;
+}
+```
+
+```size``` is the **index type**, ```uint64```, the same type an array's ```length``` and ```capacity``` report. The reason is not the one that fixed the width for arrays - that argument is about a view's length coming from a buffer, and a collection has no view form - but the other property the index type exists for: one type for every count means a count from one container is comparable with a count from another. ```map.size < array.length``` is a sentence a program wants to write, and it is unwriteable if the two are different types, exactly as *a capacity is at least a length* is unwriteable if those two are.
+
+```get``` answers ```V | undefined``` rather than ```V```, because a lookup that finds nothing answers ```undefined```; a binding of type ```V``` therefore does not take a lookup's result without a test. ```getOrInsert``` and ```getOrInsertComputed``` answer ```V``` and never ```undefined```, since they insert what they did not find.
+
+```keys```, ```values``` and ```entries``` return ```Iterator``` rather than the ```IterableIterator``` interface, so a chain of iterator helpers stays typed: ```m.values().map(f).toArray()``` carries ```V``` through. There are no per-collection iterator types - no ```MapIterator```, no ```SetIterator``` - because the bare-argument shorthand already carries what TypeScript needs those names for.
+
+A ```Map``` iterates as ```[K, V]``` pairs and a ```Set``` as its elements, which is what the declared ```Iterable``` gives them; ```WeakMap``` and ```WeakSet``` declare neither and are not iterable.
+
+### Untyped Collections Are Untouched
+
+**A ```Map``` or ```Set``` written with no type arguments is an ordinary JavaScript ```Map``` or ```Set``` and stays one.** ```size``` is a Number, keys and values are unconstrained, ```for..of``` binds at ```any```, and no program that does not use these types can observe any of the above. This is the same carve-out an array has - a plain ```[1, 2, 3]``` reports a ```length``` that is a Number - and it is stated here because a collection has no other place to state it.
+
+```js
+const m = new Map();          // An ordinary Map
+m.set(1, "a");                // Any key, any value
+m.size + 1;                   // A Number, and it mixes with Numbers
+
+const t = new Map.<string, uint8>();
+t.size + 1;                   // A uint64; the literal takes the type
+// t.set(1, 2);               // TypeError: 1 is not a string
+```
+
+The two coexist in one program without interacting: a specialization adds nothing to the shared prototype and changes nothing about the constructor.
+
 ## Set Operations
 
 The result element type follows where elements can come from: ```intersection``` and ```difference``` draw only from ```this```, while ```union``` and ```symmetricDifference``` draw from both sides:
@@ -111,7 +172,11 @@ class Set<T> {
 }
 ```
 
+Where the other side's element type is not known, the result's is not either and the result carries none: a union with an unconstrained set is unconstrained, and answering ```Set.<T>``` would state more than the values support. The bound on ```other``` is ```Set.<any>```, the top of the collection family, which is admissible for the reason ```[].<any>``` is admissible as the top of the array family - a store is checked against the receiver's own element type at run time, so writing through the wider view is refused whatever the static type permitted.
+
 When ```T``` and ```U``` are unrelated value types the compiler can constant-fold the answer: an ```intersection``` of a ```Set.<uint8>``` and a ```Set.<string>``` is empty without iterating, and ```isDisjointFrom``` is ```true```, since distinct value types share no values.
+
+These take a **set-like** rather than only a ```Set``` - any object with ```size```, ```has``` and ```keys``` - as they do today. A set-like's ```size``` is read as a count and checked rather than coerced, the treatment ```reserve``` already gives an array's.
 
 A ```Set``` of value type class instances deduplicates structurally, and a ```Map``` keyed on one compares its keys by value, per the keyed collections section of the main proposal.
 
