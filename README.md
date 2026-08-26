@@ -1060,8 +1060,15 @@ function q(a: int32): void { }        // the result must not be depended on
 function r(a: int32): undefined { }   // the result is undefined, and may be held
 const y: undefined = r(1);
 function t(b, a: int32) { if (b) { return a; } }  // inferred: int32 | undefined
+// function u(b, a: int32): int32 { if (b) { return a; } }  // Syntax Error: can complete
+//                                                          // without a return, and int32
+//                                                          // does not admit undefined
 ```
 A function that takes no parameters is made a typed function by writing the return type:
+
+The last two lines are the same function written twice, and only one of them is legal. Where the return type is INFERRED, a body that can fall off its end contributes `undefined` to the inference and `t` is typed `int32 | undefined`. Where it is WRITTEN, the annotation is a promise to the caller, and a body that can complete without a `return` would break it silently &mdash; so it is a Syntax Error unless the declared type admits `undefined`. `void` satisfies the rule, being the annotation for a function that returns no value; `int32 | undefined` and `any` satisfy it by admitting `undefined` outright.
+
+Whether a body "can complete normally" is decided syntactically: `if`/`else` where both arms return, a `throw`, a `while (true)` with no reachable `break`, a `try` whose paths all return, and a `switch` with a `default` that no clause escapes are all total. Anything the rule cannot decide is treated as able to complete, since rejecting a total function is the worse mistake.
 ```js
 function f(): void {}
 ```
