@@ -2132,6 +2132,8 @@ async function f(): Promise.<uint8, undefined> {
 }
 ```
 
+The annotation on an `async` function must BE a promise type. Unlike a generator's, it is not shorthand: `function* f(): int32` fills the rest with `void`, which says truly that the generator yields and does not return, and there is no equally supportable filler for a reject type &mdash; a promise that never rejects is a claim no body can support. So `async function f(): uint8` is a Syntax Error, and the message names `Promise.<uint8, E>`.
+
 ```await``` unwraps the resolve type: awaiting a ```Promise.<uint8, Error>``` yields a ```uint8```, and the reject type feeds the typed catch clauses described in the [error handling](errorhandling.md) extension. The combinators infer from their inputs, so ```Promise.all``` over a tuple of typed promises resolves to a tuple of the resolve types and rejects with the union of the reject types. By convention a reject type of ```undefined``` means the promise never rejects, and a resolve type of ```void``` means it resolves with no value; both read directly off the type.
 
 Right now there's no check except the runtime check when a function actually throws to validate the exception types. It is feasible however that the immediate async function scope could be checked to match the type and generate a TypeError if one is found even for codepaths that can't resolve. This is stuff one's IDE might flag.
@@ -2158,6 +2160,8 @@ A generator annotates its yield type directly; the full generic form names the y
 function* f(): int32 { // shorthand for Generator.<int32, void, void>
   yield 1;
   yield 2;
+  // return 1;  // TypeError: the shorthand's R is void, so this generator
+  //            // returns nothing. Write Generator.<int32, R, N> to type a return.
 }
 
 function* g(): Generator.<int32, string, boolean> {
