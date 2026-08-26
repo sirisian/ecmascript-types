@@ -297,7 +297,7 @@ let b: uint8 = o?.a ?? 0;
 
 ### Intersection types
 
-An intersection combines object interfaces; the result requires every member of each. Members sharing a name must have identical types or the declaration is a TypeError:
+An intersection combines object interfaces; the result requires every member of each:
 
 ```js
 interface A { a: uint32; }
@@ -306,7 +306,48 @@ type AB = A & B;
 function f(o: AB) {} // o.a and o.b are both required
 ```
 
-Intersections are for object shapes. Intersecting value types, like ```uint8 & string```, is a TypeError since no value inhabits both; refining a single primitive is instead handled with [primitive metadata](primitivemetadata.md).
+Members sharing a name are not a special case, and are not an error. The intersection requires both, so the member must satisfy both types, and a value that cannot is refused where it is built:
+
+```js
+type Narrowed = { a: uint32 } & { a: 5 };   // Fine: 5 satisfies both
+type Conflict = { a: uint32 } & { a: string }; // Stands; nothing satisfies `a`
+```
+
+An earlier draft made a name collision a TypeError at the declaration whatever the two types were. That rule was never implemented and would have been wrong if it had been: it refuses ```Narrowed```, which is the useful case and is inhabited. Whether ```Conflict``` should collapse to ```never``` — the member having no values, so the object having none either — is deliberately left open here. TypeScript keeps the object type and makes the *member* ```never```, and matching that costs nothing today, so the question can be settled when object canonicalization is next opened rather than guessed at now.
+
+**An intersection no value can inhabit is ```never```.** Two types are *disjoint* when no value is of both: two different primitives, a primitive and an object or function or array, two different literals, and anything built out of those. So ```number & bigint```, ```uint8 & string```, ```'a' & 'b'```, and ```uint8 & { a: uint8 }``` all denote ```never```, and a dead arm drops out of a union that contains one — ```string | (number & bigint)``` is ```string```.
+
+**Writing one is a compile-time TypeError.** The reduction says what the type *is*; the error says where you hear about it. Left to reduce silently, a mistyped ```&``` surfaces as "not assignable to ```never```" at every use of the annotation, which is how an erasure checker reports it and is the least useful place to say it:
+
+```js
+// type T = number & bigint; // TypeError: no value is of both number and bigint
+type T = number | bigint;    // the thing that was almost certainly meant
+```
+
+This is the same call the language already makes for a narrowing test that can never succeed — ```d ?? 5``` where ```d``` is a ```uint8``` is dead code and is reported, not silently narrowed. A written empty intersection is that mistake with less excuse, since both members are right there.
+
+Only the *syntax* is refused. ```never``` is a real type and computation reaches it freely: ```exclude(T, T)``` is ```never```, a builder constructing a disjoint intersection gets ```never``` rather than a throw, and a generic body is not rejected for an instantiation that may never happen — in ```type F<T> = T & string``` nothing is disjoint until ```T``` is known, and ```F.<number>``` is then ```never``` with no complaint. Writing ```never``` directly is fine, and so is ```uint8 & never```, which states what the rule is for catching.
+
+Disjointness is decided on a type's **base**, never on its metadata, which is what keeps [primitive metadata](primitivemetadata.md) layering usable. Two refinements of one primitive share values, so they intersect:
+
+```js
+type Email = string.<{ pattern: /^.+@.+$/ }>;
+type Verified = string.<{ brand: 'Verified' }>;
+type VerifiedEmail = Email & Verified; // A string that is both. Inhabited.
+// type Bad = Email & uint8;           // TypeError: the bases are disjoint
+```
+
+The base is reached by walking the whole chain, not one link, since parameterizing an already-parameterized type nests:
+
+```js
+type E = string.<{ brand: 'E' }>;
+type N = E.<{ brand: 'N' }>;  // Base is E, whose base is string
+type T = N & string;          // Fine: N reaches string through E
+```
+
+A base need not be a primitive. A literal base is decided by the primitive under it, and an object or array base carries a brand too, so two brands over one object shape intersect exactly as two over a ```string``` do.
+
+That is also why intersection is not the way to brand a primitive here. TypeScript writes ```string & { __brand: 'X' }``` because it has nowhere else to put the tag, and must therefore leave every ```primitive & object``` intersection inhabited to keep the idiom working. This proposal gives a brand a real home in the type, so it can reduce the case TypeScript cannot.
 
 ### Type Aliases and Recursion
 
