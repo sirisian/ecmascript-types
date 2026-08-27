@@ -347,6 +347,18 @@ type T = N & string;          // Fine: N reaches string through E
 
 A base need not be a primitive. A literal base is decided by the primitive under it, and an object or array base carries a brand too, so two brands over one object shape intersect exactly as two over a ```string``` do.
 
+A parameterization applies to any postfix type and composes with itself and with an indexed access in either order, so an intermediate name is never required:
+
+```js
+type N = string.<{ brand: 'E' }>.<{ brand: 'N' }>;   // refine a parameterized type
+type T = [].<uint8>.<{ brand: 'B' }>;                // brand an array
+type B = Box.<uint8>.<{ brand: 'B' }>;               // brand a generic application
+type X = O['a'].<{ brand: 'B' }>;                    // brand an indexed access
+type Y = (string | uint8).<{ brand: 'B' }>;          // brand a parenthesized type
+```
+
+Each denotes the same type its named form does &mdash; `type E = string.<{ brand: 'E' }>; type N = E.<{ brand: 'N' }>` and the chained spelling above are one type, not two equal ones.
+
 That is also why intersection is not the way to brand a primitive here. TypeScript writes ```string & { __brand: 'X' }``` because it has nowhere else to put the tag, and must therefore leave every ```primitive & object``` intersection inhabited to keep the idiom working. This proposal gives a brand a real home in the type, so it can reduce the case TypeScript cannot.
 
 ### Type Aliases and Recursion
