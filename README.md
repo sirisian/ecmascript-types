@@ -359,6 +359,30 @@ type Y = (string | uint8).<{ brand: 'B' }>;          // brand a parenthesized ty
 
 Each denotes the same type its named form does &mdash; `type E = string.<{ brand: 'E' }>; type N = E.<{ brand: 'N' }>` and the chained spelling above are one type, not two equal ones.
 
+**The base decides what ```.<>``` means, not the argument.** Where the base declares type parameters the arguments are types; otherwise they are a metadata record:
+
+```js
+type Box<T> = { value: T };
+type A = Box.<{ a: uint8 }>;          // Box declares T, so this SUPPLIES it
+type B = string.<{ brand: 'V' }>;     // string declares nothing, so metadata
+```
+
+The argument cannot decide it, because a metadata record is written as an object type — ```Box.<{ a: uint8 }>``` is the same text either way. This is the rule already used for the other two things that share the bracket: whether an argument is a type or a value, and which parameter a named argument fills, are both read off the declaration.
+
+Where the base is a type parameter the reading waits for the instantiation:
+
+```js
+type F<T> = T.<{ brand: 'B' }>;
+type G = F.<string>;                  // string.<{ brand: 'B' }>
+```
+
+A generic all of whose parameters have defaults can be written with an empty list, which is what lets it be branded without repeating the defaults:
+
+```js
+type Grid<T = float64> = { v: T };
+type H = Grid.<>.<{ brand: 'V' }>;    // Grid.<> is Grid.<float64>
+```
+
 That is also why intersection is not the way to brand a primitive here. TypeScript writes ```string & { __brand: 'X' }``` because it has nowhere else to put the tag, and must therefore leave every ```primitive & object``` intersection inhabited to keep the idiom working. This proposal gives a brand a real home in the type, so it can reduce the case TypeScript cannot.
 
 ### Type Aliases and Recursion
