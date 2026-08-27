@@ -724,7 +724,7 @@ namespace Reflect {
 namespace Reflect {
 	type TypeReflection =
 		| { kind: 'primitive'; type: type; }                              // uint8, string, or a nominal class/enum reference
-		| { kind: 'union'; arms: [].<type>; }
+		| { kind: 'union'; members: [].<type>; }
 		| { kind: 'intersection'; members: [].<type>; }
 		| { kind: 'tuple'; elements: [].<TypeTupleElement>; }
 		| { kind: 'array'; element: type; extent: uint32 | undefined; }   // [].<T> => extent undefined; [N].<T> => N

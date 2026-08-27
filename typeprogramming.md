@@ -26,7 +26,7 @@ The pieces below are already specified across [typeobjects.md](typeobjects.md), 
 namespace Reflect {
   type TypeReflection =
     | { kind: 'primitive'; type: type; }                              // uint8, string, or a nominal class/enum reference
-    | { kind: 'union'; arms: [].<type>; }
+    | { kind: 'union'; members: [].<type>; }
     | { kind: 'intersection'; members: [].<type>; }
     | { kind: 'tuple'; elements: [].<TypeTupleElement>; }
     | { kind: 'array'; element: type; extent: uint32 | undefined; }
@@ -99,7 +99,7 @@ namespace Reflect {
   type TypeReflection =
     | { kind: 'primitive'; type: type; generic: GenericApplication | undefined; } // generic added
     | { kind: 'literal'; value: string | number | boolean | bigint; base: type; } // added: 'a', 42, true, 5n
-    | { kind: 'union'; arms: [].<type>; }                                         // arms: [] is never (§3.3)
+    | { kind: 'union'; members: [].<type>; }                                         // members: [] is never (§3.3)
     | { kind: 'intersection'; members: [].<type>; }
     | { kind: 'tuple'; elements: [].<TypeTupleElement>; }
     | { kind: 'array'; element: type; extent: uint32 | undefined; }
@@ -162,7 +162,7 @@ This is the same coinductive judgment the checker runs on every assignment, expo
 
 ### 3.3 `never` as a real, computable type
 
-The empty union is admitted as a type object: `Reflect.makeType({ kind: 'union', arms: [] })` returns it, `type never` names it, and canonicalization gives it the algebra the utility library needs — it is the identity of union (`union([T, never]) === T`), it annihilates intersection, it is assignable to every type, and no value inhabits it. The checker already has this type internally (divergence satisfies any return type by producing it), so this is a naming decision plus one question the main proposal must answer: whether `never` becomes *writable* in annotations, or remains reachable only by computation. Since a computed type is a valid annotation, builders make it writable indirectly anyway (`let x: exclude(T, T)` would be legal and uninhabitable); the recommendation (§7, R3) is to admit it openly with the standard meaning rather than pretend otherwise, while keeping the existing stance that `switch` exhaustiveness stays reserved to enums and sealed classes.
+The empty union is admitted as a type object: `Reflect.makeType({ kind: 'union', members: [] })` returns it, `type never` names it, and canonicalization gives it the algebra the utility library needs — it is the identity of union (`union([T, never]) === T`), it annihilates intersection, it is assignable to every type, and no value inhabits it. The checker already has this type internally (divergence satisfies any return type by producing it), so this is a naming decision plus one question the main proposal must answer: whether `never` becomes *writable* in annotations, or remains reachable only by computation. Since a computed type is a valid annotation, builders make it writable indirectly anyway (`let x: exclude(T, T)` would be legal and uninhabitable); the recommendation (§7, R3) is to admit it openly with the standard meaning rather than pretend otherwise, while keeping the existing stance that `switch` exhaustiveness stays reserved to enums and sealed classes.
 
 ### 3.4 Evaluation semantics
 
@@ -213,11 +213,11 @@ export function literal(value: string | number | boolean | bigint): type {
   return Reflect.makeType({ kind: 'literal', value, base: Reflect.typeOf(value) });
 }
 export function union(armList: [].<type>): type {
-  return Reflect.makeType({ kind: 'union', arms: armList }); // flattens, dedupes, sorts; [] → never, [T] → T
+  return Reflect.makeType({ kind: 'union', members: armList }); // flattens, dedupes, sorts; [] → never, [T] → T
 }
 export function arms(T: type): [].<type> {
   const node = reflect(T);
-  return node.kind === 'union' ? node.arms : [T];
+  return node.kind === 'union' ? node.members : [T];
 }
 export function literalValues(T: type): [].<string | number | boolean | bigint> {
   // A `.map` infers the element type from the callback, and an array is
@@ -261,7 +261,7 @@ And the workhorse — the builder analog of a homomorphic mapped type. It walks 
 export function mapProperties(T: type,
     f: (p: Reflect.TypePropertyReflection) => Reflect.TypePropertyReflection | null): type {
   const node = reflect(T);
-  if (node.kind === 'union') return union(node.arms.map(arm => mapProperties(arm, f)));
+  if (node.kind === 'union') return union(node.members.map(arm => mapProperties(arm, f)));
   if (node.kind === 'intersection')   // A & B: map each member; equivalent up to assignability to mapping the flattened shape
     return Reflect.makeType({ kind: 'intersection', members: node.members.map(m => mapProperties(m, f)) });
   if (node.kind !== 'object') throw new TypeError(`mapProperties expects an object type, got ${String(T)}`);
@@ -404,7 +404,7 @@ export function omit(T: type, K: type | [].<string | symbol>): type {
 }
 export function record(K: type, V: type): type {
   const node = reflect(K);
-  if (node.kind === 'literal' || node.kind === 'union' && node.arms.every(a => reflect(a).kind === 'literal'))
+  if (node.kind === 'literal' || node.kind === 'union' && node.members.every(a => reflect(a).kind === 'literal'))
     return objectOf(literalValues(K).map(name => prop(name, V)));   // Record<'read' | 'write', T> → concrete properties
   return objectOf([], [{ key: K, value: V }]);                      // Record<string, T> → index signature
 }
@@ -569,7 +569,7 @@ type Awaited<T> =
 // Builder
 export function awaited(T: type): type {
   const node = reflect(T);
-  if (node.kind === 'union') return union(node.arms.map(awaited));
+  if (node.kind === 'union') return union(node.members.map(awaited));
   if (node.kind === 'primitive' && node.generic?.base === Promise)
     return awaited(node.generic.arguments[0]);                    // Promise.<V> → recurse on V
   const then = node.kind === 'object' && node.properties.find(p => p.name === 'then');
@@ -779,7 +779,7 @@ export function deepPartial(T: type): type {
         node.indexSignatures.map(s => ({ ...s, value: deepPartial(s.value) })));
     case 'array': return arrayOf(deepPartial(node.element), node.extent);
     case 'tuple': return Reflect.makeType({ ...node, elements: node.elements.map(e => ({ ...e, type: deepPartial(e.type) })) });
-    case 'union': return union(node.arms.map(deepPartial));
+    case 'union': return union(node.members.map(deepPartial));
     default:      return T; // primitives, literals, functions, classes, enums pass through
   }
 }
@@ -922,7 +922,7 @@ export function traverse(T: type, { leaf = t => t, property = p => p, element = 
       node.indexSignatures.map(s => ({ ...s, value: rec(s.value) })));
     case 'tuple': return Reflect.makeType({ ...node, elements: node.elements.map(e => element({ ...e, type: rec(e.type) })) });
     case 'array': return arrayOf(rec(node.element), node.extent);
-    case 'union': return union(node.arms.map(rec));
+    case 'union': return union(node.members.map(rec));
     case 'intersection': return intersection(node.members.map(rec));
     default: return leaf(T);
   }
