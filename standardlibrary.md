@@ -46,18 +46,18 @@ The helpers are defined on the ```Iterator``` class, which declares that it impl
 
 ```js
 class Iterator<T, R = void, N = void> implements IterableIterator<T, R, N> {
-	map<U>(callback: (value: T, index: uint32) => U): Iterator.<U> { /* … */ return undefined; }
-	filter(callback: (value: T, index: uint32) => boolean): Iterator.<T> { /* … */ return undefined; }
+	map<U>(callback: (value: T, index: uint64) => U): Iterator.<U> { /* … */ return undefined; }
+	filter(callback: (value: T, index: uint64) => boolean): Iterator.<T> { /* … */ return undefined; }
 	take(limit: uint32): Iterator.<T> { /* … */ return undefined; }
 	drop(limit: uint32): Iterator.<T> { /* … */ return undefined; }
-	flatMap<U>(callback: (value: T, index: uint32) => Iterable.<U>): Iterator.<U> { /* … */ return undefined; }
-	reduce<U>(callback: (accumulator: U, value: T, index: uint32) => U, initial: U): U { /* … */ return undefined; }
-	reduce(callback: (accumulator: T, value: T, index: uint32) => T): T { /* … */ return undefined; }
+	flatMap<U>(callback: (value: T, index: uint64) => Iterable.<U>): Iterator.<U> { /* … */ return undefined; }
+	reduce<U>(callback: (accumulator: U, value: T, index: uint64) => U, initial: U): U { /* … */ return undefined; }
+	reduce(callback: (accumulator: T, value: T, index: uint64) => T): T { /* … */ return undefined; }
 	toArray(): [].<T> { /* … */ return []; }
-	forEach(callback: (value: T, index: uint32) => void): void { /* … */ }
-	some(callback: (value: T, index: uint32) => boolean): boolean { /* … */ return false; }
-	every(callback: (value: T, index: uint32) => boolean): boolean { /* … */ return false; }
-	find(callback: (value: T, index: uint32) => boolean): T | undefined { /* … */ return undefined; }
+	forEach(callback: (value: T, index: uint64) => void): void { /* … */ }
+	some(callback: (value: T, index: uint64) => boolean): boolean { /* … */ return false; }
+	every(callback: (value: T, index: uint64) => boolean): boolean { /* … */ return false; }
+	find(callback: (value: T, index: uint64) => boolean): T | undefined { /* … */ return undefined; }
 }
 ```
 
@@ -74,6 +74,56 @@ const a: [].<int32> = f().map(x => x * 2).filter(x => x > 2).toArray();
 // map gives an Iterator.<int32> with x: int32; filter keeps it; toArray leaves for [].<int32>
 ```
 
+## Building From an Iterable
+
+```Array.from``` and ```Iterator.from``` carry an element type through. The first parameter is the same ```Iterable.<T>``` the grouping functions take, so a typed array, a collection, a generator and a string all reach it by the interface they already declare:
+
+```js
+function Array.from<T>(items: Iterable.<T>): [].<T>;
+
+function Array.from<T, U>(
+	items: Iterable.<T>,
+	mapFn: (value: T, index: uint64) => U
+): [].<U>;
+
+function Iterator.from<T>(items: Iterable.<T>): Iterator.<T>;
+```
+
+The mapped overload takes its result from the callback, exactly as ```map``` does.
+
+**A callback's index is ```uint64```, not ```uint32```**, and this document said ```uint32``` in twelve places before this change. The [index type](README.md) is one type for "every count a CONTAINER reports or accepts: an array's ```length```, its ```capacity```, an index used to read or write an element, the length of a view over a buffer, and the ```size``` of a keyed collection", and naming it once is what "keeps ```capacity``` comparable with ```length``` without a conversion". A callback's index is such a count — it indexes the very container being iterated — so writing ```uint32``` there made the one number a program is most likely to compare against a ```length``` the one number it could not. The specification's typed-statics clause already states ```uint64```, and the engine implements it; this brings the design into line rather than the reverse.
+
+An **untyped** source yields an untyped result. Where ```T``` cannot be determined the call has no static type at all, rather than one naming ```any``` in the element position — ```[].<any>``` would claim a typed array where the program built an ordinary one.
+
+```Array.of``` is the same element type gathered from arguments instead of from an iterable:
+
+```js
+function Array.of<T>(...items: T): [].<T>;
+```
+
+## Reading an Object's Own Properties
+
+```js
+function Object.keys(o: object): [].<string>;
+function Object.values<V>(o: { [key: string]: V }): [].<V>;
+function Object.entries<V>(o: { [key: string]: V }): [].<[string, V]>;
+function Object.fromEntries<V>(entries: Iterable.<[string, V]>): { [key: string]: V };
+```
+
+```Object.keys``` answers strings whatever it is given, so it needs no type parameter. The other three carry the value type, and they are stated over an index signature rather than over a specific object type: a signature that named one would not describe the call a program actually writes, which is over an object whose properties are known individually. Where the argument's properties have differing types the value type is their union, which is what an index signature over that object already means.
+
+**```Object.entries``` pairs a ```string``` with the value**, not a property-key union. The keys ```Object.keys``` reports are Strings — a Symbol-keyed property is not among them — so the pair's first position is ```string``` and not ```string | symbol```. ```Object.groupBy```'s key constraint is the other direction and is unaffected: it PRODUCES property keys, and those may be Symbols.
+
+## Cloning
+
+```js
+function structuredClone<T>(value: T): T;
+```
+
+The clone has the type of what was cloned. This is the one signature in this document whose result depends on nothing but its argument, and it is stated because the alternative — leaving it ```any``` — loses a type across a call that is defined to preserve the value.
+
+**Not yet implementable, and stated anyway.** ```structuredClone``` is a HTML specification function rather than an ECMAScript one, and the reference engine does not provide it: ```typeof structuredClone``` is ```'undefined'``` there. A signature is a claim that the function EXISTS, so this one must not be given to an engine that lacks it — a program written against it would type-check and then fail on the call. It is recorded because the design question is settled and only the host is missing; an implementation adds the row when the function is present, and not before.
+
 ## Grouping
 
 ```Object.groupBy``` produces property keys, so its key type is constrained to the property key types; ```Map.groupBy``` accepts any key type, using SameValueZero like ```Map``` itself:
@@ -81,12 +131,12 @@ const a: [].<int32> = f().map(x => x * 2).filter(x => x > 2).toArray();
 ```js
 function Object.groupBy<K extends string | symbol, T>(
 	items: Iterable.<T>,
-	callback: (value: T, index: uint32) => K
+	callback: (value: T, index: uint64) => K
 ): { [key: K]: [].<T> };
 
 function Map.groupBy<K, T>(
 	items: Iterable.<T>,
-	callback: (value: T, index: uint32) => K
+	callback: (value: T, index: uint64) => K
 ): Map.<K, [].<T>>;
 ```
 
@@ -214,7 +264,7 @@ function Array.fromAsync<T>(
 
 function Array.fromAsync<T, U>(
 	items: AsyncIterable.<T> | Iterable.<T | Promise.<T, any>>,
-	mapFn: (value: T, index: uint32) => U | Promise.<U, any>
+	mapFn: (value: T, index: uint64) => U | Promise.<U, any>
 ): Promise.<[].<U>, any>;
 ```
 
