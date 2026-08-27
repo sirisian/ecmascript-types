@@ -31,8 +31,7 @@ namespace Reflect {
     | { kind: 'tuple'; elements: [].<TypeTupleElement>; }
     | { kind: 'array'; element: type; extent: uint32 | undefined; }
     | { kind: 'object'; properties: [].<TypePropertyReflection>; }
-    | { kind: 'function'; signatures: [].<FunctionSignatureReflection>; }
-    | { kind: 'cycle'; name: string; };                               // recursive back-edge
+    | { kind: 'function'; signatures: [].<FunctionSignatureReflection>; };
 
   type TypeTupleElement = { type: type; rest: boolean; };
   type TypePropertyReflection = { name: string | symbol; type: type; optional: boolean;
@@ -107,8 +106,7 @@ namespace Reflect {
         indexSignatures: [].<TypeIndexSignature>; }                               // indexSignatures added
     | { kind: 'function'; signatures: [].<FunctionSignatureReflection>; }
     | { kind: 'parameterized'; base: type; metadata: object; }                    // added: float32.<{ m: 1 }>
-    | { kind: 'reference'; target: type; }                                        // added: the `ref` borrow type (references.md)
-    | { kind: 'cycle'; name: string; };                                           // renamed from 'reference': recursive back-edge (reflection output only)
+    | { kind: 'reference'; target: type; };                                       // the `ref` borrow type (references.md)
 
   type TypeTupleElement = { type: type; rest: boolean; initial: any | undefined; };
   type TypePropertyReflection = {
@@ -146,7 +144,7 @@ Notes on the additions:
 - **`generic` on `primitive`** exposes a nominal generic application's arguments. This is what replaces most uses of `infer`: TypeScript writes `T extends Promise<infer U> ? U : never` because it has no other way to reach inside `Promise<T>`; here `node.generic` hands back `{ base: Promise, arguments: [U] }` directly. Value generic arguments appear as values, type arguments as type objects.
 - **`parameterized`** is the metadata half of the same story: `Reflect.typeOf` already returns the full parameterization for a metadata-carrying value, so the node model must be able to express and rebuild it. Builders can thereby *manipulate metadata* — strip units, tighten bounds — with the same tools they use on shapes.
 - **`readonly`, `initial`, `indexSignatures`** exist in the type grammar (readonly fields, `a?: T = []` optional defaults, `[T, U = d]` trailing tuple defaults, index signatures) and merely weren't surfaced. The same completion pass adds `rest: boolean` to `FunctionParameterReflection` — a rest parameter is currently indistinguishable from a plain one, which `parameters` (§4.3) needs — and `optional` and `thisType` (to `FunctionParameterReflection` and `FunctionSignatureReflection` respectively), without which optional-parameter builders and `withThisType`/`thisParameterType` (§4.5) have nothing to read or write. Construct signatures need no context of their own: the constructor is the method named `'constructor'`, so `Reflect.ClassMethod` returns its overload list and `Reflect.ClassMethodParameter` its parameters, which is how [decorators.md](decorators.md)'s dependency-injection example reads them. Without `readonly` in the node, `Readonly`/`Mutable` builders are unwritable and every mapped builder would silently strip the flag — the completeness of this record is exactly what makes builders homomorphic by default (§4.2).
-- Constructed nodes never contain `reference` nodes; cycles in *construction* come from the fixpoint mechanism in §3.4, and `reference` remains what a *reader* sees when walking an already-cyclic type.
+- There is no back-edge node. A reader walking an already-cyclic type gets **the type object itself**: for `type Node = { next: Node | null }`, `reflect(Node).properties[0].type` is a union whose first member `=== Node`, and it stays that object however far you walk. The reflection graph is genuinely cyclic, so **a recursive walk over it must track visited types or it will not terminate**. A named back-edge is what a *serializer* needs, to flatten a cyclic graph into an acyclic format and re-tie it on read; that is `JSON.stringify`'s problem rather than `reflect`'s, and a node kind for it would also be unable to name an anonymous cyclic type. Cycles in *construction* come from the fixpoint mechanism in §3.4, which ties the same knot without a node either.
 
 Two small conveniences round this out. Type objects get a canonical `toString` (the canonical source form — `String(type 'a' | 'b')` is `"'a' | 'b'"`), because builders throwing authored `TypeError`s need to print types. And `type never` names the empty union (§3.3) so kit code doesn't spell it as a construction.
 

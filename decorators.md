@@ -730,7 +730,7 @@ namespace Reflect {
 		| { kind: 'array'; element: type; extent: uint32 | undefined; }   // [].<T> => extent undefined; [N].<T> => N
 		| { kind: 'object'; properties: [].<TypePropertyReflection>; }    // object-literal or interface type
 		| { kind: 'function'; signatures: [].<FunctionSignatureReflection>; }
-		| { kind: 'reference'; name: string; };                           // recursive back-edge
+		| { kind: 'reference'; target: type; };                           // the `ref` borrow type
 
 	type TypeTupleElement = {
 		type: type;
