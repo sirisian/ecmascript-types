@@ -315,7 +315,15 @@ type Conflict = { a: uint32 } & { a: string }; // Stands; nothing satisfies `a`
 
 An earlier draft made a name collision a TypeError at the declaration whatever the two types were. That rule was never implemented and would have been wrong if it had been: it refuses ```Narrowed```, which is the useful case and is inhabited. Whether ```Conflict``` should collapse to ```never``` — the member having no values, so the object having none either — is deliberately left open here. TypeScript keeps the object type and makes the *member* ```never```, and matching that costs nothing today, so the question can be settled when object canonicalization is next opened rather than guessed at now.
 
-**An intersection no value can inhabit is ```never```.** Two types are *disjoint* when no value is of both: two different primitives, a primitive and an object or function or array, two different literals, and anything built out of those. So ```number & bigint```, ```uint8 & string```, ```'a' & 'b'```, and ```uint8 & { a: uint8 }``` all denote ```never```, and a dead arm drops out of a union that contains one — ```string | (number & bigint)``` is ```string```.
+**An intersection no value can inhabit is ```never```.** Two types are *disjoint* when no value is of both: two different primitives, a primitive and an object or function or array, two different literals, and anything built out of those. So ```number & bigint```, ```uint8 & string```, ```'a' & 'b'```, and ```uint8 & { a: uint8 }``` all denote ```never```, and a dead arm drops out of a union that contains one.
+
+That drop-out is what a union *means*, not something a program writes: a written empty intersection is a TypeError wherever it appears, including inside a union, for the reason the next paragraph gives. Where the arm arises from a type ARGUMENT there is nothing to refuse at the declaration, and the reduction is what a program sees:
+
+```js
+type U<T> = string | (number & T);
+// U.<number> is string | number — the arm survives
+// U.<uint8>  is string — uint8 and number are disjoint, so the arm is never and drops out
+```
 
 **Writing one is a compile-time TypeError.** The reduction says what the type *is*; the error says where you hear about it. Left to reduce silently, a mistyped ```&``` surfaces as "not assignable to ```never```" at every use of the annotation, which is how an erasure checker reports it and is the least useful place to say it:
 
