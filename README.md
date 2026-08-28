@@ -2102,7 +2102,7 @@ type IntType = { type: 'int', min: int32, max: int32 };
 type Shared = { label: string };
 type Mixed = (FloatType | IntType) & Shared;
 
-function f(...mixed: Mixed) {
+function f(...mixed: [].<Mixed>) {
   // Do something with label
   // ...
   match (mixed) {

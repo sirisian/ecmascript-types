@@ -98,7 +98,7 @@ An **untyped** source yields an untyped result. Where ```T``` cannot be determin
 ```Array.of``` is the same element type gathered from arguments instead of from an iterable:
 
 ```js
-function Array.of<T>(...items: T): [].<T>;
+function Array.of<T>(...items: [].<T>): [].<T>;
 ```
 
 ## Reading an Object's Own Properties

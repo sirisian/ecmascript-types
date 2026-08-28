@@ -6061,7 +6061,7 @@ function curry(Params: type, R: type): type {
   })});
 }
 
-function dynamicParamsCurrying<A, R>(f: (...args: A) => R): curry(A, R) { /* implementation elsewhere */ return undefined; }
+function dynamicParamsCurrying<A extends [].<any>, R>(f: (...args: A) => R): curry(A, R) { /* implementation elsewhere */ return undefined; }
 
 const curried = dynamicParamsCurrying((a: string, b: number, c: boolean) => true);
 curried('a')(1)(true) === true;
