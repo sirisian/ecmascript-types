@@ -1710,6 +1710,21 @@ interface Sparse {
 
 The inline form appears throughout the extended documents as ```{ [key: string]: any }``` for JSON-shaped data. An index signature types possible properties; it does not make an object array-like or iterable on its own.
 
+A type whose properties all fit a signature is a subtype of it, even when the source declares no signature of its own, so a value that has a type reaches such a position and not only one written in place:
+
+```js
+function f(data: { [key: string]: any }) { }
+let point: { x: uint8, y: uint8 } = { x: 1, y: 2 };
+f(point);        // fine: every property of point fits `any`
+f({ x: 1 });     // fine, as before
+
+let ints: { [key: string]: uint32 } = {};
+let mixed: { a: uint32, b: string } = { a: 1, b: 'x' };
+// ints = mixed; // TypeError: b is string, which the signature does not admit
+```
+
+The value type is covariant here, unlike a writable named member, which is invariant. A signature does not name a slot a program can be relied on to write through - a property it admits is admitted by its key, not declared - so the layout argument that makes a named member invariant does not reach it. A property the target declares by name is judged as a named member and is not compared against the signature.
+
 #### Array Interfaces
 
 ```js
