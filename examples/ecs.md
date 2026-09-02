@@ -343,7 +343,21 @@ class PreparedQuery {
 			}
 		}
 	}
-	// Three- and four-component overloads follow the same shape.
+	// Three- and four-component overloads follow the same shape — and the
+	// family collapses into one declaration under variadic generics
+	// (generics.md, Variadic Generic Parameters), the pack of component
+	// selectors typing the callback with `ref` distributed over the run:
+	//
+	//   each<...Cs: [].<Component>>(
+	//     callback: (entity: Handle.<Entity>, ref ...refs: componentTypes(Cs)) => void
+	//   ): void where Cs.length > 0;
+	//
+	// componentTypes is the elementwise builder over componentType, written
+	// once; declare an @inverse for it and `world.each((e, ref t: Transform)
+	// => …)` infers Cs from the callback alone. Cs.length is a constant of
+	// each specialization, so the body is the loops above written once — the
+	// column reads and the callback's ref arguments unroll per arity exactly
+	// as the two-component overload writes them by hand.
 }
 ```
 
