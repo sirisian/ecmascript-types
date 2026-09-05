@@ -1875,6 +1875,7 @@ interface A {
 class B {
 }
 class C extends B implements A {
+  a: uint32;
   b(a) {
     return a;
   }
@@ -1882,6 +1883,8 @@ class C extends B implements A {
 const a = new C();
 a.a = a.b(5);
 ```
+
+A class satisfies an interface with the members it declares, on itself or on a class it extends. `C` inherits nothing named `a`, so it declares `a` itself; assigning `a.a` after construction would not have made `C` implement `A`.
 
 Note that since ```b``` isn't overloaded, defining the type of the member function ```b``` in the class ```C``` isn't necessary.
 
