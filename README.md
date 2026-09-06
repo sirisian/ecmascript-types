@@ -1750,8 +1750,6 @@ With function overloading an interface can place multiple function constraints. 
 interface IExample {
   (string, uint32); // void is the default return type
   (uint32);
-  (string, string)?: string; // Optional overload. A default value can be assigned like:
-  // (string, string)?: string = (x, y) => x + y;
 }
 ```
 
@@ -1785,7 +1783,7 @@ function f(a: IExample) {
 f(a => a.a);
 ```
 
-Argument names in function interfaces are optional. This to support named arguments. Note that if an interface is used then the name can be changed in the passed in function. For example:
+Argument names in function interfaces are optional; where present, they are what a named argument refers to. A call through a value of the interface type binds against the interface's signature: a named argument fills the parameter of that name, a parameter left unfilled takes the signature's default, and the function receives the full positional list. So the passed-in function may name its parameters differently, or not at all. For example:
 
 ```js
 interface IExample {
@@ -1797,7 +1795,7 @@ function f(a: IExample) {
 f((a, b) => b);
 ```
 
-The interface in this example defines the mapping for "named" to the second parameter.
+The interface defines the mapping for `named` to the second parameter and supplies `'5'` for the first, so `(a, b) => b` receives `('5', 10)`. A default on a parameter is written as on a tuple element, `[uint8, uint32 = 10]`, and is evaluated once for the type.
 
 A *type* argument may be named the same way, with the same ```:``` separator — ```Grid.<Cols: 8>``` says what differs and lets the skipped parameters take their defaults. The full rules live in [generics](generics.md#named-generic-arguments): positional arguments first, free order among names, the three refusals (unknown name, supplied twice, positional after named), how a name opens a variadic pack's run, and the standard library's own parameter names.
 
