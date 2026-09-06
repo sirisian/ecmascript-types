@@ -3635,11 +3635,20 @@ const d: [10].<uint8>; // A typed array is an object
 new WeakRef(d); // WeakRef.<[10].<uint8>>
 ```
 
-Unioning a value type class with ```null``` produces the reference form, as with arrays of references, and those references can be held weakly:
+The boundary is the class being typed and therefore sealed, the same point at which it becomes ineligible to be proxied: any class with a typed instance field, not only one whose fields are all value types, and not a ```dynamic``` class, which is not sealed. The nullable union ```A | null``` does not change this. It is the reference form for layout - ```[10].<A | null>``` is an array of references where ```[10].<A>``` is inline instances - but a weak reference is checked against the value, and the value is the same sealed instance under either binding type:
 
 ```js
 let e: A | null = new A();
-new WeakRef(e); // WeakRef.<A | null>, deref(): A | null | undefined
+// new WeakRef(e); // TypeError: A is a value type, and A | null is the same value
+```
+
+Where the type is known statically, all of these are compile-time errors - at the type argument of ```WeakMap```, ```WeakSet``` or ```WeakRef```, and at the argument of ```new WeakRef```, ```set```, ```add``` and ```register```:
+
+```js
+// new WeakMap.<string, uint8>();   // TypeError: string cannot be held weakly
+// new WeakSet.<uint8>();           // TypeError: uint8 cannot be held weakly
+// type R = WeakRef.<A | null>;     // TypeError: A | null cannot be held weakly
+new WeakMap.<object | symbol, uint8>(); // the constraint itself
 ```
 
 ```FinalizationRegistry```'s held value is unconstrained, so it can be a value type. This is the common case, since a held value must not be the target and is usually a key or handle:
