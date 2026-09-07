@@ -57,7 +57,7 @@ const header: [Header.byteLength].<uint8>;
 | Enums | Yes, their underlying type's |
 | Value type classes | Yes |
 | `[N].<T>` and `SoA.<T, N>` | Yes |
-| `bigint`, `string`, `any` | No. Their size is a property of the value, not the type |
+| `bigint`, `string`, `any` | No. Their size is a property of the value, not the type. A string reaches a laid-out record as bytes; see [strings at a binary boundary](serialization.md#strings-at-a-binary-boundary) |
 | Reference types, including a nullable union of a value type class | No. A reference's width is the engine's business |
 | `[].<T>` without a length | No as a type. Its instances have a `byteLength` |
 | A class with an untyped field | No |

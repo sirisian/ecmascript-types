@@ -163,6 +163,35 @@ Outside the agent cluster, in persistence like IndexedDB or messages to another 
 
 The main proposal already contains the primitives for binary serialization: a typed class has a defined layout from its declaration order and the member memory alignment and offset rules, `T.byteLength` and a field's reflected `offset` expose that layout as compile-time constants, `@packed` removes the natural alignment padding so members land at the byte offsets a format specifies, placement `new` constructs instances inside an existing buffer, array views alias a class's memory as `[].<uint8>`, and the `@endian` decorator fixes byte order for wire formats. Writing a typed value to a socket is therefore a view and a copy, and reading one is a placement `new` over the received buffer followed by the type's boundary validation - the where clauses and metadata checks are what make a raw byte reinterpretation safe to hand to the rest of the program. Schema evolution across versions is deliberately left to userland, where decorators and reflection can record versions and migrations; the language's guarantee is only that a given class declaration has one layout.
 
+## Strings at a Binary Boundary
+
+A ```string``` has no layout — its size is a property of the value, not of the type ([memory layout](memorylayout.md)) — so a string held in a fixed-width record or written to a wire format is held as bytes. Three operations convert between the two:
+
+```js
+String.fromUtf8(bytes: Span.<uint8>): string   // decode every byte given
+value.toUtf8(into: Span.<uint8>): uint64       // encode, return bytes written
+value.utf8Length: uint64                       // bytes the encoding would take
+```
+
+The write side is a method on the *string* and takes its target as a parameter, which is forced rather than stylistic: a ```[N].<uint8>``` coerces to a ```Span.<uint8>``` at a boundary, and a parameter is a boundary where a method's receiver is not. It also makes the pair read as the inverses they are.
+
+```js
+const slot: [16].<uint8>;
+'hello'.utf8Length;        // 5
+'hello'.toUtf8(slot);      // 5
+String.fromUtf8(slot);     // 'hello\0\0\0…' — every byte, including the padding
+```
+
+**Bytes, not code units.** A layout needs a byte count, and UTF-8 is the encoding whose byte count survives a boundary. ```length``` still counts UTF-16 code units, and the two differ wherever the text leaves ASCII: one astral code point is two code units and four bytes.
+
+**Nothing truncates.** A value whose encoding does not fit is a TypeError, and nothing is written — a partial write would leave a record holding the front of one value and the back of another. This is the same refusal a numeric literal gets from a type that cannot represent it, and it is what keeps a fixed-width string away from ```strncpy``` and ```CHAR(n)```.
+
+**Well-formed only.** A JavaScript string may hold an unpaired surrogate, which has no UTF-8 encoding at all. Both ```toUtf8``` and ```utf8Length``` refuse one rather than emitting WTF-8 or a replacement character; ```isWellFormed()``` asks and ```toWellFormed()``` is the explicit escape.
+
+**Decoding is strict**, and refuses the four laxnesses a decoder is usually guilty of: a truncated sequence, an overlong encoding (```C0 80``` for U+0000 is the classic, and lets one code point have several spellings), a surrogate encoded as three bytes (CESU-8), and a value above U+10FFFF.
+
+**The codec does not trim.** A zero byte decodes to U+0000 like any other. Padding is a property of a *format*, so it belongs to whatever overlays the bytes — which is what lets one codec serve a zero-padded record, a length-prefixed wire format, and a tag with no padding convention at all. The [binary packet](examples/binarypacket.md) writer and the [serializer](examples/serializer.md) both length-prefix and both predate this; either could use ```toUtf8``` where the bytes must be UTF-8 rather than code units.
+
 ## Interaction with Decorators and Reflection
 
 Wire-name mapping, field omission, and versioning stay in userland. The [dependent record types](dependentrecordtypes.md) document shows the pattern: an `@field('wireName')` decorator records mappings into class metadata and a reflective `serialize`/`deserialize` walks them. `JSON.parse.<T>` itself maps JSON keys to same-named fields only. An open direction is a standard decorator vocabulary the native parser understands, so renamed fields keep the fused fast path instead of falling back to reflective code.
