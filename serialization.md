@@ -190,6 +190,8 @@ String.fromUtf8(slot);     // 'hello\0\0\0…' — every byte, including the pad
 
 **Decoding is strict**, and refuses the four laxnesses a decoder is usually guilty of: a truncated sequence, an overlong encoding (```C0 80``` for U+0000 is the classic, and lets one code point have several spellings), a surrogate encoded as three bytes (CESU-8), and a value above U+10FFFF.
 
+A record with a fixed-width name field is the case this most often serves, and [fixed-length strings](examples/fixedstring.md) works it through.
+
 **The codec does not trim.** A zero byte decodes to U+0000 like any other. Padding is a property of a *format*, so it belongs to whatever overlays the bytes — which is what lets one codec serve a zero-padded record, a length-prefixed wire format, and a tag with no padding convention at all. The [binary packet](examples/binarypacket.md) writer and the [serializer](examples/serializer.md) both length-prefix and both predate this; either could use ```toUtf8``` where the bytes must be UTF-8 rather than code units.
 
 ## Interaction with Decorators and Reflection
