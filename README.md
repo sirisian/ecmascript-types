@@ -321,7 +321,19 @@ type Narrowed = { a: number } & { a: 5 };   // { a: 5 } — the same type, inter
 type Conflict = { a: uint32 } & { a: string }; // TypeError, for the same reason
 ```
 
-A literal type over a numeric type other than ```number``` — the ```uint8``` 3 as a type — is reachable through construction but has no syntax, so a sized-numeric member is narrowed with a [range](primitivemetadata.md) rather than with a literal.
+A literal type over a numeric type other than ```number``` — the ```uint8``` 3 as a type — is reachable through construction and has no syntax. It is fillable: a numeric literal in a position of such a type is converted at the base and then compared, so the type has values a program can write rather than only ones a cast can reach. That is what narrows a sized-numeric member:
+
+```js
+const Five = Reflect.makeType({ kind: 'literal', value: (5 := uint32), base: uint32 });
+type T = { a: uint32 } & { a: Five };  // { a: Five }
+let v: T = { a: 5 };                   // the literal crosses at uint32
+
+// A literal of the wrong value is refused by the literal type...
+// let w: T = { a: 6 };
+// ...and one out of range by the base's own rule, which is the base's to give.
+```
+
+The reach is one layer. A *written* numeric literal keeps its ```number``` base however it is used, so ```{ a: uint32 } & { a: 5 }``` stays empty; re-basing it from a sibling member would make that pair inhabited and would depend on an order ```&``` does not have.
 
 **A member no value can inhabit empties the object.** A required member of ```never``` leaves the object with no values, since a value would have to hold one of a type that has none, so the object is ```never``` and a dead arm drops out of a union containing it. An *optional* member of ```never``` does not: it declares a member that may never be present, which every value omitting it satisfies. This is why the conflicting cases above are reported at the ```&``` rather than at each use — the type is empty either way, and the annotation is where both types are written.
 
