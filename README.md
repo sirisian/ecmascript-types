@@ -306,14 +306,32 @@ type AB = A & B;
 function f(o: AB) {} // o.a and o.b are both required
 ```
 
-Members sharing a name are not a special case, and are not an error. The intersection requires both, so the member must satisfy both types, and a value that cannot is refused where it is built:
+Members sharing a name are not a special case. An intersection of object types **is** an object type, and a name more than one of them declares takes the intersection of the types they give it — the member has to satisfy each arm at once, and that is what an intersection of those types means:
 
 ```js
-type Narrowed = { a: uint32 } & { a: 5 };   // Fine: 5 satisfies both
-type Conflict = { a: uint32 } & { a: string }; // Stands; nothing satisfies `a`
+type Both = { a: uint32 } & { b: string };  // One object type: { a: uint32, b: string }
+type Narrowed = { a: number } & { a: 5 };   // { a: 5 } — the same type, interned
 ```
 
-An earlier draft made a name collision a TypeError at the declaration whatever the two types were. That rule was never implemented and would have been wrong if it had been: it refuses ```Narrowed```, which is the useful case and is inhabited. Whether ```Conflict``` should collapse to ```never``` — the member having no values, so the object having none either — is deliberately left open here. TypeScript keeps the object type and makes the *member* ```never```, and matching that costs nothing today, so the question can be settled when object canonicalization is next opened rather than guessed at now.
+```Narrowed``` narrows because ```5``` is a subtype of ```number```. It does **not** work over a sized numeric, and the reason is the one the literal types section gives: a numeric literal's base is always ```number```, and a ```number``` value is not a ```uint32``` value — which is why ```uint8 & number``` is ```never```. So no value is both a ```uint32``` and the Number 5, and an earlier draft of this section was wrong to call that pairing fine:
+
+```js
+// type Bad = { a: uint32 } & { a: 5 };     // TypeError: no value is of both
+//                                          // uint32 and 5 at member `a`
+type Conflict = { a: uint32 } & { a: string }; // TypeError, for the same reason
+```
+
+A literal type over a numeric type other than ```number``` — the ```uint8``` 3 as a type — is reachable through construction but has no syntax, so a sized-numeric member is narrowed with a [range](primitivemetadata.md) rather than with a literal.
+
+**A member no value can inhabit empties the object.** A required member of ```never``` leaves the object with no values, since a value would have to hold one of a type that has none, so the object is ```never``` and a dead arm drops out of a union containing it. An *optional* member of ```never``` does not: it declares a member that may never be present, which every value omitting it satisfies. This is why the conflicting cases above are reported at the ```&``` rather than at each use — the type is empty either way, and the annotation is where both types are written.
+
+```js
+type T = { a: never };        // never
+type U = { a?: never };       // inhabited by {}
+type V = string | { a: never }; // string
+```
+
+A tuple is deliberately exempt. It is a product, so ```[1, never, 'a']``` has no values — but a tuple is also the [type programming](typeprogramming.md) extension's heterogeneous list, where ```never``` is ordinary data rather than a claim about inhabitation, and reducing the list would destroy the programs that compute over it. TypeScript exempts it for the same reason; Rust does not, its ```(i32, !, char)``` being uninhabited, but Rust has no type-level list built on the tuple.
 
 **An intersection no value can inhabit is ```never```.** Two types are *disjoint* when no value is of both: two different primitives, a primitive and an object or function or array, two different literals, and anything built out of those. So ```number & bigint```, ```uint8 & string```, ```'a' & 'b'```, and ```uint8 & { a: uint8 }``` all denote ```never```, and a dead arm drops out of a union that contains one.
 
