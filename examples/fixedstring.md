@@ -8,13 +8,13 @@ This is the type that closes that gap. It is a **worked example rather than a la
 
 ```js
 class FixedString<N: uint32> {
-  readonly bytes: [N].<uint8>;
+  #bytes: [N].<uint8>;
 
   constructor(value: string = '') {
     if (value.length > 0 && value.charCodeAt(value.length - 1) === 0) {
       throw new TypeError('a FixedString cannot end in U+0000: the padding would swallow it');
     }
-    value.toUtf8(this.bytes);
+    value.toUtf8(this.#bytes);
   }
 
   static get capacity(): uint32 { return N; }
@@ -23,21 +23,21 @@ class FixedString<N: uint32> {
   // non-zero byte.
   get byteLength(): uint32 {
     let used: uint32 = N;
-    while (used > 0 && this.bytes[used - 1] === 0) { used = used - 1; }
+    while (used > 0 && this.#bytes[used - 1] === 0) { used = used - 1; }
     return used;
   }
 
-  operator string() { return String.fromUtf8(this.bytes.slice(0, this.byteLength)); }
+  operator string() { return String.fromUtf8(this.#bytes.slice(0, this.byteLength)); }
 
   operator ==(other: FixedString.<N>) {
     if (this.byteLength !== other.byteLength) { return false; }
     for (let i: uint32 = 0; i < this.byteLength; i = i + 1) {
-      if (this.bytes[i] !== other.bytes[i]) { return false; }
+      if (this.#bytes[i] !== other.#bytes[i]) { return false; }
     }
     return true;
   }
 
-  toString(): string { return String.fromUtf8(this.bytes.slice(0, this.byteLength)); }
+  toString(): string { return String.fromUtf8(this.#bytes.slice(0, this.byteLength)); }
 }
 ```
 
@@ -99,6 +99,6 @@ new FixedString.<8>('ab\u0000');                   // TypeError — trailing, refu
 
 A format with a different convention — length-prefixed, space-padded, NUL-terminated — is a different class over the same ```[N].<uint8>```, and reuses the codec unchanged. That separation is deliberate: padding is a property of a format, not of UTF-8.
 
-## Why the bytes are public
+## The bytes are private
 
-```readonly bytes``` rather than ```#bytes```, and it is a workaround rather than a design choice: a binary ```operator``` method currently cannot reach a private field, directly or through a method that does. Once that is fixed the store should be private, and the only member that needs to see it is ```operator ==```.
+```#bytes```, and ```operator ==``` is the only member that reaches across to another instance's copy of it. That works because a value type class carries its private fields through a copy â€” a typed parameter boundary copies the operand, and a copy that dropped the private store would leave the operator reading a field that is not there.
