@@ -1178,7 +1178,7 @@ Two more `lib.d.ts` entries fall out of the field for free, and one boundary sta
 
 ```js
 export function thisParameterType(F: type): type {
-  return reflect(F).signatures[0].thisType ?? any;   // TypeScript says unknown; the runtime-checked any is the analog here
+  return reflect(F).signatures[0].thisType ?? never;   // never, not any: see below
 }
 export function omitThisParameter(F: type): type {
   const node = reflect(F);
@@ -1186,7 +1186,9 @@ export function omitThisParameter(F: type): type {
 }
 ```
 
-Two details of this slot are unsettled across the three artifacts and are flagged rather than silently decided here. The specification's node table names it `thisType` and says it holds a type object; the engine spells it `this` and holds a reflection *node*, which is why the shipped `thisParameterType` needs a `makeType` to normalise what it reads, and it is the only type-valued slot on a signature that is not already a type object. And the absent case answers `any` in the engine and this section, against *never* in the standard kit's own table. One spelling and one absent-case answer should win in all three.
+Both details of this slot that were once unsettled are settled, and in the specification's favour on each. The slot is named `thisType` and holds a **type object**, like every other type-valued property of a node — `sig.thisType === (type string)` answers *true* for a signature declaring `string`, where a node in that position made the identity comparison silently false. The engine spelled it `this` and held a node, which is why an earlier version of `thisParameterType` carried a `makeType` call whose only job was to normalise what it had just read; that call is gone. The same correction reached `narrows`, whose records carry a type object too, and both slots are now present on every signature — `undefined` and the empty list standing for absence — rather than appearing only when populated.
+
+The absent case answers **`never`**, not `any`. [#sec-this-adoption](https://sirisian.github.io/proposal-runtime-types/#sec-this-adoption) says a signature with no `this` “supplies no `this` rather than accepting any, so it is usable nowhere a `this` is required at all”: the set of receivers it admits is empty, and the type of an empty set of values is `never`. The `any` this section carried came from reading TypeScript's `unknown` across without checking it against a contravariance rule TypeScript does not have.
 
 Polymorphic `this` — the fluent-builder return type — is *not* covered by `thisType` and remains the comparison table's separate small gap: it is an implicitly generic self type the checker rebinds per receiver, a checker feature in its own right, whereas `thisType` only records what a signature demands of its receiver.
 
@@ -1309,13 +1311,13 @@ The twenty-two recommendations this document made have been worked through, and 
 
 ## 8. What is still open
 
+**Settled since the last revision.** The two R19 signature slots held reflection nodes where every other type-valued property of a node holds a type object, and one was misnamed. Both now hold type objects, the slot is `thisType`, both are emitted on every signature, and the absent case of `thisParameterType` is `never`. No specification change was needed — the spec said all of this already, and the engine had diverged from it. Three directions were considered and rejected, recorded here so a later pass does not reopen them: *keep nodes and amend the specification*, which would have weakened the “every property that denotes a type holds a Type Object” invariant into a rule with two exceptions a walker must memorise, and would have kept the silent `===` failure that was the actual cost; *type objects but keep the name `this`*, which fixes the expensive half and leaves the slot the only one whose name does not describe its contents; and *nodes but rename*, which renames the trap without removing it.
+
 Most of what this section once listed has been settled, and the settlements are recorded at §7 rather than repeated here: budget magnitudes, freshness scope, inverse consultation under overloads, property order, cross-realm identity, contextual `this` against arrows and extracted methods, and `keyof` in expression position. What remains:
 
 **Contract vocabulary creep.** R13 deliberately allows any evaluable predicate. A contract is a proposition about one evaluation, so universally quantified knowledge — the variance of `omit(T, K)` in `T`, or any parametricity fact — is not expressible as one and stays unavailable before specialization. Watch whether practice demands those forms; they would need a different, proof-shaped mechanism, or should stay absent.
 
 **Contracts on the kit.** R13 is specified and implemented, and the kit carries none. Until every §4 builder states its natural bounds — the lower bound `Reflect.isAssignable(T, return)` on `omit`, kind facts everywhere — the mechanism has no user, and the `sanitize<T>` example that motivated it still does not check at its declaration when written against the shipped module. Writing them is the cheapest remaining piece of §6 and would exercise the feature against seventy-one real cases at once.
-
-**The R19 slots hold nodes, and one of them is misnamed.** The specification names a signature's `this` slot `thisType` and says it holds a type object; the engine spells it `this` and holds a reflection *node*, so `sig.this === (type string)` is false for a signature declaring `string`. The same is true of the other R19 slot: `narrows` records are specified to carry a `type` that is a type object, and the engine emits a node there too. Every type-valued slot that predates R19 — `parameters[].type`, `return.type` — is a type object, so the two declarative checker facts diverge as a pair rather than singly, which suggests one decision rather than two accidents. Separately, `thisParameterType`'s absent case answers `any` in the engine and in §6.3, against *never* in the kit's own table. One representation, one spelling, and one absent-case answer should win across the three artifacts.
 
 **The `pattern` meta key.** R7's claim is provisional and R18's decision procedure is unimplemented, which is why `suffixed` and `stringPattern` are written and unexported. The two move together: the reservation buys nothing over interning until the exact subtyping lands.
 
