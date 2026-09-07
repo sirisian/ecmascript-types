@@ -357,6 +357,35 @@ What this costs is that a type-level list cannot be a tuple type when one of its
 
 **An intersection no value can inhabit is ```never```.** Two types are *disjoint* when no value is of both: two different primitives, a primitive and an object or function or array, two different literals, and anything built out of those. So ```number & bigint```, ```uint8 & string```, ```'a' & 'b'```, and ```uint8 & { a: uint8 }``` all denote ```never```, and a dead arm drops out of a union that contains one.
 
+**Two unrelated classes have no common value.** Single inheritance is why: a value is an instance of one class, so no value is an instance of two neither of which extends the other, and such an intersection is reported where it is written.
+
+```js
+class A { x: uint8 = 1; }
+class B { y: uint8 = 1; }
+// type T = A & B;   // TypeError: no value is an instance of both A and B
+
+abstract class Shape { }
+class Circle extends Shape { }
+class Rect extends Shape { }
+// type Both = Circle & Rect;   // the same, and the mistake this actually catches
+
+class D extends A { }
+type Fine = A & D;               // a base and its subclass share the subclass's values
+```
+
+The rule is about *classes* and nothing else. An interface and an enum are nominal too, and both overlap freely: a value satisfies any number of interfaces, a class may implement them, and a class intersected with an object type is inhabited by a subclass carrying the member.
+
+```js
+interface I { x: uint8; }
+interface J { y: uint8; }
+let v: I & J = { x: 1, y: 1 };   // fine
+class M extends A implements J { y: uint8 = 1; }
+let w: A & J = new M();          // fine
+type X = A & { y: uint8 };       // fine
+```
+
+Note that ```Symbol.hasInstance``` can be overridden so ```instanceof``` says otherwise. That doesn't bear on this: the override doesn't reach ```Reflect.typeOf``` or ```is```, which are what the type system reads.
+
 That drop-out is what a union *means*, not something a program writes: a written empty intersection is a TypeError wherever it appears, including inside a union, for the reason the next paragraph gives. Where the arm arises from a type ARGUMENT there is nothing to refuse at the declaration, and the reduction is what a program sees:
 
 ```js
