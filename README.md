@@ -331,7 +331,17 @@ type U = { a?: never };       // inhabited by {}
 type V = string | { a: never }; // string
 ```
 
-A tuple is deliberately exempt. It is a product, so ```[1, never, 'a']``` has no values — but a tuple is also the [type programming](typeprogramming.md) extension's heterogeneous list, where ```never``` is ordinary data rather than a claim about inhabitation, and reducing the list would destroy the programs that compute over it. TypeScript exempts it for the same reason; Rust does not, its ```(i32, !, char)``` being uninhabited, but Rust has no type-level list built on the tuple.
+A tuple and a fixed-length array reduce the same way, and for the same reason: a value would have to hold a value of a type that has none. The rule has to be the object's rather than a weaker one, because a program can write the same shape either way — ```type Pair<A, B> = [A, B]``` and ```type Result<T, E> = { value: T, error: E }``` are one shape with two spellings, and an instantiation at the empty type that answered differently for them would make inhabitation a property of how a shape was written.
+
+```js
+type T = [uint8, never];  // never
+type U = [4].<never>;     // never
+type V = [...[].<never>]; // inhabited by the empty tuple — a rest supplies no element
+type W = [].<never>;      // inhabited by []
+type X = [0].<never>;     // inhabited by []
+```
+
+What this costs is that a type-level list cannot be a tuple type when one of its positions is the empty type — and it costs nothing in practice, because the [type programming](typeprogramming.md) extension's list currency is an array of types rather than a tuple type. ```elementTypes``` returns one and ```tupleOf``` consumes one, so a program that filters ```never``` out of a list reads the array and builds the tuple from the result, which no longer has such a position. TypeScript keeps such a tuple, but keeps ```{ a: never }``` as an object too, so it is not evidence for treating the two products differently; Rust reduces both, its ```(i32, !, char)``` and a struct with an uninhabited field being equally uninhabited.
 
 **An intersection no value can inhabit is ```never```.** Two types are *disjoint* when no value is of both: two different primitives, a primitive and an object or function or array, two different literals, and anything built out of those. So ```number & bigint```, ```uint8 & string```, ```'a' & 'b'```, and ```uint8 & { a: uint8 }``` all denote ```never```, and a dead arm drops out of a union that contains one.
 
