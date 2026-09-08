@@ -6,6 +6,7 @@ This is the type that closes that gap. It is a **worked example rather than a la
 
 ## The type
 
+<!-- run: setup -->
 ```js
 class FixedString<N: uint32> {
   #bytes: [N].<uint8>;
@@ -62,6 +63,7 @@ e.name = new FixedString.<32>('Ada');
 
 Reading and writing:
 
+<!-- run -->
 ```js
 const s = new FixedString.<8>('café');
 let t: string = s;               // 'café' — five bytes used, three of padding
@@ -80,6 +82,7 @@ Number(FixedString.<8>.capacity); // 8
 
 **Nothing truncates.** A value whose encoding does not fit is a TypeError and nothing is written, which is the rule the codec states and the reason this is not ```strncpy``` or ```CHAR(n)```. That includes the case that catches people out — a multibyte value that would split a code point at the boundary is refused, not cut:
 
+<!-- run: throws -->
 ```js
 new FixedString.<2>('Ada');      // TypeError: "3" bytes of UTF-8 do not fit in "2"
 new FixedString.<4>('caféé');    // TypeError: "7" bytes of UTF-8 do not fit in "4"
