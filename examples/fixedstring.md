@@ -46,20 +46,24 @@ class FixedString<N: uint32> {
 
 A record with a name is a value type again, and a table of them is one allocation:
 
+<!-- run -->
 ```js
 class Employee {
-  name: FixedString.<32>;
-  id: uint32;
-  salary: float64;
+  name: FixedString.<32> = new FixedString.<32>();
+  id: uint32 = 0;
+  salary: float64 = 0;
 }
 
-Employee.byteLength;             // 48 — 44 of content, padded to float64's alignment
-const table: [1000].<Employee>;  // 48,000 contiguous bytes
+Employee.byteLength;                          // 48, 44 of content padded to float64's alignment
+(type [1000].<Employee>).byteLength;          // 48,000 contiguous bytes
 
-const ref e = table[0];          // `ref`, or a write below lands on a copy
-let n: string = e.name;          // decoded on read
+const table: [1].<Employee> = [new Employee()];
+const ref e = table[0];                       // `ref`, or the write below lands on a copy
 e.name = new FixedString.<32>('Ada');
+let n: string = table[0].name;                // 'Ada', decoded on read
 ```
+
+The field initializers are a current requirement rather than the intent: a generic class does not yet have a default value, so ```FixedString.<32>``` has none and neither does a record containing one. With that closed, ```name: FixedString.<32>;``` and ```const table: [1000].<Employee>;``` are the spellings to write.
 
 Reading and writing:
 
@@ -95,8 +99,15 @@ Zero-padded; the value ends at the last non-zero byte. Chosen because the point 
 
 The cost is stated rather than hidden: an embedded ```U+0000``` survives, and a value **ending** in one cannot be stored and is refused on construction rather than silently altered.
 
+<!-- run -->
 ```js
 let a: string = new FixedString.<8>('a\u0000b');   // 'a\u0000b' — embedded, kept
+```
+
+And the value that cannot be stored:
+
+<!-- run: throws -->
+```js
 new FixedString.<8>('ab\u0000');                   // TypeError — trailing, refused
 ```
 
