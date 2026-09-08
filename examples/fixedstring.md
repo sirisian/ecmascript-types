@@ -49,21 +49,18 @@ A record with a name is a value type again, and a table of them is one allocatio
 <!-- run -->
 ```js
 class Employee {
-  name: FixedString.<32> = new FixedString.<32>();
-  id: uint32 = 0;
-  salary: float64 = 0;
+  name: FixedString.<32>;
+  id: uint32;
+  salary: float64;
 }
 
-Employee.byteLength;                          // 48, 44 of content padded to float64's alignment
-(type [1000].<Employee>).byteLength;          // 48,000 contiguous bytes
+Employee.byteLength;             // 48, 44 of content padded to float64's alignment
+const table: [1000].<Employee>;  // 48,000 contiguous bytes
 
-const table: [1].<Employee> = [new Employee()];
-const ref e = table[0];                       // `ref`, or the write below lands on a copy
+const ref e = table[0];          // `ref`, or the write below lands on a copy
 e.name = new FixedString.<32>('Ada');
-let n: string = table[0].name;                // 'Ada', decoded on read
+let n: string = table[0].name;   // 'Ada', decoded on read
 ```
-
-The field initializers are a current requirement rather than the intent: a generic class does not yet have a default value, so ```FixedString.<32>``` has none and neither does a record containing one. With that closed, ```name: FixedString.<32>;``` and ```const table: [1000].<Employee>;``` are the spellings to write.
 
 Reading and writing:
 
