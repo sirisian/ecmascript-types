@@ -14,6 +14,7 @@ Features exercised:
 
 Four channels, gamma-encoded sRGB, packed. Every field is a value type, so ```Color``` is one: four bytes, alignment 1, no per-object header. The cast from a hex string is declared here too, so a string literal becomes a color wherever one is expected.
 
+<!-- run -->
 ```js
 class Color {
 	r: uint8;
@@ -150,6 +151,7 @@ partial class Color {
 
 Flattening a stack of layers is then a fold in linear space, encoding once at the end. The casts make the boundaries invisible: a ```Color``` becomes a ```LinearColor``` at the ```over``` argument, and the accumulator becomes a ```Color``` at the ```return```:
 
+<!-- run -->
 ```js
 // Composite bottom-to-top: each layer goes over the accumulated result.
 function flatten(layers: [].<Color>): Color {
