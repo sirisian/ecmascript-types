@@ -399,6 +399,37 @@ const lanes = Span.<float32x4>(vx[0..<whole]);
 
 A runtime start with a compile-time length still wants ```window.<N>(start)```, since ```start..<start + Words``` requires symbolic arithmetic to see that the length is constant. That is an honest limit, not a gap: the two forms coexist.
 
+### Intersecting two bounded types
+
+`NumberBounds` declares a [```meet```](primitivemetadata.md), and it is four lines because a range already has the operation:
+
+```js
+meta NumberBounds<T> {
+	// …
+	meet(a, b) {
+		if (a.bounds === undefined) return b;
+		if (b.bounds === undefined) return a;
+		const r = a.bounds.intersect(b.bounds);
+		return r.isEmpty ? null : { bounds: r };
+	}
+}
+```
+
+That is what lets an intersection of two bounded types be a type rather than a pair:
+
+```js
+type A = uint8.<{ bounds: 1..=10 }> & uint8.<{ bounds: 5..=20 }>;
+type B = uint8.<{ bounds: 5..=10 }>;
+A === B;                                        // true — one type, one object
+
+uint8.<{ bounds: 1..=3 }> & uint8.<{ bounds: 1..=10 }>;   // the narrower, 1..=3
+uint8.<{ bounds: 1..=3 }> & uint8.<{ bounds: 3..=5 }>;    // 3..=3 — a point is a meet
+uint8.<{ bounds: 1..=3 }> & uint8.<{ bounds: 8..=9 }>;    // TypeError at the `&`
+uint8.<{ bounds: 1..=3 }> & uint8.<{ bounds: 4..=6 }>;    // TypeError — `..=` is inclusive
+```
+
+The last two are the reason the hook returns ```null``` rather than an empty range: an uninhabited type is reported where it is written, not discovered at each use.
+
 ## Containment, switch, and `is`
 
 ```(1..=6).contains(x)``` is the containment test. It is deliberately **not** spelled ```x in 1..=6```, Kotlin's way, because ```in``` already means "has this property" and ```3 in someRange``` is currently legal and false; overloading it would change the meaning of running code rather than of a syntax error.

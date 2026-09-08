@@ -65,6 +65,18 @@ interface MetaProtocol<T> {
 	// Optional: map a value onto the representation this constraint requires, such as rounding a decimal to a fixed scale. Applied at assignment, argument, and return boundaries after `subtype` passes and after any `conversionFactor` scaling, so intermediate results within an expression keep full precision.
 	quantize?(value: any, constraint: T): any;
 
+	// Optional: what two constraints have in common, for `A & B`.
+	// Returns a constraint satisfied by exactly the values satisfying both; `null`
+	// where the meta type can PROVE nothing satisfies both; and `undefined` where
+	// it cannot decide - a pattern-constrained meta type cannot generally tell
+	// whether two patterns share a string, and must be able to say so without
+	// claiming emptiness. Declaring no `meet` at all means the same as `undefined`.
+	//
+	// A returned constraint IS the type: `uint8.<{bounds: 1..=10}> &
+	// uint8.<{bounds: 5..=20}>` becomes `uint8.<{bounds: 5..=10}>`, and the two
+	// spellings are one type object. A `null` is a type error at the `&`.
+	meet?(a: T, b: T): T | null | undefined;
+
 	// Optional: human-readable description for error messages.
 	describe?(constraint: T): string;
 }
@@ -81,6 +93,7 @@ interface MetaProtocol<T> {
 	conversionFactor?(from: T, to: T): float64;
 	rescale?(constraint: T, factor: float64): T;
 	quantize?(value: any, constraint: T): any;
+	meet?(a: T, b: T): T | null | undefined;
 	describe?(constraint: T): string;
 }
 ```
