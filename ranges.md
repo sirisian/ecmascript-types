@@ -107,6 +107,7 @@ Parentheses put a range back under the relational operators, and there a range i
 
 The family binds tighter than assignment and looser than ```||``` and ```??```, so its operands are ShortCircuitExpressions, and it is **non-associative**: ```a..<b..<c``` is a SyntaxError rather than a puzzle. Member access binds tighter than the range, so ```0..<arr.length``` is ```0..<(arr.length)``` and the whole range is parenthesized to reach its own members:
 
+<!-- run -->
 ```js
 (0..<10).length; // 10
 ```
@@ -226,6 +227,7 @@ class RangeFull<T: Ordered.<T>> implements RangeBounds.<T> {}
 
 **```Interval``` survives as derived vocabulary, never as a parameter.** The four-way name is still the useful one for display, reflection, and a ```switch``` over shapes, so it stays as an enum and as an accessor computed from the two bounds:
 
+<!-- run -->
 ```js
 enum Interval: uint8 { Closed, ClosedOpen, OpenClosed, Open }; // Exposed as Range.Interval
 
@@ -263,6 +265,7 @@ Descending ranges are **empty**, not reversed: ```10..<0``` contains nothing, an
 
 **The arithmetic operators are interval arithmetic**, the bounds of a computed value given the bounds of what it was computed from. An unbounded side propagates as an unbounded side, so the shapes fall out rather than being special cases, and a result nothing can be said about is ```..```:
 
+<!-- run -->
 ```js
 (1..=3) + (10..=20);  // 11..=23
 (1..=3) - (10..=20);  // -19..=-7, the cross: low minus high
@@ -343,6 +346,7 @@ The nth value is ```start + n * by``` rather than the previous value plus ```by`
 
 **An open start begins one step in.** The nth value is counted from ```n = 0``` where the start is inclusive and from ```n = 1``` where it is exclusive, because an open start excludes its own endpoint: ```0<..<4``` yields 1, 2, 3, and ```(0<..<1).step(0.25)``` yields 0.25, 0.5, and 0.75. The rule is stated because the arithmetic above was written when a closed start was the only start a literal could spell, and an open one changes where the count begins rather than how each value is computed.
 
+<!-- run -->
 ```js
 [...(0.0..<1.0).step(0.1)]; // Ten values, ending at 0.9
 ```
@@ -351,6 +355,7 @@ Repeated addition would have ended at ```0.8999999999999999```. Individual value
 
 A range whose element type has no natural unit, which is every type but the integers, is a TypeError to iterate without a step rather than a silent choice of ```1```:
 
+<!-- run -->
 ```js
 // for (const x of 0.0..<1.0) {} // TypeError: a float range has no implicit step
 for (const x of (0.0..<1.0).step(0.1)) {}
@@ -360,6 +365,7 @@ for (const x of (0.0..<1.0).step(0.1)) {}
 
 A range is an ordinary iterable, so the [standard library](standardlibrary.md)'s iterator helpers apply, and materializing one is a spread or a ```toArray```. The element type propagates into a typed array:
 
+<!-- run -->
 ```js
 const a: [].<uint32> = [...0..<10]; // A typed array of uint32
 (0..<10).map(i => `item${i}`).toArray(); // [].<string>

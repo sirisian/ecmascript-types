@@ -32,6 +32,7 @@ const a: float32.<{ part: 1 }> = 1;
 
 The metadata protocol defines how a primitive with a metadata type propagates through the language at compile time and runtime. This protocol is defined in meta blocks that define the semantic hooks for a metadata type. All hooks are pure functions that can be evaluated at both compile time and runtime.
 
+<!-- run -->
 ```js
 interface MetaProtocol<T> {
 	// Required: the "unconstrained" / "not specified" value.
@@ -84,6 +85,7 @@ interface MetaProtocol<T> {
 
 It's possible to hold a reference to a meta protocol:
 
+<!-- run -->
 ```js
 interface MetaProtocol<T> {
 	default: T;
@@ -100,6 +102,7 @@ interface MetaProtocol<T> {
 
 **Naming the base.** The ```primitive``` in those signatures is the type being parameterized - the meta type's *base* - and it reaches the hooks but not the constraint shape, because a shape is a free-standing ```type``` alias that any code may reference and a keyword bound to nothing would be meaningless there. A meta type whose fields live in the base's own value space therefore **declares one type parameter, which is bound to the base at each parameterization**:
 
+<!-- run -->
 ```js
 type NumberBounds<T: Ordered.<T>> = { bounds?: RangeBounds.<T>, nonZero?: boolean };
 
@@ -175,6 +178,7 @@ meta Dimensions {
 
 Helper functions shared by the ```meta``` block, ```where``` clauses, and return type annotations. With seven base dimensions these keep the operator blocks readable:
 
+<!-- run -->
 ```js
 // Same physical dimension: exact match on all seven exponents. Ratio is
 // deliberately excluded; it's a unit scale within the dimension.
@@ -226,6 +230,7 @@ The range under `bounds` is a **value**, one of the four shapes of the [ranges](
 
 There is no bare-range metadata argument: `uint8.<1..=6>` is not a type, and the range is written under the key that says what it means. Dispatch in the metadata system is by claimed key, and a bare range carries no key to route by; a grammar-level desugaring would need no dispatch but would give one type two spellings, which is the thing `bounds` was adopted to stop.
 
+<!-- run -->
 ```js
 type NumberBounds<T: Ordered.<T>> = {
 	bounds?: RangeBounds.<T>,
@@ -362,6 +367,7 @@ The comparison operators below compare with a tolerance, and they are the only p
 <details>
 	<summary>Expand for float32 epsilon helper functions.</summary>
 	
+<!-- run -->
 ```js
 const FLOAT32_EPSILON: float32 = 1.1920929e-7;
 const REL_TOLERANCE: float32 = 4.0 * FLOAT32_EPSILON;
@@ -682,6 +688,7 @@ meta DecimalContext {
 
 Arithmetic is exact within an expression. Quantization happens where every other metadata rule is applied: at assignment, argument, and return boundaries. An intermediate result therefore keeps full precision and only the value that lands in a scaled type is rounded, so `a * b * c` rounds once rather than three times.
 
+<!-- run -->
 ```js
 primitive decimal128<C: DecimalContext> {
 	// Arithmetic drops the scale: the result of an operation is exact and
@@ -962,6 +969,7 @@ const area = width * height;
 
 ### Control Flow Narrowing
 
+<!-- run -->
 ```js
 function clampToSafe(v: Velocity): SafeSpeed {
 	if (v >= 0) {
@@ -1005,6 +1013,7 @@ const ke: Joule = kineticEnergy(Kilogram(80), Velocity(10));
 
 ### Gravitational Potential Energy
 
+<!-- run -->
 ```js
 function potentialEnergy(m: Kilogram, h: PositiveMeter): Joule {
 	const g: Acceleration = 9.80665;
@@ -1047,6 +1056,7 @@ if (sum <= 1) {
 
 ### Dimensional Errors
 
+<!-- run -->
 ```js
 // distance + time;
 // operator+ requires the same dimension via its parameter type;
@@ -1067,6 +1077,7 @@ if (sum <= 1) {
 
 For library-quality code where name collisions are a concern, metadata keys can be symbols:
 
+<!-- run -->
 ```js
 const si = Object.freeze({
 	m: Symbol('SI.length'),
@@ -1788,6 +1799,7 @@ function gravitationalForce(
 
 Dimensional errors with vectors
 
+<!-- run -->
 ```js
 // position + velocity;
 //   operator+ parameter is typed with the LHS Dimensions;
