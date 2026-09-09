@@ -236,6 +236,10 @@ const r: Registry.<Foo> = new Registry(); // Registry.<Foo>, from the annotation
 
 A ```Registry.<any>``` the program never named is an unchecked specialization the program cannot see it has, which is the failure this proposal exists to prevent; Rust and C++ ask for the argument here and their users write it. The same rule holds for a call of a generic function.
 
+#### A parameter is opaque within its declaration
+
+Inside the declaration that binds it, ```T``` is a subtype of itself and of its constraint and nothing else relates to it: a body is checked once, over its parameters, not per instantiation. So ```function f<T>(x: T) { let v: T = 5; }``` is a type error — a Number is not known to be a ```T```, which may be instantiated at ```string``` — and a field is the same position: ```class A<T> { value: T = 0; }``` and ```value: T = null``` are refused, and the value arrives through the constructor (```value: T; constructor(v: T) { this.value = v; }```) or is written at a type (```value: T | null = null```). This is Rust's rule, where an unconstrained ```T``` cannot be built from a literal at all, and TypeScript's. Checking the initializer at each instantiation instead (C++'s model) would move the error from the declaration to whichever ```new A.<string>()``` first cannot convert it.
+
 #### Bare generic names and the family
 
 A generic declaration's bare name in a type position — an annotation, a parameter or return type, a heritage clause, ```is```, a ```when``` pattern — names the application at its defaults, ```Box.<>```, and is a type error naming the parameter where one has no default. ```A```, ```A.<>``` and ```A.<uint8>``` are one type for a ```class A<T = uint8>```; ```let b: Box``` for a ```class Box<T>``` is refused; ```class S extends Box {}``` is refused, and ```class S<U> extends Box.<U>``` or ```extends Box.<uint8>``` is how it is written. There is no bare instantiation for a bare name to denote, since every construction yields a specialization, and a name that meant the family would make a default meaningless in a type position.
