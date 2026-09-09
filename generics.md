@@ -15,11 +15,13 @@ class A<T = uint8> {
     this.a = a;
   }
 }
-const a = new A(5);
-const b = new A.<uint32>(1024);
+const a: A = new A(5);           // A.<uint8>: the annotation names the default
+const b = new A.<uint32>(1024);  // A.<uint32>
+const c = new A((7 := uint16));  // A.<uint16>: T inferred from the argument
+const d = new A(5);              // A.<number>: an untyped literal is a Number
 ```
 
-In that example by default the field ```a``` is type ```uint8```, but the programmer foresaw someone might need to change this sometimes. Rather than hardcode this, the library exposes a generic parameter.
+In that example by default the field ```a``` is type ```uint8```, but the programmer foresaw someone might need to change this sometimes. Rather than hardcode this, the library exposes a generic parameter. A default is what a parameter takes when nothing else binds it: a bare ```A``` in a type position is ```A.<uint8>```, as is ```A.<>```, and so is a construction whose arguments reach ```T``` through nothing. Where an argument does reach ```T```, inference beats the default, exactly as it does in every language with both: ```new A(5)``` with no annotation is ```A.<number>```, because ```5``` is a Number, and ```new A((7 := uint16))``` is ```A.<uint16>```.
 
 ### Generic Application Syntax
 
@@ -189,7 +191,7 @@ What ```V: int32``` binds, primitively, is a type: the literal type of the suppl
 
 #### Inferring from the expected type
 
-When an application leaves a generic parameter unpinned and the surrounding context supplies an expected type, the parameter is inferred from it — from the annotation on a binding, or from a function's declared return type:
+When the surrounding context supplies an expected type — the annotation on a binding, a parameter's declared type, a function's declared return type, the target of an assignment, a field's type — and that type is an instantiation of the declaration being applied, its arguments bind the parameters in their positions:
 
 ```js
 type Acceleration3 = vec3.<{ m: 1, s: -2 }>; // vec3<D: Dimensions> from primitive metadata
@@ -198,9 +200,13 @@ const gravity: Acceleration3 = vec3(0, -9.81, 0); // D inferred from Acceleratio
 function fall(): Acceleration3 {
   return vec3(0, -9.81, 0); // D inferred from the return type
 }
+
+class Box<T> { v: T; constructor(v: T) { this.v = v; } }
+const b: Box.<uint8> = new Box(1);  // T bound to uint8 from the annotation; the 1 is read at uint8
+const c: Box.<uint8> = new Box("s"); // TypeError at the argument, as new Box.<uint8>("s") would be
 ```
 
-Inference runs after explicit arguments and argument-bound parameters, and it is a ```TypeError``` when the context fixes no type.
+The order is: explicit arguments first, then the expected type, then the value arguments, then defaults; a parameter left by all four is a ```TypeError``` naming it. A binding the expected type makes is fixed before the arguments are looked at and is treated exactly as an explicit one, so the arguments are checked against it. That order, and not the reverse, is what makes the ordinary spelling work: an untyped literal binds ```number``` when it is looked at first, and ```Box.<number>``` is not a ```Box.<uint8>```; read first, the annotation fixes ```T``` and the literal takes it, which is what writing ```new Box.<uint8>(1)``` does. The expected type binds only an instantiation of the same declaration (or a union containing one); an argument written ```any``` in it binds nothing in its position, and an interface, a supertype, or a structural type contributes nothing — this proposal's inference is positional.
 
 #### Referring to a value parameter's type
 
@@ -214,6 +220,37 @@ class A<V: int32> {
 ```
 
 No ```decltype```-style keyword is needed: ```Reflect.typeOf``` in type position is the general form, and it works for type parameters and ordinary bindings alike.
+
+#### Constructing a generic class
+
+A construction of a generic class always constructs a specialization — never the declaration, whose parameters are bound in no frame and whose typed fields would therefore check nothing. ```new Box(x)``` binds ```T``` by the same ladder a generic call uses (explicit arguments, the expected type, the value arguments, the defaults), and then proceeds as ```new Box.<...>(x)``` at those bindings: ```new.target``` is the specialization, the instance's prototype is the specialization's, and ```new Box((1 := uint8))``` and ```new Box.<uint8>(1)``` reach one class object and one type. Target-typed construction, ```const b: Box.<uint8> = new.(1)```, is the same rule with the name omitted; ```Reflect.construct(Box, args)``` binds the same way; and ```Reflect.construct(Box, args, Unrelated)``` is a ```TypeError```, since running the declaration's body against a foreign prototype would produce the open instance by another route.
+
+A parameter that nothing reaches — no argument, no expected type, no formal annotated with it, no default — is a ```TypeError``` naming the parameter and the declaration, never ```any```:
+
+```js
+class Registry<T> { #entries = new Map.<string, T>(); }
+new Registry();            // TypeError: T of Registry is not determined and has no default
+new Registry.<Foo>();      // Registry.<Foo>
+const r: Registry.<Foo> = new Registry(); // Registry.<Foo>, from the annotation
+```
+
+A ```Registry.<any>``` the program never named is an unchecked specialization the program cannot see it has, which is the failure this proposal exists to prevent; Rust and C++ ask for the argument here and their users write it. The same rule holds for a call of a generic function.
+
+#### Bare generic names and the family
+
+A generic declaration's bare name in a type position — an annotation, a parameter or return type, a heritage clause, ```is```, a ```when``` pattern — names the application at its defaults, ```Box.<>```, and is a type error naming the parameter where one has no default. ```A```, ```A.<>``` and ```A.<uint8>``` are one type for a ```class A<T = uint8>```; ```let b: Box``` for a ```class Box<T>``` is refused; ```class S extends Box {}``` is refused, and ```class S<U> extends Box.<U>``` or ```extends Box.<uint8>``` is how it is written. There is no bare instantiation for a bare name to denote, since every construction yields a specialization, and a name that meant the family would make a default meaningless in a type position.
+
+The family has a spelling of its own. An argument written ```any``` admits any instantiation in its position, as it already does for the collections, so ```Box.<any>``` is a Box of some element type and ```Pair.<any, string>``` a Pair whose first type is unknown and whose second is a string. A read through the wider view is ```any```; a store through it is checked against the instance's own field type at run time, which is what runtime types are for.
+
+The one position where a bare generic name is the declaration rather than an application is as a type argument, where it binds a higher-kinded parameter. In expression position the name is the constructor, which stands for the declaration wherever a declaration is a value: ```Reflect.makeType({ kind: "generic", base: Box, arguments: [uint32] })```.
+
+```instanceof``` sees the family through the constructor. A specialization is a distinct class object whose prototype chain does not pass through ```Box.prototype```, so ```x instanceof Box``` is extended: it is ```true``` when ```x``` is an instance of any specialization of ```Box```, or of a class extending one, while ```x instanceof Box.<uint8>``` is the ordinary prototype check against that specialization.
+
+```js
+new Box(1) instanceof Box;          // true
+new Box.<uint8>(1) instanceof Box;  // true
+new Box.<uint8>(1) instanceof Box.<uint16>; // false
+```
 
 ### Specialized Overloads
 
