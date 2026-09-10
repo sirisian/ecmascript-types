@@ -1001,6 +1001,7 @@ The standard library is overloaded for the value types, so nothing in it forces 
 
 Where a literal satisfies more than one overload, the ranking is ```float64``` first, since Number is a float64 and the conversion is exact, then ```float128/32/16```, ```decimal128/64/32```, ```uint128/64/32/16/8```, ```int128/64/32/16/8```. This ranks *literals*, not values, and it is the only place the order matters. The order is a back-compatibility condition rather than a taste: an untyped call reaching a function that later gained typed overloads must keep calling what it always called, and ```float64``` first is what makes adding overloads a non-breaking change.
 
+<!-- run -->
 ```js
 function f(a: float32) {}
 function f(a: uint32) {}
