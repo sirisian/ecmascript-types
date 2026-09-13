@@ -134,6 +134,8 @@ let b: Type = value;
 const c: Type = value;
 ```
 
+An unannotated `const` preserves the type supplied by a typed initializer. For example, `const n = makeUint8()` and `const n = (makeUint8())` both have type `uint8` when the function declares that result. The same rule covers typed constructions, conversions, binding aliases, member and element reads, and operators using typed values. An explicit annotation, including `any`, takes precedence. An untyped initializer remains dynamic; numeric constants keep their literal propagation behavior. The binding is immutable, while its fields and elements keep their declared mutability. Initialization still checks the inferred type when the source cannot be trusted statically. A mutable `let` can request a fixed inferred type with `:=`.
+
 A typed declaration without an initializer is initialized to the type's default value rather than ```undefined```: numeric and SIMD types default to ```0```, ```string``` to ```''```, ```boolean``` to ```false```, nullable unions to ```null```, and array types to an empty (or zero-filled fixed-length) array. This matches the default ```value``` behavior of typed property descriptors described in the object typing section.
 
 Zero-filling is part of the semantics, not an optimization a program may opt out of, and the reason is security rather than convenience: an allocation that exposed the bytes of a previously freed one would leak whatever had been there - another script's data, a former secret, a heap pointer that defeats address randomization. A fresh page from the operating system is already zero, so the fill costs nothing on a large new allocation; reused memory must be cleared regardless, so there is nothing to gain by exposing it. There is deliberately no uninitialized-allocation form. The one pattern it would serve, allocate then fill from I/O, is covered by placement ```new``` over an existing buffer and by array views.
@@ -273,7 +275,7 @@ let b: uint8 | null = null;
 let c: uint8 | undefined; // undefined
 ```
 
-The nullish operators narrow the union they operate on, and using them where the left side can never be nullish is a compile-time TypeError rather than silent dead code:
+The nullish coalescing operators `??` and `??=` narrow the union they operate on. Using them where the left side can never be nullish is a compile-time TypeError because the fallback is dead code:
 
 ```js
 let a: uint8 | null = f();
@@ -284,12 +286,12 @@ let d: uint8 = 0;
 // d ?? 5; // TypeError: left side of ?? is never null or undefined
 ```
 
-Optional chaining produces ```undefined``` when it short-circuits, so its result type widens with ```| undefined```:
+Optional chaining adds `undefined` to its result type when the chain can short-circuit. On a known non-nullish receiver, `?.` is allowed and keeps the ordinary member or call result type. Parentheses end a chain: `(o?.a).b` performs an ordinary access on the result of `o?.a`.
 
 ```js
 interface IExample { a: uint8; }
 let o: IExample | null = f();
-let a = o?.a; // uint8 | undefined
+const a = o?.a; // uint8 | undefined
 let b: uint8 = o?.a ?? 0;
 ```
 
