@@ -2355,6 +2355,18 @@ for (const [a: int32, b: int32] of g) {} // [[0, 1], [1, 2], [2, 3]] overload
 
 ```[Symbol.iterator]``` remains the underlying protocol. ```*operator...()``` defines it, and untyped code iterating the object uses the first declared overload for compatibility. A class with a single ```*operator...()``` iterates everywhere without annotations.
 
+Value spreads in calls and array literals follow the selected iteration protocol. Their static element type comes from the iterator's declared yield contract, where that contract is known. A yield type does not promise a count. Exact argument positions and arity are available only when the protocol also guarantees an ordered sequence, as iteration of an immutable tuple `Composite` does.
+
+A mutable array or tuple's indexed storage does not impose such a contract on `Symbol.iterator`. Replacing the iterator can change the yielded types and count while leaving every stored element alone:
+
+```js
+let xs: [string] = ["stored"];
+xs[Symbol.iterator] = function*(): uint8 { yield 1; yield 2; };
+let ys: [uint8, uint8] = [...xs];
+```
+
+Calls, tuple targets, array targets, and array-literal inference use the same iteration contribution. Unknown iterator behavior or count leaves the affected checks to runtime; it does not erase facts about elements before the spread. This preserves custom iterators and their effects. Reference iteration remains the explicitly index-based operation described in [references and borrowing](references.md).
+
 For the built-in typed arrays, ```for...of``` with the default iterator is specified to be observably equivalent to an index loop: the ```{ value, done }``` result object exists only where a program can see it, in a manual ```next()``` call or through a patched protocol, so ordinary iteration over a ```[].<float32>``` allocates nothing. A user-defined ```*operator...()``` yields values, not references - Rust's ```iter_mut``` has no counterpart here, because a reference cannot be stored in the iterator result it would pass through - so mutating in place across one array uses ```ref``` iteration and across several uses the ```ref``` callback idiom, both in the [references and borrowing](references.md) extension.
 
 #### Async Iteration
