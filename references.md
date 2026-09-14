@@ -39,7 +39,11 @@ The argument is `g(o)`, not `g(ref o)`. What the pattern borrows is the location
 
 What can be borrowed is decided at the location, not at the property behind it. A variable, an array element, and an object property all qualify, and a property qualifies whether it holds data, is an accessor, is missing, or is answered by a `Proxy`: a read through the borrow is an ordinary get and a write an ordinary set, so borrowing an accessor calls the getter and the setter, borrowing an absent property reads `undefined` and creates it on write, and borrowing through a `Proxy` fires the traps as those operations always do. This is the only line that holds, because a property's shape is not fixed for the life of a borrow — a data property can be redefined as an accessor, or deleted, between the borrow and the write. What is refused is where no location exists at all: a private member, a `super` property, a property of a primitive (the wrapper a write would land on is discarded), and a [bit-field](memorylayout.md), which is a run of bits inside a scalar and addressable only by rewriting the whole scalar.
 
+These exclusions are early type errors when syntax or static types prove them, including inside unused functions. They apply equally to a `ref` binding, rebinding, argument, and return. A known call result must return a reference to supply a location. When a property base or call result is unknown, the existing runtime check decides. A missing property, accessor, or Proxy-trapped property remains borrowable; this rule adds no lifetime analysis or temporary storage.
+
 ## Reference iteration
+
+Reference iteration requires array or [SoA](soa.md) storage. A statically known String, Set, Map, or generator is an early type error as its source, even though ordinary `for...of` accepts it. A union is rejected only when every member is ineligible; an unknown source is checked at runtime. Array aliases remain eligible, and the rule adds no general reference-iterator protocol.
 
 A `for...of` binding can be a reference when iterating an array. Each iteration binds a reference to the element rather than a copy, so the loop writes in place. A typed array of value types is where this pays and where the storage rules below bite, but a slot is a location whatever it holds:
 
