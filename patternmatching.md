@@ -60,6 +60,17 @@ The static type of a ```match``` expression is the union of its arm types, canon
 ```match all (subject) { ... }``` answers with **every** arm that matched rather
 than the first, as a ```[].<T>``` in arm order.
 
+Here ```T``` is the canonicalized union of the value-producing arm types.
+Throwing or diverging arms contribute no element; block arms contribute their
+completion type. Without an array context, an unknown arm makes the element type
+```any```, while the result remains an array. An array context supplies its element
+type to each arm and the result: ```[].<uint8>``` checks arm literals as ```uint8```
+and admits unknown arm values at that type at runtime. A scalar context supplies
+no arm context. The extent is dynamic: clause count does not tell us how many
+arms will match. Ordinary array subtyping, element, and reference-escape
+restrictions apply; this contextual construction does not make an existing
+```[].<any>``` assignable to ```[].<uint8>```.
+
 ```js
 const warnings = match all (character) {
   when { hp: ..<30 }: 'LOW HEALTH';
