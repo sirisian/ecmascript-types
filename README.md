@@ -2063,11 +2063,14 @@ function f(a: uint8) {}
 f(8);
 ```
 
-Be aware that rest parameters can create identical signatures also.
+A fixed signature can accompany a rest fallback. When argument type ranks tie, a fixed position is more specific than a position collected by a rest:
 ```js
 function f(a: float32): void {}
-// function f(...a: [].<float32>): void {} // TypeError: A function declaration with that signature already exists
+function f(...a: [].<float32>): void {}
+f(1); // Selects the fixed signature
+f(1, 2); // Selects the rest signature
 ```
+Default and rest parameters expand the accepted arities. A declaration pair is invalid when a common argument list leaves it tied after type ranking, specificity, and declared return discrimination.
 
 See the [decorators](decorators.md) extension's function reflection for how a name's signatures are exposed at runtime.
 
@@ -2078,7 +2081,7 @@ A call selects its signature as follows:
 1. Collect every declared signature for the name.
 2. Keep the viable signatures where the argument list satisfies the parameter list's arity, accounting for default values, optional parameters, and rest parameters, and where every argument is assignable to its parameter's type.
 3. Rank each viable signature by the worst match any of its arguments requires: an exact type match, then an untyped literal taking the parameter's type by the ranking in the conversions section, then a user-defined implicit cast, then binding to an untyped catch all signature. A typed argument never ranks below an exact match, because a typed argument of the wrong type isn't viable at all.
-4. Where more than one signature ranks best, break the tie on **specificity**, compared pointwise across the type arguments of each parameter's type: a concrete type argument is more specific than a type parameter that would bind to it, and one signature is more specific than another when it is at least as specific in every position and strictly more specific in at least one. A signature more specific than every other survivor is called.
+4. Where more than one signature ranks best, break the tie on **specificity**, compared pointwise across the type arguments of each parameter's type: a concrete type argument is more specific than a type parameter that would bind to it, and one signature is more specific than another when it is at least as specific in every position and strictly more specific in at least one. The comparison also covers where each actual argument lands: a fixed parameter is more specific than an element collected by an ordinary rest or a rest typed by a generic pack. A rest elsewhere in a signature does not penalize its fixed positions. Remove each signature dominated by another; call the single survivor, if there is one. Incomparable survivors remain ambiguous, independent of declaration order.
 5. If exactly one signature remains it's called. Otherwise the call is ambiguous, a TypeError is thrown, and explicit casts are required to select a signature.
 
 Pointwise is what makes a multi-parameter generic resolvable, and what makes an incomparable pair an error rather than a coin flip. A range (see [ranges](ranges.md)) carries one type parameter per endpoint, so ```f<E: Bound>(r: Range.<uint8, Bound.Closed, E>)``` and ```f<S: Bound>(r: Range.<uint8, S, Bound.Open>)``` are each more specific than the fully generic ```f<S: Bound, E: Bound>(r: Range.<uint8, S, E>)``` and neither is more specific than the other. A call with ```0..<10``` matches all three; the generic one loses, the other two are incomparable, and the call is ambiguous until a signature naming both bounds is declared. That is the intended answer rather than a gap: two overloads that partition a type's parameters along different axes genuinely disagree where the axes cross, and resolving it by declaration order would make the result depend on which file was read first.
@@ -2203,7 +2206,7 @@ An untyped rest needs no precedence rule of its own; it collects anything, and t
 function f(...args1, callback1: () => void, ...args2, callback2: () => void) {}
 f('a', 1, 1.0, () => {}, 'b', 2, 2.0, () => {});
 ```
-Two rests with nothing typed between them are an error, since there is no boundary between them and no assignment more right than another.
+Adjacent rests must both have annotations resolving to array or tuple types. A missing annotation in an adjacent pair is a Syntax Error; an element type that resolves to `any` on either side is a type error, including through an alias or a substituted type parameter. Equal constrained element types are allowed and use the greedy assignment described below. Reference arguments keep their locations and reference markers throughout this assignment.
 
 Variadic *generic* parameters collect their arguments by these same rules — the element type ends a run, assignment is greedy with give-back, names override — stated in [generics](generics.md#variadic-generic-parameters).
 Rest array destructuring:
