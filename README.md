@@ -1769,7 +1769,7 @@ g({ a: 'a' });
 
 #### Index Signatures
 
-An interface or object type can constrain arbitrary keys with an index signature. The key type must be ```string```, ```symbol```, ```uint32```, or a union of these, and every explicitly declared property must be assignable to the signature's value type:
+An interface or object type can constrain arbitrary keys with an index signature. The key type must be ```string```, ```symbol```, ```uint32```, or a union of these. The signature governs the properties the type does not declare by name; a declared property is typed by its own annotation and is not constrained by the signature, so ```{ name: string, [key: string]: uint32 }``` is a type whose ```name``` is a string and whose every other string key holds a ```uint32```. (TypeScript requires the declared property to satisfy the signature too, to give ```o[k]``` for a computed ```k``` a sound static type; here such a read is checked at the boundary rather than typed as the signature's value, so the constraint buys nothing and is not imposed.)
 
 ```js
 interface StringMap {
@@ -1858,6 +1858,8 @@ function f(a: IExample) {
 }
 f(a => a.a);
 ```
+
+A function expression, arrow, or object-literal method written where a function type is expected takes that type's signature for every position it leaves unannotated: parameter types, the return type, the ```this``` type, and the type-parameter list. What it declares, it keeps. The adopted signature is the type of the function value the expression creates, not only what the checker assumes of it, so ```{ map(x) { return x; } }``` written against ```interface J { map<T>(x: T): T; }``` creates a generic function, and ```o.map.<uint8>(x)``` through a ```J```-typed binding is a specialization of it. Otherwise a value could pass the check as generic and be refused as non-generic at its first specialization.
 
 Argument names in function interfaces are optional; where present, they are what a named argument refers to. A call through a value of the interface type binds against the interface's signature: a named argument fills the parameter of that name, a parameter left unfilled takes the signature's default, and the function receives the full positional list. So the passed-in function may name its parameters differently, or not at all. For example:
 
@@ -3100,7 +3102,7 @@ partial class Vector2 {
 }
 ```
 
-A partial class adds no positional fields, so a class's layout is fixed by its primary declaration and array views over it stay well-defined. The one exception is the restricted form reflection uses: a partial class may append typed, symbol-keyed fields to the intrinsic metadata classes, which the [decorators](decorators.md) extension relies on, and because those fields are keyed by symbol rather than by position they don't enter the positional layout either.
+A partial class adds no fields and does not re-open the constructor, so a class's layout is fixed by its primary declaration and array views over it stay well-defined; a field, a static block, or a ```constructor``` in a partial class body is a TypeError, not a member silently left out. The metadata shapes the [decorators](decorators.md) extension appends to are extended with ```partial interface```, which may contribute members because an interface declares a shape and adds no instance state.
 
 Adding a method or operator the class already has, whether from its primary declaration or another module's partial, is a TypeError at the second declaration - the same rule the operator table uses - so extension is order-independent and two modules cannot silently shadow each other.
 
