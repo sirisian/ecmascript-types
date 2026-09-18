@@ -102,7 +102,7 @@ class BinaryNode extends Node {
 }
 ```
 
-```NumberNode``` is a value type; ```Node``` is ```sealed```, which the main proposal's sealed-class rule makes a reference type, so ```UnaryNode``` and ```BinaryNode``` hold their children as plain ```Node``` references - a non-sealed value type class would need ```Box.<T>``` for the same, its ```T | null``` being inline - and the nodes of a tree are ordinary heap objects, which is what a tree wants.
+```NumberNode``` is a value type; ```Node``` is ```sealed```, which the main proposal's sealed-class rule makes a reference type, so ```UnaryNode``` and ```BinaryNode``` hold their children as plain ```Node``` references - a non-sealed value type class would need the ```reference``` modifier for the same, its ```T | null``` being inline - and the nodes of a tree are ordinary heap objects, which is what a tree wants.
 
 ## Parser
 

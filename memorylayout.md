@@ -162,25 +162,48 @@ pool.byteLength;     // 2000
 
 `null` is the discriminant's zero, which is what makes a typed declaration without an initializer already correct: a nullable union defaults to `null`, and a zero-filled allocation is a run of empty optionals with no fill pass of its own.
 
-The discriminant is a declared byte rather than a spare bit pattern of `T`. Rust reaches a smaller `Option<&T>` by niche optimization, packing the tag into a value the payload cannot hold, and that is genuinely cheaper where it applies. It is deliberately not taken here, because `byteLength` is a compile-time constant this proposal lets a program compute with, put in an array extent, and assert in a test, and a niche makes it depend on whether some field's type happens to have a spare pattern — so adding a value to an enum could silently change the size of a struct three declarations away. Rust can afford it because `size_of` is not a layout promise there; here it is. A declared niche, opted into on a type that has one, is a reasonable later addition and is listed as open below.
+The discriminant is a declared byte rather than a spare bit pattern of `T`, EXCEPT where the type's own declaration says a pattern is impossible. Rust reaches a smaller `Option<&T>` by inferring a niche from whatever values the payload happens not to use, and that inference is deliberately not taken here: `byteLength` is a compile-time constant this proposal lets a program compute with, put in an array extent, and assert in a test, so a size that depends on whether some nested field's value range happens to have a hole would let a new enum member resize a struct three declarations away. Rust can afford it because `size_of` is not a layout promise there; here it is.
+
+What is taken is the DECLARED niche, and it needs no new spelling because the type system already has one. A primitive carrying `bounds` metadata excludes values by declaration, checked at every boundary the value crosses, so the excluded pattern is genuinely unreachable rather than merely unused:
+
+```js
+type NodeIndex = uint32.<{ bounds: 0..=0xFFFFFFFE }>;
+class Node { left: NodeIndex | null; right: NodeIndex | null; }
+Node.byteLength;     // 8 — 0xFFFFFFFF is the niche, so neither optional pays a discriminant
+
+class Plain { left: uint32 | null; }
+Plain.byteLength;    // 8 — 1 discriminant, 3 pad, 4 payload
+```
+
+A field whose type is a REFERENCE (a `reference` class, or a `sealed` or `abstract` one) has the same property for free, `null` being a pattern it cannot hold, so a nullable reference is one pointer rather than a pointer and a tag.
+
+The rule is one rule: a `T | null` costs a discriminant unless `T`'s declaration excludes a pattern, in which case that pattern is the discriminant. It is local, because the exclusion is written in the type; it is stable, because it changes only when someone edits that declaration; and it is enforced, because the boundary check that already refuses an out-of-bounds value is what makes the pattern unreachable. This is Rust's `NonZeroU32` rather than Rust's inference — the declared half, which is also the half Rust guarantees.
+
+The convergence with the index pools of the [bounding volume hierarchy](examples/dbvh.md) example is not an accident. A pool that reserves `0xFFFFFFFF` as an absent-child sentinel has always been declaring a niche; writing it as `bounds` states to the compiler what a `NULL_NODE` constant states only to the reader, and gets a checked `| null` for the same four bytes the convention was already spending.
 
 ### Where a reference is still required, and how it is spelled
 
-A cycle has no finite inline layout, so the recursive case cannot inline and must name its indirection:
+A cycle has no finite inline layout, so a class that contains itself must be a REFERENCE TYPE, declared with the `reference` modifier:
 
 ```js
-class Node {
+reference class Node {
   value: uint32;
-  // next: Node | null;       // TypeError: Node contains itself through field "next"
-  next: Box.<Node> | null;    // A pointer to a separately allocated Node
+  next: Node | null;     // A nullable reference: one pointer, and it aliases
+}
+
+class Bad {
+  value: uint32;
+  // next: Bad | null;   // TypeError: Bad contains itself through field "next".
+                         // Declare Bad a `reference class`, or break the cycle
+                         // through an array or a pool index.
 }
 ```
 
-`Box.<T>` is an owned, separately allocated `T`. It copies on store as the inline form does, so it changes where the value lives and nothing else; it is Rust's `Box<T>` and C++'s `unique_ptr<T>`, and it is the type that closes a recursive cycle, appearing in the layout table with the width the engine gives a reference.
+A `reference` class is held and passed by reference. Its fields alias, `===` on two of its instances compares references, `[10].<Node>` is ten references, and a bare `Node` field is a non-null one. It is the third class kind beside the value type class and the `dynamic` class, and it is what `struct` versus `class` is in C# and Swift: a decision made once at the declaration rather than at each use.
 
-**The cycle is not broken automatically, and that is the load-bearing decision in this section.** An inference that inlined where it could and boxed where it could not would have to choose an edge in a mutual cycle `A → B → C → A`, and any choice makes one of those three classes' layout a function of declaration order or of the order a checker happens to walk the graph. Worse, it makes the choice invisible: a program that adds a field completing a cycle would find a hot structure quietly grow from two bytes to eight with nothing at the edit site to read. Rust and C++ both refuse the recursive declaration and make the author write `Box` or `*`, for this reason, and the diagnostic here already names the cycle and the field it passes through — it now offers the fix as well.
+**Reference-ness is declared on the class, not on the field, and that is the load-bearing choice here.** The alternative is a type constructor applied per field — Rust's `Box<T>`, `&T` and `Rc<T>` are all of this shape — and it does not survive contact with this proposal's two commitments. An owned box would have to COPY on store, since there is no move that leaves a source invalid; a linked list built from copying boxes copies its whole tail at every link, which is O(n) for an operation that must be O(1) and produces a tree of copies rather than a list. A box that instead ALIASES has acquired an identity, and it would be handing one to a value whose `===` the language has defined as structural, so two holders of "the same" payload would compare equal to two holders of equal copies while behaving differently. Neither is available. Rust can offer the use-site choice precisely because it has no collector and ownership must therefore be written down; a language whose collector owns lifetime has exactly one kind of reference, so the only question left is whether a given class is reached through one, which is a property of the class.
 
-This is the part of the proposal that changes for programs already written. `class D { d: D | null; }` and `type List = { value: uint32, next: List | null }` are the recursive form and become `Box.<D> | null` and `Box.<List> | null`. A `sealed` or `abstract` class is unaffected, being a reference type already, so a hierarchy whose child fields are plainly `Node` needs no edit.
+`sealed` and `abstract` classes are reference types already, for their own reasons, so they close a cycle without the modifier — which is what lets the [expression parser](examples/expressionparser.md) hold its children as plain `Node`. `reference` is what an OPEN, non-abstract class needs, and the gap is real independently of recursion: a typed class meant to be subclassed by consumers is a value type class today, so a field declared with its type embeds only the base slice and a subclass instance assigned to one silently loses everything the subclass added. Such a class has always needed to be a reference type and has had no way to say so except by sealing itself, which refuses the extension it exists to offer.
 
 ### What this settles elsewhere
 
@@ -192,15 +215,17 @@ This is the part of the proposal that changes for programs already written. `cla
 
 **A new spelling for the inline form, leaving `T | null` a reference.** `Option.<T>` or a suffix, added beside the existing meaning, with nothing existing changing. Rejected on the proposal's own principle that the natural spelling should be the fast spelling: the shape a reader reaches for first would keep allocating, and the cheap form would be the one you had to know to ask for. It also has to answer what `Option.<T> | null` means, and it doubles the vocabulary for a distinction that, given the copying semantics above, no program can observe.
 
-**Inferring the representation per field, boxing only to break cycles.** Rejected above: arbitrary edge choice in a mutual cycle, and a silent layout change at a distance.
+**Inferring the representation per field, boxing only to break cycles.** An inference that inlined where it could and indirected where it could not has to choose an edge in a mutual cycle `A → B → C → A`, and any choice makes one of those three layouts a function of declaration order or of the order a checker walks the graph. It also makes the choice invisible: a program that adds a field completing a cycle would find a hot structure quietly grow, with nothing at the edit site to read. Rust and C++ both refuse the recursive declaration and make the author say what the indirection is.
 
-**Niche optimization in place of a discriminant byte.** Rejected for this revision because it makes `byteLength` non-local. Kept open as a declared, opt-in form.
+**A per-field indirection type, `Box.<T>`.** Ruled out above under the reference modifier: copying makes linking O(n), aliasing gives an identity to a structurally-compared value, and moving needs affine types the proposal has refused.
+
+**Inferred niches, as Rust performs them.** Rejected for making `byteLength` non-local. The declared half is taken instead.
 
 ### Open
 
-- A declared niche: a way for a type to name a bit pattern it cannot hold, so an optional of it costs nothing. It wants a spelling, and it wants a rule for what happens when the declared pattern is reachable after all.
-- `A | B | null`, a union of more than one value type class, still has no single layout and is still a reference. A tagged layout over several payloads is a larger question than this section, and it is the one a `sealed abstract` hierarchy answers today at reference cost.
-- A SHARED reference to a value type class — the `&T` to this section's `Box<T>` — has no spelling. The reference forms here are all owned and copying. Sharing is reached through a pool and an index, or through a class that is a reference type.
+- **`A | B | null`, a union of more than one value type class, still has no single layout and is still a reference.** The optional is the two-variant case of an inline tagged union, so the layout machinery now exists and the generalization is mostly a question of what `===` compares and how a variant narrows, not of how bytes are placed. The interesting version is probably not the anonymous union at all but a `sealed abstract` hierarchy laid out inline where every subclass is a value type, which would give Rust's `enum` with the exhaustiveness checking this proposal already reserves to sealed hierarchies. Deferred as a feature of its own rather than a corollary of this one.
+- **A variant of an inline sum type sets the size of every holder**, so one large case makes every value of the type large. This is inherent — Rust has it and answers it by indirecting the large variant — and it is the question the item above has to answer before it lands.
+- **`bounds` metadata is specified but not yet implemented**, so the declared niche above is specified against a mechanism that does not run. The two should land together, since a niche that silently does not apply is a size regression nobody sees.
 
 ## Natural alignment and padding
 

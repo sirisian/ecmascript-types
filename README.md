@@ -470,17 +470,17 @@ A ```type``` alias may refer to itself and to other aliases, including mutually.
 
 The only restriction is a layout restriction: a value type's layout may not contain itself, directly or through other value types, because such a layout has no finite size. A cycle is legal whenever it passes through a *reference position*: a field whose type is a reference type, an array element, a nullable union, an interface member, or a union of value-type classes (which, having more than one possible layout, is stored by reference like any other class union).
 
-A field whose type is a value type class is stored inline by default, so a bare field of such a type embeds a copy - and, for a subclassed value type class, embeds only the base slice, never a subclass instance. An optional one, ```T | null```, is inline too: a discriminant and the payload, defined in [memory layout](memorylayout.md#optional-values), so ```[10].<A>``` is ten instances and ```[10].<A | null>``` is ten optional instances, both contiguous. Its reference form, and the only thing that closes a recursive cycle, is ```Box.<T>```: an owned, separately allocated ```T``` that copies on store as the inline forms do. A ```sealed``` class is by contrast a reference type (the sealed classes section), so a field of a sealed type holds any subclass directly. Closing a recursive cycle is therefore spelled ```Box.<T>``` for a value type class, and holding a subclass instance polymorphically is spelled plainly for a sealed one:
+A field whose type is a value type class is stored inline by default, so a bare field of such a type embeds a copy - and, for a subclassed value type class, embeds only the base slice, never a subclass instance. An optional one, ```T | null```, is inline too: a discriminant and the payload, defined in [memory layout](memorylayout.md#optional-values), so ```[10].<A>``` is ten instances and ```[10].<A | null>``` is ten optional instances, both contiguous. Closing a recursive cycle is therefore not a property of the field but of the class: a class that contains itself is declared a ```reference class```, whose instances are held and passed by reference and whose fields alias. ```sealed``` and ```abstract``` classes are reference types already, so a field of one holds any subclass directly and needs no modifier:
 
 ```js
 type Tree = { value: float64, children: [].<Tree> }; // Through an array
-type List = { value: uint32, next: Box.<List> | null }; // Through an owned box
+type List = { value: uint32, next: List | null }; // Structural types are reference types
 type Node = NumberNode | UnaryNode | BinaryNode; // A class union has many layouts, so it's a reference
 
 // type Bad = { next: Bad }; // TypeError: Bad has an infinite layout
 // class C { c: C; } // TypeError: a value type class cannot contain itself
-// class D { d: D | null; } // TypeError too: an optional is inline, so this is still infinite
-class D { d: Box.<D> | null; } // Fine, the box is the indirection
+// class D { d: D | null; } // TypeError: an optional is inline, so this is still infinite
+reference class D { d: D | null; } // Fine, D is now a reference type
 
 type Expression = { op: string, operands: [].<Expression> } | Literal; // Mutually recursive
 type Literal = { value: float64 };
@@ -2622,20 +2622,21 @@ header.c.a = 10;
 buffer[3]; // 0
 ```
 
-To create an array whose elements may be absent, union with null. A nullable union of a value type class is inline - a discriminant and the payload, per [memory layout](memorylayout.md#optional-values) - so the array stays contiguous and no element is separately allocated. An array of *references* is an array of ```Box.<A>```, which is the form that allocates. The same spelling works through a generic parameter.
+To create an array whose elements may be absent, union with null. A nullable union of a value type class is inline - a discriminant and the payload, per [memory layout](memorylayout.md#optional-values) - so the array stays contiguous and no element is separately allocated. An array of *references* is an array of a ```reference class```, which is the form that allocates. The same spelling works through a generic parameter.
 
 ```js
 const a: [10].<A|null>; // [null, ...], contiguous, 10 * (A.byteLength + 1) rounded to A's alignment
 a[0] = new A();
 
-const b: [10].<Box.<A>|null>; // [null, ...], 10 references
+reference class R { x: uint8; }
+const b: [10].<R|null>; // [null, ...], 10 references
 
 class Container<T> {
   a: [10].<T>;
 }
 new Container.<A>(); // a is 10 inline instances
 new Container.<A|null>(); // a is 10 inline optional instances
-new Container.<Box.<A>|null>(); // a is 10 references
+new Container.<R|null>(); // a is 10 references
 ```
 
 To change a class to be unsealed when its fields are typed use the ```dynamic``` keyword. This stops the class from being used for sequential data as well, so it cannot become a value type in typed arrays.
@@ -3126,7 +3127,7 @@ class BinaryNode extends Node { op: TokenType; left: Node; right: Node; }
 // class Extra extends Node {} // TypeError: Node is sealed
 ```
 
-A sealed class is a reference type: its instances are held and passed by reference, which is what lets a ```Node```-typed field, parameter, or return hold any subclass and a ```switch``` dispatch over them. So the child fields are plainly ```Node```, closing the recursive cycle without a box or a sigil — where a non-sealed value type class would instead spell its reference form ```Box.<T>```, per the type aliases and recursion section, since its optional form ```T | null``` is inline and so still infinite.
+A sealed class is a reference type: its instances are held and passed by reference, which is what lets a ```Node```-typed field, parameter, or return hold any subclass and a ```switch``` dispatch over them. So the child fields are plainly ```Node```, closing the recursive cycle without a modifier or a sigil — where a non-sealed value type class would instead be declared a ```reference class```, per the type aliases and recursion section, since its optional form ```T | null``` is inline and so still infinite.
 
 Only subclassing is restricted. The class extension syntax above, which appends methods to an existing class, remains available on a sealed class from any module, since it adds no cases. Applying a mixin to a sealed class from outside its module creates a subclass and is therefore a TypeError.
 
@@ -3165,7 +3166,23 @@ class Circle extends Shape {
 
 An abstract class is a reference type. Its purpose is polymorphic dispatch through the hierarchy — a ```Shape```-typed binding holds any subclass and ```this.area()``` resolves at run time — which is reference-type behavior, so an abstract class is never a value type and neither is a subclass reached through it. It may declare a constructor, invoked by a subclass through ```super()```, even though it can never be the target of ```new``` directly. Abstract differs from an interface in carrying implementation: an interface is pure signature, while an abstract class combines abstract members with concrete methods, fields, and constructors, which is the tool for a partial implementation that a family of subclasses completes.
 
-The class modifiers ```abstract```, ```sealed```, and ```dynamic``` may be written in any order. Repeating a modifier is an error, and ```sealed``` together with ```dynamic``` is an error: the closed hierarchy exists to be matched and laid out by shape, which is exactly what ```dynamic``` opts out of.
+The class modifiers ```abstract```, ```sealed```, ```reference```, and ```dynamic``` may be written in any order. Repeating a modifier is an error, and ```sealed``` together with ```dynamic``` is an error: the closed hierarchy exists to be matched and laid out by shape, which is exactly what ```dynamic``` opts out of. ```reference``` with ```abstract```, ```sealed```, or ```dynamic``` is redundant rather than an error, each of those being a reference type already.
+
+### Reference Classes
+
+A ```reference class``` is held and passed by reference. Its instances alias, ```===``` on two of them compares references rather than fields, ```[10].<T>``` is ten references, and a bare field of its type is a non-null reference to any subclass.
+
+```js
+reference class Node {
+  value: uint32;
+  next: Node | null; // One pointer, and it aliases
+}
+```
+
+It is the third class kind beside the value type class and the ```dynamic``` class, and the distinction is the one C# and Swift draw between ```struct``` and ```class```: made once at the declaration rather than at each use. Two things need it. A class that contains itself has no finite inline layout, since ```T | null``` is inline storage per [memory layout](memorylayout.md#optional-values), so a recursive class must be a reference type — and ```reference``` is how one says so without also sealing itself. And a typed class meant to be subclassed by other modules is a value type class today, so a field declared with its type embeds only the base slice and a subclass instance assigned to one silently loses everything the subclass added; such a class has always needed to be a reference type and has had no way to say it.
+
+Unlike ```dynamic```, a ```reference``` class stays sealed in the ```Object.seal``` sense and keeps its fixed field layout. What it gives up is inline storage, not typing: the fields are still typed, still laid out, and still checked. What it gains is identity, which is what makes aliasing meaningful and what a value type deliberately has none of.
+
 
 ```abstract``` composes with ```sealed```. A ```sealed abstract class``` can be neither instantiated nor extended outside its module, so its concrete subclasses are a fixed, known set with no base case among them — the algebraic data type in full: a closed union whose members are the subclasses, matched exhaustively by the ```switch``` the control structures section describes.
 
@@ -3730,7 +3747,7 @@ const d: [10].<uint8>; // A typed array is an object
 new WeakRef(d); // WeakRef.<[10].<uint8>>
 ```
 
-The boundary is the class being typed and therefore sealed, the same point at which it becomes ineligible to be proxied: any class with a typed instance field, not only one whose fields are all value types, and not a ```dynamic``` class, which is not sealed. Neither the nullable union ```A | null``` nor the box ```Box.<A>``` changes this. The first is inline storage with a discriminant and the second is a separate allocation, but a weak reference is checked against the value, and the value is the same sealed instance under any of the three binding types:
+The boundary is the class being typed and therefore sealed, the same point at which it becomes ineligible to be proxied: any class with a typed instance field, not only one whose fields are all value types, and not a ```dynamic``` class, which is not sealed. The nullable union ```A | null``` does not change this. It is inline storage with a discriminant rather than a separate allocation, but a weak reference is checked against the value, and the value is the same sealed instance under either binding type:
 
 ```js
 let e: A | null = new A();
