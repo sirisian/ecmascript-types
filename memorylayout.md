@@ -58,7 +58,8 @@ const header: [Header.byteLength].<uint8>;
 | Value type classes | Yes |
 | `[N].<T>` and `SoA.<T, N>` | Yes |
 | `bigint`, `string`, `any` | No. Their size is a property of the value, not the type. A string reaches a laid-out record as bytes; see [strings at a binary boundary](serialization.md#strings-at-a-binary-boundary), and [fixed-length strings](examples/fixedstring.md) for the record case |
-| Reference types, including a nullable union of a value type class | No. A reference's width is the engine's business |
+| `T \| null` where `T` is a value type class | Yes, the optional layout below. A reference only where a cycle forces one |
+| Reference types, and a nullable union of one | No. A reference's width is the engine's business |
 | `[].<T>` without a length | No as a type. Its instances have a `byteLength` |
 | A class with an untyped field | No |
 | A union of value types | No. It has no single layout |
@@ -102,6 +103,104 @@ type ClassFieldLayoutReflection = {
 Layout reflection and declaration reflection are deliberately separate, and they are reached by separate contexts: `Reflect.ClassFieldLayout` for the placement above and `Reflect.ClassField` for the declaration. They were both written as `Reflect.ClassField` here, which made one retrieval expression mean two shapes depending on which document a reader had open. `Reflect.ClassFieldLayout` is a reflection context and not a DECORATOR context - nothing decorates a placement, which is the distinction `Reflect.Type` already draws.
 
 `Reflect.ClassField`'s decorator context in decorators.md describes what a field WAS DECLARED as — its type, visibility, and `readonly` — and carries `offset` and `byteLength` because those two are what a decorator commonly wants; the bit-level placement above is meaningful only for a class that has a layout at all, and only this extension defines what it means. Every other language keeps the same seam: .NET has `FieldInfo` for members and `Marshal.OffsetOf` for layout, C has `offsetof` unconnected to anything else, and Rust had no stable field-offset reflection at all until `offset_of!`. Asking a class with no layout for a field's placement is a TypeError, for the same reason reading `byteLength` from a `string` is.
+
+## Optional values
+
+A field of type `T | null` where `T` is a value type class is laid out INLINE: a discriminant followed by `T`'s layout, in the containing class's memory, with no allocation and no indirection. `class B { a: A | null }` over a one-byte `A` is two bytes, and `[1000].<B>` is two kilobytes in one allocation rather than eight kilobytes of pointers addressing a thousand separate objects.
+
+This is what `Option<T>` is in Rust and Swift, `std::optional<T>` in C++, and `Nullable<T>` in C#. All four inline the payload; all four reserve a separate spelling for the case where the payload is reached through a pointer. This document reaches the same place from the semantics the proposal already has, which turn out to leave no room for anything else.
+
+### Why it is inline, and why that is not a change of meaning
+
+The representation was a reference, and the reason the change is safe rather than delicate is that **the box was never observable**. A value type class in a `T | null` slot already behaves as a value in every channel a program can reach:
+
+```js
+class A { x: uint8 = 1; }
+class B { a: A | null = null; }
+
+const src = new A();
+const b = new B();
+b.a = src;
+src.x = 7;
+b.a?.x;              // 1 — the store COPIED; the field does not alias src
+
+const out = b.a;
+if (out != null) out.x = 9;
+b.a?.x;              // 1 — the read COPIED; the binding does not alias the field
+
+const b1 = new B(); b1.a = new A();
+const b2 = new B(); b2.a = new A();
+b1 === b2;           // true — structural, so the allocation is not an identity
+
+new WeakRef(b1);     // TypeError — nothing may hold the box weakly
+```
+
+Store copies, read copies, equality is structural, and the value cannot be held weakly. Those four are the complete set of channels through which a heap allocation makes itself known, and each is closed. What remains is `byteLength`, the field offsets reflection reports, and the stride of an array — that is, the layout itself, which is what this section defines. A conforming program cannot otherwise distinguish the two representations, so choosing the cheaper one is a layout decision rather than a semantic one.
+
+This is the sense in which `T | null` was never `Option<&T>`. It is `Option<T>`, spelled as though it were the first and paying for the second.
+
+> **A tension in the current text worth resolving explicitly.** The value type copying rules say a store into "a field or an array element of that type" copies, and the recursion rules say a `T | null` field "is a reference". A field declared `A | null` holding an `A` is reached by both sentences, and they do not agree about what it is. The copying rule is the one that decides observable behaviour, and the one an implementation already follows; the recursion rule is describing a layout obligation, not an aliasing one, and the sections below say so in those terms.
+
+### The layout
+
+The discriminant is one byte. It precedes the payload and is placed so the payload lands at `T`'s alignment, which means it occupies trailing padding the containing class already has wherever one exists. The optional's alignment is `T`'s, and its `byteLength` is `T`'s byte length plus the discriminant, rounded up to that alignment.
+
+```js
+class A { x: uint8; }
+class B { a: A | null; }
+B.byteLength;        // 2
+B.alignment;         // 1
+
+class V { x: float32; y: float32; }
+class C { v: V | null; }
+C.byteLength;        // 12 — 1 discriminant, 3 pad, 8 payload
+C.alignment;         // 4
+
+const pool: [1000].<B>;
+pool.byteLength;     // 2000
+```
+
+`null` is the discriminant's zero, which is what makes a typed declaration without an initializer already correct: a nullable union defaults to `null`, and a zero-filled allocation is a run of empty optionals with no fill pass of its own.
+
+The discriminant is a declared byte rather than a spare bit pattern of `T`. Rust reaches a smaller `Option<&T>` by niche optimization, packing the tag into a value the payload cannot hold, and that is genuinely cheaper where it applies. It is deliberately not taken here, because `byteLength` is a compile-time constant this proposal lets a program compute with, put in an array extent, and assert in a test, and a niche makes it depend on whether some field's type happens to have a spare pattern — so adding a value to an enum could silently change the size of a struct three declarations away. Rust can afford it because `size_of` is not a layout promise there; here it is. A declared niche, opted into on a type that has one, is a reasonable later addition and is listed as open below.
+
+### Where a reference is still required, and how it is spelled
+
+A cycle has no finite inline layout, so the recursive case cannot inline and must name its indirection:
+
+```js
+class Node {
+  value: uint32;
+  // next: Node | null;       // TypeError: Node contains itself through field "next"
+  next: Box.<Node> | null;    // A pointer to a separately allocated Node
+}
+```
+
+`Box.<T>` is an owned, separately allocated `T`. It copies on store as the inline form does, so it changes where the value lives and nothing else; it is Rust's `Box<T>` and C++'s `unique_ptr<T>`, and it is the type that closes a recursive cycle, appearing in the layout table with the width the engine gives a reference.
+
+**The cycle is not broken automatically, and that is the load-bearing decision in this section.** An inference that inlined where it could and boxed where it could not would have to choose an edge in a mutual cycle `A → B → C → A`, and any choice makes one of those three classes' layout a function of declaration order or of the order a checker happens to walk the graph. Worse, it makes the choice invisible: a program that adds a field completing a cycle would find a hot structure quietly grow from two bytes to eight with nothing at the edit site to read. Rust and C++ both refuse the recursive declaration and make the author write `Box` or `*`, for this reason, and the diagnostic here already names the cycle and the field it passes through — it now offers the fix as well.
+
+This is the part of the proposal that changes for programs already written. `class D { d: D | null; }` and `type List = { value: uint32, next: List | null }` are the recursive form and become `Box.<D> | null` and `Box.<List> | null`. A `sealed` or `abstract` class is unaffected, being a reference type already, so a hierarchy whose child fields are plainly `Node` needs no edit.
+
+### What this settles elsewhere
+
+- `[10].<A | null>` is ten inline optionals rather than ten references, so the contrast the value type class section draws between `[10].<A>` and `[10].<A | null>` becomes a contrast between ten values and ten optional values, both contiguous, rather than between values and pointers.
+- `uint8 | null` and every other nullable scalar acquires the layout it did not have. The rule is one rule: a discriminant and a payload, whatever the payload is.
+- A class holding an optional value type class is itself a value type class with a layout, which it already was, now for a stated reason rather than by inference from the reference width.
+
+### Alternatives considered
+
+**A new spelling for the inline form, leaving `T | null` a reference.** `Option.<T>` or a suffix, added beside the existing meaning, with nothing existing changing. Rejected on the proposal's own principle that the natural spelling should be the fast spelling: the shape a reader reaches for first would keep allocating, and the cheap form would be the one you had to know to ask for. It also has to answer what `Option.<T> | null` means, and it doubles the vocabulary for a distinction that, given the copying semantics above, no program can observe.
+
+**Inferring the representation per field, boxing only to break cycles.** Rejected above: arbitrary edge choice in a mutual cycle, and a silent layout change at a distance.
+
+**Niche optimization in place of a discriminant byte.** Rejected for this revision because it makes `byteLength` non-local. Kept open as a declared, opt-in form.
+
+### Open
+
+- A declared niche: a way for a type to name a bit pattern it cannot hold, so an optional of it costs nothing. It wants a spelling, and it wants a rule for what happens when the declared pattern is reachable after all.
+- `A | B | null`, a union of more than one value type class, still has no single layout and is still a reference. A tagged layout over several payloads is a larger question than this section, and it is the one a `sealed abstract` hierarchy answers today at reference cost.
+- A SHARED reference to a value type class — the `&T` to this section's `Box<T>` — has no spelling. The reference forms here are all owned and copying. Sharing is reached through a pool and an index, or through a class that is a reference type.
 
 ## Natural alignment and padding
 
