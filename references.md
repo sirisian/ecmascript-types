@@ -120,6 +120,23 @@ Rebinding requires a mutable reference binding: `let ref` and reference paramete
 
 Rebinding keeps the alias's declared type. A `uint8 | string` alias may be redirected to a `uint8` location, but a later string store still fails at that location's runtime boundary. Checking the destination's binding kind does not waive storage checks or the reference-liveness rules.
 
+A known readonly origin also survives a local reference alias. Borrowing and reading it remain legal, but a store through the alias is an early type error when the origin establishes that the write is forbidden. This covers updates, compound stores, destructuring and iteration targets as well as `=`. Readonly remains shallow: replacing a readonly member differs from changing a writable child of the object it holds.
+
+```js
+function unused(o: { readonly x: uint8 }) {
+  let ref p = o.x;
+  const n: uint8 = p; // A read is permitted.
+  // p = 2; // Early TypeError: p still denotes the readonly member.
+  let local: uint8 = 1;
+  ref p = local;
+  p = 2; // The new location is writable; p's declared type is unchanged.
+}
+```
+
+An alias of another reference binding follows that binding's current location, including later rebinding. The checker joins known origins across branches and loop back edges. It must not use a stale origin for a captured binding that can be redirected; unknown origins keep the runtime boundary. Constructor permission belongs to the function performing the write and does not travel into a callback with the borrow.
+
+A reference argument or return is not rejected merely because its recipient might write. This preserves existing read-only helpers without adding readonly-reference syntax or interprocedural effect inference. Origin information never revives an invalid reference or removes its storage/liveness checks.
+
 `first(a)++` works because a call that returns a `ref` is not decayed in a position that consumes a *location*. There are three categories: the operand of `++` or `--`, a borrow source, and an assignment target. Borrow sources include `ref` arguments, reference-binding initializers and rebinding sources: `g(ref first(a))`, `let ref p = first(a)` and `ref p = first(a)` pass the returned location straight on, with its liveness obligations intact. Parentheses preserve that context. Everywhere else the returned reference decays as usual — `let v = first(a)` copies the element's value, and `typeof first(a)` is the element's type. A call in one of these positions whose return type is not a `ref` type is refused before the program runs where the type is known, and is a TypeError at the operation where it is not.
 
 The third is the widest of them: `first(a) = v` stores through the location, and so does every form that assigns to one — a compound or logical assignment like `first(a) += 1`, an element or property of a destructuring assignment at any depth, and the target of a `for...of` or `for...in` head. These all follow from a single rule about whether a call may be a target, so no position needs its own.

@@ -555,7 +555,9 @@ a['a'] = 0;
 delete a['a'];
 ```
 
-Deleting an indexed element of a typed array results in a type error since typed arrays cannot contain holes. When the receiver type and key establish that the target is a typed position, the error is reported before evaluation, including in an uncalled function. For example, deleting position `0` of a `[2].<uint8>` or `[uint8]` is an early error. An ordinary property, or a key beyond a fixed tuple's positions, is not a typed position. When the target is only known dynamically, the attempted deletion throws a `TypeError`; array resizing and reference-liveness rules are unchanged:
+Deleting an indexed element of a typed array results in a type error since typed arrays cannot contain holes. When the receiver type and key establish that the target is a typed position, the error is reported before evaluation, including in an uncalled function. For example, deleting position `0` of a `[2].<uint8>` or `[uint8]` is an early error. An ordinary property, or a key beyond a fixed tuple's positions, is not a typed position. When the target is only known dynamically, the attempted deletion throws a `TypeError`; array resizing and reference-liveness rules are unchanged.
+
+The same deletion check applies to a union when every executing alternative establishes protected storage. For example, `delete a[0]` for `a: [2].<uint8> | [3].<uint8>` and `delete o.x` when every alternative declares typed `x` are early errors. Optional chaining removes alternatives on which no deletion occurs. A dynamic alternative or key keeps the runtime judgment; an index beyond all fixed extents does not become a typed position.
 
 ```js
 const a: [].<uint8> = [0, 1, 2, 3];
@@ -1566,7 +1568,33 @@ let f = bigint(a) + 1n; // Explicit casts convert between the integer families
 
 Assigning to an untyped variable keeps the underlying 64-bit value since the variable is dynamically typed rather than converted. Passing a ```uint64``` where a ```number``` is expected is a TypeError by the conversion rule, whatever the value, so the precision loss is never silent and never depends on the data. An explicit cast always succeeds and rounds. ```int128``` and ```uint128``` behave identically, as does every other pair of value types.
 
+### Calling a union of function types
+
+A call must satisfy every reachable known function alternative. Each alternative performs its own argument mapping, `ref` checks, generic inference and overload selection; a union of functions is not a single overloaded function. The result is the union of the independently selected returns. Narrow the function first when an argument works for only one alternative. Unknown arguments and spread suffixes retain runtime checks without concealing a known bad prefix.
+
+```js
+type A = (x: uint8) => void;
+type B = (x: float32) => void;
+function use(f: A | B) {
+  f(1); // The literal is valid in each alternative's context.
+  // f(true); // Early TypeError: neither alternative accepts boolean.
+}
+```
+
+Contextual checks do not stamp one alternative's conversions or inferred generic bindings onto whichever function is actually called. Existing overload and intersection rules remain separate.
+
 ### Destructuring Assignment Casting
+
+A pattern retains the contribution of a known declared property, including a symbol-keyed property. If every member of a union source declares that key, its read types are joined, preserving optional `undefined`. An element annotation is checked against that contribution; typed parameter patterns and participating `const` patterns preserve it too. This does not add inference to an otherwise untyped `let` pattern or infer a contribution from an unknown key or overwriting spread.
+
+```js
+function unused(o: { [Symbol.dispose]: uint8 }) {
+  // let { [Symbol.dispose]: n: boolean } = o; // Early TypeError
+  const { [Symbol.dispose]: n } = o; // n is uint8
+}
+```
+
+In `{ n: value: boolean }`, `value` is the renamed binding and `boolean` is its annotation. `{ n: boolean }` alone is a rename into a binding named `boolean`.
 
 Array destructuring with default values:
 
@@ -2813,6 +2841,8 @@ function outside(a: Account) {
 #### Accessors
 
 A getter's return type and a setter's parameter type are annotated normally. A pair sharing a name must agree: the setter's parameter type has to accept every value the getter can return. A property with only a getter is read only, and assigning to it is a compile-time TypeError rather than a silent no-op, since typed code is strict.
+
+Setter presence is independent of its annotation and of the order of a getter/setter pair. The early check follows the effective member through inheritance and specialization, including static, private and symbol-named getters. It covers stores made by updates, compound assignments, destructuring and iteration targets. The field-initialization exception does not give a getter-only property a setter inside a constructor. A dynamic receiver keeps its runtime checks.
 
 ```js
 class Celsius {
