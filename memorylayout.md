@@ -29,8 +29,9 @@ Vertex.alignment;  // 4
 const mesh: [10].<Vertex>;
 mesh.byteLength;   // 120
 
-// Slicing a pool's byte view for upload:
-Span.<uint8>(mesh).slice(0, count * Vertex.byteLength);
+// Slicing a pool's byte view for upload. `byteLength` is a `uint64`, as every
+// reflective quantity is, so a counter of a narrower type converts at the site:
+Span.<uint8>(mesh).slice(0, (count := uint64) * Vertex.byteLength);
 ```
 
 These are properties on the type object rather than a `sizeof` operator, so no grammar is added, and they work wherever a type does. A generic reads its own parameter, and dynamic code reads the type of a value:

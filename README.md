@@ -857,7 +857,7 @@ Which range it is matters only in that its members stay below ```N```. ```0..<N`
 
 These are the guarantees Rust's slice and iterator code leans on: the checked operation is the default, and the idioms that let the compiler discharge the check are the ones performance-critical code already uses. Where the bound cannot be proven - a runtime index into a variable-length array - the check stays, and a program that wants it gone makes either the extent or the index statically known.
 
-Without it the same window is spelled with the element size folded in by hand, ```Span.<uint32>(rows, entityIndex * 8 * uint32.byteLength)```, which is correct and repeats the element type three times.
+Without it the same window is spelled with the element size folded in by hand, ```Span.<uint32>(rows, (entityIndex := uint64) * 8 * uint32.byteLength)```, which is correct and repeats the element type three times.
 
 With the [ranges](ranges.md) extension the index operator takes a range, so ```rows[start..<end]``` is the same view and is the form to prefer. ```window``` remains for a fixed length over a runtime start.
 
