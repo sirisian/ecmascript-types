@@ -146,7 +146,7 @@ meta Dimensions {
 
 	// Unit conversion within a dimension is linear: multiply the value by
 	// the ratio of ratios. With rational ratios the factor is exact.
-	conversionFactor(from: Dimensions, to: Dimensions): float64 {
+	conversionFactor(from: Dimensions, to: Dimensions): rational {
 		return from.ratio / to.ratio;
 	}
 
