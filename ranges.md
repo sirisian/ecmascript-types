@@ -116,6 +116,10 @@ Two hazards worth writing into the grammar notes. A statement beginning with ```
 
 ## Types
 
+A range is not itself an ordered endpoint value. Using a statically known built-in range as another range's endpoint, or on the built-in path of `<`, `<=`, `>` or `>=`, is an early type error, including in an unused body. The range literal supplies its range type without requiring an outer annotation; parentheses and participating constant aliases preserve it. The endpoints' ordering does not give the interval an ordering.
+
+Applicable declared and derived operators dispatch first: a class can deliberately define `operator<(r: Range.<uint8>)`. Equality, `contains` and other interval operations remain valid. A union is rejected only when every possible dispatch path establishes the forbidden built-in operation; unknown operands retain runtime checks. The rule uses the resolved built-in identity, so a user class named `Range` does not acquire this restriction. This exclusion does not impose a numeric-only whitelist on all endpoint types or change reference liveness.
+
 A range is a value type class, so ```0..<10``` allocates nothing and copies by value. The endpoint kinds are distinct types, because an omitted endpoint is a different shape, not a missing value:
 
 ```js
@@ -503,4 +507,3 @@ Iterator.range(0, 10, 2); // The values of (0..<100).step(2)
 
 - Whether a stepped range should be reachable as a value - a ```Progression```, Kotlin's name for it - so that a step can be carried and asked ```contains```. This is deliberately not ```step```'s return type, for the reason given under Iteration; it would be a separate type whose containment is lattice membership rather than interval membership.
 - ```Range.of.<S, E>(a, b)``` needs its bounds as compile-time constants, so choosing a bound at runtime produces a union of range types, which a ```switch``` handles and which is rare enough that no sugar is proposed.
-

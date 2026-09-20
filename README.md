@@ -1067,6 +1067,10 @@ Many truncation rules have intuitive rules going from larger bits to smaller bit
 
 ### Arithmetic and Overflow
 
+A unary numeric operator checks a known typed operand's domain after user-defined operator dispatch. `function f(x: bigint) { +x; }` is an early type error, as are `+`, `-`, and `~` on an annotated `symbol`. BigInt negation and bitwise NOT remain valid, and unary plus still preserves the proposal's numeric types, including `uint64`; an implementation's use of a BigInt payload does not make `uint64` the ECMAScript BigInt type.
+
+This is an operand-contract rule. An annotation, declared member or typed return can carry the contract through constants, patterns and iteration bindings. A union is rejected only when all its alternatives are forbidden by that operator. Ordinary JavaScript `+1n`, `+Symbol()` and `+BigInt(1)`, and aliases derived solely from those untyped values, keep their catchable runtime exceptions. An unrelated annotation elsewhere in the body does not change that timing, and ordinary mutable `let` inference remains dynamic.
+
 Arithmetic never promotes. Two operands of the same value type produce that type, and two operands of different value types are a TypeError, since neither converts to the other. A literal operand takes the other operand's type.
 
 ```js
@@ -1229,6 +1233,12 @@ f(1, 2);
 ```
 
 ### Typed Arrow Functions
+
+A function signature describes its arguments and result independently of whether the actual value supports construction. A statically identified typed arrow, generator, async function or async generator cannot be used with `new`. A statically identified typed class constructor cannot be called without `new`, including through optional calls and tagged templates. Ordinary functions can still be constructors.
+
+The checker follows direct expressions and reliable lexical origins, including immutable aliases. It withdraws a mutable origin when replacement is possible, including captured writes, assignment patterns and direct `eval`; shadowing is resolved in the binding's own scope. A function-type annotation alone does not establish construction capability, and an open property or replacing decorator does not provide a stable origin. These facts do not add public function-type syntax or change signature identity.
+
+The rule requires participation by the function's typed signature, reference/type parameters, a non-`any` binding annotation, or the class's typed declarations. Merely annotating an unrelated parameter does not change an ordinary expression such as `new (() => 1)()`: that retains its runtime exception. Explicit `any` and unknown values retain runtime checks.
 
 ```js
 let a: (int32, string) => string; // hold a reference to a signature of this type
@@ -2451,6 +2461,10 @@ An ```AsyncGenerator.<Y, R, N>``` satisfies ```AsyncIterableIterator<Y, R, N>```
 
 #### The Iteration Types
 
+An effective declared iterator hook can establish an early error even when the containing function is never called. For example, `function f(o: { [Symbol.iterator]: uint8 }) { for (const x of o) {} }` is rejected because the selected hook cannot be called. The same rule applies to array spreads, array patterns and `yield*`, and to asynchronous consumers using their selected protocol. Inherited and specialized member types contribute, using the actual well-known symbol identity.
+
+Async selection preserves fallback: a nullish `Symbol.asyncIterator` selects the synchronous protocol, while a present numeric async hook fails without trying it. Optional and union hooks are rejected only when every possible selected path is known invalid. An undeclared hook on an open object, an unrelated symbol or a symbol index signature alone does not prove failure. An open object-shaped hook might itself be callable. No getter or iterator is run during checking. Named argument spreading and index-based reference iteration keep their separate rules.
+
 The protocols are interfaces, so a value satisfies them by having the members. This is not a stylistic choice: ```for...of``` asks whether ```[Symbol.iterator]``` is callable and never asks what a value declared, so a type that refused a hand-written iterator would describe a language this is not.
 
 ```js
@@ -2547,6 +2561,8 @@ An open object type, ```any```, or an unknown disposal member retains runtime pr
 For ```await using```, asynchronous acquisition also considers ```[Symbol.asyncDispose]``` and the language's synchronous-disposal fallback. An asynchronous check must follow that protocol rather than requiring an explicit asynchronous member in every annotation.
 
 ### Object Typing
+
+An explicitly typed own property checks its initializer at that definition: `{ (x: uint8): "s" }` is an early type error, even in an unused function or a discarded literal. A later overwrite does not erase the earlier boundary. The member annotation supplies contextual literal and metadata processing independently of the outer object's type, including inside `Composite(...)`. Correct decimal and rational literals retain their representation-sensitive context. Unknown values are checked at runtime; computed keys and initializers execute once in their ordinary order.
 
 A read through a known symbol key retains the declared member's type, including optionality, inherited members and generic substitutions. For example, `function f(o: { [Symbol.dispose]: uint8 }) { o[Symbol.dispose](); }` is an early type error even if `f` is never called. A callable symbol member instead supplies its parameter and return types. Symbol identities are resolved in their lexical scope; unknown keys and undeclared members stay dynamic, and an array's symbol property is not its element type.
 
