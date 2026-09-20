@@ -168,6 +168,8 @@ Type objects implement ```Symbol.hasInstance```, so ```instanceof``` extends to 
 
 The right operand must be an object. A known scalar value there is an early type error, including in an unused function; the same rule applies to `in` and private-name `in`. A union is rejected by this check only when every alternative is known to be non-object. Type objects such as `uint8` remain valid, as do objects with a custom `Symbol.hasInstance`; being eligible does not require being a constructor. Unknown operands retain the runtime checks.
 
+A participating typed `instanceof` target also checks its effective `Symbol.hasInstance` contract. A present hook that cannot be called, or whose known signatures cannot accept the actual left operand, establishes an early error when every selected alternative fails. The hook is called even for a primitive left operand. Its result need not be Boolean: an Object result is truthy. Nullish hooks retain ordinary callable-target fallback; an optional hook, an open callable object or a viable union alternative prevents a closed negative proof. Checking invokes no hook or getter and uses the actual well-known Symbol identity, including inherited and specialized contracts.
+
 ```js
 let a: uint8 = 0;
 a instanceof uint8; // true
@@ -1079,6 +1081,10 @@ Built-in `++` and `--` also reject an established conversion or write-back failu
 
 An untagged template or built-in string concatenation rejects a participating operand known to be only Symbol: `function f(s: symbol) { return `${s}`; }`, `"" + s`, and `s + ""` are early errors. Participation is the operand-contract rule above. Explicit `String(s)`, a tag receiving the raw Symbol, and applicable declared operators remain valid. A `symbol | string` operand, `any`, or an ordinary JavaScript `${Symbol()}` retains runtime conversion and exception timing. A nested untagged template still converts its own substitutions even when its result is passed to a tag.
 
+Binary arithmetic, bitwise operations and ordering likewise reject a participating primitive-conversion failure on a known built-in path. `function f(s: symbol, n: number) { s * n; }` is an early error, as is multiplying an annotated `bigint` by an annotated `boolean`: Boolean converts to Number, which cannot multiply with BigInt. Apply declared and derived operators and literal adoption first. Ordering and equality retain their own rules; this does not ban mixed BigInt/Number ordering, Symbol equality, or otherwise successful coercions. Reject unions only when every possible selected path is invalid; open dispatch and unknown operands remain dynamic.
+
+An implicit `ToPrimitive` step can also fail from an effective declared `Symbol.toPrimitive` contract. A known present non-callable hook, an impossible hint-argument crossing, or a callable hook whose applicable returns can only be Objects establishes an early error. Use the actual `string`, `number` or `default` hint and the actual Symbol identity. Computed keys, reached member-key conversions, untagged substitutions and selected built-in coercion paths share this rule. Nullish hooks keep ordinary fallback; open members, unknown results and viable alternatives prevent a negative proof. A Symbol result is a valid property key. Tagged raw substitutions, Boolean conversion, strict equality, skipped optional access and applicable declared operators do not acquire a conversion they otherwise skip. The checker never executes conversion methods or getters, and ordinary JavaScript and `any` retain runtime timing.
+
 
 ```js
 let a: uint8 = 200;
@@ -1604,6 +1610,8 @@ function use(f: A | B) {
 Contextual checks do not stamp one alternative's conversions or inferred generic bindings onto whichever function is actually called. Existing overload and intersection rules remain separate.
 
 ### Destructuring Assignment Casting
+
+An object binding or assignment pattern rejects a participating source known to be exclusively `null` or `undefined`, including an empty `{}` pattern. The judgment applies to the selected source at each nested pattern, after an enclosing default or fallback; a property's own default cannot repair a nullish container. A nullable union with a viable source remains dynamic. Non-nullish primitives retain ordinary boxing, and object-literal `{ ...null }` remains a no-op. Borrowing requirements and runtime reference-liveness checks are unchanged.
 
 A pattern retains the contribution of a known declared property, including a symbol-keyed property. If every member of a union source declares that key, its read types are joined, preserving optional `undefined`. An element annotation is checked against that contribution; typed parameter patterns and participating `const` patterns preserve it too. This does not add inference to an otherwise untyped `let` pattern or infer a contribution from an unknown key or overwriting spread.
 
@@ -2478,6 +2486,8 @@ Async selection preserves fallback: a nullish `Symbol.asyncIterator` selects the
 The proof can follow callable contracts through acquisition and stepping. A known non-object hook result fails acquisition. A consumer that requests a step also fails when `next` is known non-callable or its result is known non-object. `const [] = source` still acquires an iterator but never calls `next`; a nonempty pattern, elision or rest does request a step. A step result of `{}` is an Object and remains valid; the early check does not require a complete `IteratorResult` interface or boolean `done`.
 
 For a real async iterator the step result is awaited before the Object check. The entry-hook result is never awaited. Synchronous fallback checks the raw synchronous step result as an Object and awaits its yielded value, not the step object. Unknown returns, open members and unresolved overload results do not prove failure; a union is rejected only when every selected path fails a reached stage. The check evaluates no getters or protocol methods and changes no closing or liveness obligations.
+
+Closing has its own negative proof, applied only when the consumer is known to reach a close whose failure is not suppressed by an incoming throw completion. An empty array binding or assignment pattern acquires and closes without calling `next`; a known non-nullish non-callable `return`, or a close method whose result is known non-Object, is an early error there. A definitely-yielding first step followed immediately by `break` supplies another bounded close edge. A possibly exhausted iterator, unresolved control flow, or an existing throw that wins over the close failure does not. Nullish `return` remains a no-op. Synchronous close checks the raw result (a Promise is an Object); actual async close checks the awaited result. Unresolved async-from-sync adapter paths remain dynamic. No cleanup method runs during checking, and accepted programs retain cleanup effects, exception precedence and reference liveness.
 
 
 The protocols are interfaces, so a value satisfies them by having the members. This is not a stylistic choice: ```for...of``` asks whether ```[Symbol.iterator]``` is callable and never asks what a value declared, so a type that refused a hand-written iterator would describe a language this is not.
