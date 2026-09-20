@@ -2499,7 +2499,11 @@ class File {
 await using c: Connection = await connect();
 ```
 
-A ```using``` declaration whose declared type doesn't include ```[Symbol.dispose]``` (or ```[Symbol.asyncDispose]``` for ```await using```) is a compile-time TypeError instead of today's runtime error, and disposal of a fully typed resource is an ordinary devirtualizable call.
+A ```using``` declaration is a compile-time TypeError when its declared type proves that acquiring a disposable resource cannot succeed. This includes a non-nullish primitive type and an object or class with a declared non-callable ```[Symbol.dispose]``` member, such as ```{ [Symbol.dispose]: uint8 }```. The check includes inherited members at their actual generic specialization and uses a getter's declared result without executing it.
+
+An open object type, ```any```, or an unknown disposal member retains runtime protocol discovery; a type need not list every capability of its values. ```null``` and ```undefined``` remain valid no-op resources. A union is rejected by this check only when every alternative is known to fail, so a nullish, possibly callable, or unknown alternative retains the runtime check. A statically callable member permits devirtualization only where the usual method-stability conditions also hold; the annotation does not remove disposal, mutable lookup, or reference-liveness obligations.
+
+For ```await using```, asynchronous acquisition also considers ```[Symbol.asyncDispose]``` and the language's synchronous-disposal fallback. An asynchronous check must follow that protocol rather than requiring an explicit asynchronous member in every annotation.
 
 ### Object Typing
 
