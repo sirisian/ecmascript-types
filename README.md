@@ -166,6 +166,8 @@ let d: (uint8) => uint8 = x => x * x; // typeof d == "function"
 
 Type objects implement ```Symbol.hasInstance```, so ```instanceof``` extends to every type in the proposal through the existing protocol with no new operator semantics. The check is a subtype test against the value's runtime type:
 
+The right operand must be an object. A known scalar value there is an early type error, including in an unused function; the same rule applies to `in` and private-name `in`. A union is rejected by this check only when every alternative is known to be non-object. Type objects such as `uint8` remain valid, as do objects with a custom `Symbol.hasInstance`; being eligible does not require being a constructor. Unknown operands retain the runtime checks.
+
 ```js
 let a: uint8 = 0;
 a instanceof uint8; // true
@@ -610,6 +612,17 @@ A tuple type is a fixed-length sequence of individually typed positions, written
 ```js
 let pair: [uint32, string] = [1, 'a'];
 let triple: [uint8, uint8, uint8] = [255, 0, 128];
+```
+
+A proven constant index retains a required tuple position's type. A literal-typed key such as `i: 0`, or an unannotated numeric `const i = 0`, selects the same position as `t[0]`. Calls, reads, stores and borrows through it use that position's contract, and a proven negative, fractional or out-of-range fixed-tuple index is an early type error. Key facts respect lexical shadowing and explicit annotations, including `any`. General numeric indexing and positions whose presence or correspondence depends on defaults or a rest remain subject to runtime checks.
+
+```js
+function update(t: [uint8]) {
+  const i = 0;
+  t[i] = 2;       // Valid uint8 store
+  // t[i]();     // Early type error: uint8 is not callable
+  // t[i] = 's'; // Early type error: incompatible store
+}
 ```
 
 A trailing position may carry a default, which is what lets a shorter array satisfy a longer tuple return, as the typed return values for destructuring section uses. *Trailing* is a rule, not a habit: a position without a default may not follow one that has it, and no default may follow a spread. A tuple is positional, so the only way to leave a position out is to stop short of it, and that omits a suffix and nothing else - a default anywhere but the tail could never be taken, since supplying the position after it supplies it too. A shape that wants to omit something in the middle names its members, which is an object type.
@@ -2507,6 +2520,8 @@ For ```await using```, asynchronous acquisition also considers ```[Symbol.asyncD
 
 ### Object Typing
 
+A read through a known symbol key retains the declared member's type, including optionality, inherited members and generic substitutions. For example, `function f(o: { [Symbol.dispose]: uint8 }) { o[Symbol.dispose](); }` is an early type error even if `f` is never called. A callable symbol member instead supplies its parameter and return types. Symbol identities are resolved in their lexical scope; unknown keys and undeclared members stay dynamic, and an array's symbol property is not its element type.
+
 Syntax:
 
 ```js
@@ -2703,6 +2718,17 @@ function f(config: IConfig) {
 ```
 
 ```readonly``` is shallow, as it is in other languages: the binding is fixed, not the object it refers to. A ```readonly``` field holding an array can't be replaced, but its elements can be written unless the array itself is ```const```. It's an access rule, not a layout rule, so it never affects whether a class qualifies as a value type, and a ```readonly``` field of a value type class still participates in the layout.
+
+A union permits a write only when every reachable known alternative permits it. One readonly alternative is enough to reject the write; narrow to a writable alternative first. This applies to assignments, updates and destructuring or loop targets, separately from whether the value fits the field's type. It preserves the declaring constructor's existing permission and does not freeze objects shared with writable views.
+
+```js
+class Fixed { readonly x: uint8 = 1; }
+class Mutable { x: uint8 = 2; }
+function update(o: Fixed | Mutable) {
+  // o.x = 3; // Early type error: Fixed does not permit this write
+  if (o is Mutable) o.x = 3;
+}
+```
 
 Assignment in a method the constructor calls is a TypeError, not an exception, since only constructor bodies are permitted. ```Object.freeze``` on a typed instance is defined as making every field ```readonly``` at runtime.
 
