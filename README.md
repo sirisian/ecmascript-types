@@ -171,7 +171,11 @@ let a: uint8 = 0;
 a instanceof uint8; // true
 a instanceof uint16; // false, a distinct type even though typeof reports "number" for both
 
-const m: Meter = 5; // float32.<{ m: 1 }>
+// `Meter` is `float32.<{ m: 1 }>`, and a bare literal adopts it because the cast
+// into `Dimensions` is declared - see [primitive metadata](primitivemetadata.md).
+// Without that declaration a dimensionless value is not a length, and the
+// `subtype` hook says so.
+const m: Meter = 5;
 m instanceof float32; // true, a parameterization is a subtype of its base
 
 const arr: [4].<uint8> = [0, 0, 0, 0];
