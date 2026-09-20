@@ -553,7 +553,7 @@ a['a'] = 0;
 delete a['a'];
 ```
 
-Deleting an indexed element of a typed array results in a type error since typed arrays cannot contain holes:
+Deleting an indexed element of a typed array results in a type error since typed arrays cannot contain holes. When the receiver type and key establish that the target is a typed position, the error is reported before evaluation, including in an uncalled function. For example, deleting position `0` of a `[2].<uint8>` or `[uint8]` is an early error. An ordinary property, or a key beyond a fixed tuple's positions, is not a typed position. When the target is only known dynamically, the attempted deletion throws a `TypeError`; array resizing and reference-liveness rules are unchanged:
 
 ```js
 const a: [].<uint8> = [0, 1, 2, 3];
@@ -1969,7 +1969,7 @@ A class satisfies an interface with the members it declares, on itself or on a c
 
 Note that since ```b``` isn't overloaded, defining the type of the member function ```b``` in the class ```C``` isn't necessary.
 
-Once a class implements an interface it cannot remove that contract. Attempting to delete the member ```a``` or the method ```b``` would throw a TypeError.
+Once a class implements an interface it cannot remove that contract. Attempting to delete the member ```a``` or the method ```b``` is a type error: it is reported before evaluation when the receiver type and key establish the violation, and throws a TypeError otherwise.
 
 Declaring ```implements``` is also what lets a class be USED as the interface. A class that merely happens to have the members does not satisfy an interface-typed binding or parameter: a class states a construction and an identity as well as a shape, and it is the identity its type is for. The shape without the identity is written as an object type, and that satisfies structurally everywhere.
 
@@ -3959,7 +3959,7 @@ Each sloppy mode behavior this removes is one that conflicts with something type
 - The ```arguments``` object is unmapped, so a write through ```arguments[0]``` cannot bypass a parameter's declared type. Typed rest parameters are the replacement.
 - Assignment to a non-writable property throws rather than failing silently, matching typed assignment, which throws a TypeError on a type mismatch.
 - ```this``` is ```undefined``` rather than the global object in a function called without a receiver, which matters when ```this``` is typed.
-- ```delete``` of an unqualified identifier is a SyntaxError. Deleting a typed field or typed array element remains a TypeError per the interfaces and arrays sections.
+- ```delete``` of an unqualified identifier is a SyntaxError. Deleting a typed field or typed array element is a type error per the interfaces and arrays sections, reported before evaluation when statically determined and as a TypeError otherwise.
 - Legacy octal literals and the ```\8``` and ```\9``` escapes are SyntaxErrors, keeping the numeric literal grammar unambiguous alongside separators and type propagation to literals.
 - ```Function.prototype.caller``` and ```arguments.callee``` are absent, so a function's identity cannot be recovered from its frame.
 - A direct ```eval``` gets its own scope and cannot introduce bindings into the enclosing typed scope. The compiler's knowledge of a typed scope is therefore complete, which is what allows a typed function to be compiled without guards against injected bindings.
