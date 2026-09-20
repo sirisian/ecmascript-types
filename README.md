@@ -1073,6 +1073,13 @@ This is an operand-contract rule. An annotation, declared member or typed return
 
 Arithmetic never promotes. Two operands of the same value type produce that type, and two operands of different value types are a TypeError, since neither converts to the other. A literal operand takes the other operand's type.
 
+For a numeric union, the checker rejects an operator only when every possible operand alternative is known to fail. It considers declared and derived operators first, then the built-in family's supported operations and numeric identity, including brands. For example, `(uint8 | int8) * (uint16 | int16)` has no valid pair, and `~x` for `x: float32 | float64` has no supported alternative. An overlapping pair, unknown alternative, or possible declared operator retains the runtime judgment. Literals are considered in each applicable numeric context without committing a failed attempt. This differs from calls, which must satisfy every reachable known function alternative.
+
+Built-in `++` and `--` also reject an established conversion or write-back failure. All four prefix/postfix forms reject a `boolean`, `null`, `undefined`, or `symbol` location when its contract leaves no successful path. A numeric singleton such as `1` requires checking the updated value: it cannot hold `2`. The destination is the actual write contract, which may be wider than a narrowed read or getter result. A `1 | 2` parameter remains usable because incrementing `1` can succeed; incrementing `2` keeps its runtime error. Number, BigInt, numeric wrapping and the current numeric-to-String update conversion remain valid. Declared updates keep their own result/store checks; readonly and reference-liveness rules still apply.
+
+An untagged template or built-in string concatenation rejects a participating operand known to be only Symbol: `function f(s: symbol) { return `${s}`; }`, `"" + s`, and `s + ""` are early errors. Participation is the operand-contract rule above. Explicit `String(s)`, a tag receiving the raw Symbol, and applicable declared operators remain valid. A `symbol | string` operand, `any`, or an ordinary JavaScript `${Symbol()}` retains runtime conversion and exception timing. A nested untagged template still converts its own substitutions even when its result is passed to a tag.
+
+
 ```js
 let a: uint8 = 200;
 let b: uint8 = 100;
@@ -1237,6 +1244,9 @@ f(1, 2);
 A function signature describes its arguments and result independently of whether the actual value supports construction. A statically identified typed arrow, generator, async function or async generator cannot be used with `new`. A statically identified typed class constructor cannot be called without `new`, including through optional calls and tagged templates. Ordinary functions can still be constructors.
 
 The checker follows direct expressions and reliable lexical origins, including immutable aliases. It withdraws a mutable origin when replacement is possible, including captured writes, assignment patterns and direct `eval`; shadowing is resolved in the binding's own scope. A function-type annotation alone does not establish construction capability, and an open property or replacing decorator does not provide a stable origin. These facts do not add public function-type syntax or change signature identity.
+
+The same reliable construction facts apply to `extends`. A participating type that permits only non-null primitive values, or a reliably identified typed arrow, generator or async function, is rejected as a superclass even in an unused body. `null`, ordinary function constructors, classes, generic bases, nullable unions and unknown mixins remain admitted. Heritage is checked in its lexical scope before the class body: the class self-name remains in its temporal dead zone, and class parameters shadow outer names. This does not add a construct signature requirement to open objects or change prototype validation or reference liveness.
+
 
 The rule requires participation by the function's typed signature, reference/type parameters, a non-`any` binding annotation, or the class's typed declarations. Merely annotating an unrelated parameter does not change an ordinary expression such as `new (() => 1)()`: that retains its runtime exception. Explicit `any` and unknown values retain runtime checks.
 
@@ -2464,6 +2474,11 @@ An ```AsyncGenerator.<Y, R, N>``` satisfies ```AsyncIterableIterator<Y, R, N>```
 An effective declared iterator hook can establish an early error even when the containing function is never called. For example, `function f(o: { [Symbol.iterator]: uint8 }) { for (const x of o) {} }` is rejected because the selected hook cannot be called. The same rule applies to array spreads, array patterns and `yield*`, and to asynchronous consumers using their selected protocol. Inherited and specialized member types contribute, using the actual well-known symbol identity.
 
 Async selection preserves fallback: a nullish `Symbol.asyncIterator` selects the synchronous protocol, while a present numeric async hook fails without trying it. Optional and union hooks are rejected only when every possible selected path is known invalid. An undeclared hook on an open object, an unrelated symbol or a symbol index signature alone does not prove failure. An open object-shaped hook might itself be callable. No getter or iterator is run during checking. Named argument spreading and index-based reference iteration keep their separate rules.
+
+The proof can follow callable contracts through acquisition and stepping. A known non-object hook result fails acquisition. A consumer that requests a step also fails when `next` is known non-callable or its result is known non-object. `const [] = source` still acquires an iterator but never calls `next`; a nonempty pattern, elision or rest does request a step. A step result of `{}` is an Object and remains valid; the early check does not require a complete `IteratorResult` interface or boolean `done`.
+
+For a real async iterator the step result is awaited before the Object check. The entry-hook result is never awaited. Synchronous fallback checks the raw synchronous step result as an Object and awaits its yielded value, not the step object. Unknown returns, open members and unresolved overload results do not prove failure; a union is rejected only when every selected path fails a reached stage. The check evaluates no getters or protocol methods and changes no closing or liveness obligations.
+
 
 The protocols are interfaces, so a value satisfies them by having the members. This is not a stylistic choice: ```for...of``` asks whether ```[Symbol.iterator]``` is callable and never asks what a value declared, so a type that refused a hand-written iterator would describe a language this is not.
 
