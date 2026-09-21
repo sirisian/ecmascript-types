@@ -86,6 +86,8 @@ v.zw = v.xy; // float32x4(9, 8, 9, 8)
 v.xy += Vector2(1, 1); // Compound assignment works, as it does anywhere
 ```
 
+The stored value must satisfy the selected lane or component type as well as its write permission. This applies equally to dot access, a known String-key access, and a numeric lane access with a `uint32` key. For a union receiver, each reachable known vector alternative supplies its own destination contract, checked with the ordinary conversion and literal rules; accepting the joined read type is not sufficient. Two effect-free component projections of the same vector binding retain their shared alternative, so `v.xy = v.yx` remains valid when `v` is a vector union. Independent receivers do not acquire that correlation. Compound/logical stores, destructuring and iteration targets keep the same contracts. Unknown keys and receivers retain runtime checks, numeric computed bounds remain runtime checks, and none of this grants a component a reference capability.
+
 ### They Are Properties, Not Syntax
 
 Counting both sets and every result length from one to four, a four-lane vector has 680 accessor names, and the two-, three-, and four-lane shapes have 980 between them. That number is the reason to think this needs a grammar rule, and it is the reason it doesn't.

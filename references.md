@@ -141,6 +141,10 @@ A reference argument or return is not rejected merely because its recipient migh
 
 The third is the widest of them: `first(a) = v` stores through the location, and so does every form that assigns to one — a compound or logical assignment like `first(a) += 1`, an element or property of a destructuring assignment at any depth, and the target of a `for...of` or `for...in` head. These all follow from a single rule about whether a call may be a target, so no position needs its own.
 
+An explicitly typed union of callable alternatives that each return a `ref` supplies alternative locations, not one location whose declared type is the union. Reading joins the referent value types; writing must satisfy every reachable known destination after narrowing. Thus a getter of `ref uint8` or `ref string` cannot receive a String through its result merely because the latter location would admit it. A single `ref (uint8 | string)` remains one union-typed destination and can receive either admitted value. Each destination applies the ordinary conversion and fresh-literal rules independently.
+
+These write obligations follow local reference aliases, chains and known rebinding/flow joins. Rebinding retains the alias's declared read type but updates the storage contracts a write must satisfy. Captured rebinding and unresolved origins withdraw stale facts under the existing provenance rules; they never refresh a stale reference. The distinction applies to assignment, compound/logical assignment, updates, destructuring and iteration targets without granting a new reference capability. An unknown callee or explicit `any` boundary keeps runtime enforcement. Known non-reference alternatives still cannot supply locations, and the rule that mixed inferred reference returns decay to values is unchanged.
+
 The location a `ref` return names can be anything the callee could reach, including one of its own locals. The collector owns the lifetime: an environment stays alive while anything refers to it, so a reference to a local outlives the call that made it for exactly the reason a closure over that local does.
 
 ## The escape rule
