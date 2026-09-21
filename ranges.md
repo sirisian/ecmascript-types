@@ -118,6 +118,8 @@ Two hazards worth writing into the grammar notes. A statement beginning with ```
 
 A range is not itself an ordered endpoint value. Using a statically known built-in range as another range's endpoint, or on the built-in path of `<`, `<=`, `>` or `>=`, is an early type error, including in an unused body. The range literal supplies its range type without requiring an outer annotation; parentheses and participating constant aliases preserve it. The endpoints' ordering does not give the interval an ordering.
 
+A present endpoint with a participating static type restricted to `symbol`, `null` or `undefined` is also an early type error: these intrinsic domains supply no range ordering. A union proves this only when every alternative is excluded. An omitted endpoint is different from a present `undefined`. Unknown types and ordering capabilities supplied by classes or metadata retain their existing checks; this rule is not a numeric whitelist and does not execute an ordering operator.
+
 Applicable declared and derived operators dispatch first: a class can deliberately define `operator<(r: Range.<uint8>)`. Equality, `contains` and other interval operations remain valid. A union is rejected only when every possible dispatch path establishes the forbidden built-in operation; unknown operands retain runtime checks. The rule uses the resolved built-in identity, so a user class named `Range` does not acquire this restriction. This exclusion does not impose a numeric-only whitelist on all endpoint types or change reference liveness.
 
 A range is a value type class, so ```0..<10``` allocates nothing and copies by value. The endpoint kinds are distinct types, because an omitted endpoint is a different shape, not a missing value:

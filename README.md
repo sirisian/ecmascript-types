@@ -2462,6 +2462,8 @@ xs[Symbol.iterator] = function*(): uint8 { yield 1; yield 2; };
 let ys: [uint8, uint8] = [...xs];
 ```
 
+A single trailing positional spread can prove a fixed parameter list impossible without promising a count. For a required value parameter that no other argument can fill, reject the call when both omission (`undefined`) and every possible yielded value fail its boundary. Apply the ordinary implicit-conversion rules. A default, optional parameter, admitted `undefined`, viable overload or unknown contribution prevents this proof; rest layouts, named arguments and multiple unresolved spreads keep their separate mapping rules. This includes constructors and `super`.
+
 Calls, tuple targets, array targets, and array-literal inference use the same iteration contribution. Unknown iterator behavior or count leaves the affected checks to runtime; it does not erase facts about elements before the spread. This preserves custom iterators and their effects. Reference iteration remains the explicitly index-based operation described in [references and borrowing](references.md).
 
 For the built-in typed arrays, ```for...of``` with the default iterator is specified to be observably equivalent to an index loop: the ```{ value, done }``` result object exists only where a program can see it, in a manual ```next()``` call or through a patched protocol, so ordinary iteration over a ```[].<float32>``` allocates nothing. A user-defined ```*operator...()``` yields values, not references - Rust's ```iter_mut``` has no counterpart here, because a reference cannot be stored in the iterator result it would pass through - so mutating in place across one array uses ```ref``` iteration and across several uses the ```ref``` callback idiom, both in the [references and borrowing](references.md) extension.
@@ -2597,7 +2599,9 @@ await using c: Connection = await connect();
 
 A ```using``` declaration is a compile-time TypeError when its declared type proves that acquiring a disposable resource cannot succeed. This includes a non-nullish primitive type and an object or class with a declared non-callable ```[Symbol.dispose]``` member, such as ```{ [Symbol.dispose]: uint8 }```. The check includes inherited members at their actual generic specialization and uses a getter's declared result without executing it.
 
-An open object type, ```any```, or an unknown disposal member retains runtime protocol discovery; a type need not list every capability of its values. ```null``` and ```undefined``` remain valid no-op resources. A union is rejected by this check only when every alternative is known to fail, so a nullish, possibly callable, or unknown alternative retains the runtime check. A statically callable member permits devirtualization only where the usual method-stability conditions also hold; the annotation does not remove disposal, mutable lookup, or reference-liveness obligations.
+The synchronous disposal call supplies no arguments. A known callable member is also rejected when every signature rejects that empty argument list, including a required parameter that cannot accept `undefined`. Defaults, optional parameters, admitted `undefined`, empty-compatible rests and a viable overload prevent that proof. The normal return value is ignored. This rule concerns the disposal call as well as acquisition, and applies before an unused body runs.
+
+An open object type, ```any```, or an unknown disposal member retains runtime protocol discovery; a type need not list every capability of its values. ```null``` and ```undefined``` remain valid no-op resources. A union is rejected by this check only when every alternative is known to fail, so a nullish alternative, a callable alternative not proved to reject the empty argument list, or an unknown alternative retains the runtime check. A statically callable member permits devirtualization only where the usual method-stability conditions also hold; the annotation does not remove disposal, mutable lookup, or reference-liveness obligations.
 
 For ```await using```, asynchronous acquisition also considers ```[Symbol.asyncDispose]``` and the language's synchronous-disposal fallback. An asynchronous check must follow that protocol rather than requiring an explicit asynchronous member in every annotation.
 
@@ -3775,6 +3779,8 @@ The tradeoff is deliberate: a proxy exchanges the engine's ability to elide chec
 The ```Reflect``` methods mirror the operations above. ```Reflect.get``` and ```Reflect.set``` obey a property's declared type, ```Reflect.defineProperty``` accepts the ```type``` key of a descriptor, ```Reflect.deleteProperty``` on a typed property is a TypeError, and ```Reflect.typeOf``` returns a runtime type object as described in the typeof section.
 
 ### Keyed Collections
+
+A typed collection member has the same contract through a known String key as through its dotted name: `s["add"]` on `Set.<uint8>` accepts the same arguments as `s.add`. Constant aliases and parentheses preserve a known key. The resolved built-in identity determines the signature; a user-defined class named `Set` keeps its own members. This describes the typed view without asserting intrinsic method identity or eliding runtime lookup, `this` binding, key effects or reference-liveness checks. An unknown key or an `any` receiver remains dynamic.
 
 ```Map``` and ```Set``` compare keys with SameValueZero, which for a primitive is value equality and for an object is identity. A value type class instance is neither, so it needs a rule of its own: **value type keys compare structurally**, field by field with SameValueZero, which is what ```==``` on them already does.
 

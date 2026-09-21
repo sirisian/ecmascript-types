@@ -74,6 +74,8 @@ The rules are the ones every shading language settled on:
 - The result is ```T``` for one character and ```vector.<T, L>``` for ```L``` characters, for ```L``` up to four. A two-lane vector can produce a four-lane one: ```v.xyxy```.
 - An accessor with no repeated character is assignable. One with a repeat is not, because it would name the same lane twice.
 
+The assignment permission applies to every known receiver alternative in a union. A write through `float32x4 | int32x4` to `xx` is therefore an early type error, including a compound assignment or a known computed key. A known forbidden vector alternative also prevents a write through a mixed union; narrow the receiver first. Repeated-lane reads remain valid, and an ordinary object property named `xx` has its declared permissions. Unknown keys and `any` retain runtime checking. This grants no new reference capability to primitive components.
+
 ```js
 type Vector2 = vector.<float32, 2>;
 
