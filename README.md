@@ -1682,6 +1682,8 @@ Destructuring objects with arrays:
 const { (a: [].<uint8>) } = { a: [1, 2, 3] }; // a is [1, 2, 3] with type [].<uint8>
 ```
 
+Object-pattern reads preserve known typed-array and tuple property contributions, including established count contracts and known position keys, at annotated destinations and existing typed-parameter or participating-`const` inference sites. Literal and equivalent known computed property keys agree. Unknown keys/alternatives remain dynamic, and an ordinary mutable destructured binding does not acquire a permanent storage annotation from this rule. Object patterns read properties; they do not consume or infer from an overridden iterator. Defaults, bounds, storage and reference-liveness rules are unchanged.
+
 ### Array Rest Destructuring
 
 An explicit array rest annotation describes the collected container and must resolve to an array or tuple type, just as a formal rest annotation does. This declaration check applies to nested patterns and does not depend on knowing the source iterator's element type or count: `let [...r: uint8] = source` is an early type error even when `source` is `any`. Aliases follow what they denote; a type parameter needs an array/tuple constraint. Write `[].<any>` for a container of arbitrary elements or omit the annotation for an untyped rest; `any` and `object` themselves are not array/tuple rest annotations. Object rest retains its separate object-container rule. Element and extent checks remain at runtime wherever source facts are unknown.
@@ -1706,6 +1708,8 @@ b; // [2]
 ```
 
 ### Object Rest Destructuring
+
+Object rest always collects a fresh ordinary, non-callable Object. Even when the source is `any`, it is an early type error for a rest annotation or assignment target to be provably incompatible with that result category. `any`, Object-compatible unions and possible structural views remain valid; accepted annotation conversions and unknown types retain their existing treatment. This is not a whitelist of annotation syntax. A structural source type does not prove which properties are enumerable own properties: only independently established copy facts may supply a collected shape. Source boxing/nullish checks, computed exclusions, getter effects, copying and reference decay remain runtime operations.
 
 https://github.com/tc39/proposal-object-rest-spread
 
@@ -4086,7 +4090,9 @@ All new syntax in this proposal is a syntax error in current ECMAScript, so no e
 
 ### Strict Mode
 
-Typed code is strict mode code. A function whose parameters, return type, or body contain a type annotation is strict, as if it began with ```'use strict'```, and functions nested inside it inherit that. Class bodies and modules are already strict, so in practice this extends the rule to typed functions and scripts. Since annotations are new syntax, no existing program's mode changes, and code with no annotations is unaffected. Typed and sloppy functions call each other normally.
+Typed code is strict mode code. A syntactic type annotation in a Script's own body, or in a function-like unit's parameters, return position or own body, makes that whole unit strict regardless of source order. Nested functions inherit strictness. A nested function's annotations, including its parameter and return annotations, belong to that function and do not make its parent or siblings strict. Class bodies and modules remain strict as before; a class body's annotations do not activate the enclosing Script's mode. A method's computed name and decorator expressions belong to their enclosing evaluation scope.
+
+The trigger is a written type annotation, including `any`, without resolving its type. Conversion expressions, inferred types and other type syntax do not independently activate this rule. Ordinary code with no owning or enclosing annotation keeps its mode, and typed and sloppy functions call each other normally. Implicit strictness uses the normal strict-code restrictions and runtime semantics; it does not insert a `'use strict'` directive or add that directive's separate restriction on non-simple parameter lists. Direct eval inherits strictness normally; dynamically constructed functions classify their own combined parameter/body source.
 
 Each sloppy mode behavior this removes is one that conflicts with something typed code depends on:
 

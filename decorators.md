@@ -2749,3 +2749,7 @@ function f(a: uint32, b: uint32 = a * 2) {}
 ```
 
 `initial` captures CONSTANT values only, as the [Reflection](#reflection) section defines it: a non-constant initializer reports *undefined*, because evaluating it would run user code at class definition rather than per call, and `initializer` carries the declaration as a `TokenStream` instead.
+
+### Statically impossible applications
+
+An ordinary decorator application is an early type error when its known signature cannot receive the written arguments and the implicit context. The context is an Object passed by value, so a definitely incompatible scalar or required reference parameter is refused where it receives that context. Bare and parenthesized applications use the same context-last placement, default/optional gaps and rest rules. A missing prefix value is an error when the required parameter cannot accept `undefined`; untyped parameters keep their ordinary missing-argument behavior. A decorator may ignore an extra context argument. Within an overload set, only provably impossible candidates are eliminated; an unknown context shape does not establish an overload tie or select a reflection host. Reachable alternatives of a union retain the ordinary per-alternative call rule. Unknown arguments, computed types and viable Object views keep runtime checks. This judgment does not construct a closed empty-object shape, invoke a decorator, borrow its context, or alter replacement-decorator expansion.
