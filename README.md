@@ -2511,6 +2511,8 @@ For a real async iterator the step result is awaited before the Object check. Th
 
 The bounded `then` argument proof also applies at those actual await stages: a real async `next` result (including initial async `yield*` forwarding), a reached real async `return` result under the closing rule below, and the synchronous step's effective `value` during async-from-sync adaptation, even when `done` is true. Combine argument, assimilation and Object-result failures within each selected alternative before requiring every alternative to fail. A real async iterator's step `value` is not separately awaited by `for await`, and neither the entry-hook result nor the raw synchronous step is assimilated. Non-callable `then`, intrinsic Promise paths, unknown contracts and viable alternatives retain their existing treatment; arbitrary later delegation requests remain dynamic.
 
+A typed async generator additionally awaits an Object value entering its enforced yielded-value boundary before checking `Y`, including a value forwarded by `yield*`. This boundary exists when the runtime resolves a declared, contextual or published return contract to a generator yield type; an unresolved return parameter supplies no such contract. For a concrete known boundary, a real async iterator's valid first step with `done: false` reaches this check. An effective `value` whose selected `then` contracts all reject the resolving callbacks is therefore an early type error. Unknown `done`, a possible completed step, unknown value contracts or a viable assimilation path prevent that bounded proof. This does not add an await to untyped delegation or to a real async `for await` step's value, nor change later delegation requests, scheduling or reference liveness.
+
 Closing has its own negative proof, applied only when the consumer is known to reach a close whose failure is not suppressed by an incoming throw completion. An empty array binding or assignment pattern acquires and closes without calling `next`; a known non-nullish non-callable `return`, or a close method whose result is known non-Object, is an early error there. A definitely-yielding first step followed immediately by `break` supplies another bounded close edge. A possibly exhausted iterator, unresolved control flow, or an existing throw that wins over the close failure does not. Nullish `return` remains a no-op. Synchronous close checks the raw result (a Promise is an Object); actual async close checks the awaited result. Unresolved async-from-sync adapter paths remain dynamic. No cleanup method runs during checking, and accepted programs retain cleanup effects, exception precedence and reference liveness.
 
 Each reached iterator call also checks its actual argument boundary. Entry hooks, ordinary consumer steps and iterator closing receive no arguments; initial `yield*` forwarding supplies one `undefined`. A method requiring `number` cannot accept either, even if its declared result is a valid Object. Defaults, optional parameters, implicit conversions, reference markers and rest distribution follow the ordinary parameter-boundary rules; this is not a requirement to spell one canonical iterator signature. Empty patterns skip `next`, exhaustion skips closing, and a throw that takes precedence still masks a closing failure. Use the established async/sync forwarding path and defer unknown later resume arguments. Named argument spread and index-based reference iteration are unaffected.
@@ -2616,6 +2618,8 @@ An open object type, ```any```, or an unknown disposal member retains runtime pr
 For ```await using```, asynchronous acquisition also considers ```[Symbol.asyncDispose]``` and the language's synchronous-disposal fallback. An asynchronous check must follow that protocol rather than requiring an explicit asynchronous member in every annotation.
 
 ### Object Typing
+
+Computed names of object methods/accessors and class methods/fields are checked as expressions in their enclosing evaluation scope, before entering the member's parameters, body, or instance/static `this` scope. This includes generator and async methods. Class self-name and generic scopes still apply. Existing call, property-key conversion, assignment and reference rules apply inside each name, even in an unused body. Checking does not evaluate the key or change its runtime evaluation count.
 
 An explicitly typed own property checks its initializer at that definition: `{ (x: uint8): "s" }` is an early type error, even in an unused function or a discarded literal. A later overwrite does not erase the earlier boundary. The member annotation supplies contextual literal and metadata processing independently of the outer object's type, including inside `Composite(...)`. Correct decimal and rational literals retain their representation-sensitive context. Unknown values are checked at runtime; computed keys and initializers execute once in their ordinary order.
 
@@ -3523,7 +3527,7 @@ An enumeration over an unordered type, such as one of functions or symbols, supp
 A tag function is typed like any other function. The strings parameter is a ```TemplateStringsArray```, and the interpolations are a rest parameter whose type constrains what a call site may interpolate, checked at compile time when the site is fully typed:
 
 ```js
-interface TemplateStringsArray extends [].<string> {
+interface TemplateStringsArray extends [].<string | undefined> {
   raw: [].<string>;
 }
 
@@ -3536,7 +3540,9 @@ sql`select * from t where id = ${id}`;
 // sql`select ${{}}`; // TypeError: object is not assignable to uint32 | string
 ```
 
-Tags overload like other functions and are selected by the interpolation types, so one tag name can handle distinct interpolation vocabularies. An untyped tag continues to accept anything.
+A tag's first argument contains the exact cooked value at each known position: a String for a valid span, or `undefined` for a malformed escape. Its `.raw` entries remain Strings. Call and overload checks use those cooked literals and the actual substitution order; for example, `\x61` supplies the String `"a"`, not its raw spelling. A malformed escape is allowed in a tagged template when the parameter admits `undefined`; invalid untagged templates retain their syntax error. Template objects and `.raw` remain frozen and preserve their ordinary site identity.
+
+Tags overload like other functions, using the cooked positions as well as interpolation types. An untyped tag continues to accept anything.
 
 ### Placement New
 
@@ -3743,6 +3749,8 @@ class A { a: uint8; }
 new Proxy({ a: 0 }, {}); // Unchanged, an untyped object
 ```
 
+At a proved intrinsic `new Proxy` or `Proxy.revocable` operation, a target whose every possible type carries forbidden typed-array or sealed class storage is rejected early. Sealing contributed by a base survives a `dynamic` subclass; `reference` identity permits weak holding but does not make sealed fields interceptable. A structural view does not establish physical layout. Ordinary objects and native ECMAScript TypedArray objects remain eligible under this rule. An unknown or ordinary-compatible alternative prevents rejection. The origin proof must account for lexical shadowing, aliases, eval, mutable globals/properties and unknown effects; a name spelling or a runtime IC guard alone is insufficient. No getter or trap runs to establish it.
+
 An ordinary object may carry typed own properties from the object typing section. Proxying one is allowed, and every trap result for a typed property is checked against that property's declared type. This extends the existing proxy invariants, which already force a trap to tell the truth about non-configurable, non-writable data properties:
 
 ```js
@@ -3793,6 +3801,10 @@ The tradeoff is deliberate: a proxy exchanges the engine's ability to elide chec
 The ```Reflect``` methods mirror the operations above. ```Reflect.get``` and ```Reflect.set``` obey a property's declared type, ```Reflect.defineProperty``` accepts the ```type``` key of a descriptor, ```Reflect.deleteProperty``` on a typed property is a TypeError, and ```Reflect.typeOf``` returns a runtime type object as described in the typeof section.
 
 ### Keyed Collections
+
+Explicit type arguments and an immediate typed adoption both check the collection's final contents after construction consumes its seed. Each surviving key/value/element converts at its declared type. For a proved intrinsic constructor with established iterator and insertion behavior, finite literal seed facts can make a failed conversion an early error. Map positions remain separate, and known primitive keys use the collection's actual equality rule before adoption: `new Map.<string, uint8>([["x", "bad"], ["x", 1]])` is valid because the incompatible value has been overwritten. Reversing those entries fails. All seed expressions still evaluate in order, and conversions remain at adoption rather than being applied to transient entries.
+
+Unknown keys that may overwrite a value, general iterables/spreads, getters, replaced constructors/iterators/adders and unresolved origins retain runtime checks. The bounded proof neither infers a permanent type for bare collections nor closes open object shapes; ordinary literal numeric and declared user conversions remain available. Nullish and empty seeds remain valid. Weak collections retain their separate eligibility requirements.
 
 A typed collection member has the same contract through a known String key as through its dotted name: `s["add"]` on `Set.<uint8>` accepts the same arguments as `s.add`. Constant aliases and parentheses preserve a known key. The resolved built-in identity determines the signature; a user-defined class named `Set` keeps its own members. This describes the typed view without asserting intrinsic method identity or eliding runtime lookup, `this` binding, key effects or reference-liveness checks. An unknown key or an `any` receiver remains dynamic.
 
