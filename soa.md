@@ -36,7 +36,7 @@ The alternative that other languages reach for, and this one shouldn't, is the *
 ## Type
 
 ```js
-class SoA<T, Length: uint32 = 0> {
+class SoA<T: type, Length: uint32 = 0> {
 	constructor() { /* … */ }
 	constructor(length: uint32) { /* … */ } // Growable arrays only
 	// A call on the type is a view over existing bytes, as Span.<T>(buffer, ...) is, and takes the
@@ -54,8 +54,8 @@ class SoA<T, Length: uint32 = 0> {
 	fill(value: T): SoA.<T, Length> { /* … */ return undefined; }
 	*operator...(): T { /* … */ return undefined; }
 
-	static from<T>(values: [].<T>): SoA.<T> { /* … */ return undefined; }
-	static withCapacity<T>(n: uint32): SoA.<T> { /* … */ return undefined; } // Empty, capacity >= n
+	static from<T: type>(values: [].<T>): SoA.<T> { /* … */ return undefined; }
+	static withCapacity<T: type>(n: uint32): SoA.<T> { /* … */ return undefined; } // Empty, capacity >= n
 	toArray(): [].<T> { /* … */ return []; }
 
 	static get elementByteLength(): uint32 { /* … */ return 0; } // Per element, summed over the columns

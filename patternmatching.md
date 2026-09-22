@@ -197,16 +197,18 @@ match (value) {
 ```js
 function constraintsFor(type: type): ConstraintDoc | undefined {
   return match (type) {
-    when extends float32.<B: NumberBounds.<float32>>: ({ ...B });
-    when extends string.<S: StringBounds>: ({ ...S, pattern: S.pattern?.toString() });
+    when extends float32.<const B: NumberBounds.<float32>>: ({ ...B });
+    when extends string.<const S: StringBounds>: ({ ...S, pattern: S.pattern?.toString() });
     default: undefined;
   };
 }
 ```
 
-```B``` and ```S``` are **slots**: written ```name: Constraint``` in a type-argument position, each binds the component of the subject standing where it does and is checked against its constraint. A slot binds a type object where that position holds a type (```Map.<K: type, V: type>```) and the value where it holds metadata (```float32.<B: NumberBounds>``` binds the metadata object, which is why ```{ ...B }``` is an ordinary spread). Its type in the arm is the constraint it was checked against, so ```S.pattern``` is a member access the checker verifies. Slots are bindings like any other - immutable, scoped to the guard and arm, and subject to the same duplicate-name and ```or```-consistency rules.
+```B``` and ```S``` are **slots**: written ```const name``` in a type-argument position, each binds the component of the subject standing where it does. A slot takes its position's domain; in a metadata position its annotation selects the meta type it binds, ```const S: StringBounds```, and anywhere else an annotation must match the position's domain. A slot binds a type object where that position holds a type (```Map.<const K, const V>```) and the value where it holds metadata (```float32.<const B: NumberBounds>``` binds the metadata object, which is why ```{ ...B }``` is an ordinary spread). Its type in the arm is its annotation or its position's domain, so ```S.pattern``` is a member access the checker verifies. Slots are the ```const``` bindings of the [binding patterns](#binding-patterns) above - immutable, scoped to the guard and arm, and subject to the same duplicate-name and ```or```-consistency rules - and they are the captures a [generic specialization](generics.md#specialization) declares, with the same spelling and the same rule that a name bound once may be used again as an equality: ```when extends Map.<const T, T>:``` matches the maps whose keys and values have one type.
 
-The keyword is doing real work. Without slots the test is assignability, so ```when extends string:``` matches ```string``` and every refinement of one; with slots the test is unification, because a slot must bind the component that stands where it is written. The consequence: a slotted pattern matches structurally where an unslotted one matches up to subtyping, so ```extends [].<E: type>``` does not match a ```[5].<uint8>``` although ```extends [].<uint8>``` does. Unification up to subtyping is a much larger operation that this proposal performs nowhere; a pattern is written against the shape it expects.
+The pattern is an application, so it may name the constructor's parameters, ```Map.<K: string, V: const Element>```, and a name followed by a type is an ordinary named argument rather than a slot: ```Map.<V: type>``` matches the maps whose values are type objects, and binds nothing. Earlier drafts wrote a slot as ```name: Constraint```, which collided with exactly that reading, since ```Map```'s own parameters are named ```K``` and ```V```.
+
+The keyword is doing real work. Without slots the test is assignability, so ```when extends string:``` matches ```string``` and every refinement of one; with slots the test is unification, because a slot must bind the component that stands where it is written. The consequence: a slotted pattern matches structurally where an unslotted one matches up to subtyping, so ```extends [].<const E>``` does not match a ```[5].<uint8>``` although ```extends [].<uint8>``` does. Unification up to subtyping is a much larger operation that this proposal performs nowhere; a pattern is written against the shape it expects.
 
 ```extends``` is a reserved word, so this form costs the grammar nothing - unlike ```match``` itself, which needed care to stay compatible. And it removes an ambiguity the value forms would otherwise leave: a bare name denoting a type tests *membership*, so ```when float32:``` asks whether the subject is a float, and against a type object that is always false. ```extends``` is how a program says it means the type.
 
@@ -258,14 +260,14 @@ A misspelled group name in that pattern is a compile-time TypeError, because the
 ```Expr(p1, p2, ...)``` evaluates ```Expr``` and matches through its ```[Symbol.customMatcher]```. The typed protocol is a method, usually static, from the subject to a tuple or ```null```:
 
 ```js
-class Some<T> {
+class Some<T: type> {
   value: T;
-  static [Symbol.customMatcher]<T>(subject: Option.<T>): [T] | null {
+  static [Symbol.customMatcher]<T: type>(subject: Option.<T>): [T] | null {
     return subject instanceof Some.<T> ? [subject.value] : null;
   }
 }
 
-class None<T> extends Option.<T> {}
+class None<T: type> extends Option.<T> {}
 
 match (find(id)) {                    // find returns Option.<User>
   when Some(let user): greet(user);   // user: User, and the arm narrows to Some.<User>

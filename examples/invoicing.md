@@ -32,7 +32,7 @@ meta Currency {
 	}
 }
 
-primitive decimal128<C: Currency> {
+primitive decimal128<const C: Currency> {
 	// Same-currency arithmetic. The parameter reuses C, so a mismatched
 	// currency fails subtype() at the argument boundary: a compile error
 	// when types are known, a TypeError when dynamic.

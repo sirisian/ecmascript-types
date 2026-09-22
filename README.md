@@ -357,7 +357,7 @@ type U = { a?: never };       // inhabited by {}
 type V = string | { a: never }; // string
 ```
 
-A tuple and a fixed-length array reduce the same way, and for the same reason: a value would have to hold a value of a type that has none. The rule has to be the object's rather than a weaker one, because a program can write the same shape either way — ```type Pair<A, B> = [A, B]``` and ```type Result<T, E> = { value: T, error: E }``` are one shape with two spellings, and an instantiation at the empty type that answered differently for them would make inhabitation a property of how a shape was written.
+A tuple and a fixed-length array reduce the same way, and for the same reason: a value would have to hold a value of a type that has none. The rule has to be the object's rather than a weaker one, because a program can write the same shape either way — ```type Pair<A: type, B: type> = [A, B]``` and ```type Result<T: type, E: type> = { value: T, error: E }``` are one shape with two spellings, and an instantiation at the empty type that answered differently for them would make inhabitation a property of how a shape was written.
 
 ```js
 type T = [uint8, never];  // never
@@ -403,7 +403,7 @@ Note that ```Symbol.hasInstance``` can be overridden so ```instanceof``` says ot
 That drop-out is what a union *means*, not something a program writes: a written empty intersection is a TypeError wherever it appears, including inside a union, for the reason the next paragraph gives. Where the arm arises from a type ARGUMENT there is nothing to refuse at the declaration, and the reduction is what a program sees:
 
 ```js
-type U<T> = string | (number & T);
+type U<T: type> = string | (number & T);
 // U.<number> is string | number — the arm survives
 // U.<uint8>  is string — uint8 and number are disjoint, so the arm is never and drops out
 ```
@@ -417,7 +417,7 @@ type T = number | bigint;    // the thing that was almost certainly meant
 
 This is the same call the language already makes for a narrowing test that can never succeed — ```d ?? 5``` where ```d``` is a ```uint8``` is dead code and is reported, not silently narrowed. A written empty intersection is that mistake with less excuse, since both members are right there.
 
-Only the *syntax* is refused. ```never``` is a real type and computation reaches it freely: ```exclude(T, T)``` is ```never```, a builder constructing a disjoint intersection gets ```never``` rather than a throw, and a generic body is not rejected for an instantiation that may never happen — in ```type F<T> = T & string``` nothing is disjoint until ```T``` is known, and ```F.<number>``` is then ```never``` with no complaint. Writing ```never``` directly is fine, and so is ```uint8 & never```, which states what the rule is for catching.
+Only the *syntax* is refused. ```never``` is a real type and computation reaches it freely: ```exclude(T, T)``` is ```never```, a builder constructing a disjoint intersection gets ```never``` rather than a throw, and a generic body is not rejected for an instantiation that may never happen — in ```type F<T: type> = T & string``` nothing is disjoint until ```T``` is known, and ```F.<number>``` is then ```never``` with no complaint. Writing ```never``` directly is fine, and so is ```uint8 & never```, which states what the rule is for catching.
 
 Disjointness is decided on a type's **base**, never on its metadata, which is what keeps [primitive metadata](primitivemetadata.md) layering usable. Two refinements of one primitive share values, so they intersect:
 
@@ -453,7 +453,7 @@ Each denotes the same type its named form does &mdash; `type E = string.<{ brand
 **The base decides what ```.<>``` means, not the argument.** Where the base declares type parameters the arguments are types; otherwise they are a metadata record:
 
 ```js
-type Box<T> = { value: T };
+type Box<T: type> = { value: T };
 type A = Box.<{ a: uint8 }>;          // Box declares T, so this SUPPLIES it
 type B = string.<{ brand: 'V' }>;     // string declares nothing, so metadata
 ```
@@ -463,14 +463,14 @@ The argument cannot decide it, because a metadata record is written as an object
 Where the base is a type parameter the reading waits for the instantiation:
 
 ```js
-type F<T> = T.<{ brand: 'B' }>;
+type F<T: type> = T.<{ brand: 'B' }>;
 type G = F.<string>;                  // string.<{ brand: 'B' }>
 ```
 
 A generic all of whose parameters have defaults can be written with an empty list, which is what lets it be branded without repeating the defaults:
 
 ```js
-type Grid<T = float64> = { v: T };
+type Grid<T: type = float64> = { v: T };
 type H = Grid.<>.<{ brand: 'V' }>;    // Grid.<> is Grid.<float64>
 ```
 
@@ -539,7 +539,7 @@ let a: [];
 
 ### Variable-length Typed Arrays
 
-A generic syntax ```.<T>``` is used to type array elements. Throughout the proposal, generic parameters are declared with ```<...>```, as in ```class A<T> {}```, while all generic argument application, whether in a type or an expression, uses ```.<...>```, as in ```new A.<uint8>()```. The leading ```.``` avoids grammar ambiguity with the less-than operator in expressions like ```a<b>(c)```.
+A generic syntax ```.<T>``` is used to type array elements. Throughout the proposal, generic parameters are declared with ```<...>```, as in ```class A<T: type> {}```, while all generic argument application, whether in a type or an expression, uses ```.<...>```, as in ```new A.<uint8>()```. The leading ```.``` avoids grammar ambiguity with the less-than operator in expressions like ```a<b>(c)```.
 
 ```js
 let a: [].<uint8>; // []
@@ -645,7 +645,7 @@ A tuple may spread another tuple or an array type, at the front or the back, whi
 
 ```js
 type Row = [uint32, ...[].<float32>]; // An id followed by any number of floats
-type Grown<T> = [...Row, T]; // Row with one more typed position appended
+type Grown<T: type> = [...Row, T]; // Row with one more typed position appended
 ```
 
 Intersecting a tuple, or an array, with an object type produces an array-like value that also carries named properties — the shape a regular-expression match result has, for instance:
@@ -828,7 +828,7 @@ The view constructor takes a byte offset, which is the right unit for parsing a 
 A class listing that gives member signatures with no bodies, like the one below, describes the typed shape of an existing or intrinsic type rather than defining new behavior. This declare-style form is used throughout the proposal and the extensions for built-ins.
 
 ```js
-class Array<T> {
+class Array<T: type> {
   window(start: uint64, end: uint64 = this.length): Span.<T> { /* … */ return []; }
   window<Length: uint64>(start: uint64): Span.<T, Length> { /* … */ return []; }
 }
@@ -1824,7 +1824,7 @@ A default requires the ```?```: an initializer on a required member is an error,
 
 Interface and type-literal members may be separated by ```;``` or ```,```, as in an object literal; both appear in this document and mean the same thing.
 
-An interface may also declare operator members, as in ```interface Ordered<T> { operator<(other: T): boolean; }```. A type satisfies such an interface by defining those operators, which is how a generic constrains its parameter to carry an operation - the [operator overloading](operatoroverloading.md) and [ranges](ranges.md) extensions use this for scalar multiplication, as ```Scalable.<T>```, and ordering, as ```Ordered.<T>```.
+An interface may also declare operator members, as in ```interface Ordered<T: type> { operator<(other: T): boolean; }```. A type satisfies such an interface by defining those operators, which is how a generic constrains its parameter to carry an operation - the [operator overloading](operatoroverloading.md) and [ranges](ranges.md) extensions use this for scalar multiplication, as ```Scalable.<T>```, and ordering, as ```Ordered.<T>```.
 
 Similar to other types an object interface can be made nullable and also made into an array with ```[]```.
 
@@ -1976,7 +1976,7 @@ function (a: (uint32, uint32) => void) {} // Using non-overloaded function signa
 function (a: { (uint32, uint32); }) {} // Identical to the above using Interface syntax
 ```
 
-The interface form omits the arrow, since its braces already say where the signature ends. Outside braces the arrow is required, which is what keeps ```(uint32)``` a grouped type rather than a function type. Either form may declare type parameters — ```<T>(x: T) => T```, ```{ <T>(x: T): T }``` — making it the type of a *generic* function; [generics](generics.md#generic-function-types-and-signatures) states their identity, assignability, and what a call through one costs.
+The interface form omits the arrow, since its braces already say where the signature ends. Outside braces the arrow is required, which is what keeps ```(uint32)``` a grouped type rather than a function type. Either form may declare type parameters — ```<T: type>(x: T) => T```, ```{ <T: type>(x: T): T }``` — making it the type of a *generic* function; [generics](generics.md#generic-function-types-and-signatures) states their identity, assignability, and what a call through one costs.
 Most of the time users will use the first syntax, but the latter can be used if a function is overloaded:
 ```js
 function (a: { (uint32); (string); }) {
@@ -2396,12 +2396,12 @@ A generator is an iterator: ```Generator.<Y, R, N>``` satisfies ```IterableItera
 ```next``` takes the generator's next type and returns an iterator result:
 
 ```js
-type IteratorResult<Y, R> = {
+type IteratorResult<Y: type, R: type> = {
   value: Y | R,
   done: boolean
 };
 
-class Generator<Y, R = void, N = void> {
+class Generator<Y: type, R: type = void, N: type = void> {
   next(value: N): IteratorResult.<Y, R> { /* … */ return undefined; }
   return(value: R): IteratorResult.<Y, R> { /* … */ return undefined; }
   throw(exception: any): IteratorResult.<Y, R> { /* … */ return undefined; }
@@ -2488,13 +2488,13 @@ for await (const a: uint8 of f()) {}
 The async protocols mirror the synchronous ones, with the result wrapped:
 
 ```js
-interface AsyncIterator<T, R = void, N = void> {
+interface AsyncIterator<T: type, R: type = void, N: type = void> {
   next(value?: N): Promise.<IteratorResult.<T, R>, any>;
 }
-interface AsyncIterable<T> {
+interface AsyncIterable<T: type> {
   [Symbol.asyncIterator](): AsyncIterator.<T>;   // declared as async *operator...()
 }
-interface AsyncIterableIterator<T, R = void, N = void> extends AsyncIterable<T>, AsyncIterator<T, R, N> {}
+interface AsyncIterableIterator<T: type, R: type = void, N: type = void> extends AsyncIterable<T>, AsyncIterator<T, R, N> {}
 ```
 
 An ```AsyncGenerator.<Y, R, N>``` satisfies ```AsyncIterableIterator<Y, R, N>``` for the reason its synchronous counterpart does. ```AsyncIterator``` becomes a class when the async iterator helpers proposal advances, and needs no change here when it does.
@@ -2521,17 +2521,17 @@ Each reached iterator call also checks its actual argument boundary. Entry hooks
 The protocols are interfaces, so a value satisfies them by having the members. This is not a stylistic choice: ```for...of``` asks whether ```[Symbol.iterator]``` is callable and never asks what a value declared, so a type that refused a hand-written iterator would describe a language this is not.
 
 ```js
-type IteratorResult<T, R> = { value: T; done: false } | { value: R; done: true };
+type IteratorResult<T: type, R: type> = { value: T; done: false } | { value: R; done: true };
 
-interface Iterator<T, R = void, N = void> {
+interface Iterator<T: type, R: type = void, N: type = void> {
   next(value?: N): IteratorResult.<T, R>;
   return?(value?: R): IteratorResult.<T, R>;
   throw?(e?: any): IteratorResult.<T, R>;
 }
-interface Iterable<T> {
+interface Iterable<T: type> {
   [Symbol.iterator](): Iterator.<T>;   // a class declares this as *operator...()
 }
-interface IterableIterator<T, R = void, N = void> extends Iterable<T>, Iterator<T, R, N> {}
+interface IterableIterator<T: type, R: type = void, N: type = void> extends Iterable<T>, Iterator<T, R, N> {}
 ```
 
 A bare argument is the element type, as it is for a generator: ```Iterator.<uint8>``` is ```Iterator.<uint8, void, void>```. The defaults are ```void``` because ```Generator.<Y, R, N>```'s are, and that agreement is what makes **a generator an iterator**: ```Generator.<Y, R, N>``` satisfies ```IterableIterator<Y, R, N>```. Had the two been chosen apart, a generator would have been *nearly* an iterator, which is the trap TypeScript documented when its builtin iterators and its generators disagreed on the same parameter.
@@ -2757,7 +2757,7 @@ a[0] = new A();
 reference class R { x: uint8; }
 const b: [10].<R|null>; // [null, ...], 10 references
 
-class Container<T> {
+class Container<T: type> {
   a: [10].<T>;
 }
 new Container.<A>(); // a is 10 inline instances
@@ -3358,9 +3358,9 @@ const a = new Box.<uint8>(0);
 A mixin is a function taking a constructor and returning a class expression that extends it. The constraint is a construct signature, the same form used to pass a class as a value elsewhere in this proposal:
 
 ```js
-type Constructor<T = object> = { new(...args: [].<any>): T };
+type Constructor<T: type = object> = { new(...args: [].<any>): T };
 
-function Serializable<TBase extends Constructor>(Base: TBase) {
+function Serializable<TBase: type extends Constructor>(Base: TBase) {
   return class extends Base {
     serialize(): string {
       return JSON.stringify(this);
@@ -3772,7 +3772,7 @@ A proxy is a structural value, so it can implement an interface. Because the sha
 ```js
 Proxy<T = any>
 
-interface ProxyHandler<T> {
+interface ProxyHandler<T: type> {
   get?(target: T, key: string | symbol, receiver: any): any;
   set?(target: T, key: string | symbol, value: any, receiver: any): boolean;
   has?(target: T, key: string | symbol): boolean;
@@ -3863,22 +3863,22 @@ Two comparisons appear in this proposal and it's worth naming the difference. Ke
 Weak references require identity. ```WeakRef```, ```WeakMap``` keys, ```WeakSet``` values, and ```FinalizationRegistry``` targets accept reference types: ordinary objects, class instances, typed arrays (which are objects), functions, and unregistered symbols.
 
 ```js
-class WeakRef<T extends object | symbol> {
+class WeakRef<T: type extends object | symbol> {
   constructor(target: T);
   deref(): T | undefined { /* … */ return undefined; }
 }
-class WeakMap<K extends object | symbol, V> {
+class WeakMap<K: type extends object | symbol, V: type> {
   get(key: K): V | undefined { /* … */ return undefined; }
   set(key: K, value: V): WeakMap.<K, V> { /* … */ return undefined; }
   has(key: K): boolean { /* … */ return false; }
   delete(key: K): boolean { /* … */ return false; }
 }
-class WeakSet<T extends object | symbol> {
+class WeakSet<T: type extends object | symbol> {
   add(value: T): WeakSet.<T> { /* … */ return undefined; }
   has(value: T): boolean { /* … */ return false; }
   delete(value: T): boolean { /* … */ return false; }
 }
-class FinalizationRegistry<T> {
+class FinalizationRegistry<T: type> {
   constructor(callback: (heldValue: T) => void);
   register(target: object | symbol, heldValue: T, unregisterToken?: object | symbol): void { /* … */ }
   unregister(unregisterToken: object | symbol): boolean { /* … */ return false; }

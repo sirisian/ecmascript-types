@@ -654,8 +654,8 @@ function withKey(T: type, key: string, V: type): type {
   return objectOf([...reflect(T).properties, prop(key, V)]);
 }
 
-interface Chainable<T = type {}> {
-  option<K: string, V>(key: K, value: V): Chainable.<withKey(T, K, V)>;
+interface Chainable<T: type = type {}> {
+  option<K: string, V: type>(key: K, value: V): Chainable.<withKey(T, K, V)>;
   get(): T;
 }
 
@@ -748,7 +748,7 @@ function settled(T: type): type {
   }
 }
 
-function promiseAll<T>(values: T): Promise.<settled(T)> { /* implementation elsewhere */ return undefined; }
+function promiseAll<T: type>(values: T): Promise.<settled(T)> { /* implementation elsewhere */ return undefined; }
 
 promiseAll.<type [1, 2, 3]>;                        // returns Promise.<[1, 2, 3]>
 promiseAll.<type [1, 2, Promise.<uint32>]>;         // returns Promise.<[1, 2, uint32]>
@@ -3739,7 +3739,7 @@ function vueOptions(D: type, C: type, M: type): type {
   ]);
 }
 
-function simpleVue<D, C, M>(options: vueOptions(D, C, M)): any { /* implementation elsewhere */ return undefined; }
+function simpleVue<D: type, C: type, M: type>(options: vueOptions(D, C, M)): any { /* implementation elsewhere */ return undefined; }
 
 simpleVue({
   data() { return { firstname: 'Type', lastname: 'Challenges', amount: 10 }; },
@@ -3802,7 +3802,7 @@ function curried(F: type): type {
   }] });
 }
 
-function currying<T>(f: T): curried(T) { /* implementation elsewhere */ return undefined; }
+function currying<T: type>(f: T): curried(T) { /* implementation elsewhere */ return undefined; }
 
 const curried1 = currying((a: string, b: float64, c: boolean) => true);
 Reflect.typeOf(curried1) === type (a: string) => (b: float64) => (c: boolean) => true;
@@ -4091,7 +4091,7 @@ function vueProps(Props: type, D: type, C: type, M: type): type {
   ]);
 }
 
-function vueBasicProps<P, D, C, M>(options: vueProps(P, D, C, M)): any { /* implementation elsewhere */ return undefined; }
+function vueBasicProps<P: type, D: type, C: type, M: type>(options: vueProps(P, D, C, M)): any { /* implementation elsewhere */ return undefined; }
 
 class ClassA {}
 vueBasicProps({
@@ -4494,8 +4494,8 @@ declare function join<D extends string>(delimiter: D): <P extends Tuple>(...part
 
 ```js
 // Builder
-function join<D extends string>(delimiter: D):
-  <P extends [].<string>>(...parts: P) => literal(tupleElements(P).map(e => literalValues(e.type)[0]).join(delimiter)) { /* implementation elsewhere */ return undefined; }
+function join<D: type extends string>(delimiter: D):
+  <P: type extends [].<string>>(...parts: P) => literal(tupleElements(P).map(e => literalValues(e.type)[0]).join(delimiter)) { /* implementation elsewhere */ return undefined; }
 
 Reflect.typeOf(join('-')('a', 'b', 'c')) === type 'a-b-c';
 Reflect.typeOf(join('-')()) === type '';
@@ -4595,7 +4595,7 @@ function store(S: type, G: type, A: type): type {
   return all(A, S, computedResults(G));
 }
 
-function defineStore<S, G, A>(options: storeOptions(S, G, A)): store(S, G, A) { /* implementation elsewhere */ return undefined; }
+function defineStore<S: type, G: type, A: type>(options: storeOptions(S, G, A)): store(S, G, A) { /* implementation elsewhere */ return undefined; }
 ```
 
 The third `ThisType` challenge and the one where the pattern has clearly become a library. Both sides say the same four things: getters see their own results plus readonly state, actions see themselves plus state plus readonly getter results, the store is all of it merged, and `ComputedGetters` is `ReturnType` mapped over the getters. `computedResults` and `withThisOnMethods` were written back at challenge 6 and are reused here unchanged, which is the whole argument in one line: the builder's helpers compose because they are functions.
@@ -5488,15 +5488,15 @@ function ensureUnique(T: type): type {
   return tupleOf(types.map((t, i) => types.indexOf(t) === i ? t : never));
 }
 
-function uniqueItems<const T>(items: ensureUnique(T)) {
+function uniqueItems<T: type extends [].<any>>(items: T): T where ensureUnique(T) === T {
   return items;
 }
 
 uniqueItems([1, 2, 3]);
-uniqueItems([1, 2, 2, 3]);   // error: parameter type is [1, 2, never, 3]
+uniqueItems([1, 2, 2, 3]);   // error: ensureUnique(T) is [1, 2, never, 3], not T
 ```
 
-A different shape from everything else in this document: the type is not computed for its own sake, it is computed to make a *call* fail. `Ensure` rebuilds the tuple with `never` in the position of any repeat, and since nothing is assignable to `never`, the argument no longer matches and the call errors. Both versions work the same way and both rely on `const` type parameters to get literal types out of an array argument.
+A different shape from everything else in this document: the type is not computed for its own sake, it is computed to make a *call* fail. `Ensure` rebuilds the tuple with `never` in the position of any repeat, and since nothing is assignable to `never`, the argument no longer matches and the call errors. The two versions reach that failure differently. TypeScript infers `T` through `Ensure<T>` and needs the `const` modifier to get literal types out of an array argument. Here a parameter is never inferred through a builder that declares no inverse, so `T` binds from `items` directly; its constraint is what makes the binding the literal tuple `[1, 2, 2, 3]` rather than `[].<number>`; and the `where` clause compares that tuple with the rebuilt one. A `<const T>` would not port in any case, since `const` in a declaration's list introduces a specialization capture.
 
 The builder's `types.indexOf(t) === i` is the classic "keep first occurrence" test, and the only reason it can be written that way is that interned type objects compare with `===`. Compare the top-voted answer's `F extends _P[number]`, which is the assignability-as-membership problem from challenge 9898 all over again; it survives here because the harness's inputs happen not to contain a literal and its supertype.
 
@@ -6061,7 +6061,7 @@ function curry(Params: type, R: type): type {
   })});
 }
 
-function dynamicParamsCurrying<A extends [].<any>, R>(f: (...args: A) => R): curry(A, R) { /* implementation elsewhere */ return undefined; }
+function dynamicParamsCurrying<A: type extends [].<any>, R: type>(f: (...args: A) => R): curry(A, R) { /* implementation elsewhere */ return undefined; }
 
 const curried = dynamicParamsCurrying((a: string, b: number, c: boolean) => true);
 curried('a')(1)(true) === true;

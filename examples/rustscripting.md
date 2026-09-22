@@ -49,7 +49,7 @@ const primitive = { float32, float64, uint8, uint16, uint32, int8, int16, int32 
 // host that ran the layout rule differently - padded a column, swapped two fields, aligned to a
 // different width - because SoA.<C, N>.byteLength is a compile-time constant and a different rule
 // produces a different number.
-function check<C>(block: { offset: uint32, byteLength: uint32, fields: [].<{ name: string, type: string }> }): void {
+function check<C: type>(block: { offset: uint32, byteLength: uint32, fields: [].<{ name: string, type: string }> }): void {
 	const fields = Object.entries(Reflect.getReflection.<Reflect.ClassField, C>());
 	if (fields.length != block.fields.length) {
 		throw new TypeError(`${typename(C)}: host declares ${block.fields.length} fields, script declares ${fields.length}`);
@@ -314,7 +314,7 @@ export function totalRevenue(count: uint32): float64 {
 Three lines of loop is the whole formula, and it runs at column speed because it is a column loop. The declared ```float64``` return is about the *script's* arithmetic rather than the boundary - the accumulator stays a machine double through the loop instead of being a number the engine re-speculates on every add. What the embedder receives at the call is still whatever the host's binding API hands back, which is why the results that matter go in the buffer. Money that must not accumulate binary error points at the [decimal](../decimal.md) extension; the binding is identical, only the element type changes. And because the schema is a value, the inspector that every such application grows - the property panel, the column legend, the debug dump - is a loop over reflection rather than a code generator:
 
 ```js
-export function describe<C>(): void {
+export function describe<C: type>(): void {
 	for (const [name, field] of Object.entries(Reflect.getReflection.<Reflect.ClassField, C>())) {
 		console.log(`${name}: ${typename(field.type)}, ${field.type.byteLength} bytes per row`);
 	}

@@ -70,7 +70,7 @@ Reference iteration is direct, index-based element access: it does not go throug
 `for...of` walks one array. Iterating several in step, mutating an element of each, is what a `ref` callback parameter is for. A container passes references into a callback, one per array, rebound each iteration:
 
 ```js
-function zip<T, U>(a: [].<T>, b: [].<U>, callback: (ref x: T, ref y: U) => void) {
+function zip<T: type, U: type>(a: [].<T>, b: [].<U>, callback: (ref x: T, ref y: U) => void) {
   for (let i: uint64 = 0; i < a.length; ++i) {
     callback(ref a[i], ref b[i]);
   }

@@ -127,7 +127,7 @@ A range is a value type class, so ```0..<10``` allocates nothing and copies by v
 ```js
 enum Bound: uint8 { Closed, Open }; // Exposed as Range.Bound
 
-interface Ordered<T> {
+interface Ordered<T: type> {
 	operator<(other: T): boolean;
 }
 // `Ordered` is a TOTAL order: of any two values one is less, or they are
@@ -137,11 +137,11 @@ interface Ordered<T> {
 // the derivation would call them equivalent. One operator is what an element
 // type implements, so no type can declare `<` and `<=` that disagree.
 
-interface Scalable<T> {
+interface Scalable<T: type> {
 	operator*(factor: float64): T; // Scalar multiplication, preserving T
 }
 
-interface Arithmetic<T> {
+interface Arithmetic<T: type> {
 	operator+(other: T): T;
 	operator-(other: T): T;
 	operator-(): T; // Negation
@@ -149,7 +149,7 @@ interface Arithmetic<T> {
 	operator/(other: T): T;
 }
 
-interface RangeBounds<T: Ordered.<T>> {
+interface RangeBounds<T: type extends Ordered.<T>> {
 	// The shape-independent view: an endpoint and its bound, or null where the
 	// shape has neither. This is what code over an arbitrary range reads.
 	get start(): T | null { /* … */ return undefined; }
@@ -167,7 +167,7 @@ interface RangeBounds<T: Ordered.<T>> {
 // Scaling needs arithmetic, and ordering does not imply it: Temporal.Instant is
 // Ordered and cannot be multiplied. So scale exists on the instantiations whose
 // element type scales, by the partial specialization rule in generics.md.
-partial interface RangeBounds<T: Scalable.<T>> {
+partial interface RangeBounds<const T extends Scalable.<T>> {
 	scale(factor: float64): RangeBounds.<T> { /* … */ return undefined; }
 }
 
@@ -175,7 +175,7 @@ partial interface RangeBounds<T: Scalable.<T>> {
 // operands are ranges and so is the result: this is what a bound on a computed
 // value is, and the [metadata](primitivemetadata.md) extension's numeric
 // operators are its first caller.
-partial interface RangeBounds<T: Arithmetic.<T>> {
+partial interface RangeBounds<const T extends Arithmetic.<T>> {
 	operator+(other: RangeBounds.<T>): RangeBounds.<T>;
 	operator-(other: RangeBounds.<T>): RangeBounds.<T>;
 	operator-(): RangeBounds.<T>;
@@ -183,7 +183,7 @@ partial interface RangeBounds<T: Arithmetic.<T>> {
 	operator/(other: RangeBounds.<T>): RangeBounds.<T>;
 }
 
-class Range<T: Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bound.Open> implements RangeBounds.<T> {
+class Range<T: type extends Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bound.Open> implements RangeBounds.<T> {
 	readonly start: T;
 	readonly end: T;
 	get length(): uint32 { /* … */ return 0; }
@@ -209,18 +209,18 @@ class Range<T: Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bound.Open> impl
 	// construction from two loose endpoints at bounds named by type
 	// parameters, which is rare enough that the member may not earn its
 	// keep.
-	static of<T: Ordered.<T>, S: Bound, E: Bound>(start: T, end: T): Range.<T, S, E>;
+	static of<T: type extends Ordered.<T>, S: Bound, E: Bound>(start: T, end: T): Range.<T, S, E>;
 }
 
-class RangeFrom<T: Ordered.<T>, S: Bound = Bound.Closed> implements RangeBounds.<T> {
+class RangeFrom<T: type extends Ordered.<T>, S: Bound = Bound.Closed> implements RangeBounds.<T> {
 	readonly start: T; // `end` and `endBound` are null
 }
 
-class RangeTo<T: Ordered.<T>, E: Bound = Bound.Open> implements RangeBounds.<T> {
+class RangeTo<T: type extends Ordered.<T>, E: Bound = Bound.Open> implements RangeBounds.<T> {
 	readonly end: T; // `start` and `startBound` are null
 }
 
-class RangeFull<T: Ordered.<T>> implements RangeBounds.<T> {}
+class RangeFull<T: type extends Ordered.<T>> implements RangeBounds.<T> {}
 ```
 
 ```..``` has no endpoint to infer from, so ```RangeFull.<T>``` takes its ```T``` from the context that consumes it, and is ```RangeFull.<any>``` where there is none.
@@ -238,10 +238,10 @@ class RangeFull<T: Ordered.<T>> implements RangeBounds.<T> {}
 enum Interval: uint8 { Closed, ClosedOpen, OpenClosed, Open }; // Exposed as Range.Interval
 
 // And the aliases, so no annotation is forced through the three-argument spelling:
-type ClosedRange<T> = Range.<T, Bound.Closed, Bound.Closed>;   // a..=b
-type ClosedOpenRange<T> = Range.<T, Bound.Closed, Bound.Open>; // a..<b
-type OpenClosedRange<T> = Range.<T, Bound.Open, Bound.Closed>; // a<..=b
-type OpenRange<T> = Range.<T, Bound.Open, Bound.Open>;         // a<..<b
+type ClosedRange<T: type> = Range.<T, Bound.Closed, Bound.Closed>;   // a..=b
+type ClosedOpenRange<T: type> = Range.<T, Bound.Closed, Bound.Open>; // a..<b
+type OpenClosedRange<T: type> = Range.<T, Bound.Open, Bound.Closed>; // a<..=b
+type OpenRange<T: type> = Range.<T, Bound.Open, Bound.Open>;         // a<..<b
 ```
 
 The aliases and the accessor share the enum's names, so the language has one vocabulary for the four intervals and not two. A diagnostic should prefer them: ```ClosedRange.<uint8>``` or "a closed range of ```uint8```" reads where ```Range.<uint8, Bound.Closed, Bound.Closed>``` does not, and an implementation that prints the raw parameterization where an alias exists is doing its reader no favors.
@@ -386,7 +386,7 @@ Because ```Range``` is a value type and ```*operator...()``` is an ordinary iter
 This proposal already has user-defined index operators. A range-taking overload is all that slicing needs, and it lands on the ```window``` method the arrays section recently gained:
 
 ```js
-class Array<T> {
+class Array<T: type> {
 	get operator[](range: RangeBounds.<uint32>): [].<T>; // Aliases, doesn't copy; a constant range refines to a fixed extent (below)
 }
 
@@ -416,7 +416,7 @@ A runtime start with a compile-time length still wants ```window.<N>(start)```, 
 `NumberBounds` declares a [```meet```](primitivemetadata.md), and it is four lines because a range already has the operation:
 
 ```js
-meta NumberBounds<T> {
+meta NumberBounds<T: type extends Ordered.<T>> {
 	// …
 	meet(a, b) {
 		if (a.bounds === undefined) return b;

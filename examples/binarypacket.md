@@ -79,32 +79,32 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	}
 
 	@doc('Writes an n-bit unsigned integer, e.g. write.<uint.<12>>(value).')
-	write<uint<N: uint32>>(value: uint.<N>): PacketWriter {
+	write<uint.<const N>>(value: uint.<N>): PacketWriter {
 		this.#writeBits(value, N);
 		return this;
 	}
 
 	@doc('Writes an n-bit signed integer as two\'s complement.')
-	write<int<N: uint32>>(value: int.<N>): PacketWriter {
+	write<int.<const N>>(value: int.<N>): PacketWriter {
 		return this.write.<uint.<N>>(uint.<N>(value));
 	}
 
 	@doc('Writes an unsigned integer in [0, maximum] using the fewest bits that hold the range.')
-	write<uint<N: uint32>, maximum: uint32>(value: uint.<N>): PacketWriter {
+	write<uint.<const N>, maximum: uint32>(value: uint.<N>): PacketWriter {
 		const bits: uint32 = 32 - Math.clz32(maximum);
 		this.#writeBits(value, bits);
 		return this;
 	}
 
 	@doc('Writes an unsigned integer in [minimum, maximum] using the fewest bits that hold the range.')
-	write<uint<N: uint32>, minimum: uint32, maximum: uint32>(value: uint.<N>): PacketWriter {
+	write<uint.<const N>, minimum: uint32, maximum: uint32>(value: uint.<N>): PacketWriter {
 		const bits: uint32 = 32 - Math.clz32(maximum - minimum);
 		this.#writeBits(value - minimum, bits);
 		return this;
 	}
 
 	@doc('Writes a signed integer in [minimum, maximum] using the fewest bits that hold the range.')
-	write<int<N: uint32>, minimum: int32, maximum: int32>(value: int.<N>): PacketWriter {
+	write<int.<const N>, minimum: int32, maximum: int32>(value: int.<N>): PacketWriter {
 		const bits: uint32 = 32 - Math.clz32(uint32(maximum - minimum));
 		this.#writeBits(uint32(value - minimum), bits);
 		return this;
@@ -158,7 +158,7 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	}
 
 	@doc('Writes a length-prefixed ASCII string. A non-ASCII character fails the uint.<7> cast with a TypeError.')
-	write<string, LengthType extends uint = uint16>(value: string): PacketWriter {
+	write<string, LengthType: type extends uint = uint16>(value: string): PacketWriter {
 		this.write.<LengthType>(LengthType(value.length));
 		for (let index: uint64 = 0; index < value.length; ++index) {
 			this.write.<uint.<7>>(uint.<7>(value.charCodeAt(index)));
@@ -234,35 +234,38 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 		return value;
 	}
 
+	@doc('The generic contract every single-argument read keeps. It has no body: a type with no read below is an error at the call, and generic code such as the accumulating reader forwards to it.')
+	read<T: type>(): T;
+
 	@doc('Reads a 1-bit boolean.')
 	read<boolean>(): boolean {
 		return this.#readBits(1) == 1;
 	}
 
 	@doc('Reads an n-bit unsigned integer, e.g. read.<uint.<12>>().')
-	read<uint<N: uint32>>(): uint.<N> {
+	read<uint.<const N>>(): uint.<N> {
 		return uint.<N>(this.#readBits(N));
 	}
 
 	@doc('Reads an n-bit signed integer written as two\'s complement.')
-	read<int<N: uint32>>(): int.<N> {
+	read<int.<const N>>(): int.<N> {
 		return int.<N>(this.read.<uint.<N>>());
 	}
 
 	@doc('Reads an unsigned integer written with the [0, maximum] range encoding.')
-	read<uint<N: uint32>, maximum: uint32>(): uint.<N> {
+	read<uint.<const N>, maximum: uint32>(): uint.<N> {
 		const bits: uint32 = 32 - Math.clz32(maximum);
 		return uint.<N>(this.#readBits(bits));
 	}
 
 	@doc('Reads an unsigned integer written with the [minimum, maximum] range encoding.')
-	read<uint<N: uint32>, minimum: uint32, maximum: uint32>(): uint.<N> {
+	read<uint.<const N>, minimum: uint32, maximum: uint32>(): uint.<N> {
 		const bits: uint32 = 32 - Math.clz32(maximum - minimum);
 		return uint.<N>(this.#readBits(bits) + minimum);
 	}
 
 	@doc('Reads a signed integer written with the [minimum, maximum] range encoding.')
-	read<int<N: uint32>, minimum: int32, maximum: int32>(): int.<N> {
+	read<int.<const N>, minimum: int32, maximum: int32>(): int.<N> {
 		const bits: uint32 = 32 - Math.clz32(uint32(maximum - minimum));
 		return int.<N>(int32(this.#readBits(bits)) + minimum);
 	}
@@ -311,7 +314,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	}
 
 	@doc('Reads a length-prefixed ASCII string.')
-	read<string, LengthType extends uint = uint16>(): string {
+	read<string, LengthType: type extends uint = uint16>(): string {
 		let value = '';
 		const length = this.read.<LengthType>();
 		for (let index: uint32 = 0; index < length; ++index) {
@@ -341,11 +344,11 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 A reader can accumulate the values it reads into a tuple: an extra tuple generic collects the types read so far, each ```read``` returns ```this``` reparameterized with the tuple grown by one, and a cast operator hands the tuple to typed destructuring, which selects it by shape.
 
 ```js
-export class AccumulatingPacketReader<ReadTypes extends [].<any> = []> extends PacketReader {
+export class AccumulatingPacketReader<ReadTypes: type extends [].<any> = []> extends PacketReader {
 	#values: ReadTypes = [];
 
 	@doc('Reads a value and accumulates it, returning this with the tuple type grown.')
-	read<T>(): AccumulatingPacketReader.<[...ReadTypes, T]> {
+	read<T: type>(): AccumulatingPacketReader.<[...ReadTypes, T]> {
 		this.#values = [...this.#values, super.read.<T>()];
 		return this;
 	}

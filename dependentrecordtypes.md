@@ -273,19 +273,19 @@ partial class ClassMetadata {
 }
 
 // @field() registers a field for serialization with an optional wire name
-function field<T, TClass>(
+function field<T: type, TClass: type>(
 	{ name, metadata }: Reflect.ClassField.<T, TClass>
 ) where typeof name == 'string' {
 	metadata[schemaKey].push({ name, wireName: name });
 }
-function field<T, TClass>(
+function field<T: type, TClass: type>(
 	wireName: string,
 	{ name, metadata }: Reflect.ClassField.<T, TClass>
 ) where typeof name == 'string' {
 	metadata[schemaKey].push({ name, wireName });
 }
 
-function serialize<T>(instance: T): { [key: string]: any } {
+function serialize<T: type>(instance: T): { [key: string]: any } {
 	const result: { [key: string]: any } = {};
 	for (const { name, wireName } of Reflect.getMetadata.<Reflect.Class, T>()[schemaKey]) {
 		result[wireName] = instance[name];
@@ -293,7 +293,7 @@ function serialize<T>(instance: T): { [key: string]: any } {
 	return result;
 }
 
-function deserialize<T>(cls: { new(): T }, data: { [key: string]: any }): T {
+function deserialize<T: type>(cls: { new(): T }, data: { [key: string]: any }): T {
 	const instance = new cls();
 	
 	// 1. Mutation phase: Populate the fields.

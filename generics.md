@@ -9,7 +9,7 @@ A specialization is written after the expression it specializes, ```f.<uint8>(x)
 The big picture of this section is to write out a near complete generics section to ensure types aren't implemented in a way that makes this awkward. It should be near seamless to introduce these as the main proposal relies on them in a few language feature areas.
 
 ```js
-class A<T = uint8> {
+class A<T: type = uint8> {
   a: T;
   constructor(a: T) {
     this.a = a;
@@ -25,16 +25,44 @@ In that example by default the field ```a``` is type ```uint8```, but the progra
 
 ### Generic Application Syntax
 
-Generic parameters are declared with ```<...>``` at declaration sites, as in ```class A<T> {}``` and ```function f<V: int32>() {}```. Every application of generic arguments, whether in a type or an expression, uses ```.<...>```, as in ```new A.<uint32>(1024)``` and ```f.<5>()```. The leading ```.``` removes the grammar ambiguity between generic argument lists and comparison operators, since ```a<b>(c)``` parses as chained comparisons today. Inside a generic argument list the tokens ```>>``` and ```>>>``` close nested lists, as in ```[].<[].<uint8>>```, rather than lexing as shift operators.
+Generic parameters are declared with ```<...>``` at declaration sites, as in ```class A<T: type> {}``` and ```function f<V: int32>() {}```. Every application of generic arguments, whether in a type or an expression, uses ```.<...>```, as in ```new A.<uint32>(1024)``` and ```f.<5>()```. The leading ```.``` removes the grammar ambiguity between generic argument lists and comparison operators, since ```a<b>(c)``` parses as chained comparisons today. Inside a generic argument list the tokens ```>>``` and ```>>>``` close nested lists, as in ```[].<[].<uint8>>```, rather than lexing as shift operators.
 
-Operator declarations are the exception to the bare-```<...>``` at declaration sites: an operator's generic parameter list uses ```.<...>``` too, as in ```operator*.<T extends Ring>(rhs: T)```. The operator token may itself end in ```<``` or ```>```, so ```operator<.<D2: Dimensions>``` lexes unambiguously where ```operator< <D2: Dimensions>``` would collide with the ```<<``` token.
+Operator declarations are the exception to the bare-```<...>``` at declaration sites: an operator's generic parameter list uses ```.<...>``` too, as in ```operator*.<T: type extends Ring>(rhs: T)```. The operator token may itself end in ```<``` or ```>```, so ```operator<.<D2: Dimensions>``` lexes unambiguously where ```operator< <D2: Dimensions>``` would collide with the ```<<``` token. An operator's list follows the rules of [Specialized Overloads](#specialized-overloads) below: ```operator+.<T: type>(rhs: T)``` declares a parameter, and ```operator+.<uint32>(rhs: uint32)``` fixes the argument.
+
+### Declaring Parameters
+
+Every entry of a declaration's parameter list states what kind of argument it takes. A type parameter is written ```T: type``` and a value parameter ```V: uint32```, and the two are one form: ```type``` is the domain of Type Objects, so a type parameter is a compile-time constant whose value is a type, which is what it already evaluates to in expression position. A bound follows the domain, ```T: type extends Ordered.<T>```, and a default follows both, ```T: type = uint8```.
+
+```js
+class Grid<T: type = float64, Rows: uint32 = 4, Cols: uint32 = 4> {}
+function max<T: type extends Ordered.<T>>(a: T, b: T): T {}
+function tuple<...Ts: [].<type>>(...values: Ts): Ts {}
+function lanes<...I: [].<uint32>>() {}
+function each<...Cs: [].<type> extends [].<Component>>(cb: (e: Entity, ref ...refs: Cs) => void): void {}
+interface Iterator<W<_>: type, T: type, R: type = void, N: type = void> {}
+```
+
+A pack's annotation is its collection type, as a rest parameter's is: ```...I: [].<uint32>``` collects ```uint32``` constants and ```...Ts: [].<type>``` collects types. A bound on a pack of types bounds the tuple, so ```...Cs: [].<type> extends [].<Component>``` admits a pack whose every element is a ```Component```. A higher-kinded parameter keeps its holes, and its annotation says what an application of it yields: ```W<_>: type``` becomes a type when given one argument, and ```W``` alone is still not a type.
+
+Roles are decided by the syntax, never by what a name resolves to. An entry with a ```:``` declares a parameter; a bare name is a *reference* to something already in scope, which in a declaration's list is how a [specialization](#specialization) names a fixed argument. So ```class Store<T: type> {}``` declares a family and ```class Store<uint32> {}``` specializes it, and neither reading depends on whether some ```T``` or ```uint32``` happens to be in scope. Earlier drafts of this document declared a type parameter with a bare name and treated a name that resolved to a type as a specialization, which made a declaration's meaning depend on its imports.
+
+Three spellings are early errors that name their correction rather than alternatives:
+
+- ```T: B```, where ```B``` is not a value domain - an interface or a class, such as ```T: Ordered.<T>``` - declares a value parameter whose values would be objects, which a generic argument cannot be. The correction is ```T: type extends B```. Rust, Swift, and Kotlin all write a bound as ```T: B```, so this is the first mistake a reader from those languages will make, and it is caught where it is written rather than at some later application.
+- ```T extends B``` with no domain is the same error with the same correction. One spelling per parameter means that deleting a bound cannot turn a parameter into a reference.
+- A domain that admits both Type Objects and other values, such as ```V: any``` or ```V: type | uint32```, is refused, since an argument could bind it either way (see [Binding a value generic from an argument](#binding-a-value-generic-from-an-argument)).
+
+A parameter may be named after a predefined type - ```uint32: type``` declares a parameter named ```uint32``` - and it then shadows that type by the ordinary lexical rule, in the signature and the body alike. Tooling warns, since it is rarely meant.
+
+Generic function types, interface call signatures, and generic function and arrow expressions declare their parameters the same way: ```<T: type>(x: T) => T```.
+
 
 ### Named Generic Arguments
 
 A type argument may be supplied by name, mirroring named call arguments. This matters where a generic has parameters with defaults, since supplying only a later one otherwise means repeating the earlier ones:
 
 ```js
-type Grid<T = float64, Rows: uint32 = 4, Cols: uint32 = 4> = { cells: [Rows * Cols].<T> };
+type Grid<T: type = float64, Rows: uint32 = 4, Cols: uint32 = 4> = { cells: [Rows * Cols].<T> };
 
 let a: Grid.<float64, 4, 8>;  // repeats the two defaults
 let b: Grid.<Cols: 8>;        // says what differs
@@ -64,17 +92,17 @@ A named argument may address a variadic parameter, opening a run: see [Variadic 
 Often not just any type can be passed into the generic argument. Nearly every language has a constraint system to specify what interface(s) a type must implement.
 
 ```js
-class A<T extends int> {
+class A<T: type extends int> {
 }
 ```
 Here ```int``` is the constraint family matching any ```int.<N>```; likewise ```uint``` matches any ```uint.<N>```, and ```enum``` matches any enumeration - written ```enum.<TValue>``` to bound it to enumerations over a given underlying type, as the [decorators](decorators.md) reflection API does. These families are only usable as constraints, not as concrete types, since they don't specify a width (or, for ```enum```, a member set).
 
-A ```static``` member is not parameterized by its class's type parameters, so it declares its own. A static that works over the class's element type takes that type as a fresh parameter - ```static of<T, S: Bound, E: Bound>(start: T, end: T): Range.<T, S, E>``` and ```static from<T>(values: [].<T>): SoA.<T>``` - rather than referring to a bare ```T``` that isn't in scope.
+A ```static``` member is not parameterized by its class's type parameters, so it declares its own. A static that works over the class's element type takes that type as a fresh parameter - ```static of<T: type extends Ordered.<T>, S: Bound, E: Bound>(start: T, end: T): Range.<T, S, E>``` and ```static from<T: type>(values: [].<T>): SoA.<T>``` - rather than referring to a bare ```T``` that isn't in scope.
 
 Simple syntax, but often you want to apply multiple interface constraints. TypeScript uses ```&```.
 
 ```js
-class A<T extends B & C> {
+class A<T: type extends B & C> {
 }
 ```
 I think that's sufficient and covers common use cases.
@@ -86,10 +114,10 @@ A generic type parameter is a type object, so in expression position it evaluate
 ```js
 class EventBus {
 	#channels = new Map.<type, any>();
-	emit<T>(event: T) {
+	emit<T: type>(event: T) {
 		this.#channels.get(T)?.push(event);
 	}
-	read<T>(): [].<T> {
+	read<T: type>(): [].<T> {
 		return this.#channels.get(T) ?? [];
 	}
 }
@@ -102,6 +130,8 @@ The main proposal's compile-time type expressions cover the type position counte
 A value can be passed into generics like a function argument. The only caveat is they must be const and will be treated like const variables that are compiled away.
 
 A generic value parameter may be declared with any primitive value type: the integer types, the float types, the decimal and rational types, ```boolean```, ```string```, and enum types. Two applications name the same specialization when their arguments are the same value under SameValue, the comparison ```Object.is``` performs. Reference values are not permitted as generic arguments, since specialization identity would then depend on object identity.
+
+The one record-shaped domain is a metadata type of [primitive metadata](primitivemetadata.md), such as ```Dimensions``` or ```NumberBounds.<float32>```. Its values are the normalized, immutable metadata records its ```meta``` declaration accepts, compared by that facility's identity rather than by object identity, which is what lets ```decimal128.<{ currency: To }>``` below name one type however it is spelled. No other object type is a value domain: together with ```type```, the primitive value types, enumerations, and literal types and unions of them, these are the domains a generic parameter may declare, and the domains the correction ```T: type extends B``` is offered against.
 
 ```js
 class Buffer<Size: uint32, Name: string> {}
@@ -187,6 +217,8 @@ init(Component.Transform, { x: 0, y: 0, rotation: 0 }); // C is bound to Compone
 
 ```C``` is fixed by the first argument, so the second parameter's type ```componentType(C)``` is a concrete type at the call and the object literal is checked against that specific component. This is the same specialization the explicit ```.<>``` form performs, reading the value off an argument instead of an angle-bracket list; a non-constant argument is a ```TypeError``` here for the same reason it is in a type position.
 
+A type parameter is bound from an argument the same way, and its domain decides what is read. A parameter whose domain is ```type``` binds the argument's static type - ```function id<T: type>(x: T): T``` called as ```id((3 := uint16))``` binds ```T``` to ```uint16``` - while any other domain binds the argument's constant value, as ```C``` does above. A domain admitting both would have to guess between the two readings, which is why it is refused.
+
 What ```V: int32``` binds, primitively, is a type: the literal type of the supplied constant over ```int32```. The value reading is the view through it, ```V```'s value being that literal's value, so one binding serves both positions and the checker holds one notion. This is also why an untyped literal argument satisfies a value-typed constraint directly: against ```W: uint32``` the literal ```4``` takes the literal type ```4``` over ```uint32``` rather than over ```number```.
 
 #### Inferring from the expected type
@@ -201,7 +233,7 @@ function fall(): Acceleration3 {
   return vec3(0, -9.81, 0); // D inferred from the return type
 }
 
-class Box<T> { v: T; constructor(v: T) { this.v = v; } }
+class Box<T: type> { v: T; constructor(v: T) { this.v = v; } }
 const b: Box.<uint8> = new Box(1);  // T bound to uint8 from the annotation; the 1 is read at uint8
 const c: Box.<uint8> = new Box("s"); // TypeError at the argument, as new Box.<uint8>("s") would be
 ```
@@ -228,7 +260,7 @@ A construction of a generic class always constructs a specialization — never t
 A parameter that nothing reaches — no argument, no expected type, no formal annotated with it, no default — is a ```TypeError``` naming the parameter and the declaration, never ```any```:
 
 ```js
-class Registry<T> { #entries = new Map.<string, T>(); }
+class Registry<T: type> { #entries = new Map.<string, T>(); }
 new Registry();            // TypeError: T of Registry is not determined and has no default
 new Registry.<Foo>();      // Registry.<Foo>
 const r: Registry.<Foo> = new Registry(); // Registry.<Foo>, from the annotation
@@ -238,11 +270,11 @@ A ```Registry.<any>``` the program never named is an unchecked specialization th
 
 #### A parameter is opaque within its declaration
 
-Inside the declaration that binds it, ```T``` is a subtype of itself and of its constraint and nothing else relates to it: a body is checked once, over its parameters, not per instantiation. So ```function f<T>(x: T) { let v: T = 5; }``` is a type error — a Number is not known to be a ```T```, which may be instantiated at ```string``` — and a field is the same position: ```class A<T> { value: T = 0; }``` and ```value: T = null``` are refused, and the value arrives through the constructor (```value: T; constructor(v: T) { this.value = v; }```) or is written at a type (```value: T | null = null```). This is Rust's rule, where an unconstrained ```T``` cannot be built from a literal at all, and TypeScript's. Checking the initializer at each instantiation instead (C++'s model) would move the error from the declaration to whichever ```new A.<string>()``` first cannot convert it.
+Inside the declaration that binds it, ```T``` is a subtype of itself and of its constraint and nothing else relates to it: a body is checked once, over its parameters, not per instantiation. So ```function f<T: type>(x: T) { let v: T = 5; }``` is a type error — a Number is not known to be a ```T```, which may be instantiated at ```string``` — and a field is the same position: ```class A<T: type> { value: T = 0; }``` and ```value: T = null``` are refused, and the value arrives through the constructor (```value: T; constructor(v: T) { this.value = v; }```) or is written at a type (```value: T | null = null```). This is Rust's rule, where an unconstrained ```T``` cannot be built from a literal at all, and TypeScript's. Checking the initializer at each instantiation instead (C++'s model) would move the error from the declaration to whichever ```new A.<string>()``` first cannot convert it.
 
 #### Bare generic names and the family
 
-A generic declaration's bare name in a type position — an annotation, a parameter or return type, a heritage clause, ```is```, a ```when``` pattern — names the application at its defaults, ```Box.<>```, and is a type error naming the parameter where one has no default. ```A```, ```A.<>``` and ```A.<uint8>``` are one type for a ```class A<T = uint8>```; ```let b: Box``` for a ```class Box<T>``` is refused; ```class S extends Box {}``` is refused, and ```class S<U> extends Box.<U>``` or ```extends Box.<uint8>``` is how it is written. There is no bare instantiation for a bare name to denote, since every construction yields a specialization, and a name that meant the family would make a default meaningless in a type position.
+A generic declaration's bare name in a type position — an annotation, a parameter or return type, a heritage clause, ```is```, a ```when``` pattern — names the application at its defaults, ```Box.<>```, and is a type error naming the parameter where one has no default. ```A```, ```A.<>``` and ```A.<uint8>``` are one type for a ```class A<T: type = uint8>```; ```let b: Box``` for a ```class Box<T: type>``` is refused; ```class S extends Box {}``` is refused, and ```class S<U: type> extends Box.<U>``` or ```extends Box.<uint8>``` is how it is written. There is no bare instantiation for a bare name to denote, since every construction yields a specialization, and a name that meant the family would make a default meaningless in a type position.
 
 The family has a spelling of its own. An argument written ```any``` admits any instantiation in its position, as it already does for the collections, so ```Box.<any>``` is a Box of some element type and ```Pair.<any, string>``` a Pair whose first type is unknown and whose second is a string. A read through the wider view is ```any```; a store through it is checked against the instance's own field type at run time, which is what runtime types are for.
 
@@ -256,47 +288,99 @@ new Box.<uint8>(1) instanceof Box;  // true
 new Box.<uint8>(1) instanceof Box.<uint16>; // false
 ```
 
+### Specialization
+
+A declaration whose list holds arguments rather than parameters specializes a family declared elsewhere. The primary declaration introduces the parameters callers bind; a specialization supplies a complete definition for the applications it matches:
+
+```js
+class Box<T: type, N: uint32 = 4> {}   // Primary: the family and its public parameters
+class Box<uint32, 8> {}                 // Exact: Box.<uint32, 8> uses this body
+class Box<const T, 16> {}               // Pattern: any element type with extent 16
+partial class Box<_, 32> {}             // Wildcard: members added to every extent-32 Box
+```
+
+A specialization's list is positional, one entry per primary parameter, and each entry is a fixed argument, ```_```, or a ```const``` capture. A capture binds the argument in its position for the specialization's signature, heritage, and body - a type capture reads as its Type Object and a value capture as its constant - and ```const``` is the keyword a [pattern](patternmatching.md#binding-patterns) binds with, for the same reason: a bare name is a reference, and a binding says so. A capture takes its position's domain, so ```const T``` suffices where the primary declares ```T: type```. A written domain restates that domain and must match it, ```const N: uint32``` where the primary declares ```N: uint32```, as a Rust implementation header restates ```const N: usize```; the one exception is a metadata position, where the written meta type selects which metadata the capture binds, ```float32.<const D: Dimensions>```. Narrowing is spelled differently, ```const T extends Serializable``` for a type and a ```where``` clause for a value, so a written domain can never silently shrink what a specialization covers. Omitting a defaulted argument means its default, not a wildcard, so with the primary above ```class Box<uint32> {}``` specializes ```Box.<uint32, 4>```. A capture has no default and no variance, which are promises only a primary makes. And the list is positional even though an application may name arguments: ```class Box<uint32, N: 8> {}``` does not select ```N```, because ```name: domain``` in a declaration's list always declares a parameter, and a class has one primary. It is written ```class Box<uint32, 8> {}```.
+
+A nested application within a specialization is a pattern over that constructor's parameters, and may use their names. Each line below is a separate example:
+
+```js
+class Store<Map.<string, const Element>> {}        // string-keyed maps, element captured
+class Store<Map.<K: string, V: const Element>> {}  // the same pattern, by Map's own names
+class Pair<const T, T> {}                          // equal component types
+class Matrix<float32, const N: uint32, N> {}       // square float32 matrices
+class Transfer<InputBuffer.<const T>, OutputBuffer.<T>> {}
+class Width<uint.<const N>> {}                     // any uint.<N>, width captured
+class ArrayCase<[const N].<const Element>> {}      // N takes the index type, uint64
+```
+
+A capture is declared once per header and used any number of times, and each further use is an equality the arguments must satisfy, under SameType for types and SameValue for values: ```Pair<const T, T>``` matches ```Pair.<uint8, uint8>``` and not ```Pair.<uint8, uint16>```. Declaring one name twice is an early error even when the two annotations agree, since a reader could not tell whether equality or two unrelated bindings was meant; TypeScript's repeated ```infer U``` combines its candidates silently, and this design declines to guess. A capture's scope is the whole header, the specialization's signature or heritage, and its body, so a use may precede the declaration, which is what keeps reordered names meaning one thing: ```Map.<V: T, K: const T>``` is ```Map.<K: const T, V: T>```. Only structural positions expose a component to capture - constructor arguments, tuple and array elements, fixed extents, width families - so a capture inside a type-building call is an error; a builder is evaluated forward from captures bound elsewhere instead. A pack is captured with ```...const Ts``` in a variadic position, reads as its tuple as any pack does, and a repeated ```...Ts``` requires the same length and elementwise identity: ```class Append<Tuple.<...const Ts>, Tuple.<...Ts>> {}```.
+
+Selection binds the primary first and matches afterwards. Explicit arguments, the expected type, the value arguments, and the defaults bind the primary's parameters in their usual order, and the specializations are matched against that ordered binding, so ```Box.<uint32, N: 8>``` and ```Box.<uint32, 8>``` reach the same specialization and a capture's name never becomes an argument a caller can supply. The most specific matching specialization is selected by a finite comparison of fixed arguments, constructors, captures, repeated-capture equalities, and bounds whose inclusion is decidable. Where two match and neither is more specific - ```Pair<uint32, _>``` and ```Pair<const T, T>``` both match ```Pair.<uint32, uint32>``` - the application is a TypeError naming both, and a specialization for their intersection, ```Pair<uint32, uint32>```, resolves it. Declaration order never decides. Where none matches, the primary is used.
+
+A specialization replaces the primary's body for the applications it matches, and keeps the primary's public contract: required members, constructors, variance, and reference permissions, so code written against ```Box.<T>``` stays correct whichever body runs. It may change its private representation, and layout is computed after selection, so generic code learns no size or offset from the primary's body that a specialization could invalidate. A specialization belongs to the declaration group that declares its primary: a program cannot replace an imported or intrinsic family's representation, though it may extend one additively. An alias family specializes the same way, ```type Storage<T: type> = T;``` with ```type Storage<boolean> = uint8;```, and generic code does not assume that an open ```Storage.<T>``` is ```T```, since a binding may select the other case. This is the rule Rust applies to a ```default``` associated type.
+
+A ```partial class``` or ```partial interface``` target is a pattern too, and its members exist only on the matching instantiations. What a partial specialization does is *narrow* the family, always against the primary declaration's own bound rather than in place of it: a fixed argument is the narrowest narrowing, a constructor pattern such as ```uint.<const N>``` an intermediate one, and a bound on a capture the general case, admitting every instantiation whose argument satisfies both the primary's bound and the capture's. The [SIMD](simd.md) extension uses a fixed argument to put the mask operations on ```partial class vector<boolean1, const N: uint32>``` alone, leaving the general ```vector.<T, N>``` without them; the [ranges](ranges.md) extension uses a bound to put ```scale``` on ```partial interface RangeBounds<const T extends Scalable.<T>>```, leaving it off the ranges whose element type has an ordering but no arithmetic. A partial adds members only - it changes no layout, per the class extension rules - and a member that would collide with the primary declaration's is a TypeError as usual.
+
+A member added this way is present on an instantiation only where the declaring module is loaded, which is true of every partial and is why a narrowing the language itself relies on belongs to the standard library rather than to a program.
+
 ### Specialized Overloads
 
-A generic parameter list may pin some parameters to concrete types and leave others open, and a function or method may declare several such signatures. This is how one name serves many types with no ```any``` in sight: the compiler selects the signature whose generic parameter list matches the arguments at the call, the same resolution methods and functions already use on their value parameters.
-
-A parameter is *specialized* when it names a concrete type rather than a fresh identifier, and its signature applies only when that generic argument is that type:
+Functions, methods, and operators already overload, so their generic lists follow the model C++ uses for function templates rather than for class templates: every generic list declares an overload of its own. Within it, a fixed argument or capture is an unnamed position and a ```name: domain``` entry is a named public parameter, and the two mix freely:
 
 ```js
 class PacketWriter {
-  write<boolean>(value: boolean): PacketWriter {}   // Selected by write.<boolean>(...)
-  write<float32>(value: float32): PacketWriter {}
+  write<boolean>(value: boolean): PacketWriter {}
+  write<uint.<const N>>(value: uint.<N>): PacketWriter {}
+  write<float32, maximum: float32, bits: uint32>(value: float32): PacketWriter {}
   write<float32, minimum: float32, maximum: float32, bits: uint32>(value: float32): PacketWriter {}
 }
 
 const w = new PacketWriter();
 w.write.<boolean>(true);
-w.write.<float32, -1024, 1024, 18>(x); // The four-parameter float32 overload
+w.write.<uint.<12>>(id);                       // N is 12
+w.write.<float32, -1024, 1024, 18>(x);         // the four-parameter float32 overload
+w.write.<float32, maximum: 1024, bits: 18>(x); // the three-parameter one, by name
+// w.write.<float16>(h);                       // TypeError: no declared signature accepts it
 ```
 
-The first generic argument selects among the overloads; the remaining parameters may be open type parameters or value generics, so ```write.<float32, -1024, 1024, 18>``` picks the signature whose first parameter is ```float32``` and whose next three are the value generics ```minimum```, ```maximum```, and ```bits```.
+Overload resolution ranks these as it ranks value signatures, a fixed position beating a parameter and a fixed parameter beating a pack. An application that no overload accepts is the ordinary "no declared signature" error, statically wherever the arguments are static. The float32 overloads with three and four positions have different public names, which is why they are separate overloads rather than cases of one generic signature. A capture at the top level of such an overload would observe nothing - it is a parameter in disguise - so it is an error that asks for ```name: domain```.
 
-A specialized parameter may be a *constraint family* rather than a single type, matching any member of the family and binding its variable:
+A same-named signature whose list holds only parameters is an *owner*. An overload whose list holds only fixed arguments and captures, in positions the owner's list accepts, attaches to it: it borrows the owner's parameter names, so named and positional calls reach it alike, and where its signature is the owner's at those arguments it replaces the owner's body for them, keeps the owner's contract, and is reached through the generic function value too.
 
 ```js
-write<uint<N: uint32>>(value: uint.<N>): PacketWriter {}                   // Any uint.<N>, N bound
-write<uint<N: uint32>, minimum: uint32, maximum: uint32>(value: uint.<N>) {}
+function category<T: type>(): string { return "general"; }
+function category<uint32>(): string { return "uint32"; }
+function category<Map.<string, const Element>>(): string { return "string-keyed map"; }
+
+category.<Map.<string, uint8>>(); // "string-keyed map"
+category.<Map.<uint32, uint8>>(); // "general"
+category.<T: uint32>();           // "uint32": the overload borrows the owner's name T
 ```
 
-```uint<N: uint32>``` matches ```uint.<8>```, ```uint.<12>```, and so on, binding ```N``` to the width for the parameter and body. This is the declaration-site counterpart of the ```extends uint``` constraint: ```extends``` bounds an open parameter, while a family in the specialization position both selects the overload and binds its width.
-
-A ```partial class``` or ```partial interface``` may specialize a generic parameter the same way, so its members exist only on the matching instantiations. What a specialization does in general is *narrow* the parameter, always against the primary declaration's own bound rather than in place of it: a concrete type is the narrowest narrowing, a constraint family is an intermediate one, and an interface bound is the general case, admitting every instantiation whose argument satisfies the primary's constraint and the narrowing both. The [SIMD](simd.md) extension uses a concrete narrowing to put the mask operations on ```partial class vector<boolean1, N: uint32>``` alone, leaving the general ```vector<T, N>``` without them; the [ranges](ranges.md) extension uses an interface narrowing to put ```scale``` on ```partial interface RangeBounds<T: Scalable.<T>>```, leaving it off the ranges whose element type has an ordering but no arithmetic. A specialized ```partial``` adds members only - it changes no layout, per the class extension rules - and a member that would collide with the primary declaration's is a TypeError as usual.
-
-A member added this way is present on an instantiation only where the declaring module is loaded, which is true of every partial and is why a narrowing the language itself relies on belongs to the standard library rather than to a program.
-
-Specialization mixes freely with open parameters. A selector type followed by an open one is the shape the [decorators](decorators.md) reflection API uses throughout, one overload per reflection kind:
+An owner may be declared without a body, as an abstract method is, and then an application that no attached overload matches is an error rather than a fallback. A generic body can forward an open argument to it, checked once against the owner's signature and selected per specialization:
 
 ```js
-getReflection<Reflect.Class, T>(): Reflect.ClassReflection;
-getReflection<Reflect.ClassField, T>(name: string | symbol): Reflect.ClassFieldReflection;
+class PacketReader {
+  read<T: type>(): T;
+  read<boolean>(): boolean {}
+  read<uint.<const N>>(): uint.<N> {}
+}
+class Accumulating<T: type> extends PacketReader {
+  next(): T { return super.read.<T>(); } // checked against read<T: type>(): T
+}
 ```
 
-The first argument (```Reflect.Class```, ```Reflect.ClassField```, and so on) selects the overload; the second, ```T```, is the class being reflected. The [binary packet](examples/binarypacket.md) writer and reader are the fuller worked example, with a dozen ```write``` and ```read``` overloads resolved this way.
+Without an owner, an open argument reaches a set of overloads only where its bound proves one of them applicable to every binding it admits. ```this.write.<LengthType>(...)```, for ```LengthType: type extends uint```, is checked against ```write<uint.<const N>>```, and any more specific overload that a particular binding selects must have that overload's signature at the binding. Anything else is a type error asking for an owner.
+
+The [decorators](decorators.md) reflection API is a set of such overloads, one per reflection kind, each fixing the kind and naming the reflected class:
+
+```js
+getReflection<Reflect.Class, T: type>(): Reflect.ClassReflection;
+getReflection<Reflect.ClassField, T: type>(name: string | symbol): Reflect.ClassFieldReflection;
+```
+
+The [binary packet](examples/binarypacket.md) writer and reader are the fuller worked example, with a dozen ```write``` and ```read``` overloads resolved this way.
+
 
 ### Variadic Generic Parameters
 
@@ -347,41 +431,41 @@ type promisesOf(Ts: type): type {
 One modifier distributes rather than maps: ```ref``` on a rest parameter makes each parameter the rest collects a ```ref```, in declarations and in function types alike. This is what types a query callback without any builder at all — the pack appears directly:
 
 ```js
-each<...Cs extends [].<Component>>(cb: (e: Entity, ref ...refs: Cs) => void): void;
+each<...Cs: [].<type> extends [].<Component>>(cb: (e: Entity, ref ...refs: Cs) => void): void;
 world.each((e, ref t: Transform, ref v: Velocity) => { t.x += v.x; });  // Cs inferred: [Transform, Velocity]
 ```
 
 References are not values, so a ```ref``` rest binds no array. Its name is usable in exactly three forms, each a direct use of one collected reference and none a store: ```...name``` forwarded into another call's ref-rest position, ```name[k]``` with a compile-time-constant ```k```, and ```name.length```. Everything else — assigning it, passing it whole, a runtime index — is the escape error a single ```ref``` parameter already has, applied per element. The [ECS example](examples/ecs.md) is the worked case.
 
-**Binding a pack from arguments.** Inference reaches a pack wherever it reaches a scalar — the ladder is the same, with no carve-outs. A rest parameter typed by the pack binds it from the call's values (each a compile-time constant, as every value-generic argument is); a whole-tuple parameter binds it from one tuple; a written tuple pattern matches into it with the same greedy rule, ```pairUp<T, ...Rest>(p: [T, ...Rest])```; a callback's signature binds it structurally, as ```each``` above shows; and a builder standing between the pack and the arguments inverts only through a declared ```@inverse```, never by search - the inverse of a builder over a pack receives the tuple of the collected arguments' types and returns the pack's tuple, so a builder written elementwise inverts elementwise. A spread argument binds a pack only when its length is static. Most inversions are better avoided than declared: declare the pack as *what the caller passes* and derive the rest forward —
+**Binding a pack from arguments.** Inference reaches a pack wherever it reaches a scalar — the ladder is the same, with no carve-outs. A rest parameter typed by the pack binds it from the call's values (each a compile-time constant, as every value-generic argument is); a whole-tuple parameter binds it from one tuple; a written tuple pattern matches into it with the same greedy rule, ```pairUp<T: type, ...Rest: [].<type>>(p: [T, ...Rest])```; a callback's signature binds it structurally, as ```each``` above shows; and a builder standing between the pack and the arguments inverts only through a declared ```@inverse```, never by search - the inverse of a builder over a pack receives the tuple of the collected arguments' types and returns the pack's tuple, so a builder written elementwise inverts elementwise. A spread argument binds a pack only when its length is static. Most inversions are better avoided than declared: declare the pack as *what the caller passes* and derive the rest forward —
 
 ```js
-function all<...Ps extends [].<PromiseLike>>(...ps: Ps): Promise.<awaitedAll(Ps)> {}
+function all<...Ps: [].<type> extends [].<PromiseLike>>(...ps: Ps): Promise.<awaitedAll(Ps)> {}
 ```
 
 — which needs only structural matching, and, types being structural, yields the same types the inverted spelling would.
 
-**Growth is metered.** A specialization chain through a tuple, ```read<T>(): Reader.<[...Ts, T]>``` in the [binary packet](examples/binarypacket.md) example, is finite per call site and free. A function that specializes *itself* over a longer pack recurses without end and is stopped by the compile-time evaluation budget, as Rust stops the same program with its recursion limit — a type error naming the budget, never a stack overflow.
+**Growth is metered.** A specialization chain through a tuple, ```read<T: type>(): Reader.<[...Ts, T]>``` in the [binary packet](examples/binarypacket.md) example, is finite per call site and free. A function that specializes *itself* over a longer pack recurses without end and is stopped by the compile-time evaluation budget, as Rust stops the same program with its recursion limit — a type error naming the budget, never a stack overflow.
 
 ### Generic Function Types and Signatures
 
 A function type may declare type parameters, and an interface's call and method signatures may too. This is the type of a generic function, and it is what makes a generic strategy or bus an ordinary interface:
 
 ```js
-let g: <T>(x: T) => T;
-interface Mapper { <T>(x: T): T; }
+let g: <T: type>(x: T) => T;
+interface Mapper { <T: type>(x: T): T; }
 interface Bus { on<T extends Event>(name: string, h: (e: T) => void): void; }
 ```
 
-Two generic signatures are the same type when they are the same up to renaming: parameter names are carried for tooling and named arguments, never compared, so ```<T>(x: T) => T``` and ```<U>(x: U) => U``` are one type, while a constraint, a default, a variance annotation, or the parameter order makes two. A class satisfies a generic interface signature by shape under the same reading, so an implementation is free to pick its own parameter names.
+Two generic signatures are the same type when they are the same up to renaming: parameter names are carried for tooling and named arguments, never compared, so ```<T: type>(x: T) => T``` and ```<U: type>(x: U) => U``` are one type, while a constraint, a default, a variance annotation, or the parameter order makes two. A class satisfies a generic interface signature by shape under the same reading, so an implementation is free to pick its own parameter names.
 
-Assignability follows one question — could a caller reading the target's type be misled? A generic function is assignable *to* a concrete signature by instantiation, so ```const g: (uint8) => uint8 = id``` holds ```id.<uint8>```: the specialization happens where the assignment is written, and every call through ```g``` is a direct call of one body. A generic function is assignable to a generic signature that is no more general than it is. A concrete function is *not* assignable to a generic signature — ```<T>(x: T) => T``` promises every ```T```, and ```(x: uint8) => uint8``` would return a ```uint8``` for a ```string``` — with the untyped catch-all as the one exception it already is everywhere.
+Assignability follows one question — could a caller reading the target's type be misled? A generic function is assignable *to* a concrete signature by instantiation, so ```const g: (uint8) => uint8 = id``` holds ```id.<uint8>```: the specialization happens where the assignment is written, and every call through ```g``` is a direct call of one body. A generic function is assignable to a generic signature that is no more general than it is. A concrete function is *not* assignable to a generic signature — ```<T: type>(x: T) => T``` promises every ```T```, and ```(x: uint8) => uint8``` would return a ```uint8``` for a ```string``` — with the untyped catch-all as the one exception it already is everywhere.
 
-A specialization is a value. ```id.<uint8>``` in expression position is a function object, interned per function and ordered bindings, so two spellings are one value — ```id.<uint8> === id.<uint8>```, a ```Map``` keyed on it round-trips, ```removeEventListener``` works — and ```arr.map(id.<uint8>)``` runs the specialized body. Its ```where``` clauses run once, at specialization. The bare name keeps the generic signature: ```Reflect.typeOf(id)``` is ```<T>(x: T) => T```; ```Reflect.typeOf(id.<uint8>)``` is ```(uint8) => uint8```.
+A specialization is a value. ```id.<uint8>``` in expression position is a function object, interned per function and ordered bindings, so two spellings are one value — ```id.<uint8> === id.<uint8>```, a ```Map``` keyed on it round-trips, ```removeEventListener``` works — and ```arr.map(id.<uint8>)``` runs the specialized body. Its ```where``` clauses run once, at specialization. The bare name keeps the generic signature: ```Reflect.typeOf(id)``` is ```<T: type>(x: T) => T```; ```Reflect.typeOf(id.<uint8>)``` is ```(uint8) => uint8```.
 
 Calling through a binding of *generic* function type — ```let m: Mapper = id; m.<uint8>(1)``` — selects the specialization of whatever the binding holds, by that callee's identity and the call's bindings. Which body runs is not known where the call is written; it is not known for any indirect call either, and the cost is that of one: an indirect call plus a cache keyed on callee and bindings, the dispatch C# performs for generic virtual methods. The type checks are still compiled away; only the callee is dynamic, and only where it already was. Crossing into a *concrete* signature — the common case — moved that decision to the assignment above and costs the call nothing.
 
-An overload set may mix concrete signatures, generic signatures, and packs. A generic signature is viable when its parameters bind, from explicit arguments or by inference; ranking uses the instantiated signature; and where more than one is viable, a concrete position beats a type parameter and a fixed parameter beats a pack, so ```route(e: Click)```, ```route<T extends Event>(e: T)```, and ```route<...Es extends [].<Event>>(...es: Es)``` layer from most to least specific. Two signatures that are the same up to renaming are one signature written twice, and are reported as the duplicate they are.
+An overload set may mix concrete signatures, generic signatures, and packs. A generic signature is viable when its parameters bind, from explicit arguments or by inference; ranking uses the instantiated signature; and where more than one is viable, a concrete position beats a type parameter and a fixed parameter beats a pack, so ```route(e: Click)```, ```route<T: type extends Event>(e: T)```, and ```route<...Es: [].<type> extends [].<Event>>(...es: Es)``` layer from most to least specific. Two signatures that are the same up to renaming are one signature written twice, and are reported as the duplicate they are.
 
 ### Using Value Type Classes as parameters
 

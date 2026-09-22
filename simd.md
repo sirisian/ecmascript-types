@@ -11,7 +11,7 @@ Every ```vector.<T, N>``` is a value type. It copies on assignment, it has no id
 Two forms, and the difference between them is the difference between one instruction and several.
 
 ```js
-class vector<T, N: uint32> {
+class vector<T: type, N: uint32> {
 	operator vector(value: T) { /* … */ } // Broadcast: a cast operator from the lane type T, filling every lane
 
 	lane<I: uint32>(): T where I < N { /* … */ return undefined; } // Compile-time index
@@ -123,7 +123,7 @@ So the accessors add no code generation. The intrinsic below is what an engine c
 ## Permutation
 
 ```js
-partial class vector<T, N: uint32> {
+partial class vector<const T, const N: uint32> {
 	swizzle<...I: [].<uint32>>(): vector.<T, I.length>; // One source
 	shuffle<...I: [].<uint32>>(other: vector.<T, N>): vector.<T, I.length>; // Two sources
 }
@@ -154,14 +154,14 @@ const a = float32x4(1, 2, 3, 4);
 const b = float32x4(4, 3, 2, 1);
 const m: boolean32x4 = a < b; // (true, true, false, false)
 
-partial class vector<T, N: uint32> {
+partial class vector<const T, const N: uint32> {
 	sum(): T; // Horizontal add across the lanes
 }
 
-partial class vector<boolean1, N: uint32> { // Mask operations: boolean lanes only
+partial class vector<boolean1, const N: uint32> { // Mask operations: boolean lanes only
 	all(): boolean; // Every lane set. movmskps + cmp, or uminv
 	any(): boolean; // Some lane set
-	select<U>(whenSet: vector.<U, N>, whenClear: vector.<U, N>): vector.<U, N>;
+	select<U: type>(whenSet: vector.<U, N>, whenClear: vector.<U, N>): vector.<U, N>;
 }
 ```
 

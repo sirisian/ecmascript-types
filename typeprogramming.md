@@ -159,7 +159,7 @@ The empty union is admitted as a type object: `Reflect.makeType({ kind: 'union',
 Everywhere a type may: variable and field annotations, parameter and return types, generic argument lists (`Map.<string, partial(User)>`), the right side of `is` and `as`, alias declarations (`type Draft = partial(User)`), and **generic constraints**, the one placement that needed a sentence of its own ([#sec-computed-constraints](https://sirisian.github.io/proposal-runtime-types/#sec-computed-constraints)). A constraint may be a compile-time call over *earlier* parameters in the same list, evaluated left to right:
 
 ```js
-function pluck<T, K: keyof T>(o: T, key: K): indexed(T, K) {
+function pluck<T: type, K: keyof T>(o: T, key: K): indexed(T, K) {
   return o[key];
 }
 ```
@@ -325,7 +325,7 @@ export function indexed(T: type, K: type): type {
   })));
 }
 
-function pluck<T, K: keyof T>(o: T, key: K): indexed(T, K) { return o[key]; }
+function pluck<T: type, K: keyof T>(o: T, key: K): indexed(T, K) { return o[key]; }
 ```
 
 The kit spells the key operation `keys` rather than `keysOf`, following its own convention: an `Of` suffix constructs (`objectOf`, `tupleOf`, `arrayOf`) and a bare plural extracts (`arms`, `parameters`, `paths`, `discriminants`, `elementTypes`). A keyless operand is `never` rather than an error — `keys(uint8)` is `never` — and the refusal lives at the *use*, which `indexed` performs.
@@ -594,7 +594,7 @@ export function constructorParameters(C: type): type {
     elements: signatures[0].parameters.map(p => ({ type: p.type, rest: p.rest, initial: p.initial })) });
 }
 
-function build<C>(...args: constructorParameters(C)): C {
+function build<C: type>(...args: constructorParameters(C)): C {
   return new C(...args); // a class's type object is its constructor, so a specialized C constructs
 }
 const p = build.<Player>(10, 20);
@@ -678,7 +678,7 @@ export function routeParams(P: type): type {
     .map(segment => prop(segment.slice(1), string)));
 }
 
-function get<P extends '/users/:id/posts/:postId'>(path: P, handler: (params: routeParams(P)) => Response): void {}
+function get<P: type extends '/users/:id/posts/:postId'>(path: P, handler: (params: routeParams(P)) => Response): void {}
 
 get('/users/:id/posts/:postId', ({ id, postId }) => { ... }); // id: string, postId: string
 ```
@@ -745,8 +745,8 @@ declare function concatArrays<A extends unknown[], B extends unknown[]>(a: A, b:
 
 ```js
 // Builder — numbers are numbers; value generics already carry them through signatures
-function concatArrays<A: uint32, B: uint32, T>(a: [A].<T>, b: [B].<T>): [A + B].<T> {}
-function reshape<R: uint32, C: uint32, T>(m: [R * C].<T>): [R].<[C].<T>> {}
+function concatArrays<A: uint32, B: uint32, T: type>(a: [A].<T>, b: [B].<T>): [A + B].<T> {}
+function reshape<R: uint32, C: uint32, T: type>(m: [R * C].<T>): [R].<[C].<T>> {}
 ```
 
 `A + B` in the extent is a compile-time evaluable expression over value generics — the same evaluation `multiplyDimensions(D, D2)` already performs on metadata. There is nothing to build; the capability is a corollary of value generics plus evaluability, and it covers ground (fixed-size linear algebra shapes, bit-width computation, ring-buffer sizing) that TypeScript's tuple trick cannot reach at all.
@@ -807,7 +807,7 @@ export function paths(T: type): type {
   }));
 }
 
-function getPath<T, P: paths(T)>(o: T, path: P): any { ... } // P checked against the computed union
+function getPath<T: type, P: paths(T)>(o: T, path: P): any { ... } // P checked against the computed union
 ```
 
 On a *cyclic* type the path set is genuinely infinite; the keys never repeat (each call receives a different property type as it descends), so the fixpoint never fires and the budget (§3.4) terminates evaluation with a diagnostic naming `paths` and the offending cycle. TypeScript fails the same input with its depth error. Neither system can enumerate an infinite union; the difference is that the builder's failure message can say so in the author's words — `paths` can trivially carry a `seen: Set.<type>` parameter and `throw new TypeError('paths: T is recursive; path strings are unbounded')`, an option the TypeScript version does not have.
@@ -848,7 +848,7 @@ export function handlers(T: type, R: type, tag: string = 'kind'): type {
   return objectOf(discriminants(T, tag).map(k => prop(k, fn([byKind(T, k, tag)], R))));
 }
 
-function match<T, R>(value: T, table: handlers(T, R)): R {
+function match<T: type, R: type>(value: T, table: handlers(T, R)): R {
   switch (value.kind) { /* per-arm dispatch */ }
 }
 type CircleOnly = byKind(Shape, 'circle');
@@ -1018,7 +1018,7 @@ Bridges, in order of preference: design APIs so the parameter appears at least o
 TypeScript checks a generic function's body *once*, abstractly, against the parameter's constraint; errors surface at the declaration. This proposal's generics are fully specialized — bodies are checked per instantiation, C++-template style — and that stance predates builders. But builders amplify it: inside
 
 ```js
-function sanitize<T>(value: T): omit(T, ['password']) { ... }
+function sanitize<T: type>(value: T): omit(T, ['password']) { ... }
 ```
 
 the type `omit(T, ['password'])` is, before specialization, an interned opaque application. The checker knows `omit(T, ['password']) === omit(T, ['password'])`, knows its declared kind is `type`, and knows nothing else — not that it is an object type, not its variance in `T` (which must therefore be treated as invariant pre-specialization), not whether the body's `return` value matches it. TypeScript's deferred conditional and mapped types are *also* mostly opaque in this position, but TypeScript retains slivers of reasoning (a deferred conditional's constraint is the union of its branches; homomorphic maps relate covariantly) that opaque applications surrender.
@@ -1072,8 +1072,8 @@ Under that discipline, the phase boundary of §5.3 does not have to be a wall; i
 **Rung 1: compute in the return, not the parameter (zero additions).** The inversion problem exists only when the computed type sits in a *parameter* position, where the engine would have to run the builder backwards during inference. Move it to the *return* position and everything is forward: the argument's type is inferred plainly, and the "inverse" is just another builder the author writes as ordinary structural code.
 
 ```js
-// TypeScript: declare function apply<T>(patch: Partial<T>): T;
-function apply<Patch>(patch: Patch): required(Patch) { ... }
+// TypeScript: declare function apply<T: type>(patch: Partial<T>): T;
+function apply<Patch: type>(patch: Patch): required(Patch) { ... }
 
 const user = apply({ name: 'a' });
 // Patch = { name: string } by plain forward inference; return type = required({ name: string })
@@ -1104,7 +1104,7 @@ The rule: enumerate the constraint's members in declaration order; for each cand
 @inverse(required)                              // or @inverse((Result: type) => ...) for a bespoke one
 function partial(T: type): type { ... }                  // §4.2, quoted
 
-function apply<T>(patch: partial(T)): T { ... }
+function apply<T: type>(patch: partial(T)): T { ... }
 const user = apply({ name: 'a' });
 // 1. ordinary inference for T fails (T occurs only under partial)
 // 2. propose: T₀ = inverse({ name: string }) = { name: string }
@@ -1132,7 +1132,7 @@ The semantics are two-sided, and both sides matter. **Verified:** at every concr
 Direction is everything here, and it is easy to get backwards. An *upper* bound (`return <: partial(T)`) serves **consumers** of the result — code holding an `omit(T, keys)` value may use it as a `partial(T)`. Checking a generic body that **produces** the result needs a *lower* bound, and for `omit` the true one is `T <: return` (width subtyping: removing properties yields a supertype). That is what lets the motivating example finally check at its declaration:
 
 ```js
-function sanitize<T>(value: T): omit(T, ['password']) {
+function sanitize<T: type>(value: T): omit(T, ['password']) {
   return { ...value };   // typed T; the contract's Reflect.isAssignable(T, return-of-omit) admits it pre-specialization
 }
 ```
@@ -1150,7 +1150,7 @@ Three pieces close the remaining distance, each conforming to the propose/verify
 ```js
 export function noInfer(T: type): type { return T; }
 
-function update<T>(original: T, patch: noInfer(T)): void { ... }
+function update<T: type>(original: T, patch: noInfer(T)): void { ... }
 update({ a: 1 }, { a: 2, b: 3 });
 // T infers from `original` only ⇒ T = { a: float64 }; patch is then *checked* against noInfer(T) = T
 ```

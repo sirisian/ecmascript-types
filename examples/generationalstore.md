@@ -21,7 +21,7 @@ A handle is eight bytes that name a slot at a moment in time. The type parameter
 // store.js
 export const NULL_SLOT: uint32 = 0xffffffff;
 
-export class Handle<T> { // T is phantom: no field uses it; it exists to make the type nominal per store
+export class Handle<T: type> { // T is phantom: no field uses it; it exists to make the type nominal per store
 	readonly slot: uint32;
 	readonly generation: uint32;
 }
@@ -35,7 +35,7 @@ Storage is three parallel columns plus a free-list head. A slot's generation is 
 
 ```js
 // store.js
-export class Store<T> {
+export class Store<T: type> {
 	#values: [].<T>;
 	#generations: [].<uint32>;
 	#freeNext: [].<uint32>; // Threads the free list; meaningful only while a slot is free
@@ -113,7 +113,7 @@ Live-slot iteration is the ECS inner loop, so it takes the reference-callback fo
 
 ```js
 // store.js
-partial class Store<T> {
+partial class Store<const T> {
 	each(cb: (ref value: T, handle: Handle.<T>) => void) {
 		for (let i: uint64 = 0; i < this.#values.length; i++) {
 			const generation = this.#generations[i];
@@ -137,7 +137,7 @@ What may the body of ```each``` do to the store? The liveness rule draws the lin
 
 ```js
 // store.js
-export class Commands<T> {
+export class Commands<T: type> {
 	#spawns: [].<T> = [];
 	#despawns: [].<Handle.<T>> = [];
 

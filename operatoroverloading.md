@@ -71,12 +71,12 @@ primitive number {
 Written out per type it doesn't scale. Three scalar types times eight math types is twenty-four blocks, and every new vector type in every library adds three more. The fix is to make the block generic, constrained by an interface that says what the right operand must support. An interface can declare operator members, which is what makes the constraint expressible:
 
 ```js
-interface ScalarMultiply<S, R> {
+interface ScalarMultiply<S: type, R: type> {
 	operator*(rhs: S): R;
 }
 
 primitive float32 {
-	operator*.<T extends ScalarMultiply.<float32, T>>(rhs: T): T {
+	operator*.<T: type extends ScalarMultiply.<float32, T>>(rhs: T): T {
 		return rhs * this;
 	}
 }

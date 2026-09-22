@@ -120,13 +120,13 @@ namespace Reflect {
 Decorators can be specialized for different types by specifying the generic parameters. They can also be specialized for different targets.
 
 ```js
-function f<TClass>(context: Reflect.ClassField.<uint32, TClass>) {
+function f<TClass: type>(context: Reflect.ClassField.<uint32, TClass>) {
 	console.log('decorator on uint32');
 }
-function f<TClass extends A>(context: Reflect.ClassField.<any, TClass>) {
+function f<TClass: type extends A>(context: Reflect.ClassField.<any, TClass>) {
 	console.log('decorator on another type, extends A');
 }
-function f<TClass>(context: Reflect.ClassField.<any, TClass>) {
+function f<TClass: type>(context: Reflect.ClassField.<any, TClass>) {
 	console.log('decorator on another type');
 }
 
@@ -367,7 +367,7 @@ namespace Reflect {
 		metadata: ClassMetadata;
 	};
 
-	type ClassFieldReflection<T = any> = {
+	type ClassFieldReflection<T: type = any> = {
 		type: T;
 		name: string | symbol;
 		static: boolean;
@@ -383,7 +383,7 @@ namespace Reflect {
 		metadata: ClassFieldMetadata;
 	};
 
-	type ClassAccessorReflection<T = any> = {
+	type ClassAccessorReflection<T: type = any> = {
 		type: T;
 		name: string | symbol;
 		static: boolean;
@@ -397,7 +397,7 @@ namespace Reflect {
 		metadata: ClassAccessorMetadata;
 	};
 
-	type ClassGetterReflection<T = any> = {
+	type ClassGetterReflection<T: type = any> = {
 		type: () => T;
 		name: string | symbol;
 		static: boolean;
@@ -406,12 +406,12 @@ namespace Reflect {
 		metadata: ClassGetterMetadata;
 	};
 
-	type ClassGetterReturnReflection<T = any> = {
+	type ClassGetterReturnReflection<T: type = any> = {
 		type: T;
 		metadata: ClassGetterReturnMetadata;
 	};
 
-	type ClassSetterReflection<T = any> = {
+	type ClassSetterReflection<T: type = any> = {
 		type: (value: T) => void;
 		name: string | symbol;
 		static: boolean;
@@ -423,7 +423,7 @@ namespace Reflect {
 	// A setter takes exactly one parameter, so this reflection carries no `index`
 	// where the other parameter reflections do - an index that is always 0 reports
 	// nothing.
-	type ClassSetterParameterReflection<T = any> = {
+	type ClassSetterParameterReflection<T: type = any> = {
 		type: T;
 		name: string;
 		initial: T | undefined;
@@ -431,7 +431,7 @@ namespace Reflect {
 		metadata: ClassSetterParameterMetadata;
 	};
 
-	type ClassMethodReflection<T extends (...args: [].<any>) => any = (...args: [].<any>) => any> = {
+	type ClassMethodReflection<T: type extends (...args: [].<any>) => any = (...args: [].<any>) => any> = {
 		type: T;
 		name: string | symbol;
 		static: boolean;
@@ -442,7 +442,7 @@ namespace Reflect {
 		metadata: ClassMethodMetadata;
 	};
 
-	type ClassMethodParameterReflection<T = any> = {
+	type ClassMethodParameterReflection<T: type = any> = {
 		type: T;
 		name: string;
 		index: uint32;
@@ -451,12 +451,12 @@ namespace Reflect {
 		metadata: ClassMethodParameterMetadata;
 	};
 
-	type ClassMethodReturnReflection<T = any> = {
+	type ClassMethodReturnReflection<T: type = any> = {
 		type: T;
 		metadata: ClassMethodReturnMetadata;
 	};
 
-	type ClassOperatorReflection<T = any> = {
+	type ClassOperatorReflection<T: type = any> = {
 		type: T;
 		operator: Operator;
 		static: boolean;
@@ -464,7 +464,7 @@ namespace Reflect {
 		metadata: ClassOperatorMetadata;
 	};
 
-	type ClassOperatorParameterReflection<T = any> = {
+	type ClassOperatorParameterReflection<T: type = any> = {
 		type: T;
 		name: string;
 		index: uint32;
@@ -473,7 +473,7 @@ namespace Reflect {
 		metadata: ClassOperatorParameterMetadata;
 	};
 
-	type ClassOperatorReturnReflection<T = any> = {
+	type ClassOperatorReturnReflection<T: type = any> = {
 		type: T;
 		metadata: ClassOperatorReturnMetadata;
 	};
@@ -492,14 +492,14 @@ namespace Reflect {
 		return: FunctionReturnReflection;
 	};
 
-	type FunctionReflection<T extends (...args: [].<any>) => any = (...args: [].<any>) => any> = {
+	type FunctionReflection<T: type extends (...args: [].<any>) => any = (...args: [].<any>) => any> = {
 		type: T;
 		name: string | symbol | undefined;
 		signatures: [].<FunctionSignatureReflection>; // Length 1 when not overloaded
 		metadata: FunctionMetadata;
 	};
 
-	type FunctionParameterReflection<T = any> = {
+	type FunctionParameterReflection<T: type = any> = {
 		type: T;
 		name: string;
 		index: uint32;
@@ -508,7 +508,7 @@ namespace Reflect {
 		metadata: FunctionParameterMetadata;
 	};
 
-	type FunctionReturnReflection<T = any> = {
+	type FunctionReturnReflection<T: type = any> = {
 		type: T;
 		metadata: FunctionReturnMetadata;
 	};
@@ -519,14 +519,14 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	type LetReflection<T = any> = {
+	type LetReflection<T: type = any> = {
 		type: T;
 		name: string;
 		initial: T | undefined;
 		initializer: TokenStream | undefined;
 	};
 
-	type ConstReflection<T = any> = {
+	type ConstReflection<T: type = any> = {
 		type: T;
 		name: string;
 		initial: T;
@@ -539,35 +539,35 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	type ObjectReflection<T = any> = {
+	type ObjectReflection<T: type = any> = {
 		type: T;
 		metadata: ObjectMetadata;
 	};
 
-	type ObjectFieldReflection<T = any> = {
+	type ObjectFieldReflection<T: type = any> = {
 		type: T;
 		name: string | symbol;
 		metadata: ObjectFieldMetadata;
 	};
 
-	type ObjectGetterReflection<T = any> = {
+	type ObjectGetterReflection<T: type = any> = {
 		type: () => T;
 		name: string | symbol;
 		metadata: ObjectGetterMetadata;
 	};
 
-	type ObjectGetterReturnReflection<T = any> = {
+	type ObjectGetterReturnReflection<T: type = any> = {
 		type: T;
 		metadata: ObjectGetterReturnMetadata;
 	};
 
-	type ObjectSetterReflection<T = any> = {
+	type ObjectSetterReflection<T: type = any> = {
 		type: (value: T) => void;
 		name: string | symbol;
 		metadata: ObjectSetterMetadata;
 	};
 
-	type ObjectSetterParameterReflection<T = any> = {
+	type ObjectSetterParameterReflection<T: type = any> = {
 		type: T;
 		name: string;
 		initial: T | undefined;
@@ -575,14 +575,14 @@ namespace Reflect {
 		metadata: ObjectSetterParameterMetadata;
 	};
 
-	type ObjectMethodReflection<T extends (...args: [].<any>) => any = (...args: [].<any>) => any> = {
+	type ObjectMethodReflection<T: type extends (...args: [].<any>) => any = (...args: [].<any>) => any> = {
 		type: T;
 		name: string | symbol;
 		signatures: [].<FunctionSignatureReflection>; // Length 1 when not overloaded
 		metadata: ObjectMethodMetadata;
 	};
 
-	type ObjectMethodParameterReflection<T = any> = {
+	type ObjectMethodParameterReflection<T: type = any> = {
 		type: T;
 		// A parameter is named by an identifier, so `string` - as the other
 		// parameter reflections have it. A `symbol` here would be a member name,
@@ -594,7 +594,7 @@ namespace Reflect {
 		metadata: ObjectMethodParameterMetadata;
 	};
 
-	type ObjectMethodReturnReflection<T = any> = {
+	type ObjectMethodReturnReflection<T: type = any> = {
 		type: T;
 		metadata: ObjectMethodReturnMetadata;
 	};
@@ -685,7 +685,7 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	type EnumReflection<T extends enum.<TValue>, TValue = int32> = {
+	type EnumReflection<T: type extends enum.<TValue>, TValue: type = int32> = {
 		type: T;
 		name: string;
 		valueType: TValue;
@@ -693,7 +693,7 @@ namespace Reflect {
 		metadata: EnumMetadata;
 	};
 
-	type EnumEnumeratorReflection<T extends enum.<TValue>, TValue = int32> = {
+	type EnumEnumeratorReflection<T: type extends enum.<TValue>, TValue: type = int32> = {
 		name: string;
 		value: TValue;
 		index: uint32;
@@ -706,11 +706,11 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	type TupleReflection<T extends [].<any> = [].<any>> = {
+	type TupleReflection<T: type extends [].<any> = [].<any>> = {
 		type: T;
 	};
 
-	type RecordReflection<T = any> = {
+	type RecordReflection<T: type = any> = {
 		type: T;
 	};
 }
@@ -756,51 +756,51 @@ The following `Reflect.getReflection` function is able to reflect any class, fun
 ```js
 namespace Reflect {
 	// Class-level
-	getReflection<Reflect.Class, T>(): Reflect.ClassReflection;
+	getReflection<Reflect.Class, T: type>(): Reflect.ClassReflection;
 
 	// Fields
-	getReflection<Reflect.ClassField, T>(): { [name: string | symbol]: Reflect.ClassFieldReflection };
-	getReflection<Reflect.ClassField, T>(name: string | symbol): Reflect.ClassFieldReflection;
+	getReflection<Reflect.ClassField, T: type>(): { [name: string | symbol]: Reflect.ClassFieldReflection };
+	getReflection<Reflect.ClassField, T: type>(name: string | symbol): Reflect.ClassFieldReflection;
 
 	// Accessors
-	getReflection<Reflect.ClassAccessor, T>(): { [name: string | symbol]: Reflect.ClassAccessorReflection };
-	getReflection<Reflect.ClassAccessor, T>(name: string | symbol): Reflect.ClassAccessorReflection;
+	getReflection<Reflect.ClassAccessor, T: type>(): { [name: string | symbol]: Reflect.ClassAccessorReflection };
+	getReflection<Reflect.ClassAccessor, T: type>(name: string | symbol): Reflect.ClassAccessorReflection;
 
 	// Methods
-	getReflection<Reflect.ClassMethod, T>(): { [name: string | symbol]: Reflect.ClassMethodReflection };
-	getReflection<Reflect.ClassMethod, T>(name: string | symbol): Reflect.ClassMethodReflection;
+	getReflection<Reflect.ClassMethod, T: type>(): { [name: string | symbol]: Reflect.ClassMethodReflection };
+	getReflection<Reflect.ClassMethod, T: type>(name: string | symbol): Reflect.ClassMethodReflection;
 
 	// Method parameters
-	getReflection<Reflect.ClassMethodParameter, T>(method: string | symbol): { [name: string | uint32]: Reflect.ClassMethodParameterReflection };
-	getReflection<Reflect.ClassMethodParameter, T>(method: string | symbol, param: string | uint32): Reflect.ClassMethodParameterReflection;
-	getReflectionByIndex<Reflect.ClassMethodParameter, T>(method: string | symbol): [].<Reflect.ClassMethodParameterReflection>;
+	getReflection<Reflect.ClassMethodParameter, T: type>(method: string | symbol): { [name: string | uint32]: Reflect.ClassMethodParameterReflection };
+	getReflection<Reflect.ClassMethodParameter, T: type>(method: string | symbol, param: string | uint32): Reflect.ClassMethodParameterReflection;
+	getReflectionByIndex<Reflect.ClassMethodParameter, T: type>(method: string | symbol): [].<Reflect.ClassMethodParameterReflection>;
 
 	// Method return
-	getReflection<Reflect.ClassMethodReturn, T>(method: string | symbol): Reflect.ClassMethodReturnReflection;
-	getReflection<Reflect.ClassOperatorReturn, T>(operator: Operator): Reflect.ClassOperatorReturnReflection;
+	getReflection<Reflect.ClassMethodReturn, T: type>(method: string | symbol): Reflect.ClassMethodReturnReflection;
+	getReflection<Reflect.ClassOperatorReturn, T: type>(operator: Operator): Reflect.ClassOperatorReturnReflection;
 
 	// Getters
-	getReflection<Reflect.ClassGetter, T>(): { [name: string | symbol]: Reflect.ClassGetterReflection };
-	getReflection<Reflect.ClassGetter, T>(name: string | symbol): Reflect.ClassGetterReflection;
+	getReflection<Reflect.ClassGetter, T: type>(): { [name: string | symbol]: Reflect.ClassGetterReflection };
+	getReflection<Reflect.ClassGetter, T: type>(name: string | symbol): Reflect.ClassGetterReflection;
 
 	// Getter return
-	getReflection<Reflect.ClassGetterReturn, T>(getter: string | symbol): Reflect.ClassGetterReturnReflection;
+	getReflection<Reflect.ClassGetterReturn, T: type>(getter: string | symbol): Reflect.ClassGetterReturnReflection;
 
 	// Setters
-	getReflection<Reflect.ClassSetter, T>(): { [name: string | symbol]: Reflect.ClassSetterReflection };
-	getReflection<Reflect.ClassSetter, T>(name: string | symbol): Reflect.ClassSetterReflection;
+	getReflection<Reflect.ClassSetter, T: type>(): { [name: string | symbol]: Reflect.ClassSetterReflection };
+	getReflection<Reflect.ClassSetter, T: type>(name: string | symbol): Reflect.ClassSetterReflection;
 
 	// Setter parameter
-	getReflection<Reflect.ClassSetterParameter, T>(setter: string | symbol): Reflect.ClassSetterParameterReflection;
+	getReflection<Reflect.ClassSetterParameter, T: type>(setter: string | symbol): Reflect.ClassSetterParameterReflection;
 
 	// Operators
-	getReflection<Reflect.ClassOperator, T>(): { [op: Operator]: Reflect.ClassOperatorReflection };
-	getReflection<Reflect.ClassOperator, T>(op: Operator): Reflect.ClassOperatorReflection;
+	getReflection<Reflect.ClassOperator, T: type>(): { [op: Operator]: Reflect.ClassOperatorReflection };
+	getReflection<Reflect.ClassOperator, T: type>(op: Operator): Reflect.ClassOperatorReflection;
 
 	// Operator parameters
-	getReflection<Reflect.ClassOperatorParameter, T>(op: Operator): { [index: uint32]: Reflect.ClassOperatorParameterReflection };
-	getReflection<Reflect.ClassOperatorParameter, T>(op: Operator, param: string | uint32): Reflect.ClassOperatorParameterReflection;
-	getReflectionByIndex<Reflect.ClassOperatorParameter, T>(op: Operator): [].<Reflect.ClassOperatorParameterReflection>;
+	getReflection<Reflect.ClassOperatorParameter, T: type>(op: Operator): { [index: uint32]: Reflect.ClassOperatorParameterReflection };
+	getReflection<Reflect.ClassOperatorParameter, T: type>(op: Operator, param: string | uint32): Reflect.ClassOperatorParameterReflection;
+	getReflectionByIndex<Reflect.ClassOperatorParameter, T: type>(op: Operator): [].<Reflect.ClassOperatorParameterReflection>;
 }
 ```
 
@@ -808,13 +808,13 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	getReflection<Reflect.Function, T>(): Reflect.FunctionReflection;
+	getReflection<Reflect.Function, T: type>(): Reflect.FunctionReflection;
 
-	getReflection<Reflect.FunctionParameter, T>(): { [name: string | uint32]: Reflect.FunctionParameterReflection };
-	getReflection<Reflect.FunctionParameter, T>(param: string | uint32): Reflect.FunctionParameterReflection;
-	getReflectionByIndex<Reflect.FunctionParameter, T>(): [].<Reflect.FunctionParameterReflection>;
+	getReflection<Reflect.FunctionParameter, T: type>(): { [name: string | uint32]: Reflect.FunctionParameterReflection };
+	getReflection<Reflect.FunctionParameter, T: type>(param: string | uint32): Reflect.FunctionParameterReflection;
+	getReflectionByIndex<Reflect.FunctionParameter, T: type>(): [].<Reflect.FunctionParameterReflection>;
 
-	getReflection<Reflect.FunctionReturn, T>(): Reflect.FunctionReturnReflection;
+	getReflection<Reflect.FunctionReturn, T: type>(): Reflect.FunctionReturnReflection;
 }
 ```
 
@@ -822,8 +822,8 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	getReflection<Reflect.Let, T>(): Reflect.LetReflection;
-	getReflection<Reflect.Const, T>(): Reflect.ConstReflection;
+	getReflection<Reflect.Let, T: type>(): Reflect.LetReflection;
+	getReflection<Reflect.Const, T: type>(): Reflect.ConstReflection;
 }
 ```
 
@@ -890,11 +890,11 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	getReflection<Reflect.Enum, T>(): Reflect.EnumReflection.<T>;
+	getReflection<Reflect.Enum, T: type>(): Reflect.EnumReflection.<T>;
 
-	getReflection<Reflect.EnumEnumerator, T>(): { [name: string]: Reflect.EnumEnumeratorReflection };
-	getReflection<Reflect.EnumEnumerator, T>(value: T): Reflect.EnumEnumeratorReflection;
-	getReflectionByName<Reflect.EnumEnumerator, T>(name: string): Reflect.EnumEnumeratorReflection;
+	getReflection<Reflect.EnumEnumerator, T: type>(): { [name: string]: Reflect.EnumEnumeratorReflection };
+	getReflection<Reflect.EnumEnumerator, T: type>(value: T): Reflect.EnumEnumeratorReflection;
+	getReflectionByName<Reflect.EnumEnumerator, T: type>(name: string): Reflect.EnumEnumeratorReflection;
 }
 ```
 
@@ -927,40 +927,40 @@ When a function or method is overloaded, its parameters cannot be reached throug
 
 ```js
 namespace Reflect {
-	getMetadata<Reflect.Class, T>(): ClassMetadata;
+	getMetadata<Reflect.Class, T: type>(): ClassMetadata;
 
-	getMetadata<Reflect.ClassField, T>(): { [name: string | symbol]: ClassFieldMetadata };
-	getMetadata<Reflect.ClassField, T>(name: string | symbol): ClassFieldMetadata;
+	getMetadata<Reflect.ClassField, T: type>(): { [name: string | symbol]: ClassFieldMetadata };
+	getMetadata<Reflect.ClassField, T: type>(name: string | symbol): ClassFieldMetadata;
 
-	getMetadata<Reflect.ClassAccessor, T>(): { [name: string | symbol]: ClassAccessorMetadata };
-	getMetadata<Reflect.ClassAccessor, T>(name: string | symbol): ClassAccessorMetadata;
+	getMetadata<Reflect.ClassAccessor, T: type>(): { [name: string | symbol]: ClassAccessorMetadata };
+	getMetadata<Reflect.ClassAccessor, T: type>(name: string | symbol): ClassAccessorMetadata;
 
-	getMetadata<Reflect.ClassMethod, T>(): { [name: string | symbol]: ClassMethodMetadata };
-	getMetadata<Reflect.ClassMethod, T>(name: string | symbol): ClassMethodMetadata;
+	getMetadata<Reflect.ClassMethod, T: type>(): { [name: string | symbol]: ClassMethodMetadata };
+	getMetadata<Reflect.ClassMethod, T: type>(name: string | symbol): ClassMethodMetadata;
 
-	getMetadata<Reflect.ClassMethodParameter, T>(method: string | symbol): { [name: string | uint32]: ClassMethodParameterMetadata };
-	getMetadata<Reflect.ClassMethodParameter, T>(method: string | symbol, param: string | uint32): ClassMethodParameterMetadata;
-	getMetadataByIndex<Reflect.ClassMethodParameter, T>(method: string | symbol): [].<ClassMethodParameterMetadata>;
+	getMetadata<Reflect.ClassMethodParameter, T: type>(method: string | symbol): { [name: string | uint32]: ClassMethodParameterMetadata };
+	getMetadata<Reflect.ClassMethodParameter, T: type>(method: string | symbol, param: string | uint32): ClassMethodParameterMetadata;
+	getMetadataByIndex<Reflect.ClassMethodParameter, T: type>(method: string | symbol): [].<ClassMethodParameterMetadata>;
 
-	getMetadata<Reflect.ClassMethodReturn, T>(method: string | symbol): ClassMethodReturnMetadata;
+	getMetadata<Reflect.ClassMethodReturn, T: type>(method: string | symbol): ClassMethodReturnMetadata;
 
-	getMetadata<Reflect.ClassGetter, T>(): { [name: string | symbol]: ClassGetterMetadata };
-	getMetadata<Reflect.ClassGetter, T>(name: string | symbol): ClassGetterMetadata;
+	getMetadata<Reflect.ClassGetter, T: type>(): { [name: string | symbol]: ClassGetterMetadata };
+	getMetadata<Reflect.ClassGetter, T: type>(name: string | symbol): ClassGetterMetadata;
 
-	getMetadata<Reflect.ClassGetterReturn, T>(getter: string | symbol): ClassGetterReturnMetadata;
+	getMetadata<Reflect.ClassGetterReturn, T: type>(getter: string | symbol): ClassGetterReturnMetadata;
 
-	getMetadata<Reflect.ClassSetter, T>(): { [name: string | symbol]: ClassSetterMetadata };
-	getMetadata<Reflect.ClassSetter, T>(name: string | symbol): ClassSetterMetadata;
+	getMetadata<Reflect.ClassSetter, T: type>(): { [name: string | symbol]: ClassSetterMetadata };
+	getMetadata<Reflect.ClassSetter, T: type>(name: string | symbol): ClassSetterMetadata;
 
-	getMetadata<Reflect.ClassSetterParameter, T>(setter: string | symbol): ClassSetterParameterMetadata;
+	getMetadata<Reflect.ClassSetterParameter, T: type>(setter: string | symbol): ClassSetterParameterMetadata;
 
-	getMetadata<Reflect.ClassOperator, T>(): { [op: Operator]: ClassOperatorMetadata };
-	getMetadata<Reflect.ClassOperator, T>(op: Operator): ClassOperatorMetadata;
+	getMetadata<Reflect.ClassOperator, T: type>(): { [op: Operator]: ClassOperatorMetadata };
+	getMetadata<Reflect.ClassOperator, T: type>(op: Operator): ClassOperatorMetadata;
 
-	getMetadata<Reflect.ClassOperatorParameter, T>(op: Operator): { [index: uint32]: ClassOperatorParameterMetadata };
-	getMetadata<Reflect.ClassOperatorParameter, T>(op: Operator, param: string | uint32): ClassOperatorParameterMetadata;
-	getMetadata<Reflect.ClassOperatorReturn, T>(op: Operator): ClassOperatorReturnMetadata;
-	getMetadataByIndex<Reflect.ClassOperatorParameter, T>(op: Operator): [].<ClassOperatorParameterMetadata>;
+	getMetadata<Reflect.ClassOperatorParameter, T: type>(op: Operator): { [index: uint32]: ClassOperatorParameterMetadata };
+	getMetadata<Reflect.ClassOperatorParameter, T: type>(op: Operator, param: string | uint32): ClassOperatorParameterMetadata;
+	getMetadata<Reflect.ClassOperatorReturn, T: type>(op: Operator): ClassOperatorReturnMetadata;
+	getMetadataByIndex<Reflect.ClassOperatorParameter, T: type>(op: Operator): [].<ClassOperatorParameterMetadata>;
 }
 ```
 
@@ -968,13 +968,13 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	getMetadata<Reflect.Function, T>(): FunctionMetadata;
+	getMetadata<Reflect.Function, T: type>(): FunctionMetadata;
 
-	getMetadata<Reflect.FunctionParameter, T>(): { [name: string | uint32]: FunctionParameterMetadata };
-	getMetadata<Reflect.FunctionParameter, T>(param: string | uint32): FunctionParameterMetadata;
-	getMetadataByIndex<Reflect.FunctionParameter, T>(): [].<FunctionParameterMetadata>;
+	getMetadata<Reflect.FunctionParameter, T: type>(): { [name: string | uint32]: FunctionParameterMetadata };
+	getMetadata<Reflect.FunctionParameter, T: type>(param: string | uint32): FunctionParameterMetadata;
+	getMetadataByIndex<Reflect.FunctionParameter, T: type>(): [].<FunctionParameterMetadata>;
 
-	getMetadata<Reflect.FunctionReturn, T>(): FunctionReturnMetadata;
+	getMetadata<Reflect.FunctionReturn, T: type>(): FunctionReturnMetadata;
 }
 ```
 
@@ -1012,11 +1012,11 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	getMetadata<Reflect.Enum, T>(): EnumMetadata;
+	getMetadata<Reflect.Enum, T: type>(): EnumMetadata;
 
-	getMetadata<Reflect.EnumEnumerator, T>(): { [name: string]: EnumEnumeratorMetadata };
-	getMetadata<Reflect.EnumEnumerator, T>(value: T): EnumEnumeratorMetadata;
-	getMetadataByName<Reflect.EnumEnumerator, T>(name: string): EnumEnumeratorMetadata;
+	getMetadata<Reflect.EnumEnumerator, T: type>(): { [name: string]: EnumEnumeratorMetadata };
+	getMetadata<Reflect.EnumEnumerator, T: type>(value: T): EnumEnumeratorMetadata;
+	getMetadataByName<Reflect.EnumEnumerator, T: type>(name: string): EnumEnumeratorMetadata;
 }
 ```
 
@@ -1038,7 +1038,7 @@ partial interface ClassMetadata {
 Each decorator context has a reference to the target metadata:
 
 ```js
-function f<T>({ metadata }: Reflect.Class.<T>) {
+function f<T: type>({ metadata }: Reflect.Class.<T>) {
 	metadata[myMetadata] = 'f';
 }
 
@@ -1057,7 +1057,7 @@ partial interface ClassFieldMetadata {
 	[myMetadata]: string;
 };
 
-function f<T, TClass>({ metadata }: Reflect.ClassField.<T, TClass>) {
+function f<T: type, TClass: type>({ metadata }: Reflect.ClassField.<T, TClass>) {
 	metadata[myMetadata] = 'f';
 }
 
@@ -1153,7 +1153,7 @@ Defining specialized target decorators is done by overloading a decorator's para
 ### Class
 ```js
 namespace Reflect {
-	interface Class<T extends { new (...args: [].<any>): any }> extends Reflect.ClassReflection {
+	interface Class<T: type extends { new (...args: [].<any>): any }> extends Reflect.ClassReflection {
 		addInitializer(initializer: () => void): void;
 	}
 }
@@ -1171,7 +1171,7 @@ partial interface ClassMetadata {
 	[singletonKey]?: { instance: any };
 }
 
-function singleton<T>({ metadata }: Reflect.Class.<T>): T {
+function singleton<T: type>({ metadata }: Reflect.Class.<T>): T {
 	metadata[singletonKey] = { instance: undefined };
 	let instance: T | undefined;
 	return class extends T {
@@ -1197,7 +1197,7 @@ const b = new AppConfig();
 #### Sealed
 
 ```js
-function sealed<T>({ type }: Reflect.Class.<T>) {
+function sealed<T: type>({ type }: Reflect.Class.<T>) {
 	Object.seal(type);
 	Object.seal(type.prototype);
 }
@@ -1212,7 +1212,7 @@ class Api {
 ### ClassField
 ```js
 namespace Reflect {
-	interface ClassField<T, TClass> extends Reflect.ClassFieldReflection.<T> {
+	interface ClassField<T: type, TClass: type> extends Reflect.ClassFieldReflection.<T> {
 		classContext: Reflect.Class.<TClass>;
 		addInitializer(initializer: () => void): void;
 	}
@@ -1224,7 +1224,7 @@ namespace Reflect {
 	
 ```js
 const metadataKey = Symbol('log');
-function logField<T, TClass>({ classContext: { name: className, metadata: classMetadata }, name, type, static, private, metadata }: Reflect.ClassField.<T, TClass>) {
+function logField<T: type, TClass: type>({ classContext: { name: className, metadata: classMetadata }, name, type, static, private, metadata }: Reflect.ClassField.<T, TClass>) {
 	console.log('name:', name);
 	console.log('class:', className);
 	console.log('type:', type);
@@ -1240,7 +1240,7 @@ function logField<T, TClass>({ classContext: { name: className, metadata: classM
 
 ```js
 namespace Reflect {
-	interface ClassAccessor<T, TClass> extends Reflect.ClassAccessorReflection.<T> {
+	interface ClassAccessor<T: type, TClass: type> extends Reflect.ClassAccessorReflection.<T> {
 		classContext: Reflect.Class.<TClass>;
 		addInitializer(initializer: () => void): void;
 	}
@@ -1253,7 +1253,7 @@ namespace Reflect {
 ```js
 import { Signal, Memo } from 'signals';
 
-function signal<T, TClass>(
+function signal<T: type, TClass: type>(
 	{ name, initial }: Reflect.ClassAccessor.<T, TClass>,
 ): { get(): T, set(value: T): void } {
 	const signals = new WeakMap.<object, Signal.<T>>();
@@ -1271,7 +1271,7 @@ function signal<T, TClass>(
 	};
 }
 
-function memo<T, TClass>(
+function memo<T: type, TClass: type>(
 	{ type: originalGetter }: Reflect.ClassGetter.<T, TClass>,
 ): () => T {
 	const memos = new WeakMap.<object, Memo.<T>>();
@@ -1321,7 +1321,7 @@ class A {
 ### ClassGetter
 ```js
 namespace Reflect {
-	interface ClassGetter<T, TClass> extends Reflect.ClassGetterReflection.<T> {
+	interface ClassGetter<T: type, TClass: type> extends Reflect.ClassGetterReflection.<T> {
 		classContext: Reflect.Class.<TClass>;
 		addInitializer(initializer: () => void): void;
 	}
@@ -1337,7 +1337,7 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	interface ClassGetterReturn<T, TClass> extends Reflect.ClassGetterReturnReflection.<T> {
+	interface ClassGetterReturn<T: type, TClass: type> extends Reflect.ClassGetterReturnReflection.<T> {
 		getterContext: Reflect.ClassGetter.<T, TClass>;
 	}
 }
@@ -1354,7 +1354,7 @@ namespace Reflect {
 ### ClassSetter
 ```js
 namespace Reflect {
-	interface ClassSetter<T, TClass> extends Reflect.ClassSetterReflection.<T> {
+	interface ClassSetter<T: type, TClass: type> extends Reflect.ClassSetterReflection.<T> {
 		classContext: Reflect.Class.<TClass>;
 		addInitializer(initializer: () => void): void;
 	}
@@ -1371,7 +1371,7 @@ partial interface ClassSetterMetadata {
 	[setterLogKey]?: { logged: boolean };
 }
 
-function logged<T, TClass>(
+function logged<T: type, TClass: type>(
 	{ name, type: originalSetter, metadata }: Reflect.ClassSetter.<T, TClass>,
 ): (value: T) => void {
 	metadata[setterLogKey] = { logged: true };
@@ -1402,7 +1402,7 @@ setterMeta[setterLogKey]; // { logged: true }
 
 ```js
 namespace Reflect {
-	interface ClassSetterParameter<T, TClass> extends Reflect.ClassSetterParameterReflection.<T> {
+	interface ClassSetterParameter<T: type, TClass: type> extends Reflect.ClassSetterParameterReflection.<T> {
 		setterContext: Reflect.ClassSetter.<T, TClass>;
 	}
 }
@@ -1412,7 +1412,7 @@ namespace Reflect {
 	<summary>Expand for example</summary>
 
 ```js
-function clamp<T extends number, TClass>(
+function clamp<T: type extends number, TClass: type>(
 	min: T,
 	max: T,
 	{ setterContext }: Reflect.ClassSetterParameter.<T, TClass>
@@ -1434,7 +1434,7 @@ class Sensor {
 ### ClassMethod
 ```js
 namespace Reflect {
-	interface ClassMethod<T extends (...args: [].<any>) => any, TClass> extends Reflect.ClassMethodReflection.<T> {
+	interface ClassMethod<T: type extends (...args: [].<any>) => any, TClass: type> extends Reflect.ClassMethodReflection.<T> {
 		classContext: Reflect.Class.<TClass>;
 		addInitializer(initializer: () => void): void;
 	}
@@ -1451,7 +1451,7 @@ partial interface ClassMethodMetadata {
 	[deprecatedKey]?: { message: string, since: string };
 }
 
-function deprecated<T extends (...args: [].<any>) => any, TClass>(
+function deprecated<T: type extends (...args: [].<any>) => any, TClass: type>(
 	message: string,
 	since: string,
 	{ name, type: original, metadata }: Reflect.ClassMethod.<T, TClass>,
@@ -1485,7 +1485,7 @@ methodMeta[deprecatedKey]; // { message: 'Use fetchV2 instead', since: '2.0.0' }
 ### ClassMethodParameter
 ```js
 namespace Reflect {
-	interface ClassMethodParameter<T, TMethod, TClass> extends Reflect.ClassMethodParameterReflection.<T> {
+	interface ClassMethodParameter<T: type, TMethod: type, TClass: type> extends Reflect.ClassMethodParameterReflection.<T> {
 		methodContext: Reflect.ClassMethod.<TMethod, TClass>;
 	}
 }
@@ -1500,7 +1500,7 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	interface ClassMethodReturn<T, TMethod, TClass> extends Reflect.ClassMethodReturnReflection.<T> {
+	interface ClassMethodReturn<T: type, TMethod: type, TClass: type> extends Reflect.ClassMethodReturnReflection.<T> {
 		methodContext: Reflect.ClassMethod.<TMethod, TClass>;
 	}
 }
@@ -1550,7 +1550,7 @@ enum Operator: symbol {
 };
 
 namespace Reflect {
-	interface ClassOperator<T, TClass> extends Reflect.ClassOperatorReflection.<T> {
+	interface ClassOperator<T: type, TClass: type> extends Reflect.ClassOperatorReflection.<T> {
 		classContext: Reflect.Class.<TClass>;
 		addInitializer(initializer: () => void): void;
 	}
@@ -1567,7 +1567,7 @@ partial interface ClassOperatorMetadata {
 	[profiledOpsKey]?: { calls: uint64, totalTime: float64 } = { calls: 0, totalTime: 0 };
 }
 
-function profiled<T, TClass>(
+function profiled<T: type, TClass: type>(
 	{ operator, type: original, metadata }: Reflect.ClassOperator.<T, TClass>,
 ): T {
 	return function(...args: [].<any>) {
@@ -1599,7 +1599,7 @@ opMeta[profiledOpsKey]; // { calls: 1, totalTime: ... }
 
 ```js
 namespace Reflect {
-	interface ClassOperatorParameter<T, TMethod, TClass> extends Reflect.ClassOperatorParameterReflection.<T> {
+	interface ClassOperatorParameter<T: type, TMethod: type, TClass: type> extends Reflect.ClassOperatorParameterReflection.<T> {
 		operatorContext: Reflect.ClassOperator.<TMethod, TClass>;
 	}
 }
@@ -1613,7 +1613,7 @@ namespace Reflect {
 ### Function
 ```js
 namespace Reflect {
-	interface Function<T extends (...args: [].<any>) => any> extends Reflect.FunctionReflection.<T> {
+	interface Function<T: type extends (...args: [].<any>) => any> extends Reflect.FunctionReflection.<T> {
 	}
 }
 ```
@@ -1628,7 +1628,7 @@ partial interface FunctionMetadata {
 	[memoKey]: { maxSize: uint32 } = { maxSize: 1000 };
 }
 
-function memo<T extends (...args: [].<any>) => any>(
+function memo<T: type extends (...args: [].<any>) => any>(
 	{ type: original, metadata }: Reflect.Function.<T>,
 ): T {
 	const cache = new Map.<string, any>();
@@ -1659,7 +1659,7 @@ fibonacci(50);
 ### FunctionParameter
 ```js
 namespace Reflect {
-	interface FunctionParameter<T, TFunction> extends Reflect.FunctionParameterReflection.<T> {
+	interface FunctionParameter<T: type, TFunction: type> extends Reflect.FunctionParameterReflection.<T> {
 		functionContext: Reflect.Function.<TFunction>;
 	}
 }
@@ -1674,7 +1674,7 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	interface FunctionReturn<T, TFunction> extends Reflect.FunctionReturnReflection.<T> {
+	interface FunctionReturn<T: type, TFunction: type> extends Reflect.FunctionReturnReflection.<T> {
 		functionContext: Reflect.Function.<TFunction>;
 	}
 }
@@ -1683,7 +1683,7 @@ namespace Reflect {
 ### Let
 ```js
 namespace Reflect {
-	interface Let<T> extends Reflect.LetReflection.<T> {
+	interface Let<T: type> extends Reflect.LetReflection.<T> {
 	}
 }
 ```
@@ -1696,7 +1696,7 @@ namespace Reflect {
 ### Const
 ```js
 namespace Reflect {
-	interface Const<T> extends Reflect.ConstReflection.<T> {
+	interface Const<T: type> extends Reflect.ConstReflection.<T> {
 	}
 }
 ```
@@ -1709,7 +1709,7 @@ namespace Reflect {
 ### Object
 ```js
 namespace Reflect {
-	interface Object<T> extends Reflect.ObjectReflection.<T> {
+	interface Object<T: type> extends Reflect.ObjectReflection.<T> {
 	}
 }
 ```
@@ -1718,7 +1718,7 @@ namespace Reflect {
 	<summary>Expand for example</summary>
 	
 ```js
-function f<T>(context: Reflect.Object.<T>) {
+function f<T: type>(context: Reflect.Object.<T>) {
 	// ???
 }
 
@@ -1731,7 +1731,7 @@ const a = @f {
 ### ObjectField
 ```js
 namespace Reflect {
-	interface ObjectField<T, TObject> extends Reflect.ObjectFieldReflection.<T> {
+	interface ObjectField<T: type, TObject: type> extends Reflect.ObjectFieldReflection.<T> {
 		objectContext: Reflect.Object.<TObject>;
 	}
 }
@@ -1741,7 +1741,7 @@ namespace Reflect {
 	<summary>Expand for example</summary>
 
 ```js
-function f<T>(context: Reflect.ObjectField.<T, any>) {
+function f<T: type>(context: Reflect.ObjectField.<T, any>) {
 	// ???
 }
 
@@ -1755,7 +1755,7 @@ const a = {
 ### ObjectGetter
 ```js
 namespace Reflect {
-	interface ObjectGetter<T, TObject> extends Reflect.ObjectGetterReflection.<T> {
+	interface ObjectGetter<T: type, TObject: type> extends Reflect.ObjectGetterReflection.<T> {
 		objectContext: Reflect.Object.<TObject>;
 		addInitializer(initializer: () => void): void;
 	}
@@ -1771,7 +1771,7 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	interface ObjectGetterReturn<T, TObject> extends Reflect.ObjectGetterReturnReflection.<T> {
+	interface ObjectGetterReturn<T: type, TObject: type> extends Reflect.ObjectGetterReturnReflection.<T> {
 		getterContext: Reflect.ObjectGetter.<T, TObject>;
 	}
 }
@@ -1785,7 +1785,7 @@ namespace Reflect {
 ### ObjectSetter
 ```js
 namespace Reflect {
-	interface ObjectSetter<T, TObject> extends Reflect.ObjectSetterReflection.<T> {
+	interface ObjectSetter<T: type, TObject: type> extends Reflect.ObjectSetterReflection.<T> {
 		objectContext: Reflect.Object.<TObject>;
 		addInitializer(initializer: () => void): void;
 	}
@@ -1804,7 +1804,7 @@ namespace Reflect {
 
 ```js
 namespace Reflect {
-	interface ObjectSetterParameter<T, TObject> extends Reflect.ObjectSetterParameterReflection.<T> {
+	interface ObjectSetterParameter<T: type, TObject: type> extends Reflect.ObjectSetterParameterReflection.<T> {
 		setterContext: Reflect.ObjectSetter.<T, TObject>;
 	}
 }
@@ -1821,7 +1821,7 @@ namespace Reflect {
 ### ObjectMethod
 ```js
 namespace Reflect {
-	interface ObjectMethod<T extends (...args: [].<any>) => any, TObject> extends Reflect.ObjectMethodReflection.<T> {
+	interface ObjectMethod<T: type extends (...args: [].<any>) => any, TObject: type> extends Reflect.ObjectMethodReflection.<T> {
 		objectContext: Reflect.Object.<TObject>;
 		addInitializer(initializer: () => void): void;
 	}
@@ -1836,7 +1836,7 @@ namespace Reflect {
 ### ObjectMethodParameter
 ```js
 namespace Reflect {
-	interface ObjectMethodParameter<T, TMethod, TObject> extends Reflect.ObjectMethodParameterReflection.<T> {
+	interface ObjectMethodParameter<T: type, TMethod: type, TObject: type> extends Reflect.ObjectMethodParameterReflection.<T> {
 		methodContext: Reflect.ObjectMethod.<TMethod, TObject>;
 	}
 }
@@ -1850,7 +1850,7 @@ namespace Reflect {
 ### ObjectMethodReturn
 ```js
 namespace Reflect {
-	interface ObjectMethodReturn<T, TMethod, TObject> extends Reflect.ObjectMethodReturnReflection.<T> {
+	interface ObjectMethodReturn<T: type, TMethod: type, TObject: type> extends Reflect.ObjectMethodReturnReflection.<T> {
 		methodContext: Reflect.ObjectMethod.<TMethod, TObject>;
 	}
 }
@@ -1969,7 +1969,7 @@ Loop blocks could also include their own context like the kind of loop, the init
 ### Enum
 ```js
 namespace Reflect {
-	interface Enum<T extends enum.<TValue>, TValue = int32> extends Reflect.EnumReflection.<T, TValue> {
+	interface Enum<T: type extends enum.<TValue>, TValue: type = int32> extends Reflect.EnumReflection.<T, TValue> {
 	}
 }
 ```
@@ -2000,7 +2000,7 @@ partial interface EnumMetadata {
 	[enumInfoKey]?: EnumInfo;
 }
 
-function describe<T>(
+function describe<T: type>(
 	description: string,
 	{ metadata }: Reflect.Enum.<T>,
 ) {
@@ -2019,7 +2019,7 @@ enum Status {
 ### EnumEnumerator
 ```js
 namespace Reflect {
-	interface EnumEnumerator<T extends enum.<TValue>, TValue = int32> extends Reflect.EnumEnumeratorReflection.<T, TValue> {
+	interface EnumEnumerator<T: type extends enum.<TValue>, TValue: type = int32> extends Reflect.EnumEnumeratorReflection.<T, TValue> {
 		enumContext: Reflect.Enum.<T, TValue>;
 	}
 }
@@ -2035,7 +2035,7 @@ partial interface EnumEnumeratorMetadata {
 	[enumLabelKey]: Map.<string, string> = new Map();
 }
 
-function label<T extends enum.<TValue>, TValue>(
+function label<T: type extends enum.<TValue>, TValue: type>(
 	label: string,
 	locale: string = 'en',
 	{ metadata }: Reflect.EnumEnumerator.<T, TValue>
@@ -2043,7 +2043,7 @@ function label<T extends enum.<TValue>, TValue>(
 	metadata[enumLabelKey].set(locale, label);
 }
 
-function getLabel<T extends enum.<TValue>, TValue>(value: T, locale: string = 'en'): string {
+function getLabel<T: type extends enum.<TValue>, TValue: type>(value: T, locale: string = 'en'): string {
 	return Reflect.getMetadata.<Reflect.EnumEnumerator, T>(value)[enumLabelKey].get(locale);
 }
 
@@ -2072,7 +2072,7 @@ The array-backed composite shape, whose elements are reflected through `TupleRef
 
 ```js
 namespace Reflect {
-	interface Tuple<T extends [].<any>> extends Reflect.TupleReflection.<T> {
+	interface Tuple<T: type extends [].<any>> extends Reflect.TupleReflection.<T> {
 	}
 }
 ```
@@ -2083,7 +2083,7 @@ The object-backed composite shape, whose properties are reflected through `Recor
 
 ```js
 namespace Reflect {
-	interface Record<T> extends Reflect.RecordReflection.<T> {
+	interface Record<T: type> extends Reflect.RecordReflection.<T> {
 	}
 }
 ```
@@ -2108,28 +2108,28 @@ partial interface ClassFieldMetadata {
 	[validatorsSymbol]: [].<(value: any) => boolean> = [];
 }
 
-function addValidators<T, TClass>({ name, metadata }: Reflect.ClassField.<T, TClass>, validator: (value: T) => boolean) {
+function addValidators<T: type, TClass: type>({ name, metadata }: Reflect.ClassField.<T, TClass>, validator: (value: T) => boolean) {
 	metadata[validatorsSymbol].push(validator);
 }
 
-function Length<TClass>(min: uint32, max: uint32, context: Reflect.ClassField.<string, TClass>) { // Can only be placed on string
+function Length<TClass: type>(min: uint32, max: uint32, context: Reflect.ClassField.<string, TClass>) { // Can only be placed on string
 	addValidators(context, (value: string) => value.length >= min && value.length <= max);
 }
-function Includes<TClass>(searchString: string, context: Reflect.ClassField.<string, TClass>) {
+function Includes<TClass: type>(searchString: string, context: Reflect.ClassField.<string, TClass>) {
 	addValidators(context, (value: string) => value.includes(searchString));
 }
-function Min<T extends int, TClass>(min: T, context: Reflect.ClassField.<T, TClass>) {
+function Min<T: type extends int, TClass: type>(min: T, context: Reflect.ClassField.<T, TClass>) {
 	addValidators(context, (value: T) => value >= min);
 }
-function Max<T extends int, TClass>(max: T, context: Reflect.ClassField.<T, TClass>) {
+function Max<T: type extends int, TClass: type>(max: T, context: Reflect.ClassField.<T, TClass>) {
 	addValidators(context, (value: T) => value <= max);
 }
-function IsEmail<TClass>(context: Reflect.ClassField.<string, TClass>) {
+function IsEmail<TClass: type>(context: Reflect.ClassField.<string, TClass>) {
 	addValidators(context, (value: string) => value.includes('@')); // :)
 }
 // ... IsFQDN and IsZonedDateTime 
 
-function validate<T>(o: T): boolean {
+function validate<T: type>(o: T): boolean {
 	const fields = Reflect.getMetadata.<Reflect.ClassField, T>();
 	for (const [name, metadata] of Object.entries(fields)) {
 		for (const validator of metadata[validatorsSymbol]) {
@@ -2181,22 +2181,22 @@ partial interface ClassFieldMetadata {
 }
 
 // boolean
-function data<TClass>({ metadata }: Reflect.ClassField.<boolean, TClass>) {
+function data<TClass: type>({ metadata }: Reflect.ClassField.<boolean, TClass>) {
 	metadata[binaryWriter] = (packet, value) => packet.write.<boolean>(value);
 }
 
 // uint.<N>
-function data<N: uint32, TClass>({ metadata }: Reflect.ClassField.<uint.<N>, TClass>) {
+function data<N: uint32, TClass: type>({ metadata }: Reflect.ClassField.<uint.<N>, TClass>) {
 	metadata[binaryWriter] = (packet, value) => packet.write.<uint.<N>>(value);
 }
 
 // string
-function data<LengthType extends uint = uint16, TClass>({ metadata }: Reflect.ClassField.<string, TClass>) {
+function data<LengthType: type extends uint = uint16, TClass: type>({ metadata }: Reflect.ClassField.<string, TClass>) {
 	metadata[binaryWriter] = (packet, value: string) => packet.write.<string, LengthType>(value);
 }
 
 // [].<T>
-function data<T, TClass>({ metadata }: Reflect.ClassField.<[].<T>, TClass>) {
+function data<T: type, TClass: type>({ metadata }: Reflect.ClassField.<[].<T>, TClass>) {
 	metadata[binaryWriter] = (packet, value: [].<T>) => {
 		packet.write.<uint32>(value.length);
 		for (const item of value) {
@@ -2205,7 +2205,7 @@ function data<T, TClass>({ metadata }: Reflect.ClassField.<[].<T>, TClass>) {
 	}
 }
 
-function binarySerialize<T>(packet: Packet, item: T) {
+function binarySerialize<T: type>(packet: Packet, item: T) {
 	// Naively iterate all fields
 	const fields = Reflect.getMetadata.<Reflect.ClassField, T>();
 	for (const [name, metadata] of Object.entries(fields)) {
@@ -2238,7 +2238,7 @@ binarySerialize(packet, building);
 ### Web component definition
 
 ```js
-function register<T>(tag: string, { addInitializer }: Reflect.Class.<T>) {
+function register<T: type>(tag: string, { addInitializer }: Reflect.Class.<T>) {
 	addInitializer(() => customElements.define(tag, type));
 }
 
@@ -2259,14 +2259,14 @@ partial interface ClassMethodParameterMetadata {
 	[injectKey]?: { token: string | symbol };
 }
 
-function inject<T, TMethod, TClass>(
+function inject<T: type, TMethod: type, TClass: type>(
 	token: string | symbol,
 	{ metadata }: Reflect.ClassMethodParameter.<T, TMethod, TClass>,
 ) {
 	metadata[injectKey] = { token };
 }
 
-function resolve<T>(cls: { new(...args: [].<any>): T }, container: Container): T {
+function resolve<T: type>(cls: { new(...args: [].<any>): T }, container: Container): T {
 	const params = Reflect.getReflectionByIndex.<Reflect.ClassMethodParameter, typeof cls>('constructor');
 	const ctorArgs = params.map(p => {
 		// Explicit token takes priority
@@ -2324,28 +2324,28 @@ partial interface ClassMethodMetadata {
 	[routesKey]?: RouteEntry;
 }
 
-function route<T>(
+function route<T: type>(
 	basePath: string,
 	{ metadata }: Reflect.Class.<T>,
 ) {
 	metadata[routeKey] = basePath;
 }
 
-function get<T extends (...args: [].<any>) => any, TClass>(
+function get<T: type extends (...args: [].<any>) => any, TClass: type>(
 	path: string,
 	{ name, metadata }: Reflect.ClassMethod.<T, TClass>,
 ) {
 	metadata[routesKey] = { method: 'GET', path, handler: name };
 }
 
-function post<T extends (...args: [].<any>) => any, TClass>(
+function post<T: type extends (...args: [].<any>) => any, TClass: type>(
 	path: string,
 	{ name, metadata }: Reflect.ClassMethod.<T, TClass>,
 ) {
 	metadata[routesKey] = { method: 'POST', path, handler: name };
 }
 
-function mountRoutes<T>(controller: T, router: Router) {
+function mountRoutes<T: type>(controller: T, router: Router) {
 	const basePath = Reflect.getMetadata.<Reflect.Class, T>()[routeKey] ?? '';
 	const methods = Reflect.getMetadata.<Reflect.ClassMethod, T>();
 	for (const [name, metadata] of Object.entries(methods)) {
@@ -2416,7 +2416,7 @@ This documentation generation is basically reflecting a class to access its full
 A ```typename``` operator goes from a type to a string, which documentation generation uses to render a type.
 
 ```js
-type NumberBounds<T: Ordered.<T>> = {
+type NumberBounds<T: type extends Ordered.<T>> = {
 	bounds?: RangeBounds.<T>,
 	nonZero?: boolean,
 };
@@ -2455,31 +2455,31 @@ partial interface ClassSetterParameterMetadata {
 
 // Decorators
 
-function doc<T>(description: string, { metadata }: Reflect.Class.<T>) {
+function doc<T: type>(description: string, { metadata }: Reflect.Class.<T>) {
 	metadata[docKey] = description;
 }
 
-function doc<T, TClass>(description: string, { metadata }: Reflect.ClassField.<T, TClass>) {
+function doc<T: type, TClass: type>(description: string, { metadata }: Reflect.ClassField.<T, TClass>) {
 	metadata[docKey] = description;
 }
 
-function doc<T extends (...args: [].<any>) => any, TClass>(description: string, { metadata }: Reflect.ClassMethod.<T, TClass>) {
+function doc<T: type extends (...args: [].<any>) => any, TClass: type>(description: string, { metadata }: Reflect.ClassMethod.<T, TClass>) {
 	metadata[docKey] = description;
 }
 
-function doc<T, TMethod, TClass>(description: string, { metadata }: Reflect.ClassMethodParameter.<T, TMethod, TClass>) {
+function doc<T: type, TMethod: type, TClass: type>(description: string, { metadata }: Reflect.ClassMethodParameter.<T, TMethod, TClass>) {
 	metadata[docKey] = description;
 }
 
-function doc<T, TClass>(description: string, { metadata }: Reflect.ClassGetter.<T, TClass>) {
+function doc<T: type, TClass: type>(description: string, { metadata }: Reflect.ClassGetter.<T, TClass>) {
 	metadata[docKey] = description;
 }
 
-function doc<T, TClass>(description: string, { metadata }: Reflect.ClassSetter.<T, TClass>) {
+function doc<T: type, TClass: type>(description: string, { metadata }: Reflect.ClassSetter.<T, TClass>) {
 	metadata[docKey] = description;
 }
 
-function doc<T, TClass>(description: string, { metadata }: Reflect.ClassSetterParameter.<T, TClass>) {
+function doc<T: type, TClass: type>(description: string, { metadata }: Reflect.ClassSetterParameter.<T, TClass>) {
 	metadata[docKey] = description;
 }
 
@@ -2508,9 +2508,9 @@ function schemaFromBounds(b: NumberBounds.<float32>): ConstraintDoc {
 
 function constraintsFor(type: type): ConstraintDoc | undefined {
 	return match (type) {
-		when extends float32.<B: NumberBounds.<float32>>:
+		when extends float32.<const B: NumberBounds.<float32>>:
 			schemaFromBounds(B); // Translate the range into JSON Schema's four fields
-		when extends string.<S: StringBounds>:
+		when extends string.<const S: StringBounds>:
 			({ ...S, pattern: S.pattern?.toString() }); // Replace the pattern with the string representation
 		default:
 			undefined;
@@ -2560,7 +2560,7 @@ type ClassDoc = {
 	methods: [].<MethodDoc>
 };
 
-function generateDocs<T>(): ClassDoc {
+function generateDocs<T: type>(): ClassDoc {
 	const classRefl = Reflect.getReflection.<Reflect.Class, T>();
 
 	const result: ClassDoc = {

@@ -19,7 +19,7 @@ The proposed solution has three components:
 
 1. Metadata types - plain type declarations whose fields attach to primitives via ```.<{...}>``` syntax.
 2. Meta protocols - meta blocks that teach the compiler the semantics of a metadata type (subtyping, validation, narrowing).
-3. Primitive operator blocks - primitive T<M: MetaType> blocks that define how operators transform metadata.
+3. Primitive operator blocks - primitive T<const M: MetaType> blocks that define how operators transform metadata.
 
 ### Metadata Types and Protocols
 
@@ -34,14 +34,14 @@ The metadata protocol defines how a primitive with a metadata type propagates th
 
 <!-- run -->
 ```js
-interface MetaProtocol<T> {
+interface MetaProtocol<T: type> {
 	// Required: the "unconstrained" / "not specified" value.
 	// Used when a value has no fields belonging to this meta type.
 	default: T;
 
 	// Required: is sub's constraint set a subset of sup's constraint set?
 	// Used for assignment compatibility checks.
-	// The compiler calls this to determine if a value of type T<sub> is assignable to T<sup>.
+	// The compiler calls this to determine if a value of type T<sub: type> is assignable to T<sup>.
 	subtype(sub: T, sup: T): boolean;
 
 	// Optional: does a concrete value satisfy the constraint?
@@ -87,7 +87,7 @@ It's possible to hold a reference to a meta protocol:
 
 <!-- run -->
 ```js
-interface MetaProtocol<T> {
+interface MetaProtocol<T: type> {
 	default: T;
 	subtype(sub: T, sup: T): boolean;
 	validate?(value: any, constraint: T): boolean;
@@ -104,9 +104,9 @@ interface MetaProtocol<T> {
 
 <!-- run -->
 ```js
-type NumberBounds<T: Ordered.<T>> = { bounds?: RangeBounds.<T>, nonZero?: boolean };
+type NumberBounds<T: type extends Ordered.<T>> = { bounds?: RangeBounds.<T>, nonZero?: boolean };
 
-meta NumberBounds<T: Ordered.<T>> {
+meta NumberBounds<T: type extends Ordered.<T>> {
 	default = {};
 	subtype(sub: NumberBounds.<T>, sup: NumberBounds.<T>): boolean { /* … */ return true; }
 	validate(value: T, constraint: NumberBounds.<T>): boolean { /* … */ return true; }
@@ -114,7 +114,7 @@ meta NumberBounds<T: Ordered.<T>> {
 }
 ```
 
-The parameter is not new power; it is a **name** for what ```primitive``` already means, usable where a keyword cannot reach. Three things follow. It is supplied by position and never written - ```uint8.<{ bounds: 1..=6 }>``` binds ```T``` to ```uint8``` because that is the type being parameterized - so nothing at a use site changes. It must be bounded, and the shape says how tightly: ```RangeBounds.<T>``` requires ```T: Ordered.<T>```, so a base that carries no ordering is rejected at the declaration rather than at some later use. And claiming is unchanged, being a property of the declaration rather than of an instantiation: ```NumberBounds``` claims ```bounds``` and ```nonZero``` once and globally, whatever ```T``` turns out to be.
+The parameter is not new power; it is a **name** for what ```primitive``` already means, usable where a keyword cannot reach. Three things follow. It is supplied by position and never written - ```uint8.<{ bounds: 1..=6 }>``` binds ```T``` to ```uint8``` because that is the type being parameterized - so nothing at a use site changes. It must be bounded, and the shape says how tightly: ```RangeBounds.<T>``` requires ```T: type extends Ordered.<T>```, so a base that carries no ordering is rejected at the declaration rather than at some later use. And claiming is unchanged, being a property of the declaration rather than of an instantiation: ```NumberBounds``` claims ```bounds``` and ```nonZero``` once and globally, whatever ```T``` turns out to be.
 
 A meta type that needs the base only inside a hook declares no parameter and keeps ```primitive```, which is every other meta type in this document: ```Dimensions``` carries exponents and a ratio, and ```DecimalContext``` a scale and a rounding mode, none of them in the base's value space. The generic form is what a meta type opts into by declaring a parameter, and the hooks of one that does are more precise for it, since ```validate(value: T, ...)``` says which primitive where ```validate(value: primitive, ...)``` does not.
 
@@ -232,7 +232,7 @@ There is no bare-range metadata argument: `uint8.<1..=6>` is not a type, and the
 
 <!-- run -->
 ```js
-type NumberBounds<T: Ordered.<T>> = {
+type NumberBounds<T: type extends Ordered.<T>> = {
 	bounds?: RangeBounds.<T>,
 	nonZero?: boolean,
 };
@@ -240,11 +240,11 @@ type NumberBounds<T: Ordered.<T>> = {
 // A constraint excludes zero when it says so or when its bounds already do.
 // This is the rule that keeps `uint32.<{ bounds: 1.. }>` a Divisor without
 // its having to repeat itself.
-function excludesZero<T: Ordered.<T>>(c: NumberBounds.<T>): boolean {
+function excludesZero<T: type extends Ordered.<T>>(c: NumberBounds.<T>): boolean {
 	return c.nonZero || !c.bounds.contains(0);
 }
 
-meta NumberBounds<T: Ordered.<T>> {
+meta NumberBounds<T: type extends Ordered.<T>> {
 	// The default is total: every key has a value, so no hook tests for absence.
 	default = { bounds: .., nonZero: false };
 
@@ -303,7 +303,7 @@ meta NumberBounds<T: Ordered.<T>> {
 
 // Canonicalization: drop what the default already says, and drop a flag the
 // bounds already imply, so one constraint has one spelling.
-function clean<T: Ordered.<T>>(b: NumberBounds.<T>): NumberBounds.<T> {
+function clean<T: type extends Ordered.<T>>(b: NumberBounds.<T>): NumberBounds.<T> {
 	return { ...b, nonZero: b.nonZero && b.bounds.contains(0) };
 }
 ```
@@ -399,7 +399,7 @@ function fgt(a: float32, b: float32): boolean {
 </details>
 
 ```js
-primitive float32<D: Dimensions> {
+primitive float32<const D: Dimensions> {
 	// Same-dimension addition
 	// The parameter type reuses D, so passing a value with matching exponents but a different ratio goes through the standard implicit conversion at the call boundary: the value is scaled by conversionFactor() and every other meta type's metadata is passed through its rescale() hook.
 	// Passing a different dimension fails subtype() and is a compile error.
@@ -511,7 +511,7 @@ primitive float32<D: Dimensions> {
 NumberBounds operators only modify the return metadata with no value, so they have no function body.
 
 ```js
-primitive float32<B: NumberBounds.<float32>> {
+primitive float32<const B: NumberBounds.<float32>> {
 	operator+.<B2: NumberBounds.<float32>>(rhs: float32.<B2>): float32.<{ bounds: B.bounds + B2.bounds }>;
 	operator-.<B2: NumberBounds.<float32>>(rhs: float32.<B2>): float32.<{ bounds: B.bounds - B2.bounds }>;
 	operator*.<B2: NumberBounds.<float32>>(rhs: float32.<B2>): float32.<{ bounds: B.bounds * B2.bounds }>;
@@ -690,7 +690,7 @@ Arithmetic is exact within an expression. Quantization happens where every other
 
 <!-- run -->
 ```js
-primitive decimal128<C: DecimalContext> {
+primitive decimal128<const C: DecimalContext> {
 	// Arithmetic drops the scale: the result of an operation is exact and
 	// unscaled until it reaches a boundary that fixes a scale.
 	operator+(rhs: decimal128): decimal128;
@@ -1147,7 +1147,7 @@ meta StringBounds {
 
 const validatorsKey = Symbol('validators');
 
-type ValidateField<T> = {
+type ValidateField<T: type> = {
 	name: string,
 	constraint: T,
 	meta: MetaProtocol.<T>
@@ -1157,19 +1157,19 @@ partial class ClassMetadata {
 	[validatorsKey]: [].<ValidateField.<NumberBounds> | ValidateField.<StringBounds>> = [];
 }
 
-function validate<B: NumberBounds, TClass>(
+function validate<B: NumberBounds, TClass: type>(
 	{ name, metadata }: Reflect.ClassField.<number.<B>, TClass>
 ) where typeof name == 'string' {
 	metadata[validatorsKey].push({ name, constraint: B, meta: NumberBounds });
 }
 
-function validate<S: StringBounds, TClass>(
+function validate<S: StringBounds, TClass: type>(
 	{ name, metadata }: Reflect.ClassField.<string.<S>, TClass>
 ) where typeof name == 'string' {
 	metadata[validatorsKey].push({ name, constraint: S, meta: StringBounds });
 }
 
-function validateInstance<T>(instance: T): boolean {
+function validateInstance<T: type>(instance: T): boolean {
 	const entries = Reflect.getMetadata.<Reflect.Class, T>()[validatorsKey];
 	if (!entries) return true;
 	for (const { name, constraint, meta } of entries) {
@@ -1217,19 +1217,19 @@ partial class ClassMetadata {
 }
 
 // @field() - registers a field for serialization with an optional wire name
-function field<T, TClass>(
+function field<T: type, TClass: type>(
 	{ name, metadata }: Reflect.ClassField.<T, TClass>
 ) where typeof name == 'string' {
 	metadata[schemaKey].push({ name, wireName: name });
 }
-function field<T, TClass>(
+function field<T: type, TClass: type>(
 	wireName: string,
 	{ name, metadata }: Reflect.ClassField.<T, TClass>
 ) where typeof name == 'string' {
 	metadata[schemaKey].push({ name, wireName });
 }
 
-function serialize<T>(instance: T): { [key: string]: any } {
+function serialize<T: type>(instance: T): { [key: string]: any } {
 	const result: { [key: string]: any } = {};
 	for (const { name, wireName } of Reflect.getMetadata.<Reflect.Class, T>()[schemaKey]) {
 		result[wireName] = instance[name];
@@ -1237,7 +1237,7 @@ function serialize<T>(instance: T): { [key: string]: any } {
 	return result;
 }
 
-function deserialize<T>(cls: { new(): T }, data: { [key: string]: any }): T {
+function deserialize<T: type>(cls: { new(): T }, data: { [key: string]: any }): T {
 	const instance = new cls();
 	for (const { name, wireName } of Reflect.getMetadata.<Reflect.Class, T>()[schemaKey]) {
 		instance[name] = data[wireName]; // implicit cast -> triggers meta validate
@@ -1281,14 +1281,14 @@ partial class ClassMetadata {
 	[routeKey]: [].<Route> = [];
 }
 
-function get<T extends (...args: [].<any>) => any, TClass>(
+function get<T: type extends (...args: [].<any>) => any, TClass: type>(
 	path: string,
 	{ name, metadata }: Reflect.ClassMethod.<T, TClass>
 ) where typeof name == 'string' {
 	metadata[routeKey].push({ method: 'GET', path, handler: name });
 }
 
-function post<T extends (...args: [].<any>) => any, TClass>(
+function post<T: type extends (...args: [].<any>) => any, TClass: type>(
 	path: string,
 	{ name, metadata }: Reflect.ClassMethod.<T, TClass>
 ) where typeof name == 'string' {
@@ -1342,19 +1342,19 @@ partial class ClassMetadata {
 	[columnKey]: [].<Column> = [];
 }
 
-function table<T>(
+function table<T: type>(
 	name: string,
 	{ metadata }: Reflect.Class.<T>
 ) {
 	metadata[tableKey] = name;
 }
 
-function column<T, TClass>(
+function column<T: type, TClass: type>(
 	{ name, metadata }: Reflect.ClassField.<T, TClass>
 ) where typeof name == 'string' {
 	metadata[columnKey].push({ field: name, column: name });
 }
-function column<T, TClass>(
+function column<T: type, TClass: type>(
 	column: string,
 	{ name, metadata }: Reflect.ClassField.<T, TClass>
 ) where typeof name == 'string' {
@@ -1419,7 +1419,7 @@ type SquareMeter = float32.<{ m: 2 }>;
 // Note: vector.<T, N> has built-in element-wise operators on raw values.
 // So these operators skip redeclaring operator bodies.
 
-primitive vector<float32<D: Dimensions>, N: uint32> {
+primitive vector<float32.<const D: Dimensions>, const N: uint32> {
 
 	// Same-dimension add/subtract. The parameter type reuses D, so unit
 	// conversion happens through the standard implicit conversion at the

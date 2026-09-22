@@ -19,7 +19,7 @@ The numeric predicates gain the same per-type answers, returning ```boolean```. 
 The wrapper that means *no wrapper*, used by the [higher-kinded](higherkindedtypes.md) iteration types and by anything else parameterized over one:
 
 ```js
-type Identity<T> = T;
+type Identity<T: type> = T;
 ```
 
 It is an ordinary generic alias rather than a built-in, because nothing about it is built in. ```Identity.<uint8>``` is ```uint8```.
@@ -29,11 +29,11 @@ It is an ordinary generic alias rather than a built-in, because nothing about it
 The iteration interfaces are the ```...``` operator from the main proposal's typed iteration section, expressed as interface requirements. ```*operator...()``` is how a class declares ```[Symbol.iterator]```, so these are the same member the [iteration types](README.md) state:
 
 ```js
-interface Iterable<T> {
+interface Iterable<T: type> {
 	*operator...(): T;
 }
 
-interface AsyncIterable<T> {
+interface AsyncIterable<T: type> {
 	async *operator...(): T;
 }
 ```
@@ -45,13 +45,13 @@ interface AsyncIterable<T> {
 The helpers are defined on the ```Iterator``` class, which declares that it implements ```IterableIterator<T, R, N>```. Every method returning an iterator returns the class, so a chain stays on the fast path: a declared implementation is checked at the declaration and by brand afterwards, where a hand-written iterator entering the chain pays one structural check on the way in.
 
 ```js
-class Iterator<T, R = void, N = void> implements IterableIterator<T, R, N> {
-	map<U>(callback: (value: T, index: uint64) => U): Iterator.<U> { /* … */ return undefined; }
+class Iterator<T: type, R: type = void, N: type = void> implements IterableIterator<T, R, N> {
+	map<U: type>(callback: (value: T, index: uint64) => U): Iterator.<U> { /* … */ return undefined; }
 	filter(callback: (value: T, index: uint64) => boolean): Iterator.<T> { /* … */ return undefined; }
 	take(limit: uint32): Iterator.<T> { /* … */ return undefined; }
 	drop(limit: uint32): Iterator.<T> { /* … */ return undefined; }
-	flatMap<U>(callback: (value: T, index: uint64) => Iterable.<U>): Iterator.<U> { /* … */ return undefined; }
-	reduce<U>(callback: (accumulator: U, value: T, index: uint64) => U, initial: U): U { /* … */ return undefined; }
+	flatMap<U: type>(callback: (value: T, index: uint64) => Iterable.<U>): Iterator.<U> { /* … */ return undefined; }
+	reduce<U: type>(callback: (accumulator: U, value: T, index: uint64) => U, initial: U): U { /* … */ return undefined; }
 	reduce(callback: (accumulator: T, value: T, index: uint64) => T): T { /* … */ return undefined; }
 	toArray(): [].<T> { /* … */ return []; }
 	forEach(callback: (value: T, index: uint64) => void): void { /* … */ }
@@ -79,14 +79,14 @@ const a: [].<int32> = f().map(x => x * 2).filter(x => x > 2).toArray();
 ```Array.from``` and ```Iterator.from``` carry an element type through. The first parameter is the same ```Iterable.<T>``` the grouping functions take, so a typed array, a collection, a generator and a string all reach it by the interface they already declare:
 
 ```js
-function Array.from<T>(items: Iterable.<T>): [].<T>;
+function Array.from<T: type>(items: Iterable.<T>): [].<T>;
 
-function Array.from<T, U>(
+function Array.from<T: type, U: type>(
 	items: Iterable.<T>,
 	mapFn: (value: T, index: uint64) => U
 ): [].<U>;
 
-function Iterator.from<T>(items: Iterable.<T>): Iterator.<T>;
+function Iterator.from<T: type>(items: Iterable.<T>): Iterator.<T>;
 ```
 
 The mapped overload takes its result from the callback, exactly as ```map``` does.
@@ -98,16 +98,16 @@ An **untyped** source yields an untyped result. Where ```T``` cannot be determin
 ```Array.of``` is the same element type gathered from arguments instead of from an iterable:
 
 ```js
-function Array.of<T>(...items: [].<T>): [].<T>;
+function Array.of<T: type>(...items: [].<T>): [].<T>;
 ```
 
 ## Reading an Object's Own Properties
 
 ```js
 function Object.keys(o: object): [].<string>;
-function Object.values<V>(o: { [key: string]: V }): [].<V>;
-function Object.entries<V>(o: { [key: string]: V }): [].<[string, V]>;
-function Object.fromEntries<V>(entries: Iterable.<[string, V]>): { [key: string]: V };
+function Object.values<V: type>(o: { [key: string]: V }): [].<V>;
+function Object.entries<V: type>(o: { [key: string]: V }): [].<[string, V]>;
+function Object.fromEntries<V: type>(entries: Iterable.<[string, V]>): { [key: string]: V };
 ```
 
 ```Object.keys``` answers strings whatever it is given, so it needs no type parameter. The other three carry the value type, and they are stated over an index signature rather than over a specific object type: a signature that named one would not describe the call a program actually writes, which is over an object whose properties are known individually. Where the argument's properties have differing types the value type is their union, which is what an index signature over that object already means.
@@ -117,7 +117,7 @@ function Object.fromEntries<V>(entries: Iterable.<[string, V]>): { [key: string]
 ## Cloning
 
 ```js
-function structuredClone<T>(value: T): T;
+function structuredClone<T: type>(value: T): T;
 ```
 
 The clone has the type of what was cloned. This is the one signature in this document whose result depends on nothing but its argument, and it is stated because the alternative — leaving it ```any``` — loses a type across a call that is defined to preserve the value.
@@ -129,12 +129,12 @@ The clone has the type of what was cloned. This is the one signature in this doc
 ```Object.groupBy``` produces property keys, so its key type is constrained to the property key types; ```Map.groupBy``` accepts any key type, using SameValueZero like ```Map``` itself:
 
 ```js
-function Object.groupBy<K extends string | symbol, T>(
+function Object.groupBy<K: type extends string | symbol, T: type>(
 	items: Iterable.<T>,
 	callback: (value: T, index: uint64) => K
 ): { [key: K]: [].<T> };
 
-function Map.groupBy<K, T>(
+function Map.groupBy<K: type, T: type>(
 	items: Iterable.<T>,
 	callback: (value: T, index: uint64) => K
 ): Map.<K, [].<T>>;
@@ -150,7 +150,7 @@ const groups = Object.groupBy([1, 2, 3, 4], (n: uint32) => n % 2 == 0 ? 'even' :
 The keyed collections take type arguments and every member follows from them. Earlier drafts of this document typed only the set-algebra methods below, which left ```Map.<K, V>``` used in a dozen places across these documents and defined in none of them, and left ```size``` as the one count in the language with no type.
 
 ```js
-class Map<K, V> implements Iterable<[K, V]> {
+class Map<K: type, V: type> implements Iterable<[K, V]> {
 	constructor(entries?: Iterable.<[K, V]>);
 	get size(): uint64;
 	get(key: K): V | undefined { /* … */ return undefined; }
@@ -167,7 +167,7 @@ class Map<K, V> implements Iterable<[K, V]> {
 	*operator...(): [K, V];
 }
 
-class Set<T> implements Iterable<T> {
+class Set<T: type> implements Iterable<T> {
 	constructor(values?: Iterable.<T>);
 	get size(): uint64;
 	add(value: T): Set.<T> { /* … */ return undefined; }
@@ -211,14 +211,14 @@ The two coexist in one program without interacting: a specialization adds nothin
 The result element type follows where elements can come from: ```intersection``` and ```difference``` draw only from ```this```, while ```union``` and ```symmetricDifference``` draw from both sides:
 
 ```js
-class Set<T> {
-	union<U>(other: Set.<U>): Set.<T | U> { /* … */ return undefined; }
-	intersection<U>(other: Set.<U>): Set.<T> { /* … */ return undefined; }
-	difference<U>(other: Set.<U>): Set.<T> { /* … */ return undefined; }
-	symmetricDifference<U>(other: Set.<U>): Set.<T | U> { /* … */ return undefined; }
-	isSubsetOf<U>(other: Set.<U>): boolean { /* … */ return false; }
-	isSupersetOf<U>(other: Set.<U>): boolean { /* … */ return false; }
-	isDisjointFrom<U>(other: Set.<U>): boolean { /* … */ return false; }
+class Set<T: type> {
+	union<U: type>(other: Set.<U>): Set.<T | U> { /* … */ return undefined; }
+	intersection<U: type>(other: Set.<U>): Set.<T> { /* … */ return undefined; }
+	difference<U: type>(other: Set.<U>): Set.<T> { /* … */ return undefined; }
+	symmetricDifference<U: type>(other: Set.<U>): Set.<T | U> { /* … */ return undefined; }
+	isSubsetOf<U: type>(other: Set.<U>): boolean { /* … */ return false; }
+	isSupersetOf<U: type>(other: Set.<U>): boolean { /* … */ return false; }
+	isDisjointFrom<U: type>(other: Set.<U>): boolean { /* … */ return false; }
 }
 ```
 
@@ -233,23 +233,23 @@ A ```Set``` of value type class instances deduplicates structurally, and a ```Ma
 ## Promise Statics
 
 ```js
-type PromiseSettledResult<R, E> = {
+type PromiseSettledResult<R: type, E: type> = {
 	status: string, // 'fulfilled' or 'rejected'
 	value?: R,
 	reason?: E
 };
 
-class Promise<R, E> {
-	static withResolvers<R, E>(): {
+class Promise<R: type, E: type> {
+	static withResolvers<R: type, E: type>(): {
 		promise: Promise.<R, E>,
 		resolve: (value: R) => void,
 		reject: (reason: E) => void
 	};
-	static try<R, E>(callback: (...args: [].<any>) => R | Promise.<R, E>, ...args: [].<any>): Promise.<R, E> { /* … */ return undefined; }
-	static all<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<[].<R>, E> { /* … */ return undefined; }
-	static allSettled<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<[].<PromiseSettledResult.<R, E>>, undefined> { /* … */ return undefined; }
-	static any<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<R, AggregateError> { /* … */ return undefined; }
-	static race<R, E>(promises: Iterable.<Promise.<R, E>>): Promise.<R, E> { /* … */ return undefined; }
+	static try<R: type, E: type>(callback: (...args: [].<any>) => R | Promise.<R, E>, ...args: [].<any>): Promise.<R, E> { /* … */ return undefined; }
+	static all<R: type, E: type>(promises: Iterable.<Promise.<R, E>>): Promise.<[].<R>, E> { /* … */ return undefined; }
+	static allSettled<R: type, E: type>(promises: Iterable.<Promise.<R, E>>): Promise.<[].<PromiseSettledResult.<R, E>>, undefined> { /* … */ return undefined; }
+	static any<R: type, E: type>(promises: Iterable.<Promise.<R, E>>): Promise.<R, AggregateError> { /* … */ return undefined; }
+	static race<R: type, E: type>(promises: Iterable.<Promise.<R, E>>): Promise.<R, E> { /* … */ return undefined; }
 }
 ```
 
@@ -258,11 +258,11 @@ Over a tuple of differently typed promises the combinators return tuples instead
 ## Array.fromAsync
 
 ```js
-function Array.fromAsync<T>(
+function Array.fromAsync<T: type>(
 	items: AsyncIterable.<T> | Iterable.<T | Promise.<T, any>>
 ): Promise.<[].<T>, any>;
 
-function Array.fromAsync<T, U>(
+function Array.fromAsync<T: type, U: type>(
 	items: AsyncIterable.<T> | Iterable.<T | Promise.<T, any>>,
 	mapFn: (value: T, index: uint64) => U | Promise.<U, any>
 ): Promise.<[].<U>, any>;

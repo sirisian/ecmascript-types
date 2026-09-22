@@ -17,7 +17,7 @@ Everything the two sides contend on gets its own cache line, and everything one 
 
 ```js
 // ringbuffer.js
-export class SPSCQueue<T, Capacity: uint32> where (Capacity & (Capacity - 1)) == 0 {
+export class SPSCQueue<T: type, Capacity: uint32> where (Capacity & (Capacity - 1)) == 0 {
 	#slots: shared [Capacity].<T>;
 
 	// Each index owns a cache line; each side's private cache owns one too.
@@ -36,7 +36,7 @@ Each side owns one index and reads the other's. The push sequence is: write the 
 
 ```js
 // ringbuffer.js
-partial class SPSCQueue<T, Capacity: uint32> {
+partial class SPSCQueue<const T, const Capacity: uint32> {
 	tryPush(value: T): boolean {
 		const tail = this.#tail; // Plain: reading our own thread's last write
 		if (tail - this.#headCache == Capacity) { // Apparently full; refresh our view of the consumer
@@ -75,7 +75,7 @@ What a thread may *not* do is share the payload copy: ```out = this.#slots[i]```
 
 ```js
 // ringbuffer.js
-partial class SPSCQueue<T, Capacity: uint32> {
+partial class SPSCQueue<const T, const Capacity: uint32> {
 	// Producer side: push, then wake a sleeping consumer if there is one.
 	pushNotify(value: T): boolean {
 		if (!this.tryPush(value)) {
@@ -109,7 +109,7 @@ The sequence numbers need per-element atomic access, and that requirement decide
 
 ```js
 // ringbuffer.js
-export class MPMCQueue<T, Capacity: uint32> where (Capacity & (Capacity - 1)) == 0 {
+export class MPMCQueue<T: type, Capacity: uint32> where (Capacity & (Capacity - 1)) == 0 {
 	#sequence: shared [Capacity].<uint32>;
 	#slots: shared [Capacity].<T>;
 	@align(64) #head: shared uint32 = 0;

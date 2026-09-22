@@ -87,18 +87,18 @@ The subject is open - ```uint16``` has 65536 values and the ranges name 500 of t
 The client's public reads return ```Result.<T, ProtocolError>``` rather than throwing, because a missing document is data to a caller, not an exception. The extractor protocol is one static method per case; the generic instantiates from the subject, so every binding below is typed without an annotation anywhere.
 
 ```js
-sealed abstract class Result<T, E> {}
-class Ok<T, E> extends Result.<T, E> {
+sealed abstract class Result<T: type, E: type> {}
+class Ok<T: type, E: type> extends Result.<T, E> {
 	value: T;
 	constructor(value: T) { super(); this.value = value; }
-	static [Symbol.customMatcher]<T, E>(subject: Result.<T, E>): [T] | null {
+	static [Symbol.customMatcher]<T: type, E: type>(subject: Result.<T, E>): [T] | null {
 		return subject instanceof Ok.<T, E> ? [subject.value] : null;
 	}
 }
-class Err<T, E> extends Result.<T, E> {
+class Err<T: type, E: type> extends Result.<T, E> {
 	error: E;
 	constructor(error: E) { super(); this.error = error; }
-	static [Symbol.customMatcher]<T, E>(subject: Result.<T, E>): [E] | null {
+	static [Symbol.customMatcher]<T: type, E: type>(subject: Result.<T, E>): [E] | null {
 		return subject instanceof Err.<T, E> ? [subject.error] : null;
 	}
 }

@@ -123,10 +123,10 @@ Generic type parameters are type objects too, so a parameter in scope evaluates 
 ```js
 class Resources {
   #values = new Map.<type, any>();
-  set<T>(value: T) {
+  set<T: type>(value: T) {
     this.#values.set(T, value); // T evaluates to its type object
   }
-  get<T>(): T | undefined {
+  get<T: type>(): T | undefined {
     return this.#values.get(T);
   }
 }

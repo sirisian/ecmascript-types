@@ -132,26 +132,26 @@ const total: decimal = @linq { from li in cart select li.price * li.qty }.sum();
 A source declares what it can do, and a clause is legal where its source provides the operation. `W<_>` is the wrapper a source produces and ```W.<T>``` applies it, so one declaration serves the synchronous and asynchronous forms rather than two that drift:
 
 ```js
-interface Source<W<_>> {
-  map<T, U>(source: W.<T>, project: (value: T) => U): W.<U>;
-  flatMap<T, U>(source: W.<T>, project: (value: T) => W.<U>): W.<U>;
+interface Source<W<_>: type> {
+  map<T: type, U: type>(source: W.<T>, project: (value: T) => U): W.<U>;
+  flatMap<T: type, U: type>(source: W.<T>, project: (value: T) => W.<U>): W.<U>;
 }
 
-interface Filterable<W<_>> extends Source.<W> {
-  filter<T>(source: W.<T>, predicate: (value: T) => boolean): W.<T>;
+interface Filterable<W<_>: type> extends Source.<W> {
+  filter<T: type>(source: W.<T>, predicate: (value: T) => boolean): W.<T>;
 }
 
-interface Orderable<W<_>> extends Source.<W> {
-  order<T, K>(source: W.<T>, plan: OrderPlan.<T, K>): W.<T>;
+interface Orderable<W<_>: type> extends Source.<W> {
+  order<T: type, K: type>(source: W.<T>, plan: OrderPlan.<T, K>): W.<T>;
 }
 
-interface Groupable<W<_>> extends Source.<W> {
-  group<T, K>(source: W.<T>, key: (value: T) => K): W.<Group.<K, T>>;
+interface Groupable<W<_>: type> extends Source.<W> {
+  group<T: type, K: type>(source: W.<T>, key: (value: T) => K): W.<Group.<K, T>>;
 }
 
-interface Sliceable<W<_>> extends Source.<W> {
-  take<T>(source: W.<T>, count: uint32): W.<T>;
-  skip<T>(source: W.<T>, count: uint32): W.<T>;
+interface Sliceable<W<_>: type> extends Source.<W> {
+  take<T: type>(source: W.<T>, count: uint32): W.<T>;
+  skip<T: type>(source: W.<T>, count: uint32): W.<T>;
 }
 ```
 
@@ -194,10 +194,10 @@ const rows: AsyncQuery.<Row> = @linq {
 ```Query.<T>``` is iterable, so `for...of`, spread and destructuring work. What it is not is an array, and the terminals are named:
 
 ```js
-interface Query<T> extends Iterable.<T> {
+interface Query<T: type> extends Iterable.<T> {
   toArray(): [].<T>;
   toSet(): Set.<T>;
-  toMap<K, V>(key: (value: T) => K, value: (item: T) => V): Map.<K, V>;
+  toMap<K: type, V: type>(key: (value: T) => K, value: (item: T) => V): Map.<K, V>;
 
   first(): T | undefined;
   last(): T | undefined;
@@ -206,9 +206,9 @@ interface Query<T> extends Iterable.<T> {
   count(): uint32;
   sum(select?: (value: T) => number): number;
   average(select?: (value: T) => number): number;
-  min<K>(select?: (value: T) => K): T | undefined;
-  max<K>(select?: (value: T) => K): T | undefined;
-  fold<A>(seed: A, step: (accumulator: A, value: T) => A): A;
+  min<K: type>(select?: (value: T) => K): T | undefined;
+  max<K: type>(select?: (value: T) => K): T | undefined;
+  fold<A: type>(seed: A, step: (accumulator: A, value: T) => A): A;
 
   any(predicate?: (value: T) => boolean): boolean;
   all(predicate: (value: T) => boolean): boolean;
@@ -217,12 +217,12 @@ interface Query<T> extends Iterable.<T> {
   union(other: Iterable.<T>): Query.<T>;
   intersect(other: Iterable.<T>): Query.<T>;
   except(other: Iterable.<T>): Query.<T>;
-  zip<U, R>(other: Iterable.<U>, combine: (left: T, right: U) => R): Query.<R>;
+  zip<U: type, R: type>(other: Iterable.<U>, combine: (left: T, right: U) => R): Query.<R>;
   chunk(size: uint32): Query.<[].<T>>;
   window(size: uint32): Query.<[].<T>>;
 }
 
-interface Group<K, T> extends Query.<T> {
+interface Group<K: type, T: type> extends Query.<T> {
   key: K;
 }
 ```

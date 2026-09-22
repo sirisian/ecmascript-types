@@ -56,8 +56,8 @@ Both no-argument forms are defaults over the range form below. ```Math.random.<f
 The bounds are a range, which may be any of the [range](ranges.md) forms. Its element type is ```T``` and its interval is part of its type:
 
 ```js
-function Math.random<T, R extends RangeBounds.<T>, Method: Math.PRNG = Math.PRNG.Default>(range: R): T;
-function Math.random<T, R extends RangeBounds.<T>, Method: Math.PRNG = Math.PRNG.Default>(array: [].<T>, range: R): [].<T>;
+function Math.random<T: type, R: type extends RangeBounds.<T>, Method: Math.PRNG = Math.PRNG.Default>(range: R): T;
+function Math.random<T: type, R: type extends RangeBounds.<T>, Method: Math.PRNG = Math.PRNG.Default>(array: [].<T>, range: R): [].<T>;
 ```
 
 ```js
@@ -143,7 +143,7 @@ The config is either a seed for a fresh generator or a saved ```PRNGState``` to 
 
 ```js
 type SeededConfig = { seed: uint64 } | { state: PRNGState };
-function Math.seededRandom<T, Method: Math.PRNG = Math.PRNG.Default>(config: SeededConfig): SeededPRNG.<T, Method>;
+function Math.seededRandom<T: type, Method: Math.PRNG = Math.PRNG.Default>(config: SeededConfig): SeededPRNG.<T, Method>;
 ```
 
 ```js
@@ -199,11 +199,11 @@ class PRNGState {  // Exposed as Math.PRNGState
 	operator PRNGState(value: string) { /* … */ } // Cast from base64, for JSON.parse
 }
 
-class SeededPRNG<T, Method: Math.PRNG> {
+class SeededPRNG<T: type, Method: Math.PRNG> {
 	random(): T { /* … */ return undefined; }
-	random<R extends RangeBounds.<T>>(range: R): T { /* … */ return undefined; }
+	random<R: type extends RangeBounds.<T>>(range: R): T { /* … */ return undefined; }
 	random(array: [].<T>): [].<T> { /* … */ return []; }
-	random<R extends RangeBounds.<T>>(array: [].<T>, range: R): [].<T> { /* … */ return []; }
+	random<R: type extends RangeBounds.<T>>(array: [].<T>, range: R): [].<T> { /* … */ return []; }
 	get state(): PRNGState { /* … */ return undefined; }
 	set state(value: PRNGState) { /* … */ }
 	jump(): SeededPRNG.<T, Method> { /* … */ return undefined; }

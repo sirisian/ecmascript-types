@@ -9,10 +9,10 @@ It builds on [generics](generics.md) and changes nothing about first-order param
 The [iteration types](README.md) are six interfaces, and the asynchronous three resemble the synchronous three closely:
 
 ```js
-interface Iterator<T, R = void, N = void> {
+interface Iterator<T: type, R: type = void, N: type = void> {
   next(value?: N): IteratorResult<T, R>;
 }
-interface AsyncIterator<T, R = void, N = void> {
+interface AsyncIterator<T: type, R: type = void, N: type = void> {
   next(value?: N): Promise.<IteratorResult<T, R>, any>;
 }
 ```
@@ -26,21 +26,21 @@ interface AsyncIterator<T, R = void, N = void> {
 
 A third difference is often listed and is not one. The synchronous ```Iterator``` declares optional ```return``` and ```throw``` where the asynchronous one declares neither — but they are *optional*, so an interface declaring them is satisfied by a value with neither, and the asynchronous form's omission is a gap in its description rather than a difference in the protocol.
 
-The larger deduplication here is not this feature's. Abstracting over the member key would collapse all six to two, and it needs a **value** generic rather than a kind — a symbol parameter, as ```interface Iterable<K: symbol, W<_>, T> { [K](): Iterator.<W, T>; }```. That form is unwritten and would cost the use site its readability, since ```Iterable.<Symbol.iterator, Identity, uint8>``` stands where ```Iterable.<uint8>``` did, and defaults cannot rescue it because the defaultable parameters come first. It is recorded here because a reader who sees ```Iterable``` left un-unified will ask why, and because it is the larger prize.
+The larger deduplication here is not this feature's. Abstracting over the member key would collapse all six to two, and it needs a **value** generic rather than a kind — a symbol parameter, as ```interface Iterable<K: symbol, W<_>: type, T: type> { [K](): Iterator.<W, T>; }```. That form is unwritten and would cost the use site its readability, since ```Iterable.<Symbol.iterator, Identity, uint8>``` stands where ```Iterable.<uint8>``` did, and defaults cannot rescue it because the defaultable parameters come first. It is recorded here because a reader who sees ```Iterable``` left un-unified will ask why, and because it is the larger prize.
 
 ## The declaration
 
 A parameter is higher-kinded when its own parameter list is written with holes:
 
 ```ts
-interface Iterator<W<_>, T, R = void, N = void> {
+interface Iterator<W<_>: type, T: type, R: type = void, N: type = void> {
   next(value?: N): W.<IteratorResult.<T, R>>;
 }
 ```
 
 The declaration above is the unification, and it is worth reading against the two it replaces: `next`, `return`, and `throw` are written once, with `W.<…>` where the synchronous form had a bare result and the asynchronous form a promise. `Iterator.<Identity, T>` is the first and `Iterator.<Promise, T>` the second.
 
-```W<_>``` takes one argument. ```W<_, _>``` takes two. **Arity is written, never inferred**, so a declaration says how it will use its parameter and a reader need not scan the body to find out.
+```W<_>``` takes one argument. ```W<_, _>``` takes two. The annotation that follows, ```W<_>: type```, says what an application of ```W``` yields - a type - and not what ```W``` is: a bare ```W``` is not a type, as the next section says. **Arity is written, never inferred**, so a declaration says how it will use its parameter and a reader need not scan the body to find out.
 
 ```_``` is the [pattern matching](patternmatching.md) wildcard, and the reuse is deliberate. This design already distinguishes two meanings of one token by position: ```%``` is the remainder operator between two operands and the [pipeline](pipelineoperator.md) topic where an operand is expected. A type parameter list is a position where a pattern can never appear, so ```_``` there is unambiguous, and it already means *a hole* everywhere else it is written.
 
@@ -68,7 +68,7 @@ A bare ```W``` — before it is applied — is **not a type**. It is a construct
 Any generic declaration of matching arity: a class, an interface, or a type alias.
 
 ```js
-type Identity<T> = T;
+type Identity<T: type> = T;
 
 Iterator.<Identity, uint8>   // the synchronous form
 Iterator.<Promise, uint8>    // the asynchronous form
@@ -83,7 +83,7 @@ The two refusals carry different messages because they are different mistakes, a
 The unification needs a wrapper that means *no wrapper*, and it is an ordinary alias:
 
 ```js
-type Identity<T> = T;
+type Identity<T: type> = T;
 ```
 
 Nothing else is required. A generic alias may already be applied, so ```Identity.<uint8>``` is ```uint8``` and ```Iterator.<Identity, uint8>``` is the synchronous iterator. This proposal ships the alias in the standard library rather than making it a built-in type, because there is nothing built-in about it.
@@ -93,7 +93,7 @@ Nothing else is required. A generic alias may already be applied, so ```Identity
 A higher-kinded parameter may carry a default like any other, and doing so decides where it sits in the list. The wrapper is the *least* interesting parameter at most use sites — almost every annotation wants the synchronous form — so it goes **last** and defaults to ```Identity```:
 
 ```js
-interface Iterator<T, R = void, N = void, W<_> = Identity> {
+interface Iterator<T: type, R: type = void, N: type = void, W<_>: type = Identity> {
   next(value?: N): W.<IteratorResult<T, R>>;
   return?(value?: R): W.<IteratorResult<T, R>>;
   throw?(e?: any): W.<IteratorResult<T, R>>;
@@ -107,7 +107,7 @@ Putting it last is not a style preference — it is what the ordinary rule requi
 The asynchronous form is then a name rather than a second declaration:
 
 ```js
-type AsyncIterator<T, R = void, N = void> = Iterator.<T, R, N, Promise>;
+type AsyncIterator<T: type, R: type = void, N: type = void> = Iterator.<T, R, N, Promise>;
 ```
 
 which keeps ```AsyncIterator.<uint8>``` writable while the members it describes are declared once. The duplication this extension removes is of *content*, not of names — names are cheap, and a reader looking for ```AsyncIterator``` should find it.
@@ -117,7 +117,7 @@ which keeps ```AsyncIterator.<uint8>``` writable while the members it describes 
 A ```where``` clause on a higher-kinded parameter constrains its **applied form at a stated argument**:
 
 ```js
-function collect<W<_>, T>(it: Iterator.<W, T>): [].<T>
+function collect<W<_>: type, T: type>(it: Iterator.<W, T>): [].<T>
   where W.<T> is Iterable.<T> {}
 ```
 

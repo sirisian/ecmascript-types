@@ -103,7 +103,7 @@ A codec is an encode function, a decode function, and a fixed size when it has o
 
 ```js
 // codec.js
-export class Codec<T = any> {
+export class Codec<T: type = any> {
 	fixedSize: uint32; // 0 means variable-length
 	encode: (value: T, w: Writer) => void;
 	decode: (r: Reader) => T;
@@ -125,7 +125,7 @@ export function codecForType(t: type): Codec {
 	return hit;
 }
 
-export function codecFor<T>(): Codec.<T> {
+export function codecFor<T: type>(): Codec.<T> {
 	return codecForType(T); // T in expression position is its type object
 }
 
@@ -150,7 +150,7 @@ set(string,  new Codec(0, (v, w) => w.str(v),  r => r.str()));
 
 ```js
 // codec.js
-export function deriveClass<T>(): Codec.<T> {
+export function deriveClass<T: type>(): Codec.<T> {
 	const fields = Reflect.getReflection.<Reflect.ClassField, T>();
 	const names: [].<string> = [];
 	const types: [].<type> = [];
@@ -204,7 +204,7 @@ Enums derive from their reflection too. Encoding uses the one-way implicit conve
 
 ```js
 // codec.js
-export function deriveEnum<T extends enum>(): Codec.<T> {
+export function deriveEnum<T: type extends enum>(): Codec.<T> {
 	const info = Reflect.getReflection.<Reflect.Enum, T>();
 	const underlying = codecForType(info.valueType); // The enum's underlying value type
 	const codec = new Codec.<T>(underlying.fixedSize,
@@ -221,7 +221,7 @@ Arrays, fixed-extent arrays, and nullables are built by combinators whose real w
 
 ```js
 // codec.js
-export function deriveArray<E>(): Codec.<[].<E>> {
+export function deriveArray<E: type>(): Codec.<[].<E>> {
 	const elem = codecForType(E);
 	const codec = new Codec.<[].<E>>(0,
 		(value, w) => {
@@ -242,7 +242,7 @@ export function deriveArray<E>(): Codec.<[].<E>> {
 	return codec;
 }
 
-export function deriveFixedArray<E, N: uint32>(): Codec.<[N].<E>> {
+export function deriveFixedArray<E: type, N: uint32>(): Codec.<[N].<E>> {
 	const elem = codecForType(E);
 	const codec = new Codec.<[N].<E>>(elem.fixedSize * N, // 0 propagates: variable elements make it variable
 		(value, w) => {
@@ -261,7 +261,7 @@ export function deriveFixedArray<E, N: uint32>(): Codec.<[N].<E>> {
 	return codec;
 }
 
-export function deriveNullable<E>(): Codec {
+export function deriveNullable<E: type>(): Codec {
 	const K = type E | null; // The prefix operator builds the exact union key
 	const elem = codecForType(E);
 	const codec = new Codec(0,
@@ -287,7 +287,7 @@ When a class is fixed-size, its declaration-order layout *is* a wire format, and
 
 ```js
 // codec.js
-export function encodeColumn<T>(values: [].<T>, w: Writer) {
+export function encodeColumn<T: type>(values: [].<T>, w: Writer) {
 	const c = codecFor.<T>();
 	w.u32(values.length);
 	if (c.fixedSize != 0) {
@@ -299,7 +299,7 @@ export function encodeColumn<T>(values: [].<T>, w: Writer) {
 	}
 }
 
-export function decodeColumn<T>(r: Reader): [].<T> {
+export function decodeColumn<T: type>(r: Reader): [].<T> {
 	const c = codecFor.<T>();
 	const length = r.u32();
 	const out = [].<T>.withCapacity(length);

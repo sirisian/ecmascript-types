@@ -37,7 +37,7 @@ Span.<uint8>(mesh).slice(0, (count := uint64) * Vertex.byteLength);
 These are properties on the type object rather than a `sizeof` operator, so no grammar is added, and they work wherever a type does. A generic reads its own parameter, and dynamic code reads the type of a value:
 
 ```js
-function stride<T>(): uint32 {
+function stride<T: type>(): uint32 {
   return T.byteLength; // A constant once T is specialized
 }
 Reflect.typeOf(value).byteLength; // One property load on an interned type object
