@@ -3268,6 +3268,8 @@ partial class Vector2 {
 
 A partial class adds no fields and does not re-open the constructor, so a class's layout is fixed by its primary declaration and array views over it stay well-defined; a field, a static block, or a ```constructor``` in a partial class body is a TypeError, not a member silently left out. The metadata shapes the [decorators](decorators.md) extension appends to are extended with ```partial interface```, which may contribute members because an interface declares a shape and adds no instance state.
 
+A partial class takes no type parameter list of its own. A partial of a generic class sees the class's parameters and names them as the class body does, and ```partial class Box<T: type>``` is a SyntaxError.
+
 Adding a method or operator the class already has, whether from its primary declaration or another module's partial, is a TypeError at the second declaration - the same rule the operator table uses - so extension is order-independent and two modules cannot silently shadow each other.
 
 ### Sealed Classes

@@ -48,7 +48,7 @@ Roles are decided by the syntax, never by what a name resolves to. An entry with
 
 Three spellings are early errors that name their correction rather than alternatives:
 
-- ```T: B```, where ```B``` is not a value domain - an interface or a class, such as ```T: Ordered.<T>``` - declares a value parameter whose values would be objects, which a generic argument cannot be. The correction is ```T: type extends B```. Rust, Swift, and Kotlin all write a bound as ```T: B```, so this is the first mistake a reader from those languages will make, and it is caught where it is written rather than at some later application.
+- ```T: B```, where ```B``` is not a value domain - an interface, a class, ```object``` or an object shape, such as ```T: Ordered.<T>``` - declares a value parameter whose values would be objects, which a generic argument cannot be. The correction is ```T: type extends B```. Rust, Swift, and Kotlin all write a bound as ```T: B```, so this is the first mistake a reader from those languages will make, and it is caught where it is written rather than at some later application.
 - ```T extends B``` with no domain is the same error with the same correction. One spelling per parameter means that deleting a bound cannot turn a parameter into a reference.
 - A domain that admits both Type Objects and other values, such as ```V: any``` or ```V: type | uint32```, is refused, since an argument could bind it either way (see [Binding a value generic from an argument](#binding-a-value-generic-from-an-argument)).
 
@@ -144,6 +144,10 @@ A value can be passed into generics like a function argument. The only caveat is
 A generic value parameter may be declared with any primitive value type: the integer types, the float types, the decimal and rational types, ```boolean```, ```string```, and enum types. Two applications name the same specialization when their arguments are the same value under SameValue, the comparison ```Object.is``` performs. Reference values are not permitted as generic arguments, since specialization identity would then depend on object identity.
 
 The one record-shaped domain is a metadata type of [primitive metadata](primitivemetadata.md), such as ```Dimensions``` or ```NumberBounds.<float32>```. Its values are the normalized, immutable metadata records its ```meta``` declaration accepts, compared by that facility's identity rather than by object identity, which is what lets ```decimal128.<{ currency: To }>``` below name one type however it is spelled. No other object type is a value domain: together with ```type```, the primitive value types, enumerations, and literal types and unions of them, these are the domains a generic parameter may declare, and the domains the correction ```T: type extends B``` is offered against.
+
+An array or tuple of value types is also a value domain, so ```P: [].<string>``` takes a list of string constants. Its argument is identified by content, the tuple of its elements' literal types, never by the array's identity. An array of objects is not a value domain.
+
+Two parameters of one list may not share a name, and a higher-kinded parameter's domain is written ```type```, a TypeError otherwise.
 
 ```js
 class Buffer<Size: uint32, Name: string> {}
