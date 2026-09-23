@@ -1257,6 +1257,13 @@ f(1);
 f(1, 2);
 ```
 
+A function *type* may give a parameter a default, and a required parameter may follow a defaulted one only when it has a name, since a named argument is then the way to reach it. An unnamed one is reached only by position, which fills the defaulted position too, so its default could never be taken:
+
+```js
+type F = (a: uint8 = 1, b: uint8) => uint8; // b is filled by name: f(b: 2)
+type G = (uint8 = 1, uint8) => uint8;       // TypeError: the default can never be taken
+```
+
 ### Typed Arrow Functions
 
 A function signature describes its arguments and result independently of whether the actual value supports construction. A statically identified typed arrow, generator, async function or async generator cannot be used with `new`. A statically identified typed class constructor cannot be called without `new`, including through optional calls and tagged templates. Ordinary functions can still be constructors.
