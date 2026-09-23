@@ -54,7 +54,7 @@ const words = Span.<uint32>(pixels);   // One packed word per pixel: fast fills 
 
 ## Constructors
 
-```rgb``` and ```rgba``` are the literal forms the request asked for, as ordinary functions. Alpha is a ```0..1``` float, so it is validated at the call:
+```rgb``` and ```rgba``` are the literal forms the request asked for, as ordinary functions. Alpha is a ```0..=1``` float, so it is validated at the call:
 
 ```js
 function rgb(r: uint8, g: uint8, b: uint8): Color {

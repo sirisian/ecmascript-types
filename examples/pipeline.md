@@ -80,7 +80,7 @@ const label: string = await fetchTimings(url)
   |> match (%) {
     when { status: 200, let body }: body.label;
     when { status: 404 }: 'no build recorded';
-    when { status: 500..600, let status }: `server error ${status}`;
+    when { status: 500..<600, let status }: `server error ${status}`;
     when { let status }: `unexpected ${status}`;
   };
 ```
@@ -181,7 +181,7 @@ async function report(env: Env, url: string): string {
         |> %.reduce((a, t) => a + t.ms, 0)
         |> % / 1000
         |> `${workers} workers, ${%.toFixed(2)}s`;
-      when { status: 500..600, let status }: `build service unavailable (${status})`;
+      when { status: 500..<600, let status }: `build service unavailable (${status})`;
       when { let status }: `unexpected response ${status}`;
     };
 }

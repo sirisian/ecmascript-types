@@ -5,7 +5,7 @@ A typed HTTP API client: response discrimination, retry with backoff, header par
 Features exercised:
 
 - An exhaustive ```match``` over a union of response shapes discriminated by a literal ```status``` field, so adding a response kind to the type breaks every site that must handle it - and no ```default``` clause anywhere it would be dead.
-- Range patterns classifying status codes - ```when { status: 500..600 }:``` - the containment test a numeric family needs where enumeration is absurd.
+- Range patterns classifying status codes - ```when { status: 500..<600 }:``` - the containment test a numeric family needs where enumeration is absurd.
 - A generic ```Result.<T, E>``` matched through extractor patterns, ```Ok(let value)``` and ```Err(let error)```, with the bindings typed by ordinary generic inference from the subject.
 - Regular expression patterns with typed named groups parsing ```Retry-After``` and ```Link``` headers, where a misspelled group name is a compile-time TypeError.
 - Composite request keys as constant patterns: a match over interned keys is pointer comparisons, and the cache's ```Map``` needs no custom hashing.
@@ -70,11 +70,11 @@ Logging wants classes, not codes, and a class of codes is a range. A float would
 ```js
 function logClass(status: uint16): void {
 	match (status) {
-		when 100..200: log.debug('informational');
-		when 200..300: log.debug('success');
-		when 300..400: log.info('redirect');
-		when 400..500: log.warn('client error');
-		when 500..600: log.error('server error');
+		when 100..<200: log.debug('informational');
+		when 200..<300: log.debug('success');
+		when 300..<400: log.info('redirect');
+		when 400..<500: log.warn('client error');
+		when 500..<600: log.error('server error');
 		default: log.error('unregistered status');
 	};
 }
@@ -163,7 +163,7 @@ The retry loop is a ```match``` over the caught value. ```catch``` stays untyped
 
 ```js
 async function withRetry(request: Composite.<RequestKey>): Response {
-	for (const attempt: uint8 of 0..5) {
+	for (const attempt: uint8 of 0..<5) {
 		try {
 			return await send(request);
 		} catch (e) {

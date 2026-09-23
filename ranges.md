@@ -251,9 +251,21 @@ Element types come from literal propagation, as anywhere else:
 ```js
 const a = 1..=6; // ClosedRange.<number>
 const b: ClosedRange.<uint8> = 1..=6; // uint8 endpoints
+for (const c: uint8 of 1..=6) {} // the loop's annotation types the range, as b's does
 0n..<10n; // ClosedOpenRange.<bigint>
 Meter(0)..<Meter(10); // ClosedOpenRange.<float32.<{ m: 1 }>>
 ```
+
+The loop head is not a special case. A `for`-`of` binding takes an annotation exactly as `b` does, and a range literal written directly in the head reads it the same way; without that, the one place a literal sat beside an annotation would be the one place it ignored it. Only a literal written in the head is read this way - a range produced by a call or held in a binding keeps the type it was given, and the annotation checks its elements.
+
+**A range read at an element type must produce only values of that type**, and it is the elements that are checked, not the endpoints, because an open end is never produced:
+
+```js
+for (const b: uint8 of 0..<256) {} // every byte: 256 is the stop, never produced
+for (const b: uint8 of 0..=256) {} // type error: 256 is produced, and is not a uint8
+```
+
+An endpoint rule would refuse the first, the most natural byte loop there is. An empty range fits any element type, since it produces nothing, and a range with no end - `0..` - fits no bounded one.
 
 **An endpoint may be infinite, and that is not the same as having none.** ```0..<Infinity``` and ```0..``` contain the same values and iterate the same - an infinite end stops the iteration nowhere, exactly as an absent end does - but they are different shapes and say so: the first has an ```end```, an ```endBound``` of ```Bound.Open``` and an ```interval``` of ```Interval.ClosedOpen```, where the second reports none of the three. Only the absent form is ```isFull``` when both sides are missing, so ```-Infinity..<Infinity``` is not ```..```. Both spellings are allowed because a computed endpoint may *be* infinite without an author choosing it - a bound derived from a division, or a length that overflowed - and refusing would turn a survivable program into a throw. Write ```0..``` when you mean "no upper bound"; ```0..<Infinity``` is what a computation hands you.
 
@@ -314,7 +326,7 @@ uint8.min;  // 0      - the width, where there are no bounds
 uint8.max;  // 255
 ```
 
-```min``` and ```max``` report values a type ADMITS and carry no exclusivity of their own, so ```uint8.<{ bounds: 0..10 }>``` has a ```max``` of 9. A schema emitter that must distinguish ```exclusiveMaximum: 10``` from ```maximum: 9``` reads the range itself from the metadata, where it is kept whole.
+```min``` and ```max``` report values a type ADMITS and carry no exclusivity of their own, so ```uint8.<{ bounds: 0..<10 }>``` has a ```max``` of 9. A schema emitter that must distinguish ```exclusiveMaximum: 10``` from ```maximum: 9``` reads the range itself from the metadata, where it is kept whole.
 
 One notation now spells an interval in all four places a program needs one - as a value, as a constraint, as a random source, and as the bound the arithmetic on a constrained value carries - and they agree by construction:
 
