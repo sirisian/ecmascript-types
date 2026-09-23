@@ -398,7 +398,14 @@ function fgt(a: float32, b: float32): boolean {
 ```
 </details>
 
-A ```primitive``` block's header reads as the type it covers. Each list after the primitive's name is decided as a type's ```.<...>``` is: where the primitive declares parameters the list matches them, its components, and otherwise it captures metadata, each capture binding the portion of the receiver's metadata claimed by the meta type its annotation names. ```float32``` declares no parameters, so ```primitive float32<const D: Dimensions>``` captures metadata directly. ```complex``` declares its component type, so a block over the metadata of every complex writes the component first, ```primitive complex<_><const T: P>```, as the type ```complex.<float64>.<{ phase: 1 }>``` supplies its component and then its metadata; ```primitive complex<const T: P>``` would put ```T``` in the component and is an error offering that spelling.
+A ```primitive``` block's header reads as the type it covers. Each list after the primitive's name is decided as a type's ```.<...>``` is: where the primitive declares parameters the list matches them, its components, and otherwise it captures metadata, each capture binding the portion of the receiver's metadata claimed by the meta type its annotation names. ```float32``` declares no parameters, so ```primitive float32<const D: Dimensions>``` captures metadata directly. ```complex``` declares its component type, so a block over the metadata of every complex writes the component first, ```primitive complex<_><const T: P>```, as the type ```complex.<float64>.<{ phase: 1 }>``` supplies its component and then its metadata; ```primitive complex<const T: P>``` would put ```T``` in the component and is an error offering the right spelling. A cast's name is a type and follows the same rule, so ```complex.<T>``` would name a complex whose parts are ```T```; a block that casts into the metadata of every complex captures the component and names it, and the one cast then covers each component:
+
+```js
+primitive complex<const E><const T: Phase> {
+  operator complex.<E>.<T>() { return this; } // complex64 and complex128 alike
+}
+const p: complex.<float64>.<{ phase: 1 }> = 1 + 2i;
+```
 
 ```js
 primitive float32<const D: Dimensions> {
