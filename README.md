@@ -3001,6 +3001,23 @@ class B extends A {
 
 The reason is that return type overloads resolve against the call site's expected type, which is static, while overriding dispatches on the receiver, which is dynamic. If both keyed on the same parameter list, three things would follow. The derived declaration would be a sibling overload rather than an override, so which body runs would depend on what the result is assigned to, for the same receiver and arguments, and the derived body would be unreachable through any base-typed reference. A call through ```any``` or reflection, having no expected type to resolve against, would become ambiguous the moment a subclass was declared elsewhere. And a dispatch slot, which is keyed on a name and parameter types, has no room for a return type. Rename the method or differentiate it by parameters instead.
 
+Fields do not overload. A field is declared once along a class chain, so a subclass redeclaring a typed field it inherits is a TypeError, whether or not the redeclaration changes the type. A typed field has one declared type, which subtyping, ```readonly``` and the typed store all read, and a value type class's layout would otherwise place the field twice. A different value for an inherited field is assigned in the constructor:
+
+```js
+class A {
+  x: uint8 = 1;
+}
+class B extends A {
+  x: uint8 = 5; // TypeError: B redeclares x, a typed field it inherits from A
+}
+class C extends A {
+  constructor() {
+    super();
+    this.x = 5;
+  }
+}
+```
+
 #### Covariant Return Types
 
 A derived return type that is a subtype of the base's is a different thing: it refines one signature rather than declaring a second. There is one dispatch slot and one reachable body, and every base-typed caller still receives a value of the base's return type.

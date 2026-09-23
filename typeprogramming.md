@@ -166,6 +166,8 @@ function pluck<T: type, K: keyof T>(o: T, key: K): indexed(T, K) {
 
 `keyof T` evaluates once `T` is bound (inferred from `o`), and the resulting union-of-literals constraint does double duty: it checks `key`, and it drives *literal inference* for `K` — an argument `'name'` binds `K` to the literal type `'name'` rather than widening to `string`, exactly as `K extends keyof T` cues TypeScript to keep the literal. That inference rule — a parameter constrained to a union of literals infers literally — is the only inference change builders asked for, and it is specified with the constraint rule at the same clause.
 
+Because parameters bind left to right, a constraint or default may not read a parameter declared after it, in any form: `<K: keyof T, T: type>` is a TypeError asking for `T` to be declared first, as Rust refuses a forward reference in a parameter default. A default may not read its own parameter, and neither may a constraint that *evaluates* over it (a builder call, `keyof`, an indexed access). A bound that names its own parameter as a type argument is different: `T: type extends Ordered.<T>` is an F-bounded constraint, checked once `T` has its binding, which is how Rust reads `T: PartialOrd<T>` and how the [primitive metadata](primitivemetadata.md) extension writes `NumberBounds`.
+
 ### 3.6 The standard kit ships as JavaScript
 
 Everything in §4 is written against `Reflect.makeType`, `Reflect.getReflection.<Reflect.Type>`, `Reflect.isAssignable`, and `type never` — no construct below is engine magic. That is the point: the entire TypeScript utility library, plus the mapped/conditional/template machinery it is built from, lands as ordinary evaluable JavaScript — 313 non-comment lines and 71 exports as shipped, in nine families ([#annex-standard-kit](https://sirisian.github.io/proposal-runtime-types/#annex-standard-kit)). It ships as source under one standard module, `import { partial, pick, indexed, ... } from 'std:types';`, which is the single new specifier the proposal adds; its home is reconciled with [standardlibrary.md](standardlibrary.md) by observing that the two do not overlap, since that extension gives typed signatures to methods that already exist and introduces no module. Shipping as source is the proof that no construct in the kit is engine magic, gives the ecosystem one interned vocabulary so that `partial(User)` in two packages is one type, and makes the definitions their own reference documentation — and it is the compatibility story too: a codebase that cannot assume the module polyfills it verbatim.
@@ -336,7 +338,7 @@ TypeScript's third operator, `typeof x`, has **no counterpart here, and needs no
 
 | what you want | how it is written |
 | --- | --- |
-| the type of a VALUE | `Reflect.typeOf(x)`, which works in a type position because types are values |
+| the type of a VALUE | `Reflect.typeOf(x)`, which works in a type position because types are values, where `x` is a `const` (a type position is compile-time evaluable, and a `let` or `var` is not) |
 | a type object from a TYPE, in expression position | `type uint8` — the `type` operator, e.g. `const T = type uint8;` |
 | the type a binding was declared with | the TYPE's name, not the binding's — a binding that holds an ordinary value is not itself a type |
 
