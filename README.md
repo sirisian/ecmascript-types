@@ -963,25 +963,19 @@ let d = uint8.tryParse(read());     // uint8 | null, handled by narrowing
 let e: uint8 = Number(read());      // also fine: Number(s) is written, and is numeric
 ```
 
-**The ```string``` type takes what has a canonical text.** A number, a bigint, and a boolean each have exactly one text that denotes them, and ToString of them is total and loses nothing, so they convert without ceremony. ```undefined```, ```null```, an object, and a symbol have only a diagnostic text, and are refused: those are the language's best known silent failures, the ```"undefined"``` that reaches a user and the ```"[object Object]"``` where a field was meant. A program that wants one writes ```String(v)```. The asymmetry with the numeric rule is deliberate: ToString of a number cannot fail, while ToNumber of a string can, so the safe direction is implicit and the unsafe one is written.
+**The ```string``` type takes what has a canonical text, when it converts.** A number, a bigint, and a boolean each have exactly one text that denotes them, and ToString of them is total and loses nothing. ```undefined```, ```null```, an object, and a symbol have only a diagnostic text: those are the language's best known silent failures, the ```"undefined"``` that reaches a user and the ```"[object Object]"``` where a field was meant. So a conversion to ```string``` admits the first group and refuses the second, and a program that wants one of the second writes ```String(v)```.
 
-The leniency is the primitive's, and a codebase that wants the stricter boundary writes one rather than arguing with this rule. A brand over ```string``` admits only what its own construction admits, so a field annotated with it refuses the number that ```string``` would have taken:
-
-```js
-type Text = string.<{ strict: true }>; // a brand: no cast from number is declared
-let a: string = 42;                    // 42, converted, by the rule above
-// let b: Text = 42;                   // TypeError: nothing says how a number becomes a Text
-let c: Text = Text(String(42));        // written, and therefore said
-```
-
-That asymmetry of recourse is the reason the lenient rule is the right primitive: strictness is one declaration away, while a strict primitive could not be loosened at all without a second conversion rule that this design does not have.
+**A conversion happens only where the type was not known.** A value whose type is known statically is judged by assignability, and assignability converts nothing: a ```number``` is not a ```string```, so ```let a: string = 5``` is a TypeError before the program runs, exactly as ```let n: number = 5; let a: uint8 = n``` is. The canonical-text rule decides the case the checker cannot, a value that reaches a ```string``` boundary untyped, as an ```any``` does, and there it runs at the boundary. This is the same shape as the numeric rule above, which converts an untyped number and refuses an untyped string.
 
 ```js
-let a: string = 5;     // "5"
-let b: string = 5n;    // "5"
-let c: string = true;  // "true"
-// let d: string = undefined; // TypeError, write String(v) if that is meant
-// let e: string = {};        // TypeError
+// let a: string = 5;       // TypeError before the program runs: 5 is not a string
+// let b: string = true;    // TypeError, likewise
+let c: string = String(5);  // "5", written, and therefore said
+let d: string = 5 := string; // "5", a cast is an instruction
+let v: any = 5;
+let e: string = v;          // "5": untyped, so converted by the rule above
+let w: any = undefined;
+// let f: string = w;       // TypeError at run time: only a diagnostic text
 ```
 
 **The ```boolean``` type takes a boolean.** A value of any other type is refused at the boundary, and a program that means the truthiness writes ```Boolean(v)``` or ```!!v```. An earlier form of this design converted here, reasoning that ToBoolean is total, that every value has a defined truthiness, and that ```if (v)``` is the language's own idiom for asking. The flaw in that reasoning is that a boundary is a *store* and not a question: ```if (v)``` interrogates a value in place and moves on, while an annotation mints a durable answer that no longer carries what it was made from.
