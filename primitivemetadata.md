@@ -407,6 +407,19 @@ primitive complex<const E><const T: Phase> {
 const p: complex.<float64>.<{ phase: 1 }> = 1 + 2i;
 ```
 
+A captured component is bound from each receiver, so a block can be written once for a whole family and still speak about the receiver's own width or component. A block over one member is more specific than the family's, as a fixed argument is more specific than a capture, so it is chosen for that member whichever was declared first:
+
+```js
+primitive uint<const W> {
+  operator *(rhs: string): string { return `uint${W}`; }  // every width, W bound per receiver
+}
+primitive uint8 {
+  operator *(rhs: string): string { return 'byte'; }      // uint8 only, chosen over the family
+}
+(3 := uint8) * 'x';   // 'byte'
+(3 := uint16) * 'x';  // 'uint16'
+```
+
 ```js
 primitive float32<const D: Dimensions> {
 	// Same-dimension addition
