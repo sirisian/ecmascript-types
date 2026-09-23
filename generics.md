@@ -31,7 +31,7 @@ Operator declarations are the exception to the bare-```<...>``` at declaration s
 
 ### Declaring Parameters
 
-Every entry of a declaration's parameter list states what kind of argument it takes. A type parameter is written ```T: type``` and a value parameter ```V: uint32```, and the two are one form: ```type``` is the domain of Type Objects, so a type parameter is a compile-time constant whose value is a type, which is what it already evaluates to in expression position. A bound follows the domain, ```T: type extends Ordered.<T>```, and a default follows both, ```T: type = uint8```.
+Every entry of a declaration's parameter list states what kind of argument it takes. A type parameter is written ```T: type``` and a value parameter ```V: uint32```, and the two are one form: ```type``` is the domain of Type Objects, so a type parameter is a compile-time constant whose value is a type, which is what it already evaluates to in expression position. A bound follows the domain, ```T: type extends Ordered.<T>```, and a default follows both, ```T: type = uint8```. The kind is read from how the domain is written: ```type```, or ```[].<type>``` on a pack, takes types, and any other domain takes values. An alias of ```type``` is therefore refused with the spelling it stands for (```type Kind = type; function f<T: Kind>()``` is a TypeError asking for ```T: type```), which keeps the kind visible in the declaration itself, as Rust's ```const N: usize``` and C++'s ```typename T``` do, without resolving a name that may be declared later or imported. An alias of a value type is a value domain like the type it names: ```type Small = uint8; function f<N: Small>()``` takes a ```uint8``` constant.
 
 ```js
 class Grid<T: type = float64, Rows: uint32 = 4, Cols: uint32 = 4> {}
@@ -53,6 +53,18 @@ Three spellings are early errors that name their correction rather than alternat
 - A domain that admits both Type Objects and other values, such as ```V: any``` or ```V: type | uint32```, is refused, since an argument could bind it either way (see [Binding a value generic from an argument](#binding-a-value-generic-from-an-argument)).
 
 A parameter may be named after a predefined type - ```uint32: type``` declares a parameter named ```uint32``` - and it then shadows that type by the ordinary lexical rule, in the signature and the body alike. Tooling warns, since it is rarely meant.
+
+A generic function, method, or operator may not rebind one of its own type parameters at its own level: not as one of its parameters, not in a declaration at the top of its body, and not with a ```var``` anywhere in it, since the ```var``` hoists to the top. It is the rule an ordinary parameter already has (```function f(a) { let a; }``` is a SyntaxError), closed over ```var```, which for an ordinary parameter reuses the parameter's binding and for a type parameter would replace it for the whole body. A nested block, callback, or function may shadow it:
+
+```js
+function f<T: type>() { let T; }                // SyntaxError: T is a type parameter of f
+function f<T: type>(T) {}                       // SyntaxError
+function f<T: type>() { if (c) { var T; } }     // SyntaxError: the var hoists over T
+function f<T: type>() { { let T = 5; } }        // OK: a nested block shadows it
+class Pairs<K: type, V: type> {
+  sum(m) { m.forEach((V, K) => { /* ... */ }); } // OK: the callback's own parameters
+}
+```
 
 Generic function types, interface call signatures, and generic function and arrow expressions declare their parameters the same way: ```<T: type>(x: T) => T```.
 
@@ -345,7 +357,7 @@ w.write.<float32, maximum: 1024, bits: 18>(x); // the three-parameter one, by na
 
 Overload resolution ranks these as it ranks value signatures, a fixed position beating a parameter and a fixed parameter beating a pack. An application that no overload accepts is the ordinary "no declared signature" error, statically wherever the arguments are static. The float32 overloads with three and four positions have different public names, which is why they are separate overloads rather than cases of one generic signature. A capture at the top level of such an overload would observe nothing - it is a parameter in disguise - so it is an error that asks for ```name: domain```.
 
-A same-named signature whose list holds only parameters is an *owner*. An overload whose list holds only fixed arguments and captures, in positions the owner's list accepts, attaches to it: it borrows the owner's parameter names, so named and positional calls reach it alike, and where its signature is the owner's at those arguments it replaces the owner's body for them, keeps the owner's contract, and is reached through the generic function value too.
+A same-named signature whose list holds only parameters is an *owner*. An overload whose list holds only fixed arguments and captures attaches to the owner whose list accepts it: each entry lands in one of the owner's parameters by position, and a fixed argument there is of that parameter's kind and admitted by its domain and bound, while a capture or ```_``` takes the parameter's domain. An overload the owner's contract does not admit, ```read<string>``` beside ```read<T: type extends uint>```, does not attach; it is a standalone case, reached by explicit application and never through the owner, since the owner's generic function value promises only what its bound admits. An attached overload borrows the owner's parameter names, so named and positional calls reach it alike, and where its signature is the owner's at those arguments it replaces the owner's body for them, keeps the owner's contract, and is reached through the generic function value too.
 
 ```js
 function category<T: type>(): string { return "general"; }
