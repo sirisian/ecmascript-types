@@ -420,6 +420,8 @@ primitive uint8 {
 (3 := uint16) * 'x';  // 'uint16'
 ```
 
+Within one of those levels the operand decides as it does for overloaded functions: a definition for a more specific operand is chosen over a more general one whichever was declared first, so ```operator *(rhs: 'x')``` beside ```operator *(rhs: string)``` handles ```'x'``` and leaves every other string to the general one. Two definitions whose operands overlap with neither more specific, such as ```rhs: 'x' | 'y'``` and ```rhs: 'y' | 'z'```, are ambiguous for ```'y'``` and a ```TypeError``` there, as an ambiguous call is.
+
 ```js
 primitive float32<const D: Dimensions> {
 	// Same-dimension addition
