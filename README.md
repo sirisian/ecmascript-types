@@ -1603,9 +1603,12 @@ let d: number = number(a); // Explicit conversion rounds to the nearest float64
 JSON.stringify({ a }); // '{"a":9007199254740993}' - always serialized with exact decimal digits
 // let e = a + 1n; // TypeError: Cannot mix uint64 and bigint
 let f = bigint(a) + 1n; // Explicit casts convert between the integer families
+bigint(5.5); // 5n: a cast drops the fraction, as it does into every integer type
+// bigint(NaN); // RangeError: NaN has no integer to keep
+// BigInt(5.5); // RangeError: JavaScript's constructor, unchanged, refuses a fraction too
 ```
 
-Assigning to an untyped variable keeps the underlying 64-bit value since the variable is dynamically typed rather than converted. Passing a ```uint64``` where a ```number``` is expected is a TypeError by the conversion rule, whatever the value, so the precision loss is never silent and never depends on the data. An explicit cast always succeeds and rounds. ```int128``` and ```uint128``` behave identically, as does every other pair of value types.
+Assigning to an untyped variable keeps the underlying 64-bit value since the variable is dynamically typed rather than converted. Passing a ```uint64``` where a ```number``` is expected is a TypeError by the conversion rule, whatever the value, so the precision loss is never silent and never depends on the data. An explicit cast of a finite value always succeeds, truncating, wrapping or rounding as the target requires. ```int128``` and ```uint128``` behave identically, as does every other pair of value types. The exception is a value with no counterpart in the target: NaN and the infinities have none in ```bigint``` or ```rational```, which hold every value exactly and have no width to wrap to, so a cast of one to either is refused. A fixed-width integer type gives them 0 instead, because its conversion reduces modulo the width and must send every input somewhere.
 
 ### Calling a union of function types
 
