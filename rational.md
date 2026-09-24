@@ -48,6 +48,8 @@ The two-argument constructor takes `int.<N>` numerator and denominator; literals
 
 ## Operators
 
+`++` and `--` step a rational by one in its own type, as they step an integer, so an exact counter can be a rational.
+
 The language defines the operators directly, the way it does for `int32`, not through operator overloading. Every result is exact and returned in canonical form:
 
 - `+`, `-`, `*`, `/` are exact rational arithmetic.

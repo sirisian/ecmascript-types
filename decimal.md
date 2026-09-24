@@ -36,6 +36,8 @@ decimal128.parse('19.99');   // exact, per the parse convention
 
 ## Operators
 
+`++` and `--` step a decimal by one in its own type, as they step an integer, so an exact counter can be a decimal.
+
 The language defines `+`, `-`, `*`, `/`, `**`, and the comparisons directly, in base ten. A result is rounded to the type's significant digits, ties to even by default, so operations that stay within the digit budget on terminating decimals are exact:
 
 ```js

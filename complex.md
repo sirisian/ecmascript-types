@@ -64,7 +64,7 @@ The language defines complex arithmetic directly, not through operator overloadi
 (0 + 1i) ** 2;         // -1 + 0i
 ```
 
-**Complex numbers are not ordered**, so `<`, `<=`, `>`, and `>=` on a complex are a `TypeError`. There is no order on the complex plane that respects arithmetic, and silently comparing real parts or magnitudes would hide the mistake; compare `Math.abs(z)` explicitly when a magnitude is what was meant. This is the one arithmetic operator a complex deliberately lacks.
+**Complex numbers are not ordered**, so `<`, `<=`, `>`, and `>=` on a complex are a `TypeError`. There is no order on the complex plane that respects arithmetic, and silently comparing real parts or magnitudes would hide the mistake; compare `Math.abs(z)` explicitly when a magnitude is what was meant. This is the one arithmetic operator a complex deliberately lacks. For the same reason `++` and `--` are a `TypeError` on a complex: a step is a move along an order the complex plane does not have, so `z = z + 1` is written instead.
 
 Because a complex is float-backed, it inherits float behavior at the edges rather than throwing: dividing by `0 + 0i` yields components that are `NaN` or `Infinity`, the same result the underlying float division gives, with no `RangeError`.
 
