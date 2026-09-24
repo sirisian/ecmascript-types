@@ -85,7 +85,7 @@ Math.sqrt(float64(-1));   // NaN, the real overload
 Math.exp(complex(0, Math.PI));   // -1 + 0i, Euler's identity, within rounding
 ```
 
-`Math.sin`, `Math.cos`, `Math.tan`, `Math.log`, and `Math.pow` extend the same way. Conversions are explicit in both directions: `complex(x)` lifts a real onto the plane, `.real` projects back off it, and `complex64` and `complex128` convert between each other with an explicit cast, like their component floats. A complex has no Number value, so using one where a Number is needed — `Number(z)`, `Math.floor(z)`, `z == 3` — is a `TypeError` rather than a `NaN` or a silently dropped imaginary part; take `.real`, or `Math.abs(z)` for a magnitude.
+`Math.sin`, `Math.cos`, `Math.tan`, `Math.log`, and `Math.pow` extend the same way. Conversions are explicit in both directions: `complex(x)` lifts a real onto the plane, `.real` projects back off it, and `complex64` and `complex128` convert between each other with an explicit cast, like their component floats. A complex has no Number value, so using one where a Number is needed — `Number(z)`, `Math.floor(z)`, `z == 3` — is a `TypeError` rather than a `NaN` or a silently dropped imaginary part; take `.real`, or `Math.abs(z)` for a magnitude. The one Number question a complex does answer is `isNaN(z)`, which is `true` exactly when either part is NaN, as Python's `cmath.isnan` is.
 
 ## Example
 
