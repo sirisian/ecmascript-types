@@ -503,9 +503,7 @@ primitive float32<const D: Dimensions> {
 		return feq(this, rhs);
 	}
 
-	operator!=(rhs: float32.<D>): boolean {
-		return !feq(this, rhs);
-	}
+	// != is the negation of ==, as for a class, and is not declared on its own.
 
 	operator<(rhs: float32.<D>): boolean {
 		return flt(this, rhs);
