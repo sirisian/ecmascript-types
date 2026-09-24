@@ -267,6 +267,24 @@ for (const b: uint8 of 0..=256) {} // type error: 256 is produced, and is not a 
 
 An endpoint rule would refuse the first, the most natural byte loop there is. An empty range fits any element type, since it produces nothing, and a range with no end - `0..` - fits no bounded one.
 
+**The element type can come from an endpoint instead of context**, and the rule is the same. An endpoint that isn't a constant is still bounded by its type, and that's enough to decide:
+
+```js
+function f(s: uint8) {
+  for (const b of s..<256) {} // fine: whatever s is, the last element is 255
+  for (const b of s..<300) {} // type error: 299 is produced whatever s is
+}
+```
+
+**A float element type asks for exact values**, because a range rounds nothing - it yields the integer it steps to. `float16` holds integers exactly only up to 2048:
+
+```js
+for (const x: float16 of 0..<2049) {} // fine: 0 through 2048
+for (const x: float16 of 0..<4000) {} // type error: 2049 is produced, and float16 can't hold it
+```
+
+A float range with a non-integer endpoint, like `0.5..<3`, has no implicit step and so no elements; it's refused only if an endpoint overflows the type.
+
 **An endpoint may be infinite, and that is not the same as having none.** ```0..<Infinity``` and ```0..``` contain the same values and iterate the same - an infinite end stops the iteration nowhere, exactly as an absent end does - but they are different shapes and say so: the first has an ```end```, an ```endBound``` of ```Bound.Open``` and an ```interval``` of ```Interval.ClosedOpen```, where the second reports none of the three. Only the absent form is ```isFull``` when both sides are missing, so ```-Infinity..<Infinity``` is not ```..```. Both spellings are allowed because a computed endpoint may *be* infinite without an author choosing it - a bound derived from a division, or a length that overflowed - and refusing would turn a survivable program into a throw. Write ```0..``` when you mean "no upper bound"; ```0..<Infinity``` is what a computation hands you.
 
 **```length``` adjusts once per open endpoint.** Over a bounded integer range it is ```end - start + 1``` less one for each endpoint that excludes its own value, so ```0..=10``` has 11 members, ```0..<10``` and ```0<..=10``` have 10, and ```0<..<10``` has 9; it is never negative. **```isEmpty``` reads the bounds at equal endpoints**: ```5..=5``` holds exactly one value, while ```5..<5```, ```5<..=5```, and ```5<..<5``` hold none, since an open endpoint excludes the only value the interval could contain.
