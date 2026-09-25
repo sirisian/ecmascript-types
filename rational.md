@@ -82,7 +82,7 @@ Conversions are all explicit:
 - To a float: `float64(r)` is `numerator / denominator` rounded to the nearest `float64`. This is the lossy step, and it is visible.
 - To an integer: `int64(r)` truncates toward zero.
 - From an integer: `rational(n)` is `n/1`, exact.
-- From a float: `rational(f)` is the float's *exact* dyadic value — a `float64` is itself a rational whose denominator is a power of two — which is exact but can overflow a fixed width, in which case it raises a `RangeError`. For a bounded approximation, `rational.approximate(f, maxDenominator)` returns the closest rational whose denominator does not exceed the bound, by the continued-fraction expansion.
+- From a float: `rational(f)` is the float's *exact* dyadic value — a `float64` is itself a rational whose denominator is a power of two — which is exact but can overflow a fixed width, in which case it raises a `RangeError`. For a bounded approximation, `rational.approximate(f, maxDenominator)` returns the closest rational whose denominator does not exceed the bound, by the continued-fraction expansion. A literal is not a float: `rational(0.1)` is `1/10`, as `let r: rational = 0.1` is, because a literal denotes its digits. The dyadic value of the double nearest one tenth is had by making it a float first, `rational(float64(0.1))`.
 
 ```js
 rational(0.5);                          // 1/2, exact
