@@ -879,9 +879,13 @@ that cast, and gets zero-filling with it.
 zero.** `NumberBounds { bounds: 1.. }` has no zero because `validate` refuses
 one — the crossing runs `validate`, so a cast is a way *in*, not a way past a
 bound. A brand into which no cast is declared has none either, its values
-arriving only through the operators that produce them. A value type class
-holding such a field has no zero-filled form, which is the design's way of
-saying that an instance must be constructed rather than defaulted.
+arriving only through the operators that produce them. The conversion operator
+is one of them: `v := T`, and `T(v)`, which is the same operation, bring a value
+into a type whose author declared no cast, and run `validate` as the cast does.
+What a cast opens is the *implicit* crossing, an initializer or a default, so
+declaring none closes that crossing and leaves the explicit one open. A value
+type class holding such a field has no zero-filled form, which is the design's
+way of saying that an instance must be constructed rather than defaulted.
 
 ## Examples
 
