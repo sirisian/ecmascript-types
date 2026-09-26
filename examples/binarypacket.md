@@ -191,15 +191,18 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 ```js
 @doc('A bit-granular packet reader mirroring PacketWriter.')
 export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBits: uint32 = 64> {
-	#buffer: [].<uint.<BufferBits>>;
+	// Sized as the writer's buffer is: a packet never exceeds Size bytes. Whole
+	// words, zero-filled by default, so the shift math never runs off the end.
+	#buffer: [(Size + BufferBits / 8 - 1) / (BufferBits / 8)].<uint.<BufferBits>>;
 	#bitIndex: uint32;
 	#maximumBitIndex: uint32;
 
 	@doc('Constructs a reader over received bytes, e.g. a WebSocket message or a WebTransport datagram.')
 	constructor(buffer: [].<uint8>) {
-		// Copy into whole words so the shift math never runs off the end.
-		const words: uint32 = (uint32(buffer.length) + BufferBits / 8 - 1) / (BufferBits / 8);
-		this.#buffer = new [words].<uint.<BufferBits>>();
+		// No writer of this Size produces more; a larger input is a mismatch.
+		if (uint32(buffer.length) > Size) {
+			throw new RangeError('The packet is larger than this reader\'s Size');
+		}
 		Span.<uint8>(this.#buffer).set(buffer);
 		this.readHeader();
 	}
