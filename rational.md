@@ -6,7 +6,7 @@ This proposal already lists `rational` among its primitive types. This document 
 
 ## Representation
 
-`rational.<N>` is a value type holding two `int.<N>` fields, a numerator and a denominator, always kept in **canonical form**: reduced to lowest terms, denominator strictly positive, and zero represented as `0/1`. It occupies `2N` bits with the alignment of `int.<N>`. The bare name `rational` is `rational.<64>` — two `int64`, sixteen bytes — which is the default the primitive-types list refers to.
+`rational.<N>` is a value type holding two `int.<N>` fields, a numerator and a denominator, always kept in **canonical form**: reduced to lowest terms, denominator strictly positive, and zero represented as `0/1`. It occupies `2N` bits with the alignment of `int.<N>`. In bytes it is laid out as a record of those two fields is: `rational.<7>` is two bytes and `rational.<24>` eight, since an `int.<24>` takes three bytes aligned to four. The bare name `rational` is `rational.<64>` — two `int64`, sixteen bytes — which is the default the primitive-types list refers to.
 
 ```js
 type rational = rational.<64>;
