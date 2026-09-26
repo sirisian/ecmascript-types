@@ -2452,6 +2452,24 @@ partial interface ClassSetterMetadata {
 partial interface ClassSetterParameterMetadata {
 	[docKey]?: string;
 }
+partial interface ClassAccessorMetadata {
+	[docKey]?: string;
+}
+partial interface ClassOperatorMetadata {
+	[docKey]?: string;
+}
+partial interface FunctionMetadata {
+	[docKey]?: string;
+}
+partial interface ObjectMethodMetadata {
+	[docKey]?: string;
+}
+partial interface ObjectGetterMetadata {
+	[docKey]?: string;
+}
+partial interface ObjectSetterMetadata {
+	[docKey]?: string;
+}
 
 // Decorators
 
@@ -2480,6 +2498,31 @@ function doc<T: type, TClass: type>(description: string, { metadata }: Reflect.C
 }
 
 function doc<T: type, TClass: type>(description: string, { metadata }: Reflect.ClassSetterParameter.<T, TClass>) {
+	metadata[docKey] = description;
+}
+
+// Every other context kind whose metadata the table marks available.
+function doc<T: type, TClass: type>(description: string, { metadata }: Reflect.ClassAccessor.<T, TClass>) {
+	metadata[docKey] = description;
+}
+
+function doc<T: type, TClass: type>(description: string, { metadata }: Reflect.ClassOperator.<T, TClass>) {
+	metadata[docKey] = description;
+}
+
+function doc<T: type>(description: string, { metadata }: Reflect.Function.<T>) {
+	metadata[docKey] = description;
+}
+
+function doc<T: type, TObject: type>(description: string, { metadata }: Reflect.ObjectMethod.<T, TObject>) {
+	metadata[docKey] = description;
+}
+
+function doc<T: type, TObject: type>(description: string, { metadata }: Reflect.ObjectGetter.<T, TObject>) {
+	metadata[docKey] = description;
+}
+
+function doc<T: type, TObject: type>(description: string, { metadata }: Reflect.ObjectSetter.<T, TObject>) {
 	metadata[docKey] = description;
 }
 
