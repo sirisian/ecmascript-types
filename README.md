@@ -3626,7 +3626,9 @@ The SIMD types have no implicit cast to ```boolean```, so using one in a boolean
 
 #### switch
 
-The variable when typed in a switch statement must be integral, string, or symbol type. Specifically ```int8/16/32/64/128```, ```uint8/16/32/64/128```, ```number```, ```string```, and ```symbol```. Floating-point discriminants are allowed in exactly one case: when every case label is a range. A range matches by containment, and containment needs only an ordering, so a switch whose labels are all ranges accepts any ordered discriminant, a float included. Case ranges are defined in the [ranges](ranges.md) extension; the core grammar reserves the bare-range case syntax and throws a ```TypeError``` on any other use, so the extension defines it without conflict.
+A typed switch discriminant may be a numeric type - the integer types ```int8/16/32/64/128``` and ```uint8/16/32/64/128```, the float types, and ```number``` - or ```string``` or ```symbol```. A case label is either a value of the discriminant's type, matched with ```===```, or a range, matched by containment. Containment needs only an ordering, so range labels suit any ordered discriminant. Case ranges are defined in the [ranges](ranges.md) extension; the core grammar reserves the bare-range case syntax and throws a ```TypeError``` on any other use, so the extension defines it without conflict.
+
+A value label on a float discriminant compares exactly, and the label is read at the discriminant's type, so on a typed float both sides round alike: ```case 0.2``` matches a ```float32``` holding ```1 / 5```. On ```number``` the same comparison meets ordinary binary rounding - ```0.1 + 0.2``` is not ```0.3``` - and that is JavaScript's behaviour, which a ```switch``` on a ```number``` keeps. For a computed value, where the exact bits are not the point, a range is the clearer label: it states the interval the value is expected in.
 
 Enumerations can be used dependent on if their type is integral or string.
 ```js
@@ -3640,11 +3642,17 @@ switch (a) {
 ```
 
 ```js
-let a: float32 = 1 / 5;   // 0.2
-//switch (a) { case 0.2: break; } // TypeError: a value-case switch needs an integral, string, or symbol type
+let a: float32 = 1 / 5;   // 0.2, as a float32
+switch (a) {
+  case 0.2:               // matches: the label is read as a float32 too
+    break;
+}
 
-switch (a) {              // Valid: every label is a range
-  case 0..<0.99:
+let b = 0.1 + 0.2;        // 0.30000000000000004
+switch (b) {
+  case 0.3:               // does not match - JavaScript's rounding
+    break;
+  case 0.29..<0.31:       // a range states the interval, not the exact bits
     break;
 }
 ```
