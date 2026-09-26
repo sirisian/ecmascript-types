@@ -114,16 +114,16 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 
 	@doc('Writes a float quantized onto [0, maximum] with the given bit budget.')
 	write<float32, maximum: float32, bits: uint32>(value: float32): PacketWriter {
-		this.#writeBits(uint.<BufferBits>(Math.round(value / maximum * ((1 << bits) - 1))), bits);
+		this.#writeBits(uint.<BufferBits>(Math.round(value / maximum * float32((1 << bits) - 1))), bits);
 		return this;
 	}
 
 	@doc('Writes a float quantized onto [minimum, maximum]. When the range spans zero, code 0 is reserved so 0.0 round-trips exactly.')
 	write<float32, minimum: float32, maximum: float32, bits: uint32>(value: float32): PacketWriter {
 		if (minimum < 0 && maximum > 0) {
-			this.#writeBits(uint.<BufferBits>(value == 0 ? 0 : Math.round((value - minimum) / (maximum - minimum) * ((1 << bits) - 2)) + 1), bits);
+			this.#writeBits(uint.<BufferBits>(value == 0 ? 0 : Math.round((value - minimum) / (maximum - minimum) * float32((1 << bits) - 2)) + 1), bits);
 		} else {
-			this.#writeBits(uint.<BufferBits>(Math.round((value - minimum) / (maximum - minimum) * ((1 << bits) - 1))), bits);
+			this.#writeBits(uint.<BufferBits>(Math.round((value - minimum) / (maximum - minimum) * float32((1 << bits) - 1))), bits);
 		}
 		return this;
 	}
@@ -156,7 +156,7 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	@doc('Writes a length-prefixed ASCII string. A non-ASCII character fails the uint.<7> cast with a TypeError.')
 	write<string, LengthType: type extends uint = uint16>(value: string): PacketWriter {
 		this.write.<LengthType>(LengthType(value.length));
-		for (let index: uint64 = 0; index < value.length; ++index) {
+		for (let index: uint64 = 0; index < uint64(value.length); ++index) {
 			this.write.<uint.<7>>(uint.<7>(value.charCodeAt(index)));
 		}
 		return this;
@@ -275,16 +275,16 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 
 	@doc('Reads a float quantized onto [0, maximum].')
 	read<float32, maximum: float32, bits: uint32>(): float32 {
-		return float32(this.#readBits(bits)) / ((1 << bits) - 1) * maximum;
+		return float32(this.#readBits(bits)) / float32((1 << bits) - 1) * maximum;
 	}
 
 	@doc('Reads a float quantized onto [minimum, maximum], honoring the reserved exact-zero code for ranges spanning zero.')
 	read<float32, minimum: float32, maximum: float32, bits: uint32>(): float32 {
 		const value = this.#readBits(bits);
 		if (minimum < 0 && maximum > 0) {
-			return value == 0 ? 0 : float32(value - 1) / ((1 << bits) - 2) * (maximum - minimum) + minimum;
+			return value == 0 ? 0 : float32(value - 1) / float32((1 << bits) - 2) * (maximum - minimum) + minimum;
 		}
-		return float32(value) / ((1 << bits) - 1) * (maximum - minimum) + minimum;
+		return float32(value) / float32((1 << bits) - 1) * (maximum - minimum) + minimum;
 	}
 
 	@doc('Reads an exact 64-bit float.')
