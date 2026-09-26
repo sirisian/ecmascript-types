@@ -119,3 +119,23 @@ f == float64(h);                  // false — the exact sum and the drifted sum
 ```
 
 Because the accumulator stays canonical, `harmonic(n) == harmonic(n)` is true structurally, the partial sums can be compared and ordered exactly, and the single rounding happens where the program asks for it, at the `float64` cast, not silently on every `+`.
+
+## The unbounded rational
+
+`rational.<N>` is bounded by design: two `int.<N>` fields, a fixed layout, a `RangeError` on overflow. For arithmetic that must never overflow there is `rational.<bigint>` - the quotient of two `bigint` values, every rational there is. It is the shape Julia (`Rational{BigInt}`), Rust (`Ratio<BigInt>`) and Haskell (`Ratio Integer`) give the same need: one rational family over its integer, the unbounded rational being the one over the unbounded integer.
+
+```js
+let x = rational.<bigint>(1, 3);
+x * x * x;                              // 1/27
+rational.<bigint>(2n ** 200n) / rational.<bigint>(3n);   // exact, however large
+x.numerator;                            // 1n - a bigint
+Math.floor(rational.<bigint>(7, 2));    // 3n
+x := rational.<8>;                      // 1/3 - a RangeError where the width cannot hold it
+```
+
+Every rule of `rational.<N>` holds with the bound removed. Conversions into it are exact - from any integer, a `bigint`, a float's exact value or a decimal's - and refused only for NaN and the infinities; conversions out to a width are exact or a `RangeError`. It is a type of its own: `===` sees the type, `==` the value, and mixing it with a width needs a conversion. `approximate` bounds only the denominator.
+
+Like `bigint`, it has no layout: its size belongs to the value. A class holding one is still a value type but has no layout, so it neither lives inline in an array nor splits into columns - the two things a fixed width buys.
+
+The cost of never overflowing is real, and it is why this is a type a program chooses rather than the default. Squaring a rational roughly doubles its size: iterating `x = x * x + 1/7` from `1/3`, the denominator is 96 bits at the fifth step - where a `rational.<64>` has already thrown - and 3.1 million bits at the twentieth, whose single step took about 13 seconds in Python's unbounded `Fraction`. A bounded rational fails fast and says so; an unbounded one keeps going, and the only symptom is time.
+
