@@ -15,7 +15,10 @@ The code doubles as a tour of the proposal, and several pieces only work *becaus
 @doc('A bit-granular packet writer for realtime network protocols.')
 export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBits: uint32 = 64> {
 	@doc('The word buffer for the packet. Bits fill each word from the most significant end.')
-	#buffer: [].<uint.<BufferBits>>;
+	// 1500 byte MTU minus IP/TCP/WebSocket framing ~= 1400 byte default payload.
+	// A fixed array field sized by the class's parameters, zero-filled by default;
+	// its extent divides as uint32 does, so round the word count up first.
+	#buffer: [(Size + BufferBits / 8 - 1) / (BufferBits / 8)].<uint.<BufferBits>>;
 
 	// Typed declarations without initializers default to 0.
 	@doc('The current bit index of the writer.')
@@ -23,13 +26,6 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 
 	@doc('The bit index recorded by end() and written into the header.')
 	#maximumBitIndex: uint32;
-
-	constructor() {
-		// 1500 byte MTU minus IP/TCP/WebSocket framing ~= 1400 byte default payload.
-		// Typed integer division truncates, so round the word count up first.
-		const words: uint32 = (Size + BufferBits / 8 - 1) / (BufferBits / 8);
-		this.#buffer = new [words].<uint.<BufferBits>>(); // Zero-filled fixed-length array
-	}
 
 	@doc('The written packet as bytes, sized to the bits actually used.')
 	get bytes(): [].<uint8> {
