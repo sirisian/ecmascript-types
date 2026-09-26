@@ -463,7 +463,7 @@ function all<...Ps: [].<type> extends [].<PromiseLike>>(...ps: Ps): Promise.<awa
 
 — which needs only structural matching, and, types being structural, yields the same types the inverted spelling would.
 
-**Growth is metered.** A specialization chain through a tuple, ```read<T: type>(): Reader.<[...Ts, T]>``` in the [binary packet](examples/binarypacket.md) example, is finite per call site and free. A function that specializes *itself* over a longer pack recurses without end and is stopped by the compile-time evaluation budget, as Rust stops the same program with its recursion limit — a type error naming the budget, never a stack overflow.
+**Growth is metered.** A recursion through a pack, ```readAll<const T, ...const Rest>(): [T, ...Rest]``` in the [binary packet](examples/binarypacket.md) example, peels one type per step down to the empty case, so it is finite per call site and free. A function that specializes *itself* over a longer pack recurses without end and is stopped by the compile-time evaluation budget, as Rust stops the same program with its recursion limit — a type error naming the budget, never a stack overflow.
 
 ### Generic Function Types and Signatures
 

@@ -338,32 +338,30 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 }
 ```
 
-## Typestate Reads (experimental)
+## Reading a Tuple
 
-A reader can accumulate the values it reads into a tuple: an extra tuple generic collects the types read so far, each ```read``` returns ```this``` reparameterized with the tuple grown by one, and a cast operator hands the tuple to typed destructuring, which selects it by shape.
+A reader can read several values at once into a tuple typed by the list of types it is given: ```readAll``` is a variadic owner with two cases, one for the empty pack and one that peels the first type from the rest, so a call recurses once per type and typed destructuring takes the result by shape.
 
 ```js
-export class AccumulatingPacketReader<ReadTypes: type extends [].<any> = []> extends PacketReader {
-	#values: ReadTypes = [];
+export class TupleReader extends PacketReader {
+	@doc('Reads one value per type, in order, as a tuple.')
+	readAll<...Ts: type>(): Ts;
 
-	@doc('Reads a value and accumulates it, returning this with the tuple type grown.')
-	read<T: type>(): AccumulatingPacketReader.<[...ReadTypes, T]> {
-		this.#values = [...this.#values, super.read.<T>()];
-		return this;
+	readAll<>(): [] {
+		return [];
 	}
 
-	@doc('Destructuring an accumulating reader yields the collected tuple.')
-	operator ReadTypes() {
-		return this.#values;
+	readAll<const T, ...const Rest>(): [T, ...Rest] {
+		const first = this.read.<T>();
+		return [first, ...this.readAll.<...Rest>()];
 	}
 }
 
-const reader = new AccumulatingPacketReader(bytes);
 const [alive: boolean, id: uint.<12>, name: string] =
-	reader.read.<boolean>().read.<uint.<12>>().read.<string>();
+	new TupleReader(bytes).readAll.<boolean, uint.<12>, string>();
 ```
 
-The experimental part is the return type: each call returns the same object viewed at a new parameterization, so this is typestate rather than immutability, and mixing the accumulating and plain styles on one instance would confuse the tuple. It's included because it exercises tuple spread in type arguments and the typed-return destructuring rules in one place.
+Each step is an ordinary specialization: ```readAll<const T, ...const Rest>``` captures the first type and the rest of the pack, reads the first with ```read```, and forwards the rest with ```...Rest```, so the recursion is finite per call site and exercises tuple spread in type arguments and the typed-return destructuring rules in one place. An earlier version accumulated into ```this```, returning it reparameterized with the tuple grown by one; a runtime-typed object's parameterization is fixed when it is constructed, so that typestate could not be sound, and the recursion replaces it.
 
 ## Building a Packet
 
