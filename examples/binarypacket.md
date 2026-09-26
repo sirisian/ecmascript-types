@@ -95,14 +95,14 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	@doc('Writes an unsigned integer in [minimum, maximum] using the fewest bits that hold the range.')
 	write<uint.<const N>, minimum: uint32, maximum: uint32>(value: uint.<N>): PacketWriter {
 		const bits: uint32 = 32 - Math.clz32(maximum - minimum);
-		this.#writeBits(value - minimum, bits);
+		this.#writeBits(uint32(value) - minimum, bits);
 		return this;
 	}
 
 	@doc('Writes a signed integer in [minimum, maximum] using the fewest bits that hold the range.')
 	write<int.<const N>, minimum: int32, maximum: int32>(value: int.<N>): PacketWriter {
 		const bits: uint32 = 32 - Math.clz32(uint32(maximum - minimum));
-		this.#writeBits(uint32(value - minimum), bits);
+		this.#writeBits(uint32(int32(value) - minimum), bits);
 		return this;
 	}
 
@@ -260,7 +260,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	@doc('Reads an unsigned integer written with the [minimum, maximum] range encoding.')
 	read<uint.<const N>, minimum: uint32, maximum: uint32>(): uint.<N> {
 		const bits: uint32 = 32 - Math.clz32(maximum - minimum);
-		return uint.<N>(this.#readBits(bits) + minimum);
+		return uint.<N>(uint32(this.#readBits(bits)) + minimum);
 	}
 
 	@doc('Reads a signed integer written with the [minimum, maximum] range encoding.')
@@ -315,7 +315,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	@doc('Reads a length-prefixed ASCII string.')
 	read<string, LengthType: type extends uint = uint16>(): string {
 		let value = '';
-		const length = this.read.<LengthType>();
+		const length = uint32(this.read.<LengthType>());
 		for (let index: uint32 = 0; index < length; ++index) {
 			value += String.fromCharCode(this.read.<uint.<7>>());
 		}
