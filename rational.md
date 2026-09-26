@@ -42,6 +42,8 @@ rational(0, 5);     // 0/1
 rational(5);        // 5/1
 // rational(1, 0);  // RangeError: zero denominator
 rational.parse('3/4');   // 3/4, per the parse convention for the numeric types
+rational.parse('0.1');   // 1/10 - any literal of the type, as 0.1 in a rational position is
+// rational.parse('1/0'); // RangeError: zero denominator, as the constructor's
 ```
 
 The two-argument constructor takes `int.<N>` numerator and denominator; literals propagate into them, and a value of another integer type is converted explicitly, as everywhere else.
