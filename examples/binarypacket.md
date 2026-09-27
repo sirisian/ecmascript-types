@@ -76,7 +76,7 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 
 	@doc('Writes an n-bit unsigned integer, e.g. write.<uint.<12>>(value).')
 	write<uint.<const N>>(value: uint.<N>): PacketWriter {
-		this.#writeBits(value, N);
+		this.#writeBits(uint.<BufferBits>(value), N);
 		return this;
 	}
 
@@ -88,21 +88,21 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	@doc('Writes an unsigned integer in [0, maximum] using the fewest bits that hold the range.')
 	write<uint.<const N>, maximum: uint32>(value: uint.<N>): PacketWriter {
 		const bits: uint32 = 32 - Math.clz32(maximum);
-		this.#writeBits(value, bits);
+		this.#writeBits(uint.<BufferBits>(value), bits);
 		return this;
 	}
 
 	@doc('Writes an unsigned integer in [minimum, maximum] using the fewest bits that hold the range.')
 	write<uint.<const N>, minimum: uint32, maximum: uint32>(value: uint.<N>): PacketWriter {
 		const bits: uint32 = 32 - Math.clz32(maximum - minimum);
-		this.#writeBits(uint32(value) - minimum, bits);
+		this.#writeBits(uint.<BufferBits>(uint32(value) - minimum), bits);
 		return this;
 	}
 
 	@doc('Writes a signed integer in [minimum, maximum] using the fewest bits that hold the range.')
 	write<int.<const N>, minimum: int32, maximum: int32>(value: int.<N>): PacketWriter {
 		const bits: uint32 = 32 - Math.clz32(uint32(maximum - minimum));
-		this.#writeBits(uint32(int32(value) - minimum), bits);
+		this.#writeBits(uint.<BufferBits>(uint32(int32(value) - minimum)), bits);
 		return this;
 	}
 
@@ -211,7 +211,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	readHeader() {
 		// Bounds checks compare against the whole buffer until the real length is known.
 		this.#maximumBitIndex = uint32(this.#buffer.length) * BufferBits;
-		this.#maximumBitIndex = this.#readBits(HeaderSize);
+		this.#maximumBitIndex = uint32(this.#readBits(HeaderSize));
 	}
 
 	#bitsAt(bitIndex: uint32, bits: uint32): uint.<BufferBits> {
