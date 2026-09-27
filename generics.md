@@ -288,6 +288,10 @@ A ```Registry.<any>``` the program never named is an unchecked specialization th
 
 Inside the declaration that binds it, ```T``` is a subtype of itself and of its constraint and nothing else relates to it: a body is checked once, over its parameters, not per instantiation. So ```function f<T: type>(x: T) { let v: T = 5; }``` is a type error — a Number is not known to be a ```T```, which may be instantiated at ```string``` — and a field is the same position: ```class A<T: type> { value: T = 0; }``` and ```value: T = null``` are refused, and the value arrives through the constructor (```value: T; constructor(v: T) { this.value = v; }```) or is written at a type (```value: T | null = null```). This is Rust's rule, where an unconstrained ```T``` cannot be built from a literal at all, and TypeScript's. Checking the initializer at each instantiation instead (C++'s model) would move the error from the declaration to whichever ```new A.<string>()``` first cannot convert it.
 
+The same body rule applies to ordinary, static and object-literal methods: the method's own generic parameters remain in scope for its parameters, return annotation and body, while its computed name is evaluated in the enclosing scope.
+
+Declared variance composes through the declaration that a nested application actually resolves to, including aliases, and through the parameters its arguments bind to. Named arguments are mapped before polarity is checked. A mutable reference's target is invariant, whether written in a `ref` parameter, a `ref T` return or a function type; reading and writing through the same reference require both directions. This also constrains a function or method's own `in`/`out` parameters. It does not change the separately specified covariance of tuples.
+
 #### Bare generic names and the family
 
 The intrinsic families follow the same defaults rule. See [family constraints](familyconstraints.md) for required arguments, anonymous bounds, matching, and reflection.

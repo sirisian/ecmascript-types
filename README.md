@@ -1221,6 +1221,8 @@ The inferred type is enforced where the function returns, which is what keeps it
 
 ```void``` and ```undefined``` are both writable as return types and they say different things. ```void``` says the result must not be depended on, so no binding may hold it; ```undefined``` says the result is the value ```undefined```, which a binding may hold. Inference produces ```void``` for a body whose returns all carry no value, because that is the annotation such a function would have been given, and produces ```undefined``` only as a member of a union — a body that returns a ```uint32``` on one path and falls off the end on another infers ```uint32 | undefined```, which is a type an annotation can write.
 
+An actual binding declared with a concrete `void` type is an early type error, including a local, parameter, destructured name or catch binding. An alias to `void` and an `any` initializer do not make such a binding valid. A generic application that resolves an actual binding to `void` is likewise refused; an unresolved parameter remains opaque. A function-type signature alone declares no runtime binding, and `void` in returns or protocol arguments such as `Generator.<Y, void, void>` remains valid. Write `undefined` for a binding intended to hold that value.
+
 ```js
 function q(a: int32): void { }        // the result must not be depended on
 // const x: undefined = q(1);         // TypeError: void is not assignable to undefined
@@ -2831,6 +2833,8 @@ function f(config: IConfig) {
 ```readonly``` is shallow, as it is in other languages: the binding is fixed, not the object it refers to. A ```readonly``` field holding an array can't be replaced, but its elements can be written unless the array itself is ```const```. It's an access rule, not a layout rule, so it never affects whether a class qualifies as a value type, and a ```readonly``` field of a value type class still participates in the layout.
 
 A union permits a write only when every reachable known alternative permits it. One readonly alternative is enough to reject the write; narrow to a writable alternative first. This applies to assignments, updates and destructuring or loop targets, separately from whether the value fits the field's type. It preserves the declaring constructor's existing permission and does not freeze objects shared with writable views.
+
+Each reachable known destination must also accept the stored value. This applies to array and tuple elements and to computed properties whose key is a known finite set, such as `k: 'x' | 'y'`. A read may produce `uint8 | string`, but a write selecting between a `uint8` slot and a `string` slot must satisfy both slots independently, with fresh literals contextualized for each. A single slot declared `uint8 | string` still accepts either admitted value. A missing member of a closed typed class rejects the write even through a union; this does not close an ordinary structural object. Narrowing can reduce the alternatives. Unknown keys and `any` retain runtime checks, and key expressions are never executed by static checking.
 
 ```js
 class Fixed { readonly x: uint8 = 1; }
