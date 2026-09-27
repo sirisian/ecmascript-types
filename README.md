@@ -252,6 +252,8 @@ f instanceof Function; // true, unchanged
 
 ### Union and Nullable Types
 
+Narrowing retains the original declaration's participation in typed checks while refining the type used by each check. For example, an ordinary property access on a typed nullable binding narrowed to `null` is an early error even inside an unused function. A narrowing frame is not a new declaration: lexical shadowing, explicit `any`, and mutation invalidation retain their existing effects.
+
 All types except ```any``` are non-nullable. The syntax below creates a nullable ```uint8``` typed variable:
 ```js
 let a: uint8 | null = null;
@@ -569,6 +571,8 @@ Deleting an indexed element of a typed array results in a type error since typed
 
 The same deletion check applies to a union when every executing alternative establishes protected storage. For example, `delete a[0]` for `a: [2].<uint8> | [3].<uint8>` and `delete o.x` when every alternative declares typed `x` are early errors. Optional chaining removes alternatives on which no deletion occurs. A dynamic alternative or key keeps the runtime judgment; an index beyond all fixed extents does not become a typed position.
 
+The proof also covers finite key sets. Deleting `a[k]` for `a: [2].<uint8>` and `k: 0 | 1` is an early error, as is deleting `o[k]` when every possible key selects a declared typed property. Compare actual Symbol identities. Every executing receiver/key combination must establish protected storage; an unknown key or a fixed-container nonposition keeps this judgment dynamic. Deletion does not perform a read-bounds check.
+
 The protected index domain also includes every canonical array index of a growable typed array, each written fixed tuple position whether or not it has a default, and the tail of a tuple with a proved trailing unbounded array rest. Thus `delete a[0]` is an early error for `a: [].<uint8>` or `a: [uint8 = 1]`, and `delete a[99]` is an early error for `a: [uint8, ...[].<uint8>]` even when its current rest is empty. The judgment uses the declared domain, not current occupancy. Noncanonical keys and fixed tuple nonpositions remain ordinary properties. A fixed, nested or non-final rest does not imply an unbounded domain; an unresolved domain or key retains runtime checking. Resizing and reference-liveness rules are unchanged.
 
 ```js
@@ -620,6 +624,8 @@ let b: [] | null; // null
 ```
 
 ### Tuple Types
+
+A tuple rest spreads a sequence type: its resolved, canonical operand must be an array or tuple. Write `[...[].<T>]` for an unbounded run of `T`; `[...T]` is valid only when `T` resolves to a sequence. Dependent generic operands retain this requirement until substitution, without rejecting the open declaration. Closed scalar and `any` operands, and unions that do not canonicalize to one sequence type, are errors. `Reflect.makeType` enforces the same formation rule.
 
 A tuple type is a fixed-length sequence of individually typed positions, written with the element types in brackets. Where ```[N].<T>``` is N elements of one type and ```[].<T>``` is any number of one type, ```[T1, T2, ...]``` is a fixed count of possibly-different types:
 
@@ -737,6 +743,8 @@ const d = a.toSpliced(1, 2); // [].<uint8> [3, 0]
 ### Windows
 
 A ```Span.<T>``` is a fixed-length window over a run of elements it does not own. Its elements can be read and written; its length cannot change.
+
+A window has a non-writable, non-configurable own `length`. A known store to it is an early type error, even when assigning the same length. This includes updates, compound assignments, destructuring and writes through local reference aliases. Window-producing calls, buffer views and column projections preserve the permission. Owned arrays keep their own length rules; writing a window element still uses the ordinary bounds and reference-liveness checks.
 
 ```js
 let owned: [].<uint32> = [1, 2, 3];
@@ -1270,6 +1278,8 @@ A function signature describes its arguments and result independently of whether
 
 The checker follows direct expressions and reliable lexical origins, including immutable aliases. It withdraws a mutable origin when replacement is possible, including captured writes, assignment patterns and direct `eval`; shadowing is resolved in the binding's own scope. A function-type annotation alone does not establish construction capability, and an open property or replacing decorator does not provide a stable origin. These facts do not add public function-type syntax or change signature identity.
 
+Conditional selections retain a conservative summary of these capabilities. If every possible origin is typed and cannot construct, `new (condition ? left : right)(...)` is an early error, including through an immutable alias. Equal function signatures do not erase that fact. An unknown or possibly constructible alternative keeps the runtime judgment. The corresponding rule rejects a call when every selected origin is a known typed class constructor.
+
 The same reliable construction facts apply to `extends`. A participating type that permits only non-null primitive values, or a reliably identified typed arrow, generator or async function, is rejected as a superclass even in an unused body. `null`, ordinary function constructors, classes, generic bases, nullable unions and unknown mixins remain admitted. Heritage is checked in its lexical scope before the class body: the class self-name remains in its temporal dead zone, and class parameters shadow outer names. A participating non-null base is also rejected when its effective declared `prototype` type admits neither an Object nor `null`: a non-constructor fails the first stage, and a possible constructor with that contract fails the prototype stage. This is an all-invalid proof over selected paths. A possible null base, an Object-or-null prototype, or an unknown member/type prevents it; an undeclared property on an open shape is unknown. This does not require a construct signature, evaluate a getter or Proxy trap, validate inheritance cycles, or change runtime prototype checks or reference liveness.
 
 
@@ -1473,6 +1483,8 @@ Because the most negative division wraps instead of throwing, a division by a no
 **Float remainder is not cheap.** ```float32 % float32``` is a true floating point remainder rather than a machine instruction, and costs far more than the integer form.
 
 ### Type Propagation to Literals
+
+An array literal hole occupies a position and contributes `undefined` to its contextual element check. A typed array or tuple that excludes `undefined` rejects the hole before evaluation, including in an unused function, an argument or a return. A hole does not take a tuple default: a default fills an absent trailing position, not a supplied `undefined`. Untyped literals retain ordinary JavaScript holes.
 
 In ECMAScript currently the following values are equal:
 
@@ -2907,6 +2919,8 @@ class A {
 
 A member marked ```protected``` is accessible within its declaring class and its subclasses, and nowhere else. Like ```readonly``` and ```static``` it is a modifier on an ordinary member, in the public layout slot, read as ```this.balance``` rather than through a ```#``` sigil.
 
+This permission follows the effective declaring member through inheritance and specialization. Fields, methods and accessors use the same rule, static and instance, through dot access or known finite String and Symbol keys. Every known selected member of a union must permit access; narrowing may remove an inaccessible alternative. Optional access checks only its live path. Unknown keys and `any` preserve erasure. An inherited member keeps its declaring owner; a public override supplies its own permission.
+
 ```js
 class Account {
   protected balance: uint64 = 0;
@@ -2930,6 +2944,8 @@ function outside(a: Account) {
 #### Accessors
 
 A getter's return type and a setter's parameter type are annotated normally. A pair sharing a name must agree: the setter's parameter type has to accept every value the getter can return. A property with only a getter is read only, and assigning to it is a compile-time TypeError rather than a silent no-op, since typed code is strict.
+
+The setter parameter is bound in the setter body just like an ordinary parameter, including destructuring and lexical shadowing; computed names use the enclosing scope. A setter-only property reads as `undefined`, independently of its write contract. This also applies to object literals. A getter/setter pair uses the getter result for reads in either declaration order. An own setter-only descriptor masks an inherited getter rather than combining with it.
 
 Setter presence is independent of its annotation and of the order of a getter/setter pair. The early check follows the effective member through inheritance and specialization, including static, private and symbol-named getters. It covers stores made by updates, compound assignments, destructuring and iteration targets. The field-initialization exception does not give a getter-only property a setter inside a constructor. A dynamic receiver keeps its runtime checks.
 

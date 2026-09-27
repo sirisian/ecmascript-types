@@ -43,6 +43,8 @@ These exclusions are early type errors when syntax or static types prove them, i
 
 A union receiver or finite set of property keys can also prove a bit-field borrow impossible: reject when every selected class field lacks a byte address. Inherited and specialized field declarations retain this storage provenance. Mixed eligible/bit-field alternatives and unknown layouts keep the runtime check; a structural property does not become packed storage merely because its declared integer type is smaller than a byte.
 
+A known `ref e` has a reference type whose target is the declared location type. A reference return is checked against the declared return contract before the caller's value-context decay, using invariant reference compatibility. At an ordinary value parameter the reference decays first, so argument checking, overload selection and generic inference use the referent type. These checks do not read storage or change permission and liveness rules; unknown location types retain runtime checking.
+
 ## Reference iteration
 
 Reference iteration requires array or [SoA](soa.md) storage. A statically known String, Set, Map, or generator is an early type error as its source, even though ordinary `for...of` accepts it. A union is rejected only when every member is ineligible; an unknown source is checked at runtime. Array aliases remain eligible, and the rule adds no general reference-iterator protocol.
