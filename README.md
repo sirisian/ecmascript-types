@@ -3636,7 +3636,7 @@ let a: uint32 = 10;
 switch (a) {
   case 10:
     break;
-  case 'baz': // TypeError: unexpected string literal, expected uint32 literal
+  case 'baz': // TypeError: uint32 and string are disjoint, so this comparison is always false
     break;
 }
 ```
