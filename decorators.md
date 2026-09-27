@@ -2118,10 +2118,10 @@ function Length<TClass: type>(min: uint32, max: uint32, context: Reflect.ClassFi
 function Includes<TClass: type>(searchString: string, context: Reflect.ClassField.<string, TClass>) {
 	addValidators(context, (value: string) => value.includes(searchString));
 }
-function Min<T: type extends int, TClass: type>(min: T, context: Reflect.ClassField.<T, TClass>) {
+function Min<T: type extends int.<_>, TClass: type>(min: T, context: Reflect.ClassField.<T, TClass>) {
 	addValidators(context, (value: T) => value >= min);
 }
-function Max<T: type extends int, TClass: type>(max: T, context: Reflect.ClassField.<T, TClass>) {
+function Max<T: type extends int.<_>, TClass: type>(max: T, context: Reflect.ClassField.<T, TClass>) {
 	addValidators(context, (value: T) => value <= max);
 }
 function IsEmail<TClass: type>(context: Reflect.ClassField.<string, TClass>) {
@@ -2191,7 +2191,7 @@ function data<N: uint32, TClass: type>({ metadata }: Reflect.ClassField.<uint.<N
 }
 
 // string
-function data<LengthType: type extends uint = uint16, TClass: type>({ metadata }: Reflect.ClassField.<string, TClass>) {
+function data<LengthType: type extends uint.<_> = uint16, TClass: type>({ metadata }: Reflect.ClassField.<string, TClass>) {
 	metadata[binaryWriter] = (packet, value: string) => packet.write.<string, LengthType>(value);
 }
 

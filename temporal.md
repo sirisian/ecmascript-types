@@ -93,7 +93,7 @@ type Hour = float64.<{ s: 1, ratio: 3600 }>;
 ```total``` maps a fixed time unit to the matching dimensioned type. The ratio comes from a compile-time function over the enumeration, the same way ```multiplyDimensions``` computes a return type in the primitive metadata document:
 
 ```js
-function unitRatio(unit: Temporal.Unit): rational {
+function unitRatio(unit: Temporal.Unit): rational64 {
 	switch (unit) {
 		case Temporal.Unit.Nanosecond: return 1/1000000000;
 		case Temporal.Unit.Microsecond: return 1/1000000;

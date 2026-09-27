@@ -34,7 +34,7 @@ The metadata protocol defines how a primitive with a metadata type propagates th
 
 <!-- run -->
 ```js
-interface MetaProtocol<T: type, Factor: type = rational> {
+interface MetaProtocol<T: type, Factor: type = rational64> {
 	// Required: the effective portion of a value carrying none of this metadata.
 	// It need not be an unconstrained requirement: zero dimensions constrain.
 	// Used when a value has no fields belonging to this meta type.
@@ -62,7 +62,7 @@ interface MetaProtocol<T: type, Factor: type = rational> {
 	conversionFactor?(from: T, to: T): Factor;
 
 	// Optional: adjust this meta type's constraint when the underlying value is scaled by another meta type's conversion, keeping value-space metadata like bounds consistent. When absent while a conversion occurs, this meta type's portion falls back to `default`.
-	rescale?(constraint: T, factor: number | rational): T;
+	rescale?(constraint: T, factor: number | rational64 | rational.<bigint>): T;
 
 	// Optional: map a value onto the representation this constraint requires, such as rounding a decimal to a fixed scale. Applied at assignment, argument, and return boundaries after `subtype` passes and after any `conversionFactor` scaling, so intermediate results within an expression keep full precision.
 	quantize?(value: any, constraint: T): any;
@@ -88,13 +88,13 @@ It's possible to hold a reference to a meta protocol:
 
 <!-- run -->
 ```js
-interface MetaProtocol<T: type, Factor: type = rational> {
+interface MetaProtocol<T: type, Factor: type = rational64> {
 	default: T;
 	subtype(sub: T, sup: T): boolean;
 	validate?(value: any, constraint: T): boolean;
 	narrow?(current: T, op: string, value: any): T;
 	conversionFactor?(from: T, to: T): Factor;
-	rescale?(constraint: T, factor: number | rational): T;
+	rescale?(constraint: T, factor: number | rational64 | rational.<bigint>): T;
 	quantize?(value: any, constraint: T): any;
 	meet?(a: T, b: T): T | null | undefined;
 	describe?(constraint: T): string;
@@ -133,7 +133,7 @@ type Dimensions = {
 	K: int32, // temperature exponent
 	mol: int32, // amount of substance exponent
 	cd: int32, // luminous intensity exponent
-	ratio: rational, // exact scale factor relative to base SI (1 = base)
+	ratio: rational64, // exact scale factor relative to base SI (1 = base)
 };
 
 meta Dimensions {
@@ -147,7 +147,7 @@ meta Dimensions {
 
 	// Unit conversion within a dimension is linear: multiply the value by
 	// the ratio of ratios. With rational ratios the factor is exact.
-	conversionFactor(from: Dimensions, to: Dimensions): rational {
+	conversionFactor(from: Dimensions, to: Dimensions): rational64 {
 		return from.ratio / to.ratio;
 	}
 
@@ -267,7 +267,7 @@ meta NumberBounds<T: type extends Ordered.<T>> {
 	// conversion scales the value by `factor`, the bounds scale identically.
 	// A non-zero factor maps non-zero values to non-zero values, so `nonZero`
 	// carries through unchanged.
-	rescale(constraint: NumberBounds.<T>, factor: number | rational): NumberBounds.<T> {
+	rescale(constraint: NumberBounds.<T>, factor: number | rational64 | rational.<bigint>): NumberBounds.<T> {
 		return clean({ ...constraint, bounds: constraint.bounds.scale(factor), nonZero: constraint.nonZero && factor != 0 });
 	}
 
@@ -575,7 +575,7 @@ Result composition compares every definition's completed, normalized portion, in
 
 A parameter pins the meta types whose keys it writes, including an explicit default. Pinning and non-default participation are different facts. An unpinned source portion survives a factor-one crossing unchanged. When scaling occurs, its `rescale` translates it; an absent hook drops that portion to its default. A failed or invalid hook is never treated as absent.
 
-`Factor` in the protocol interface is a finite real numeric domain. Prefer `rational` for exact unit ratios; Number, BigInt, sized integers, binary floats, and decimals are also supported. The engine multiplies factors exactly and scales in the value's numeric base, rounding only at the target-domain conversion. This is a protocol operation, so it does not introduce implicit mixed-numeric `*` into the language. Integer truncation and overflow follow explicit conversion rules. Non-finite or non-real factors are protocol errors; special values of the quantity follow its numeric domain's rules. For compatibility, `rescale` receives a Number when all factors are Numbers or binary floats of width at most 64, and an exact rational otherwise (the default width when it fits, `rational.<bigint>` otherwise). `quantize` must return a value of the base; `rescale` must return its constraint shape. Exceptions and evaluation-budget failures propagate. Validation and quantization receive raw numeric values.
+`Factor` in the protocol interface is a finite real numeric domain. Prefer `rational64` or `rational.<bigint>` for exact unit ratios; Number, BigInt, sized integers, binary floats, and decimals are also supported. The engine multiplies factors exactly and scales in the value's numeric base, rounding only at the target-domain conversion. This is a protocol operation, so it does not introduce implicit mixed-numeric `*` into the language. Integer truncation and overflow follow explicit conversion rules. Non-finite or non-real factors are protocol errors; special values of the quantity follow its numeric domain's rules. For compatibility, `rescale` receives a Number when all factors are Numbers or binary floats of width at most 64, and an exact rational otherwise (`rational64` when the reduced parts fit, `rational.<bigint>` otherwise). `quantize` must return a value of the base; `rescale` must return its constraint shape. Exceptions and evaluation-budget failures propagate. Validation and quantization receive raw numeric values.
 
 For a given operator invocation:
 
@@ -1139,7 +1139,7 @@ const si = Object.freeze({
 	s: Symbol('SI.time'),
 });
 
-type Dimensions = { [si.m]: int32, [si.kg]: int32, [si.s]: int32, ratio: rational };
+type Dimensions = { [si.m]: int32, [si.kg]: int32, [si.s]: int32, ratio: rational64 };
 ```
 
 ## Decorators
@@ -1906,3 +1906,10 @@ I haven't put any thought into generalizing this to classes.
 For practical cases a simple memoization for each type or pair of types negates most of the cost. It's possible to engineer situations where a timeout is required for compile-time/editor calculations.
 
 Written numeric metadata literals retain their source digits until the owning field domain is known; for example, a `uint64` field distinguishes `9007199254740993` from its preceding integer. A Number supplied by a runtime builder or reflection denotes its actual Number value, so normalization cannot recover digits that Number arithmetic already rounded away.
+
+
+### Factor presentation independent of generic defaults
+
+`MetaProtocol` defaults its `Factor` parameter to `rational64`. The engine accumulates exact conversion factors without a fixed-width bound. The existing Number presentation branch is unchanged. Otherwise it reduces the exact product, presents it to `rescale` as `rational64` when both signed parts fit 64 bits, and as `rational.<bigint>` when they do not. Accordingly, `rescale` accepts `number | rational64 | rational.<bigint>`. Choosing the presentation tests representability before construction; it does not catch hook failures, invalid factors, or evaluation-budget errors.
+
+Range annotations follow ordinary generic arity rules. A shape permitting all intervals uses `RangeBounds.<T>` (or the existing `any` view where the endpoint domain is intentionally unconstrained); `Range.<T>` permits only two-ended Closed/Open ranges by default. Bare `Range` and `RangeBounds` are incomplete annotations at every origin. A full range default and a written full range both satisfy the same complete `RangeBounds.<T>` shape, under the existing host-base endpoint normalization. This does not make a full range satisfy a two-ended range shape.

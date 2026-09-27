@@ -152,3 +152,8 @@ This extension does not ship ```Functor```, ```Monad```, ```Applicative```, or `
 It also does not add kinds of arity greater than the parameter lists that use them, higher-rank types, or constraints that quantify over a parameter's argument. Each is a coherent feature and none has a case in this design today.
 
 Nor does it add higher-kinded *packs*: a [variadic generic parameter](generics.md#variadic-generic-parameters)'s elements are types or values, never parameterized declarations. The program ```...Ws<_>``` would serve — composing a stack of wrappers — is already writable as a tuple of type objects folded by a builder, ```Ws.reduceRight((acc, W) => W.<acc>, T)```, one concept the language has in place of a parameter form that could exist only in explicit position and compose with nothing else.
+
+
+## Intrinsic declarations
+
+Intrinsic families may bind an explicitly higher-kinded parameter. For example, `function make<F<_>: type>() { return F.<64>; }` accepts `make.<rational>()`. The receiving arity is checked first; applying the bound declaration then checks its intrinsic domain, so `F.<int32>` with `F = rational` is an error. `complex` in this position supplies the unary declaration, not `complex.<number>`. This introduces neither inference of higher-kinded arguments nor a new public family-value API.

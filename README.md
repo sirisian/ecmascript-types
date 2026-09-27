@@ -100,12 +100,16 @@ type float64x4 = vector.<float64, 4>;
 ```
 </details>
 
-```rational.<N>``` - an exact fraction of two ```int.<N>```; see [rational numbers](rational.md).
+```rational.<N>``` (required width, or ```bigint``` for arbitrary precision) - an exact fraction of two ```int.<N>```; see [rational numbers](rational.md).
 <details>
-    <summary>Expand for the rational shorthand.</summary>
+    <summary>Expand for the rational width aliases.</summary>
 
 ```js
-type rational = rational.<64>;
+type rational8 = rational.<8>;
+type rational16 = rational.<16>;
+type rational32 = rational.<32>;
+type rational64 = rational.<64>;
+type rational128 = rational.<128>;
 ```
 </details>
 

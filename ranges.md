@@ -168,7 +168,7 @@ interface RangeBounds<T: type extends Ordered.<T>> {
 // Ordered and cannot be multiplied. So scale exists on the instantiations whose
 // element type scales, by the partial specialization rule in generics.md.
 partial interface RangeBounds<const T extends Scalable.<T>> {
-	scale(factor: number | float64 | rational): RangeBounds.<T> { /* … */ return undefined; }
+	scale(factor: number | float64 | rational64 | rational.<bigint>): RangeBounds.<T> { /* … */ return undefined; }
 }
 
 // Interval arithmetic, on the ranges whose element type has arithmetic. The
@@ -541,3 +541,10 @@ Iterator.range(0, 10, 2); // The values of (0..<100).step(2)
 
 - Whether a stepped range should be reachable as a value - a ```Progression```, Kotlin's name for it - so that a step can be carried and asked ```contains```. This is deliberately not ```step```'s return type, for the reason given under Iteration; it would be a separate type whose containment is lattice membership rather than interval membership.
 - ```Range.of.<S, E>(a, b)``` needs its bounds as compile-time constants, so choosing a bound at runtime produces a union of range types, which a ```switch``` handles and which is rare enough that no sugar is proposed.
+
+
+## Required element arguments and defaults
+
+All four range shapes and `RangeBounds` require their element argument `T`. `Range.<T>` supplies `S = Range.Bound.Closed` and `E = Range.Bound.Open`; `RangeFrom.<T>` supplies Closed and `RangeTo.<T>` supplies Open. `RangeFull.<T>` and `RangeBounds.<T>` have no other arguments. The four named interval aliases also require `T`. Defaults are filled before interning, so a defaulted application and its fully explicit spelling are the identical Type Object.
+
+These are annotation rules. Range literals retain endpoint/context inference and metadata's host-base normalization; no new default element type or representation is assigned to standalone `..`. Use `RangeBounds.<_>` in a generic constraint to accept a range of any endpoint type and shape. `Range.<_>` keeps Closed/Open fixed; `Range.<_, _, _>` permits all two-ended intervals.

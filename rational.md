@@ -6,44 +6,48 @@ This proposal already lists `rational` among its primitive types. This document 
 
 ## Representation
 
-`rational.<N>` is a value type holding two `int.<N>` fields, a numerator and a denominator, always kept in **canonical form**: reduced to lowest terms, denominator strictly positive, and zero represented as `0/1`. It occupies `2N` bits with the alignment of `int.<N>`. In bytes it is laid out as a record of those two fields is: `rational.<7>` is two bytes and `rational.<24>` eight, since an `int.<24>` takes three bytes aligned to four. The bare name `rational` is `rational.<64>` — two `int64`, sixteen bytes — which is the default the primitive-types list refers to.
+`rational.<N>` is a value type holding two `int.<N>` fields, a numerator and a denominator, always kept in **canonical form**: reduced to lowest terms, denominator strictly positive, and zero represented as `0/1`. It occupies `2N` bits with the alignment of `int.<N>`. In bytes it is laid out as a record of those two fields is: `rational.<7>` is two bytes and `rational.<24>` eight, since an `int.<24>` takes three bytes aligned to four. The width is required: bare `rational` and `rational.<>` are errors in concrete type positions. The preferred width aliases below denote the same Type Objects as their explicit applications. `rational64` holds two `int64` fields and occupies sixteen bytes. The separate `rational.<bigint>` specialization has arbitrary precision and no fixed inline layout.
 
 ```js
-type rational = rational.<64>;
+type rational8 = rational.<8>;
+type rational16 = rational.<16>;
+type rational32 = rational.<32>;
+type rational64 = rational.<64>;
+type rational128 = rational.<128>;
 ```
 
 Canonical form is the whole trick. Because every rational is stored reduced with a positive denominator, two rationals are equal exactly when their bytes are equal, so structural `==` *is* mathematical equality, and hashing and `Map` keys follow for free with no cross-multiplication and no separate equality method:
 
 ```js
-rational(1, 2) == rational(2, 4);   // true: both are the bytes 1/2
-new Set.<rational>([rational(1, 2), rational(50, 100)]).size;  // 1
+rational64(1, 2) == rational64(2, 4);   // true: both are the bytes 1/2
+new Set.<rational64>([rational64(1, 2), rational64(50, 100)]).size;  // 1
 ```
 
-Being a value type, a `rational` copies on assignment, lives inline in a `[].<rational>` as interleaved numerator/denominator pairs, and splits into numerator and denominator columns under [structure of arrays](soa.md). `typeof` reports `"object"`, as it does for the other composite numeric types.
+A bounded rational copies on assignment, lives inline in a `[].<rational64>` as interleaved numerator/denominator pairs, and splits into numerator and denominator columns under [structure of arrays](soa.md). `typeof` reports `"object"`, as it does for the other composite numeric types.
 
 ## Literals and construction
 
 No new syntax is needed. A numeric literal takes the type of its context, and `/` between rational-typed operands is rational division, so the natural spelling of a fraction just works:
 
 ```js
-let third: rational = 1 / 3;    // exactly 1/3
-let half: rational = 6 / 12;    // reduced to 1/2
-let whole: rational = 5;        // 5/1
+let third: rational64 = 1 / 3;    // exactly 1/3
+let half: rational64 = 6 / 12;    // reduced to 1/2
+let whole: rational64 = 5;        // 5/1
 ```
 
-This is worth reading twice, because the same tokens mean different things in different contexts, exactly as the conversions section already requires. In `let third: rational = 1 / 3` the context is `rational`, so `1` and `3` are rational literals and `/` is rational division, giving `1/3`. With an `int32` context the same `1 / 3` is integer division and gives `0`; in an untyped context it is `Number` division and gives `0.333…`. The literal never converts a typed value — it just adopts the type the context asks for.
+This is worth reading twice, because the same tokens mean different things in different contexts, exactly as the conversions section already requires. In `let third: rational64 = 1 / 3` the context is `rational64`, so `1` and `3` are rational literals and `/` is rational division, giving `1/3`. With an `int32` context the same `1 / 3` is integer division and gives `0`; in an untyped context it is `Number` division and gives `0.333…`. The literal never converts a typed value — it just adopts the type the context asks for.
 
 Construction from parts reduces and normalizes the sign, moving it to the numerator:
 
 ```js
-rational(2, 4);     // 1/2
-rational(1, -3);    // -1/3
-rational(0, 5);     // 0/1
-rational(5);        // 5/1
-// rational(1, 0);  // RangeError: zero denominator
-rational.parse('3/4');   // 3/4, per the parse convention for the numeric types
-rational.parse('0.1');   // 1/10 - any literal of the type, as 0.1 in a rational position is
-// rational.parse('1/0'); // RangeError: zero denominator, as the constructor's
+rational64(2, 4);     // 1/2
+rational64(1, -3);    // -1/3
+rational64(0, 5);     // 0/1
+rational64(5);        // 5/1
+// rational64(1, 0);  // RangeError: zero denominator
+rational64.parse('3/4');   // 3/4, per the parse convention for the numeric types
+rational64.parse('0.1');   // 1/10 - any literal of the type, as 0.1 in a rational position is
+// rational64.parse('1/0'); // RangeError: zero denominator, as the constructor's
 ```
 
 The two-argument constructor takes `int.<N>` numerator and denominator; literals propagate into them, and a value of another integer type is converted explicitly, as everywhere else.
@@ -60,18 +64,18 @@ The language defines the operators directly, the way it does for `int32`, not th
 - `**` with an integer exponent is the exact power `(a/b)**n`, with a negative exponent inverting.
 
 ```js
-let a: rational = 1 / 6;
-let b: rational = 1 / 3;
+let a: rational64 = 1 / 6;
+let b: rational64 = 1 / 3;
 a + b;        // 1/2
 a * b;        // 1/18
 b / a;        // 2/1
 b < a;        // false
-rational(2, 3) ** 3; // 8/27, exact
+rational64(2, 3) ** 3; // 8/27, exact
 ```
 
-Overflow — a numerator or denominator that no longer fits `int.<N>` after reduction — raises a `RangeError`, the same choice the arithmetic section makes for decimals, because a rational's range is a property of its type rather than of a bit pattern to wrap. Dividing by a zero rational raises a `RangeError`. A wider width postpones the first case: `rational.<128>` reduces overflow to a practical non-issue for most accumulation, and an arbitrary-precision rational is a `bigint`-backed reference type outside this value-type primitive.
+Overflow — a numerator or denominator that no longer fits `int.<N>` after reduction — raises a `RangeError`, the same choice the arithmetic section makes for decimals, because a rational's range is a property of its type rather than of a bit pattern to wrap. Dividing by a zero rational raises a `RangeError`. A wider width postpones the first case: `rational.<128>` reduces overflow to a practical non-issue for most accumulation, and the same family also offers `rational.<bigint>` for arbitrary precision, with value semantics and no fixed inline layout.
 
-Mixing follows the no-implicit-widening rule. A literal propagates, but a value of another type does not convert on its own: `r + n` for a `rational` `r` and an `int32` `n` is a `TypeError`, written `r + rational(n)`; and `rational.<32>` and `rational.<64>` do not mix without an explicit cast, just as `int32` and `int64` don't.
+Mixing follows the no-implicit-widening rule. A literal propagates, but a value of another type does not convert on its own: `r + n` for a `rational64` `r` and an `int32` `n` is a `TypeError`, written `r + rational64(n)`; and `rational.<32>` and `rational.<64>` do not mix without an explicit cast, just as `int32` and `int64` don't.
 
 ## Components, methods, and conversions
 
@@ -83,15 +87,15 @@ Conversions are all explicit:
 
 - To a float: `float64(r)` is `numerator / denominator` rounded to the nearest `float64`. This is the lossy step, and it is visible.
 - To an integer: `int64(r)` truncates toward zero.
-- From an integer: `rational(n)` is `n/1`, exact.
-- From a `bigint`: `rational(5n)` is `5/1`, a `RangeError` where the width cannot hold it.
+- From an integer: `rational64(n)` is `n/1`, exact.
+- From a `bigint`: `rational64(5n)` is `5/1`, a `RangeError` where the width cannot hold it.
 - Between widths: `r := rational.<32>` is the same value at the new width, a `RangeError` where it does not fit. The widths are distinct types - `rational.<32>` and `rational.<64>` do not mix without this cast, and `===` sees the width as it does for `int32` and `int64` while `==` compares the value.
-- From a float: `rational(f)` is the float's *exact* dyadic value — a `float64` is itself a rational whose denominator is a power of two — which is exact but can overflow a fixed width, in which case it raises a `RangeError`. For a bounded approximation, `rational.approximate(f, maxDenominator)` returns the closest rational whose denominator does not exceed the bound, by the continued-fraction expansion. At a width it returns the closest value OF THAT TYPE - both parts in `int.<N>` - so `rational.<8>.approximate(Math.PI, 1000)` is `22/7`, where `355/113`'s numerator is not an `int.<8>`. Of two values equally near, it returns the one with the smaller denominator, then the one nearer zero; an argument outside the type's range is a `RangeError`, since that is overflow rather than approximation. A literal is not a float: `rational(0.1)` is `1/10`, as `let r: rational = 0.1` is, because a literal denotes its digits. The dyadic value of the double nearest one tenth is had by making it a float first, `rational(float64(0.1))`.
+- From a float: `rational64(f)` is the float's *exact* dyadic value — a `float64` is itself a rational whose denominator is a power of two — which is exact but can overflow a fixed width, in which case it raises a `RangeError`. For a bounded approximation, `rational64.approximate(f, maxDenominator)` returns the closest rational whose denominator does not exceed the bound, by the continued-fraction expansion. At a width it returns the closest value OF THAT TYPE - both parts in `int.<N>` - so `rational.<8>.approximate(Math.PI, 1000)` is `22/7`, where `355/113`'s numerator is not an `int.<8>`. Of two values equally near, it returns the one with the smaller denominator, then the one nearer zero; an argument outside the type's range is a `RangeError`, since that is overflow rather than approximation. A literal is not a float: `rational64(0.1)` is `1/10`, as `let r: rational64 = 0.1` is, because a literal denotes its digits. The dyadic value of the double nearest one tenth is had by making it a float first, `rational64(float64(0.1))`.
 
 ```js
-rational(0.5);                          // 1/2, exact
-float64(rational(1, 3));                // 0.3333333333333333, now rounded
-rational.approximate(Math.PI, 1000);    // 355/113
+rational64(0.5);                          // 1/2, exact
+float64(rational64(1, 3));                // 0.3333333333333333, now rounded
+rational64.approximate(Math.PI, 1000);    // 355/113
 ```
 
 ## Example
@@ -99,10 +103,10 @@ rational.approximate(Math.PI, 1000);    // 355/113
 An exact harmonic partial sum, next to the float version that drifts:
 
 ```js
-function harmonic(n: int64): rational {
-  let sum: rational = 0;          // 0/1
+function harmonic(n: int64): rational64 {
+  let sum: rational64 = 0;          // 0/1
   for (let k: int64 = 1; k <= n; ++k) {
-    sum += rational(1, k);        // 1/k, exact
+    sum += rational64(1, k);        // 1/k, exact
   }
   return sum;
 }
@@ -139,5 +143,12 @@ Every rule of `rational.<N>` holds with the bound removed. Conversions into it a
 
 Like `bigint`, it has no layout: its size belongs to the value. A class holding one is still a value type but has no layout, so it neither lives inline in an array nor splits into columns - the two things a fixed width buys.
 
-The cost of never overflowing is real, and it is why this is a type a program chooses rather than the default. Squaring a rational roughly doubles its size: iterating `x = x * x + 1/7` from `1/3`, the denominator is 96 bits at the fifth step - where a `rational.<64>` has already thrown - and 3.1 million bits at the twentieth, whose single step took about 13 seconds in Python's unbounded `Fraction`. A bounded rational fails fast and says so; an unbounded one keeps going, and the only symptom is time.
+The cost of never overflowing is real, and it is why this is a type a program chooses explicitly, with no implicit rational default. Squaring a rational roughly doubles its size: iterating `x = x * x + 1/7` from `1/3`, the denominator is 96 bits at the fifth step - where a `rational.<64>` has already thrown - and 3.1 million bits at the twentieth, whose single step took about 13 seconds in Python's unbounded `Fraction`. A bounded rational fails fast and says so; an unbounded one keeps going, and the only symptom is time.
 
+
+
+## Declaration and constraint contexts
+
+The intrinsic argument domain is a width from 1 through 65536 or the type `bigint`. This is a property of this intrinsic declaration; it does not add mixed type/value domains to user generics. `rational.<int32>` is invalid; use `rational32` or `rational.<32>`.
+
+A family-wide bound is `T: type extends rational.<_>`. Bare `rational` can also be supplied where a parameter explicitly expects a unary higher-kinded declaration, such as `F<_>: type`. Neither context makes an incomplete rational a storage type. Construction requires an explicit width or `bigint`; no width is inferred from the constructor's values or target context. Type display prefers `rational8`, `rational16`, `rational32`, `rational64`, and `rational128`, independently of user aliases or import order.

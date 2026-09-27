@@ -7,7 +7,7 @@ The code doubles as a tour of the proposal, and several pieces only work *becaus
 - ```uint.<N>``` arbitrary-width integers are the currency of the whole format, and casting to one range-checks: writing a non-ASCII character through ```uint.<7>``` is a TypeError, not corruption.
 - Typed integer division makes ```this.#bitIndex / BufferBits``` a word index and ```(bits + 7) / 8``` a byte count; untyped, both are fractions.
 - Value generics with defaults (```Size```, ```HeaderSize```, ```BufferBits```) parameterize the class, and compile-time quantization arguments like ```write.<float32, -1024, 1024, 18>``` specialize per call site with no runtime configuration object.
-- Generic method overloads select by their type argument, the concrete-type specialization specified in [generics](../generics.md) with ```write.<boolean>``` and ```write.<uint.<N>>``` as its flagship; the family constraint ```LengthType extends uint``` bounds string length prefixes, fixed-length arrays bounds-check overruns, uninitialized typed declarations default to zero, and views reinterpret floats as their bit patterns without a scratch ```DataView```.
+- Generic method overloads select by their type argument, the concrete-type specialization specified in [generics](../generics.md) with ```write.<boolean>``` and ```write.<uint.<N>>``` as its flagship; the family constraint ```LengthType extends uint.<_>``` bounds string length prefixes, fixed-length arrays bounds-check overruns, uninitialized typed declarations default to zero, and views reinterpret floats as their bit patterns without a scratch ```DataView```.
 
 ## PacketWriter
 
@@ -154,7 +154,7 @@ export class PacketWriter<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	}
 
 	@doc('Writes a length-prefixed ASCII string. A non-ASCII character fails the uint.<7> cast with a TypeError.')
-	write<string, LengthType: type extends uint = uint16>(value: string): PacketWriter {
+	write<string, LengthType: type extends uint.<_> = uint16>(value: string): PacketWriter {
 		this.write.<LengthType>(LengthType(value.length));
 		for (let index: uint64 = 0; index < uint64(value.length); ++index) {
 			this.write.<uint.<7>>(uint.<7>(value.charCodeAt(index)));
@@ -313,7 +313,7 @@ export class PacketReader<Size: uint32 = 1400, HeaderSize: uint32 = 16, BufferBi
 	}
 
 	@doc('Reads a length-prefixed ASCII string.')
-	read<string, LengthType: type extends uint = uint16>(): string {
+	read<string, LengthType: type extends uint.<_> = uint16>(): string {
 		let value = '';
 		const length = uint32(this.read.<LengthType>());
 		for (let index: uint32 = 0; index < length; ++index) {

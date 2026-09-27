@@ -104,10 +104,10 @@ A named argument may address a variadic parameter, opening a run: see [Variadic 
 Often not just any type can be passed into the generic argument. Nearly every language has a constraint system to specify what interface(s) a type must implement.
 
 ```js
-class A<T: type extends int> {
+class A<T: type extends int.<_>> {
 }
 ```
-Here ```int``` is the constraint family matching any ```int.<N>```; likewise ```uint``` matches any ```uint.<N>```, and ```enum``` matches any enumeration - written ```enum.<TValue>``` to bound it to enumerations over a given underlying type, as the [decorators](decorators.md) reflection API does. These families are only usable as constraints, not as concrete types, since they don't specify a width (or, for ```enum```, a member set).
+Here ```int.<_>``` is a constraint pattern matching any ```int.<N>```; likewise ```uint.<_>``` matches any ```uint.<N>```. These anonymous patterns are usable only as constraints. Bare intrinsic names follow their declared defaults, so bare ```int``` and ```uint``` are incomplete. The existing ```enum``` constraint matches any enumeration, or ```enum.<TValue>``` bounds it to enumerations over a given underlying type, as the [decorators](decorators.md) reflection API does.
 
 A ```static``` member is not parameterized by its class's type parameters, so it declares its own. A static that works over the class's element type takes that type as a fresh parameter - ```static of<T: type extends Ordered.<T>, S: Bound, E: Bound>(start: T, end: T): Range.<T, S, E>``` and ```static from<T: type>(values: [].<T>): SoA.<T>``` - rather than referring to a bare ```T``` that isn't in scope.
 
@@ -290,11 +290,13 @@ Inside the declaration that binds it, ```T``` is a subtype of itself and of its 
 
 #### Bare generic names and the family
 
+The intrinsic families follow the same defaults rule. See [family constraints](familyconstraints.md) for required arguments, anonymous bounds, matching, and reflection.
+
 A generic declaration's bare name in a type position — an annotation, a parameter or return type, a heritage clause, ```is```, a ```when``` pattern — names the application at its defaults, ```Box.<>```, and is a type error naming the parameter where one has no default. ```A```, ```A.<>``` and ```A.<uint8>``` are one type for a ```class A<T: type = uint8>```; ```let b: Box``` for a ```class Box<T: type>``` is refused; ```class S extends Box {}``` is refused, and ```class S<U: type> extends Box.<U>``` or ```extends Box.<uint8>``` is how it is written. There is no bare instantiation for a bare name to denote, since every construction yields a specialization, and a name that meant the family would make a default meaningless in a type position.
 
 The family has a spelling of its own. An argument written ```any``` admits any instantiation in its position, as it already does for the collections, so ```Box.<any>``` is a Box of some element type and ```Pair.<any, string>``` a Pair whose first type is unknown and whose second is a string. A read through the wider view is ```any```; a store through it is checked against the instance's own field type at run time, which is what runtime types are for.
 
-The one position where a bare generic name is the declaration rather than an application is as a type argument, where it binds a higher-kinded parameter. In expression position the name is the constructor, which stands for the declaration wherever a declaration is a value: ```Reflect.makeType({ kind: "generic", base: Box, arguments: [uint32] })```.
+A bare generic name denotes its declaration when the receiving parameter explicitly expects a higher-kinded declaration. An ordinary first-order type argument applies defaults just like an annotation. In expression position the name is the constructor, which stands for the declaration wherever a declaration is a value: ```Reflect.makeType({ kind: "generic", base: Box, arguments: [uint32] })```.
 
 ```instanceof``` sees the family through the constructor. A specialization is a distinct class object whose prototype chain does not pass through ```Box.prototype```, so ```x instanceof Box``` is extended: it is ```true``` when ```x``` is an instance of any specialization of ```Box```, or of a class extending one, while ```x instanceof Box.<uint8>``` is the ordinary prototype check against that specialization.
 
@@ -363,7 +365,7 @@ w.write.<float32, maximum: 1024, bits: 18>(x); // the three-parameter one, by na
 
 Overload resolution ranks these as it ranks value signatures, a fixed position beating a parameter and a fixed parameter beating a pack. An application that no overload accepts is the ordinary "no declared signature" error, statically wherever the arguments are static. The float32 overloads with three and four positions have different public names, which is why they are separate overloads rather than cases of one generic signature. A capture at the top level of such an overload would observe nothing - it is a parameter in disguise - so it is an error that asks for ```name: domain```.
 
-A same-named signature whose list holds only parameters is an *owner*. An overload whose list holds only fixed arguments and captures attaches to the owner whose list accepts it: each entry lands in one of the owner's parameters by position, and a fixed argument there is of that parameter's kind and admitted by its domain and bound, while a capture or ```_``` takes the parameter's domain. An overload the owner's contract does not admit, ```read<string>``` beside ```read<T: type extends uint>```, does not attach; it is a standalone case, reached by explicit application and never through the owner, since the owner's generic function value promises only what its bound admits. An attached overload borrows the owner's parameter names, so named and positional calls reach it alike, and where its parameter list is the owner's at those arguments, the same types, optionality, rest, and reference permissions, whatever the parameters are named, it is a *replacement*: it replaces the owner's body for them, keeps the owner's contract, and is reached through the generic function value too. Its return type may narrow the owner's there, and must be a subtype of it; one that is not is an error. An attached overload with another parameter list is *additive*: it borrows the owner's names, and is never reached through the owner's generic function value.
+A same-named signature whose list holds only parameters is an *owner*. An overload whose list holds only fixed arguments and captures attaches to the owner whose list accepts it: each entry lands in one of the owner's parameters by position, and a fixed argument there is of that parameter's kind and admitted by its domain and bound, while a capture or ```_``` takes the parameter's domain. An overload the owner's contract does not admit, ```read<string>``` beside ```read<T: type extends uint.<_>>```, does not attach; it is a standalone case, reached by explicit application and never through the owner, since the owner's generic function value promises only what its bound admits. An attached overload borrows the owner's parameter names, so named and positional calls reach it alike, and where its parameter list is the owner's at those arguments, the same types, optionality, rest, and reference permissions, whatever the parameters are named, it is a *replacement*: it replaces the owner's body for them, keeps the owner's contract, and is reached through the generic function value too. Its return type may narrow the owner's there, and must be a subtype of it; one that is not is an error. An attached overload with another parameter list is *additive*: it borrows the owner's names, and is never reached through the owner's generic function value.
 
 ```js
 function category<T: type>(): string { return "general"; }
@@ -388,7 +390,7 @@ class Accumulating<T: type> extends PacketReader {
 }
 ```
 
-Without an owner, an open argument reaches a set of overloads only where its bound proves one of them applicable to every binding it admits. ```this.write.<LengthType>(...)```, for ```LengthType: type extends uint```, is checked against ```write<uint.<const N>>```, and any more specific overload that a particular binding selects must have that overload's signature at the binding. Anything else is a type error asking for an owner.
+Without an owner, an open argument reaches a set of overloads only where its bound proves one of them applicable to every binding it admits. ```this.write.<LengthType>(...)```, for ```LengthType: type extends uint.<_>```, is checked against ```write<uint.<const N>>```, and any more specific overload that a particular binding selects must have that overload's signature at the binding. Anything else is a type error asking for an owner.
 
 The [decorators](decorators.md) reflection API is a set of such overloads, one per reflection kind, each fixing the kind and naming the reflected class:
 

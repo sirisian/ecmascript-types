@@ -99,7 +99,7 @@ A class defines its own operators, and the result type is the return type it dec
 | integer | operand type, wrapping | operand type | ```boolean``` | ```/``` truncates |
 | binary float | operand type | **not defined** | ```boolean``` | |
 | decimal | operand type | **not defined** | ```boolean``` | library call |
-| rational | operand type; no ```%``` | not defined | ```boolean``` | ```**``` for integer exponents |
+| rational64 | operand type; no ```%``` | not defined | ```boolean``` | ```**``` for integer exponents |
 | complex | operand type; no ```%``` | not defined | equality only | not ordered |
 | vector | operand type, lane-wise | operand type, integer lanes | three forms | overloaded on return type |
 | ```bigint``` | ```bigint``` | ```bigint``` | ```boolean``` | no mixing with ```number``` |

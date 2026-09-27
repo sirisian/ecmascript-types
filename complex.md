@@ -11,7 +11,7 @@ This proposal already lists `complex` among its primitive types. This document d
 ```js
 type complex64 = complex.<float32>;   // two float32, eight bytes
 type complex128 = complex.<float64>;  // two float64, sixteen bytes
-type complex = complex.<number>;      // two number, sixteen bytes: the ergonomic default
+// complex declares T: type = number; bare complex applies that default.
 ```
 
 Bare `complex` uses `number` components for the same reason the language keeps `number` distinct from `float64`: `number` is what an untyped literal and every `Math` function produce, so a `complex` built from `Math.PI` or a plain `3.5` composes without a cast. `complex64` and `complex128` fix the component width for an interleaved buffer or for interop, and convert to and from bare `complex` explicitly, exactly as `float32` and `float64` convert to and from `number`.
@@ -108,3 +108,6 @@ escapeTime(-0.1 + 0.75i, 100);      // 0: inside the set
 ```
 
 The loop body is the definition of the set written verbatim, `z = z * z + c`, with the multiply mixing the components and the add offsetting them, both language operators. A tuned renderer would compare `Math.abs(z)` against a squared bound to skip the per-step square root, but the point stands: a complex is a first-class value here, so the arithmetic reads as arithmetic and a `[].<complex128>` of samples is the contiguous buffer the rest of a pipeline already wants.
+
+
+The declared `number` default applies in every ordinary concrete type position, including a generic bound: `T: type extends complex` means `extends complex.<number>`. Use `complex.<_>` to admit every component specialization. A higher-kinded argument expected to be a declaration retains the intrinsic family. These rules do not infer a component type from constructor arguments. Display uses `complex` for the default and the standard `complex32`, `complex64`, `complex128`, and `complex256` aliases for their respective components.

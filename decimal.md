@@ -74,7 +74,7 @@ Explicit in every direction, and each names its loss:
 - To a binary float: `float64(d)` rounds to the nearest `float64`, reintroducing the binary error a decimal existed to avoid.
 - To an integer: `int64(d)` truncates toward zero.
 - Between widths: `decimal32` to `decimal128` is exact; the reverse rounds.
-- To and from a [rational](rational.md): a terminating decimal is exactly a rational with a power-of-ten denominator, so `rational(d)` is exact — `0.1` becomes `1/10` — while `decimal128(r)` rounds a non-terminating rational to the digit budget.
+- To and from a [rational](rational.md): a terminating decimal is exactly a rational with a power-of-ten denominator, so `rational64(d)` is exact — `0.1` becomes `1/10` — while `decimal128(r)` rounds a non-terminating rational to the digit budget.
 
 ## Example
 
