@@ -35,7 +35,8 @@ The metadata protocol defines how a primitive with a metadata type propagates th
 <!-- run -->
 ```js
 interface MetaProtocol<T: type> {
-	// Required: the "unconstrained" / "not specified" value.
+	// Required: the effective portion of a value carrying none of this metadata.
+	// It need not be an unconstrained requirement: zero dimensions constrain.
 	// Used when a value has no fields belonging to this meta type.
 	default: T;
 
@@ -353,6 +354,16 @@ function ratio(a: int32, b: int32): int32 {
 Because the main proposal makes the most negative value divided by `-1` wrap rather than throw, a division by a non-zero divisor cannot fail at all. It is a pure expression, so it can be hoisted out of a loop, shared between `a / b` and `a % b`, and eliminated when its result is unused. That is the second half of what the constraint buys.
 
 ### Primitive Operators
+
+A metadata capture is a total projection. Its value is the owning meta type's completed portion, including its default when the subject carries none of that metadata. Carrying another meta type's fields does not change this rule. A block header reads its receiver, an operator's own metadata parameter reads its operand, and a cast's destination captures read the requested destination.
+
+Keep three judgments separate. A bare `float32` type permits any metadata; a plain `float32` value has the default portions; `float32.<{ m: 0 }>` requires the written dimensionless portion. The explicit default remains a distinct Type Object. A particular plain value can satisfy that requirement at an assignment, argument or return without acquiring a carrier, but `float32` is not a subtype of the requirement. Check a supplied value's carried metadata before considering its base, so a metre cannot become a scalar through `any` or a `float32` binding. An `is` test must make the same distinction without performing a conversion. A value check does not authorize borrowing a location of a different type: references retain invariant location types and all liveness checks.
+
+Metadata identity uses one normalization for defaults, written records, builder results and captured records, against the owning constraint shape. Capture reads still produce a value of the declared domain. Simply removing the numeric tag from a default is insufficient: an `int64` default can become a BigInt while a written literal remains a Number. Normalize both origins consistently; preserve the distinction between untyped Number and BigInt leaves, negative zero, and the separate host-type rule for range endpoints.
+
+Plain same-type arithmetic takes the built-in path before consulting any block, including bodyless definitions. Unary operations on plain values follow the same rule; compound assignment applies it before its store check. Otherwise, a bodyless definition could change plain addition's result type merely by being imported. This preserves both the ordinary value and its metadata. Mixed scalar/quantity operations still use generic blocks and default captures.
+
+A bare **static type** is not evidence of a plain value: a base-typed binding may still carry metres. Do not substitute defaults into metadata builders from that annotation. Widen the result to admit every possible result and retain checks where the portions or the selected definition remain unknown. A repeated capture in a structural pattern compares completed portions for equality; an operator's typed operand instead uses subtype admission and any required conversion before its raw body runs.
 
 Two rules govern operator blocks:
 
