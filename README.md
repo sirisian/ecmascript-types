@@ -317,6 +317,8 @@ let b: uint8 = o?.a ?? 0;
 
 ### Intersection types
 
+A callable intersection keeps its call contract. For example, `((uint8) => void) & { tag: string }` requires both a callable accepting `uint8` and the `tag` member. Calls check arguments, references and results through the callable signatures; multiple signatures use ordinary overload selection. Optional calls and tagged templates follow the same rule.
+
 An intersection combines object interfaces; the result requires every member of each:
 
 ```js
@@ -625,6 +627,8 @@ let b: [] | null; // null
 
 ### Tuple Types
 
+A closed declared default is validated when its tuple or object type is formed, including interface properties, even if no value needs the default. Literals and folded expressions receive the same conversion check as other evaluable defaults. Generic-dependent defaults are checked after specialization supplies their dependencies. The existing compile-time evaluation budget applies, and the converted default is used consistently by construction and reflection.
+
 A tuple rest spreads a sequence type: its resolved, canonical operand must be an array or tuple. Write `[...[].<T>]` for an unbounded run of `T`; `[...T]` is valid only when `T` resolves to a sequence. Dependent generic operands retain this requirement until substitution, without rejecting the open declaration. Closed scalar and `any` operands, and unions that do not canonicalize to one sequence type, are errors. `Reflect.makeType` enforces the same formation rule.
 
 A tuple type is a fixed-length sequence of individually typed positions, written with the element types in brackets. Where ```[N].<T>``` is N elements of one type and ```[].<T>``` is any number of one type, ```[T1, T2, ...]``` is a fixed count of possibly-different types:
@@ -671,6 +675,12 @@ The same reading gives each parameterized family its top: ```Set.<any>``` is a s
 Layout follows the same rule as a class: a tuple of value types is itself a value type laid out contiguously, and a tuple containing a reference position is a reference type. Every tuple is an array, so the array-of-any type ```[].<any>``` doubles as the bound of the tuple family: a type parameter written ```T extends [].<any>``` is satisfied by any tuple or array, which is the bound the [RegExp](regexp.md) and [binary packet](examples/binarypacket.md) documents use to accumulate element types. That bound was spelled ```[]``` in an earlier draft. It moved because the short form was never actually used for it — across this document, the other design documents and the 190-program challenge corpus, ```[]``` in bound position appeared zero times while ```[]``` meaning the *empty tuple* appeared about thirty, and the empty tuple had no spelling at all. The old reading also failed silently: ```[]``` was not an error, it was a different type, so a reader who wrote it expecting TypeScript's meaning got a program that compiled and meant something else.
 
 ### Array length Type And Operations
+
+Array-method diagnostics require proof that the call selects the intrinsic. A typed receiver and a method name alone are insufficient: own methods and prototypes can be replaced, and getters or argument effects can change lookup. A bounded source proof can use fresh lexical origins and engine-owned identities; uncertain cases retain runtime checks. An execution-time inline-cache guard cannot justify rejecting a program early.
+
+At a proven intrinsic `with` call, the replacement must fit the array element or selected tuple position, including a known negative index. Comparators for `sort` and `toSorted` must accept the two elements; their result retains JavaScript numeric coercion, so returning `"0"` is allowed. Reducers must accept the accumulator, element, index and receiver; the accumulator may have a different type from the element. No callback body is executed or ordering law proved during checking.
+
+A copy made by `slice`, `filter`, `toSorted`, `toReversed`, `with`, `splice` or `concat` has the storage type the operation creates. A homogeneous copy is growable, even when its source has a fixed extent. Knowing the result's initial length does not make that length part of its storage type. Tuple positions are retained only when the operation guarantees them. Mutating `sort` and `reverse` return their receiver. None of these facts removes a reference-liveness check.
 
 An array type takes one type argument, its element. The type of a length - and of an index, a ```capacity```, and a view's length - is the language's *index type*, fixed for every array rather than declared per array.
 
@@ -1273,6 +1283,12 @@ type G = (uint8 = 1, uint8) => uint8;       // TypeError: the default can never 
 ```
 
 ### Typed Arrow Functions
+
+Completion analysis follows normal flow, returns, throws, and the targets of breaks and continues. An empty final switch clause reaches the implicit return; a grouped empty clause can instead fall through to a returning clause. A later unreachable return does not make a function total, and `finally` can replace an earlier completion. The resulting implicit `undefined` is checked against a written effective return type and included in inference where applicable.
+
+A declared predicate is a signature contract, including on methods. Its narrowing types are substituted with the type arguments, and its target is matched to the argument actually bound by named or positional argument binding. Boolean predicates narrow guarded paths; void assertions narrow positions dominated by successful return. Unknown overload selection contributes no guessed predicate, and mutations still invalidate facts.
+
+An explicit `ThisType` is checked against the receiver supplied at a call, with runtime entry enforcement when its type is unresolved. The receiver keeps its identity. The self marker on ordinary methods continues to mean the receiver through which the method is reached, not the declaring class.
 
 A function signature describes its arguments and result independently of whether the actual value supports construction. A statically identified typed arrow, generator, async function or async generator cannot be used with `new`. A statically identified typed class constructor cannot be called without `new`, including through optional calls and tagged templates. Ordinary functions can still be constructors.
 
@@ -2346,6 +2362,8 @@ The behavior can create confusing signatures. While these are allowed, they aren
 
 ### Typed Promises
 
+Omitted type arguments are completed before any type judgment: `Promise.<T>` is `Promise.<T, any>`, and bare `Promise` is `Promise.<any, any>`. Await inference, callback checking, identity and assignability all use that completed type.
+
 Typed promises use a generic syntax where the resolve and reject type default to any.
 
 ```js
@@ -2640,6 +2658,8 @@ An open object type, ```any```, or an unknown disposal member retains runtime pr
 For ```await using```, asynchronous acquisition also considers ```[Symbol.asyncDispose]``` and the language's synchronous-disposal fallback. An asynchronous check must follow that protocol rather than requiring an explicit asynchronous member in every annotation.
 
 ### Object Typing
+
+`readonly` applies to named properties. A `readonly` index signature is unsupported syntax and is rejected rather than silently becoming writable. A property actually named `readonly` remains legal.
 
 Computed names of object methods/accessors and class methods/fields are checked as expressions in their enclosing evaluation scope, before entering the member's parameters, body, or instance/static `this` scope. This includes generator and async methods. Class self-name and generic scopes still apply. Existing call, property-key conversion, assignment and reference rules apply inside each name, even in an unused body. Checking does not evaluate the key or change its runtime evaluation count.
 
