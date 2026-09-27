@@ -34,7 +34,7 @@ The metadata protocol defines how a primitive with a metadata type propagates th
 
 <!-- run -->
 ```js
-interface MetaProtocol<T: type> {
+interface MetaProtocol<T: type, Factor: type = rational> {
 	// Required: the effective portion of a value carrying none of this metadata.
 	// It need not be an unconstrained requirement: zero dimensions constrain.
 	// Used when a value has no fields belonging to this meta type.
@@ -59,10 +59,10 @@ interface MetaProtocol<T: type> {
 	narrow?(current: T, op: string, value: any): T;
 
 	// Optional: linear conversion between two subtype-compatible parameterizations of this meta type. Returns the factor the value is multiplied by when converting `from` to `to`. Applied at assignment boundaries, including operator parameters (see composition rules).
-	conversionFactor?(from: T, to: T): float64;
+	conversionFactor?(from: T, to: T): Factor;
 
 	// Optional: adjust this meta type's constraint when the underlying value is scaled by another meta type's conversion, keeping value-space metadata like bounds consistent. When absent while a conversion occurs, this meta type's portion falls back to `default`.
-	rescale?(constraint: T, factor: float64): T;
+	rescale?(constraint: T, factor: number | rational): T;
 
 	// Optional: map a value onto the representation this constraint requires, such as rounding a decimal to a fixed scale. Applied at assignment, argument, and return boundaries after `subtype` passes and after any `conversionFactor` scaling, so intermediate results within an expression keep full precision.
 	quantize?(value: any, constraint: T): any;
@@ -88,13 +88,13 @@ It's possible to hold a reference to a meta protocol:
 
 <!-- run -->
 ```js
-interface MetaProtocol<T: type> {
+interface MetaProtocol<T: type, Factor: type = rational> {
 	default: T;
 	subtype(sub: T, sup: T): boolean;
 	validate?(value: any, constraint: T): boolean;
 	narrow?(current: T, op: string, value: any): T;
-	conversionFactor?(from: T, to: T): float64;
-	rescale?(constraint: T, factor: float64): T;
+	conversionFactor?(from: T, to: T): Factor;
+	rescale?(constraint: T, factor: number | rational): T;
 	quantize?(value: any, constraint: T): any;
 	meet?(a: T, b: T): T | null | undefined;
 	describe?(constraint: T): string;
@@ -265,8 +265,8 @@ meta NumberBounds<T: type extends Ordered.<T>> {
 	// conversion scales the value by `factor`, the bounds scale identically.
 	// A non-zero factor maps non-zero values to non-zero values, so `nonZero`
 	// carries through unchanged.
-	rescale(constraint: NumberBounds.<T>, factor: float64): NumberBounds.<T> {
-		return clean({ ...constraint, bounds: constraint.bounds.scale(factor) });
+	rescale(constraint: NumberBounds.<T>, factor: number | rational): NumberBounds.<T> {
+		return clean({ ...constraint, bounds: constraint.bounds.scale(factor), nonZero: constraint.nonZero && factor != 0 });
 	}
 
 	narrow(current: NumberBounds.<T>, op: string, value: T): NumberBounds.<T> {
@@ -364,6 +364,12 @@ Metadata identity uses one normalization for defaults, written records, builder 
 Plain same-type arithmetic takes the built-in path before consulting any block, including bodyless definitions. Unary operations on plain values follow the same rule; compound assignment applies it before its store check. Otherwise, a bodyless definition could change plain addition's result type merely by being imported. This preserves both the ordinary value and its metadata. Mixed scalar/quantity operations still use generic blocks and default captures.
 
 A bare **static type** is not evidence of a plain value: a base-typed binding may still carry metres. Do not substitute defaults into metadata builders from that annotation. Widen the result to admit every possible result and retain checks where the portions or the selected definition remain unknown. A repeated capture in a structural pattern compares completed portions for equality; an operator's typed operand instead uses subtype admission and any required conversion before its raw body runs.
+
+An implicit boundary to a bare base preserves carried metadata. An explicit conversion to the base can remove it. The checker tracks small local value facts separately from annotations: a numeric literal proves plainness, direct initialization and assignment copy or replace facts, and calls, borrowing, updates, control-flow boundaries and nested functions invalidate mutable facts. A bare parameter or unknown property read proves nothing. Unknown captures remain unknown, and result inference joins all possible successful value-body returns with the built-in result when a plain pair is possible. Widening retains numeric families and vector layout; it never invents default metadata. These bounded rules determine acceptance independently of optional optimization.
+
+A peer numeric literal adopts only the other operand's base. Thus `3 * Meter(2)` supplies a scalar and a metre to ordinary block admission. It does not create another metre. Explicit binding, parameter, return and cast contexts retain their requirements, and exponents and shift counts keep their separate integer rules. Strict equality can answer false for a scalar/quantity pair that arithmetic rejects; zero has no special unit-polymorphic meaning.
+
+Canonical metadata contains typed numeric atoms, including exact wide integers, rationals, decimals, binary128 and complex values. Normalize recursively against the instantiated owning shape at every origin, including reflection. Preserve typed domains, signed zero and domain-specific SameValue behavior; never wrap an invalid metadata integer to make it fit. Capture reads retain their declared field types.
 
 Two rules govern operator blocks:
 
@@ -563,13 +569,18 @@ The bound of a computed value is the interval arithmetic of the bounds it was co
 
 ### Composition Rules
 
+A parameter pins the meta types whose keys it writes, including an explicit default. Pinning and non-default participation are different facts. An unpinned source portion survives a factor-one crossing unchanged. When scaling occurs, its `rescale` translates it; an absent hook drops that portion to its default. A failed or invalid hook is never treated as absent.
+
+`Factor` in the protocol interface is a finite real numeric domain. Prefer `rational` for exact unit ratios; Number, BigInt, sized integers, binary floats, and decimals are also supported. The engine multiplies factors exactly and scales in the value's numeric base, rounding only at the target-domain conversion. This is a protocol operation, so it does not introduce implicit mixed-numeric `*` into the language. Integer truncation and overflow follow explicit conversion rules. Non-finite or non-real factors are protocol errors; special values of the quantity follow its numeric domain's rules. For compatibility, `rescale` receives a Number when all factors are Numbers or binary floats of width at most 64, and an exact rational otherwise (the default width when it fits, `rational.<bigint>` otherwise). `quantize` must return a value of the base; `rescale` must return its constraint shape. Exceptions and evaluation-budget failures propagate. Validation and quantization receive raw numeric values.
+
 For a given operator invocation:
 
-1. **Conversion at the argument boundary.** Operator parameters convert like any other typed parameter. For each meta type on the parameter's type: `subtype()` must hold; if `conversionFactor()` is defined and yields a factor other than `1`, the argument's value is multiplied by it and every *other* meta type's metadata on that argument is passed through its `rescale()` hook (falling back to `default` when `rescale` is absent); finally, any meta type defining `quantize()` maps the converted value onto the representation its constraint requires. Value blocks therefore receive operands already in the LHS's unit system and representation.
-2. At most one value block may match. Its body computes the result value. If two value blocks match the same operator, the compiler reports an ambiguity error.
-3. Any number of metadata-only blocks may match. Each contributes its portion of the result metadata via its return type annotation, observing operand metadata *after* the conversion in step 1.
-4. If no value block matches, the default primitive operation runs.
-5. All return type annotations (from both value and metadata-only blocks) are evaluated independently, and their metadata fields are merged into the flat result object.
+1. **Admission and selection.** Evaluate each original operand once. Check candidate operand requirements by metadata subtype admission. Preserve receiver-block precedence and strict operand specificity; for equal instantiated operands prefer a fixed spelling over a captured spelling. For otherwise tied, mutually admitting parameterizations, prefer an exact match of the pinned portions. Incomparable requirements and unresolved ties remain ambiguous. Selection never depends on the payload, a factor being one, or declaration order.
+2. **Conversion at the argument boundary.** Convert the selected argument once, like any other typed parameter. For each meta type on the parameter's type: `subtype()` must hold; if `conversionFactor()` is defined and yields a factor other than `1`, the argument's value is multiplied by it and every *other* meta type's metadata on that argument is passed through its `rescale()` hook (falling back to `default` when `rescale` is absent); finally, any meta type defining `quantize()` maps the converted value onto the representation its constraint requires. Value blocks therefore receive operands already in the LHS's unit system and representation.
+3. The selected value block computes the result on raw operands. Selection is complete before conversion; observing converted metadata never triggers reselection.
+4. Rebind fresh operand captures from the effective converted operand. Any number of metadata-only blocks may match. Each contributes its portion of the result metadata via its return type annotation, observing operand metadata *after* the conversion in step 1.
+5. If no value block matches, combine compatible metadata-only operand requirements into one conversion target, then run the primitive operation. Requirements that pin conflicting portions are ambiguous; a fresh capture already equal to its operand portion requires no conversion.
+6. Evaluate the return annotations against the effective operand and merge their contributions per meta type. Conflicting contributions to one portion are errors. A compound assignment stores only after the complete operation and destination check succeed.
 
 #### Example: `Kilometer(5) + Meter(300)` where both have `NumberBounds { bounds: 0.. }`
 
@@ -584,6 +595,8 @@ For a given operator invocation:
 - No body, so no conflicting value calculation.
 
 **Final result:** float32 value `5.3` with merged metadata `{ m: 1, kg: 0, s: 0, A: 0, K: 0, mol: 0, cd: 0, ratio: 1000, bounds: 0.. }`
+
+The [decision record](default-capture-decisions.md) compares the alternatives and records the rejected directions.
 
 The boundary conversion is what keeps cross-meta-type interactions sound. Had `Meter`'s bounds been `{ bounds: 100.. }` (at least 100 meters), the rescale step yields `{ bounds: 0.1.. }` in kilometer space and the sum's bound becomes `{ bounds: 0.1.. }`, correctly expressed in the result's unit space. Without rescaling, the range addition would have mixed meter-space and kilometer-space numbers. The metadata-only block never touches the value.
 
@@ -1887,3 +1900,5 @@ I haven't put any thought into generalizing this to classes.
 ### Wouldn't a compile-time SMT-lite solver be potentially very expensive to run?
 
 For practical cases a simple memoization for each type or pair of types negates most of the cost. It's possible to engineer situations where a timeout is required for compile-time/editor calculations.
+
+Written numeric metadata literals retain their source digits until the owning field domain is known; for example, a `uint64` field distinguishes `9007199254740993` from its preceding integer. A Number supplied by a runtime builder or reflection denotes its actual Number value, so normalization cannot recover digits that Number arithmetic already rounded away.

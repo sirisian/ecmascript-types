@@ -168,7 +168,7 @@ interface RangeBounds<T: type extends Ordered.<T>> {
 // Ordered and cannot be multiplied. So scale exists on the instantiations whose
 // element type scales, by the partial specialization rule in generics.md.
 partial interface RangeBounds<const T extends Scalable.<T>> {
-	scale(factor: float64): RangeBounds.<T> { /* … */ return undefined; }
+	scale(factor: number | float64 | rational): RangeBounds.<T> { /* … */ return undefined; }
 }
 
 // Interval arithmetic, on the ranges whose element type has arithmetic. The
@@ -309,6 +309,8 @@ Descending ranges are **empty**, not reversed: ```10..<0``` contains nothing, an
 (2..) * (3..);        // 6.., a lower bound from two lower bounds
 (1..=2) / (0..=4);    // .., a divisor that can be zero says nothing
 ```
+
+A rational scaling factor is kept exact until each endpoint is converted to its numeric domain; it is not first rounded through Number.
 
 Addition adds the corresponding endpoints; subtraction crosses them, the result's low being the left's low minus the right's **high**; negation reflects, as ```scale(-1)``` does. For all three, **a result bound is exclusive where either contributing bound is**: ```(3..) + (5<..)``` is ```8<..```, because the right operand approaches 5 without reaching it, so the sum approaches 8 without reaching it.
 
