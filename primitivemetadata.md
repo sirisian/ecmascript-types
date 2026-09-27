@@ -229,6 +229,8 @@ A range constraining the value, and a flag for the one constraint a range cannot
 
 The range under `bounds` is a **value**, one of the four shapes of the [ranges](ranges.md) extension, and not an arbitrary `RangeBounds` implementor: a class of a program's own has no structural comparison, so interning would have no answer for it and an expansion artifact no way to carry it. Its endpoints are compile-time constants, and each is taken at the type the metadata parameterizes rather than at the type its literal would otherwise have - `uint8.<{ bounds: 1..=6 }>` has `uint8` endpoints - which is what makes the same spelling in two modules the same type, since a `uint8` 1 and a Number 1 are never SameValue under this proposal.
 
+Admission to this value language does not erase the field's declared type. A `Range.<T, S, E>` field requires both endpoints, whether its value comes from a default, a written parameterization, a builder, or reflection; a `RangeBounds.<T>` field can hold any of the four shapes. Comparing a written `0..<10` with a default `..` changes the shape as well as the origin, so it does not test origin independence. Range types follow the ordinary [generic argument rules](generics.md): `T` must be supplied, and a bare `RangeBounds` is not the complete replacement for a bare `Range`.
+
 There is no bare-range metadata argument: `uint8.<1..=6>` is not a type, and the range is written under the key that says what it means. Dispatch in the metadata system is by claimed key, and a bare range carries no key to route by; a grammar-level desugaring would need no dispatch but would give one type two spellings, which is the thing `bounds` was adopted to stop.
 
 <!-- run -->
