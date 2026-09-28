@@ -1282,6 +1282,8 @@ type F = (a: uint8 = 1, b: uint8) => uint8; // b is filled by name: f(b: 2)
 type G = (uint8 = 1, uint8) => uint8;       // TypeError: the default can never be taken
 ```
 
+A contextually typed function expression, arrow or object method checks each ordinary parameter default against its effective parameter type: its written annotation, otherwise the adopted contextual type. That type also governs the body binding and destructuring. A default does not override the contextual type. Defaults retain per-call evaluation and effects; a statically incompatible default is rejected even if a particular call supplies the argument.
+
 ### Typed Arrow Functions
 
 Completion analysis follows normal flow, returns, throws, and the targets of breaks and continues. An empty final switch clause reaches the implicit return; a grouped empty clause can instead fall through to a returning clause. A later unreachable return does not make a function total, and `finally` can replace an earlier completion. The resulting implicit `undefined` is checked against a written effective return type and included in inference where applicable.
@@ -1565,6 +1567,8 @@ BigInt literals keep the ```n``` suffix and stay ```bigint```. An unsuffixed lit
 const a: uint64 = 18446744073709551615; // propagated, exact
 const b: bigint = 18446744073709551615n;
 ```
+
+A stable lexical alias of a constructor preserves its argument contracts, including names, omission, `ref` and generic arguments. `const K = C; new K("bad")` is checked against the known constructor of `C`. Conditional targets are checked independently, not merged into an overload set. Reassignment, shadowing, explicit `any`, decorators and unknown origins retain their dynamic treatment.
 
 ### Target-Typed Construction
 
@@ -2411,7 +2415,12 @@ await f();
 
 Refer to the [error handling](errorhandling.md) extension on how different exception types are explicitly captured.
 
+For primitive strings, a reached write to `length`, or deletion of `length`, is an early type error. An established in-range character property has the same protection, using UTF-16 extent. A skipped logical-assignment store is preserved. This rule follows fixed own descriptors; it does not ban every primitive property write, inherited setter, boxed lookalike or configurable member.
+
 ### Typed Iteration and Generators
+
+Synchronous `yield*` has a bounded resume-forwarding check in addition to its yield and return checks. When direct local, parameterless generators have an immediate delegated literal yield, a fresh top-level immutable generator local resumed twice can establish the later forwarding boundary. With proven intrinsic iterator/next identities and no unknown effects or escapes, the enclosing input contract must be assignable to the delegated input contract. Whole-generator invariance is not the comparison. Uncalled bodies cannot assume the protocol will remain intrinsic; immediate completion, replacement, unknown completion or inputs, and `any` retain runtime handling. No callback or getter is executed by this proof, which does not cover async or throw/return forwarding and removes no suspension or reference-liveness checks.
+
 
 A generator annotates its yield type directly; the full generic form names the yield, return, and next types.
 
@@ -3122,6 +3131,8 @@ class LaserRangefinder extends Rangefinder {
 Parameters need no variance rule. A derived method with different parameter types declares an overload, per the resolution above, rather than overriding anything.
 
 ```new.target``` has type ```T | undefined``` where ```T``` is the constructor type of the class, so it narrows like any nullable union.
+
+Override return compatibility uses the declared return where present and the published inferred return otherwise, on both sides. Publication must be established before dependent comparisons are final. Removing a redundant return annotation cannot remove an override error. A genuinely unknown return remains unknown, and a different parameter signature still introduces an overload.
 
 ### Constructor Overloading
 

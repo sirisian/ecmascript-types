@@ -156,7 +156,7 @@ One case needs a rule rather than inference: a numeric literal against a union o
 
 ### Interpolation patterns
 
-```${expression}``` evaluates the expression and matches by SameValue against the result, whatever the result is - a constant, a composite, a Type Object matched for identity rather than membership. It is the escape hatch from every cleverer rule below: where an expression pattern would consult a matcher or test a type, ```${...}``` compares. It is a type error if the expression's type and the position type share no values, since the test could never succeed.
+```${expression}``` evaluates the expression and matches by SameValue against the result, whatever the result is - a constant, a composite, a Type Object matched for identity rather than membership. It is the escape hatch from every cleverer rule below: where an expression pattern would consult a matcher or test a type, ```${...}``` compares. It is a type error if the expression's type and the position type share no values, since the test could never succeed. The comparison check is distinct from the pattern's narrowing contribution: a non-literal interpolation can contribute `any` to narrowing and still be provably disjoint from its position. It compares the actual value type, without contextual numeric conversion, including at nested positions and after preceding narrowing. Unknown or overlapping types are not proof of failure.
 
 ### Wildcard patterns
 
@@ -256,6 +256,8 @@ match (line) {
 A misspelled group name in that pattern is a compile-time TypeError, because the match result's ```groups``` has an exact object type; this is the difference between a pattern language with types and one with conventions.
 
 ### Extractor patterns
+
+A known extractor hook must be callable, not merely present under `Symbol.customMatcher`. A type containing no callable or unknown alternative is an early type error; callable intersections and overloads use the ordinary call judgments. Checking never invokes a getter or matcher to discover its type.
 
 ```Expr(p1, p2, ...)``` evaluates ```Expr``` and matches through its ```[Symbol.customMatcher]```. The typed protocol is a method, usually static, from the subject to a tuple or ```null```:
 

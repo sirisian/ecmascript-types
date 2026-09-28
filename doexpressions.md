@@ -50,21 +50,16 @@ A `var` is allowed anywhere but last, and hoists to the enclosing function as it
 
 ## The Type
 
-The type of a `do` expression is the type of its completion, read off the statements that can be the last one to run:
+The type of a `do` expression follows its reachable normal completion values. Track completion kind, target and value together, distinguishing an empty completion from `undefined` and unknown information. Sequential composition carries the preceding value into an empty completion as JavaScript's `UpdateEmpty` does. A matching label consumes its break and retains that value:
 
-| Final statement | Contributes |
-|---|---|
-| an expression statement | the expression's type |
-| a block, a labelled statement | the type of its own statement list |
-| ```if```/```else``` | the union of both branches |
-| ```try```/```catch``` | the union of the ```try``` block and the ```catch``` block; a ```finally``` contributes nothing, its completion being discarded unless abrupt |
-| ```switch``` | the union of the case bodies, plus ```undefined``` unless the ```switch``` is exhaustive |
-| ```throw```, ```return```, ```break```, ```continue``` | nothing: the path diverges |
-| an empty block | ```undefined``` |
+```js
+let n: uint8 = do { done: { "s"; break done; 1; } }; // early type error: the string reaches n
+let good: uint8 = do { done: { 1; break done; "unreachable"; } }; // 1
+```
 
-Nothing there is new. Divergence is the analysis the README's ```switch``` chapter already defines - syntactic, never reasoning about values - and the Early Errors above have already removed the shapes that would have made a completion type hard to state. What is left is a union over the tails.
+The expected type reaches the actual producing expression, including one carried through a break. Unreachable lexical tails do not contribute. Branches join their outcomes; switch entries follow reachable fall-through; normally completing `finally` preserves the incoming completion, while an abrupt `finally` replaces it. An exit not consumed inside the expression remains abrupt. All-abrupt outcomes give `never`; an empty normal completion gives `undefined`. Unknown or budget-limited analysis supplies no proof of incompatibility. The restrictions on declaration and loop completions still apply.
 
-The `switch` row is the design's own rule rather than the obvious one. An exhaustive `switch` - every enumerator, every direct subclass, or a `default` - takes no path where nothing ran, so it contributes no `undefined`. This is the same conclusion the README draws for a `switch` that maps a value to a type: because exhaustiveness is checked, such a `switch` yields a type object rather than `undefined`. A `switch` that is *not* exhaustive does contribute `undefined`, which is what makes the second line below an error:
+The `switch` rule is the design's own rule rather than the obvious one. An exhaustive `switch` - every enumerator, every direct subclass, or a `default` - takes no path where nothing ran, so it contributes no `undefined`. This is the same conclusion the README draws for a `switch` that maps a value to a type: because exhaustiveness is checked, such a `switch` yields a type object rather than `undefined`. A `switch` that is *not* exhaustive does contribute `undefined`, which is what makes the second line below an error:
 
 ```js
 const t: type = do { switch (kind) { case 'int': int32; case 'float': float64; } };  // not exhaustive: type | undefined
