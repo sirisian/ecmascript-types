@@ -1734,6 +1734,10 @@ const { (a: [].<uint8>) } = { a: [1, 2, 3] }; // a is [1, 2, 3] with type [].<ui
 
 Object-pattern reads preserve known typed-array and tuple property contributions, including established count contracts and known position keys, at annotated destinations and existing typed-parameter or participating-`const` inference sites. Literal and equivalent known computed property keys agree. Unknown keys/alternatives remain dynamic, and an ordinary mutable destructured binding does not acquire a permanent storage annotation from this rule. Object patterns read properties; they do not consume or infer from an overridden iterator. Defaults, bounds, storage and reference-liveness rules are unchanged.
 
+An optional annotated object-pattern member uses `undefined` as its sentinel, including an explicitly present `undefined`. Apply its default first; if the result is still `undefined`, bind it without enforcing the optional annotation. Thus `{ (x?: T) }` and `{ (x?: T): y }` introduce read types of `T | undefined`. A checked default that cannot produce `undefined` removes that alternative. Guards narrow normally, incompatible present values and defaults are early errors, and optional `ref` remains invalid.
+
+Array-pattern annotations, existing assignment targets and rest destinations all consume the same conservative iteration contribution. For example, assigning an `Iterable.<string>` into a `uint8` target is an early error even in an unused body. Fresh literal positions and proven immutable sequences retain their precision; mutable indexed storage establishes neither iterator results nor a yield count. Exhaustion, defaults, iterator closing, reference write permissions and liveness keep their existing rules.
+
 ### Array Rest Destructuring
 
 An explicit array rest annotation describes the collected container and must resolve to an array or tuple type, just as a formal rest annotation does. This declaration check applies to nested patterns and does not depend on knowing the source iterator's element type or count: `let [...r: uint8] = source` is an early type error even when `source` is `any`. Aliases follow what they denote; a type parameter needs an array/tuple constraint. Write `[].<any>` for a container of arbitrary elements or omit the annotation for an untyped rest; `any` and `object` themselves are not array/tuple rest annotations. Object rest retains its separate object-container rule. Element and extent checks remain at runtime wherever source facts are unknown.
@@ -1756,6 +1760,8 @@ Typing arrays:
 let [a: uint8, ...b: [].<uint8>] = [1, 2];
 b; // [2]
 ```
+
+A rest parameter with a pattern target, such as `...{0: x}: [uint8]`, uses its written collected-container type in preference to context. At runtime, distribute the arguments, decay references and convert/check the collected array or tuple before destructuring. Object-pattern names inherit the corresponding property contract; array patterns still need an iteration contribution rather than assuming that indexed storage constrains a replaceable iterator.
 
 ### Object Rest Destructuring
 
@@ -1850,6 +1856,8 @@ function f(): [int32, float32] {
   // return [1]; // TypeError, expected [int32, float32]
 }
 ```
+
+A typed `super` member participates in `const` inference, including an established computed key. `const x = super.value` retains the inherited readable contract without running the getter during checking. An extracted method keeps its receiver requirement; extraction does not bind `this`. Unknown members, `any` and ordinary unannotated `let` bindings keep their existing treatment.
 
 ### Interfaces
 
@@ -2444,6 +2452,8 @@ For primitive strings, a reached write to `length`, or deletion of `length`, is 
 ### Typed Iteration and Generators
 
 A `for...of` binding and its uses in the body retain the declared yielded type of a structural iterable. The static iteration contribution supplies this type; indexed storage alone does not establish a replacement iterator's result. Incompatible annotated bindings are early errors without executing iterator hooks.
+
+Structural `yield*` carries two distinct contributions: values of non-completed steps reach the yield contract, while terminal values type the delegation expression. A done-only iterator contributes no yield. Real async iteration awaits the step result, and the typed async generator separately assimilates its outgoing yielded value; async-from-sync adaptation assimilates both yielded and terminal values. A terminal string is an error when the delegation result reaches a `uint8` destination, not merely when the result is discarded. Unknown selections, overloads or result properties stay conservative, and this projection does not infer arbitrary later resume/throw/return behavior.
 
 Synchronous `yield*` has a bounded resume-forwarding check in addition to its yield and return checks. When direct local, parameterless generators have an immediate delegated literal yield, a fresh top-level immutable generator local resumed twice can establish the later forwarding boundary. With proven intrinsic iterator/next identities and no unknown effects or escapes, the enclosing input contract must be assignable to the delegated input contract. Whole-generator invariance is not the comparison. Uncalled bodies cannot assume the protocol will remain intrinsic; immediate completion, replacement, unknown completion or inputs, and `any` retain runtime handling. No callback or getter is executed by this proof, which does not cover async or throw/return forwarding and removes no suspension or reference-liveness checks.
 
@@ -3215,6 +3225,10 @@ let b: float32x4 = s; // Broadcast, s is a float32 and so is the lane type
 // let c: float64x2 = s; // TypeError: float32 is not the lane type of float64x2
 let d: float64x2 = float64(s); // Cast first, then broadcast
 ```
+
+Inherited contracts follow established constructor origins through parentheses and immutable lexical alias chains, including closed generic specializations. Resolve the lexical declaration and substitute its arguments consistently for members, constructors, overrides, abstract/interface obligations, operators, layout and permissions. Mutable or erased aliases, unknown mixin results and invalidated origins remain dynamic. This does not bypass initialization order, the class self-name's temporal dead zone, or cycle handling.
+
+An `implements` clause includes call-signature obligations. An ordinary class with definitely non-callable construction cannot implement a callable interface; a method named `call` does not change that. Check an established returned function by normal signature compatibility. Unknown heritage, Function-derived construction with an unknown signature and unresolved constructor replacement results remain deferred to a typed boundary. The checker neither executes constructors nor grants callability because a class claims it.
 
 ### Classes and Operator Overloading
 

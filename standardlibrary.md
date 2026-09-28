@@ -50,7 +50,7 @@ class Iterator<T: type, R: type = void, N: type = void> implements IterableItera
 	filter(callback: (value: T, index: uint64) => boolean): Iterator.<T> { /* … */ return undefined; }
 	take(limit: uint32): Iterator.<T> { /* … */ return undefined; }
 	drop(limit: uint32): Iterator.<T> { /* … */ return undefined; }
-	flatMap<U: type>(callback: (value: T, index: uint64) => Iterable.<U>): Iterator.<U> { /* … */ return undefined; }
+	flatMap<U: type>(callback: (value: T, index: uint64) => object & (Iterable.<U> | Iterator.<U>)): Iterator.<U> { /* … */ return undefined; }
 	reduce<U: type>(callback: (accumulator: U, value: T, index: uint64) => U, initial: U): U { /* … */ return undefined; }
 	reduce(callback: (accumulator: T, value: T, index: uint64) => T): T { /* … */ return undefined; }
 	toArray(): [].<T> { /* … */ return []; }
@@ -60,6 +60,10 @@ class Iterator<T: type, R: type = void, N: type = void> implements IterableItera
 	find(callback: (value: T, index: uint64) => boolean): T | undefined { /* … */ return undefined; }
 }
 ```
+
+The `flatMap` result spelling denotes the flattenable-object domain of `GetIteratorFlattenable(result, reject-primitives)`: an object iterable or a direct iterator object. It excludes primitive strings as well as numbers, null and other primitives. When `Symbol.iterator` is nullish, the object's own `next` protocol is used. A known result that cannot satisfy any selected path is an early error; an unknown or viable union alternative remains dynamic. This is independent of flattened-element inference and differs from Array `flatMap`, whose callbacks may return scalars. User methods with the same name retain their own contracts.
+
+The two `reduce` signatures share one accumulator contract throughout each call. With no initial value it is `T`; otherwise solve `U` from the established initial value and contextual callback facts. Check the initial value, recurrence input, callback result and reduction result consistently. Numeric literal adoption, ignored callback parameters, reference decay and unknown inputs remain supported. An `any` callback result defers its value check while retaining known parameter checks. An empty iterator without an initial value still throws at runtime. These rules describe the synchronous helpers; they add no asynchronous assimilation.
 
 ```AsyncIterator<T, R, N>``` mirrors these with callbacks allowed to return ```Promise```-wrapped results and the terminal methods returning promises, e.g. ```toArray(): Promise.<[].<T>, any>```.
 
@@ -183,6 +187,8 @@ class Set<T: type> implements Iterable<T> {
 ```
 
 ```size``` is the **index type**, ```uint64```, the same type an array's ```length``` and ```capacity``` report. The reason is not the one that fixed the width for arrays - that argument is about a view's length coming from a buffer, and a collection has no view form - but the other property the index type exists for: one type for every count means a count from one container is comparable with a count from another. ```map.size < array.length``` is a sentence a program wants to write, and it is unwriteable if the two are different types, exactly as *a capacity is at least a length* is unwriteable if those two are.
+
+For typed Map and WeakMap `getOrInsertComputed`, the callback's `(key: K) => V` contract is checked even if a particular execution finds an existing key. Fresh callbacks receive `V` as return context, so `key => 1` remains valid for `V = uint8`; an established String result does not. A produced `any` result defers the value check to insertion while retaining the callback's known parameter and receiver obligations. This per-call rule does not change function subtyping or weaken runtime insertion checks, and uses no static occupancy analysis.
 
 ```get``` answers ```V | undefined``` rather than ```V```, because a lookup that finds nothing answers ```undefined```; a binding of type ```V``` therefore does not take a lookup's result without a test. ```getOrInsert``` and ```getOrInsertComputed``` answer ```V``` and never ```undefined```, since they insert what they did not find.
 
