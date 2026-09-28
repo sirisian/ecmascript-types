@@ -12,13 +12,13 @@ Two forms, and the difference between them is the difference between one instruc
 
 ```js
 class vector<T: type, N: uint32> {
-	operator vector(value: T) { /* … */ } // Broadcast: a cast operator from the lane type T, filling every lane
+	operator vector(value: T) { /* â€¦ */ } // Broadcast: a cast operator from the lane type T, filling every lane
 
-	lane<I: uint32>(): T where I < N { /* … */ return undefined; } // Compile-time index
-	withLane<I: uint32>(value: T): vector.<T, N> where I < N { /* … */ return this; }
+	lane<I: uint32>(): T where I < N { /* â€¦ */ return undefined; } // Compile-time index
+	withLane<I: uint32>(value: T): vector.<T, N> where I < N { /* â€¦ */ return this; }
 
-	get operator[](index: uint32): T { /* … */ return undefined; } // Runtime index
-	set operator[](index: uint32, value: T) { /* … */ }
+	get operator[](index: uint32): T { /* â€¦ */ return undefined; } // Runtime index
+	set operator[](index: uint32, value: T) { /* â€¦ */ }
 }
 ```
 

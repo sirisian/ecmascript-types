@@ -225,3 +225,5 @@ Sum types are the feature every comparison language leads with, and the proposal
 - **Enum-to-string in errors - resolved.** ```TokenType.toString(current.type)``` gives the enumerator's key for messages. The enum section now also lets a ```string```-underlying enum interpolate as its value directly; token kinds here are a ```uint8``` enum, whose interpolation is the underlying number, so ```toString``` is the right call for a readable name.
 - **```:=``` for typed construction - resolved.** ```{ ... } := BinaryNode``` in a ```return``` is blessed by the typed-assignment section, which uses this same construct-and-return shape; it fills the class layout from the literal without running a constructor.
 - **Generator plus lookahead - resolved.** ```tokens.next().value``` types as ```Token``` because ```tokenize```'s yield and return types coincide; the iteration section specifies ```Generator.<Y, R, N>``` and that ```next()``` returns ```{ value: Y | R, done: boolean }```, narrowing on ```done```.
+
+Implementation coverage and execution requirements are recorded in the [example status inventory](../generic-example-status.md).

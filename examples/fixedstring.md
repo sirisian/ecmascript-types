@@ -1,8 +1,8 @@
 # Fixed-length strings
 
-A ```string``` has no layout — its size is a property of the value, not of the type ([memory layout](../memorylayout.md)) — so a record with a name in it is not a value type, and an array of a thousand such records is a thousand heap objects rather than one buffer.
+A ```string``` has no layout â€” its size is a property of the value, not of the type ([memory layout](../memorylayout.md)) â€” so a record with a name in it is not a value type, and an array of a thousand such records is a thousand heap objects rather than one buffer.
 
-This is the type that closes that gap. It is a **worked example rather than a language feature**: it needs no engine support beyond the [UTF-8 codec](../serialization.md#strings-at-a-binary-boundary), and a program whose format does not match its padding convention writes its own class over the same ```[N].<uint8>``` and keeps the codec. Rust reaches the same shape the same way — ```arrayvec::ArrayString``` and ```heapless::String``` are libraries, not language.
+This is the type that closes that gap. It is a **worked example rather than a language feature**: it needs no engine support beyond the [UTF-8 codec](../serialization.md#strings-at-a-binary-boundary), and a program whose format does not match its padding convention writes its own class over the same ```[N].<uint8>``` and keeps the codec. Rust reaches the same shape the same way â€” ```arrayvec::ArrayString``` and ```heapless::String``` are libraries, not language.
 
 ## The type
 
@@ -66,27 +66,27 @@ Reading and writing:
 
 <!-- run -->
 ```js
-const s = new FixedString.<8>('café');
-let t: string = s;               // 'café' — five bytes used, three of padding
-s == new FixedString.<8>('café'); // true
-String(s) === 'café';             // true
-s === 'café';                     // FALSE — see below
+const s = new FixedString.<8>('cafÃ©');
+let t: string = s;               // 'cafÃ©' â€” five bytes used, three of padding
+s == new FixedString.<8>('cafÃ©'); // true
+String(s) === 'cafÃ©';             // true
+s === 'cafÃ©';                     // FALSE â€” see below
 Number(s.byteLength);             // 5
 Number(FixedString.<8>.capacity); // 8
 ```
 
 ## What it costs
 
-**```===``` does not work against a string.** Strict equality runs no declared conversion, so ```s === 'café'``` is ```false``` and the spellings that work are ```==``` and ```String(s)```. This is the one place where a library type is visibly worse than a primitive would be, and it is the evidence that would justify making one: if real code reaches for ```String(s) === t``` often enough that ```==``` stops being the obvious spelling, the escalation is a ```str.<N>``` primitive whose reads yield ordinary interned strings, entered deliberately with the read cost measured.
+**```===``` does not work against a string.** Strict equality runs no declared conversion, so ```s === 'cafÃ©'``` is ```false``` and the spellings that work are ```==``` and ```String(s)```. This is the one place where a library type is visibly worse than a primitive would be, and it is the evidence that would justify making one: if real code reaches for ```String(s) === t``` often enough that ```==``` stops being the obvious spelling, the escalation is a ```str.<N>``` primitive whose reads yield ordinary interned strings, entered deliberately with the read cost measured.
 
 **A read decodes.** ```e.name``` is bytes until something asks for a string, and then it allocates and interns. Scanning a table and comparing names is faster through ```==``` on the bytes than through two decodes.
 
-**Nothing truncates.** A value whose encoding does not fit is a TypeError and nothing is written, which is the rule the codec states and the reason this is not ```strncpy``` or ```CHAR(n)```. That includes the case that catches people out — a multibyte value that would split a code point at the boundary is refused, not cut:
+**Nothing truncates.** A value whose encoding does not fit is a TypeError and nothing is written, which is the rule the codec states and the reason this is not ```strncpy``` or ```CHAR(n)```. That includes the case that catches people out â€” a multibyte value that would split a code point at the boundary is refused, not cut:
 
 <!-- run: throws -->
 ```js
 new FixedString.<2>('Ada');      // TypeError: "3" bytes of UTF-8 do not fit in "2"
-new FixedString.<4>('caféé');    // TypeError: "7" bytes of UTF-8 do not fit in "4"
+new FixedString.<4>('cafÃ©Ã©');    // TypeError: "7" bytes of UTF-8 do not fit in "4"
 new FixedString.<8>('\uD800');   // TypeError: unpaired surrogate, no UTF-8 encoding
 ```
 
@@ -98,18 +98,20 @@ The cost is stated rather than hidden: an embedded ```U+0000``` survives, and a 
 
 <!-- run -->
 ```js
-let a: string = new FixedString.<8>('a\u0000b');   // 'a\u0000b' — embedded, kept
+let a: string = new FixedString.<8>('a\u0000b');   // 'a\u0000b' â€” embedded, kept
 ```
 
 And the value that cannot be stored:
 
 <!-- run: throws -->
 ```js
-new FixedString.<8>('ab\u0000');                   // TypeError — trailing, refused
+new FixedString.<8>('ab\u0000');                   // TypeError â€” trailing, refused
 ```
 
-A format with a different convention — length-prefixed, space-padded, NUL-terminated — is a different class over the same ```[N].<uint8>```, and reuses the codec unchanged. That separation is deliberate: padding is a property of a format, not of UTF-8.
+A format with a different convention â€” length-prefixed, space-padded, NUL-terminated â€” is a different class over the same ```[N].<uint8>```, and reuses the codec unchanged. That separation is deliberate: padding is a property of a format, not of UTF-8.
 
 ## The bytes are private
 
 ```#bytes```, and ```operator ==``` is the only member that reaches across to another instance's copy of it. That works because a value type class carries its private fields through a copy â€” a typed parameter boundary copies the operand, and a copy that dropped the private store would leave the operator reading a field that is not there.
+
+Implementation coverage and execution requirements are recorded in the [example status inventory](../generic-example-status.md).

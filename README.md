@@ -2403,7 +2403,7 @@ Omitted type arguments are completed before any type judgment: `Promise.<T>` is 
 Typed promises use a generic syntax where the resolve and reject type default to any.
 
 ```js
-Promise<R = any, E = any>
+// Intrinsic declaration signature: Promise<R: type = any, E: type = any>
 ```
 
 ```js
@@ -2579,7 +2579,7 @@ interface AsyncIterator<T: type, R: type = void, N: type = void> {
 interface AsyncIterable<T: type> {
   [Symbol.asyncIterator](): AsyncIterator.<T>;   // declared as async *operator...()
 }
-interface AsyncIterableIterator<T: type, R: type = void, N: type = void> extends AsyncIterable<T>, AsyncIterator<T, R, N> {}
+interface AsyncIterableIterator<T: type, R: type = void, N: type = void> extends AsyncIterable.<T>, AsyncIterator.<T, R, N> {}
 ```
 
 An ```AsyncGenerator.<Y, R, N>``` satisfies ```AsyncIterableIterator<Y, R, N>``` for the reason its synchronous counterpart does. ```AsyncIterator``` becomes a class when the async iterator helpers proposal advances, and needs no change here when it does.
@@ -2620,7 +2620,7 @@ interface Iterator<T: type, R: type = void, N: type = void> {
 interface Iterable<T: type> {
   [Symbol.iterator](): Iterator.<T>;   // a class declares this as *operator...()
 }
-interface IterableIterator<T: type, R: type = void, N: type = void> extends Iterable<T>, Iterator<T, R, N> {}
+interface IterableIterator<T: type, R: type = void, N: type = void> extends Iterable.<T>, Iterator.<T, R, N> {}
 ```
 
 A bare argument is the element type, as it is for a generator: ```Iterator.<uint8>``` is ```Iterator.<uint8, void, void>```. The defaults are ```void``` because ```Generator.<Y, R, N>```'s are, and that agreement is what makes **a generator an iterator**: ```Generator.<Y, R, N>``` satisfies ```IterableIterator<Y, R, N>```. Had the two been chosen apart, a generator would have been *nearly* an iterator, which is the trap TypeScript documented when its builtin iterators and its generators disagreed on the same parameter.
@@ -3484,7 +3484,7 @@ Static members and static blocks use the enclosing class's constructor-side type
 A class expression takes the same annotations and type parameters as a declaration. Generic parameters are declared with ```<...>``` and applied with ```.<...>``` as everywhere else:
 
 ```js
-const Box = class <T> {
+const Box = class <T: type> {
   value: T;
   constructor(value: T) {
     this.value = value;
@@ -3922,7 +3922,7 @@ const p = new Proxy(o, {
 A proxy is a structural value, so it can implement an interface. Because the shape comes from traps rather than storage, each trapped read is checked against the interface's member type at the read, which is the same boundary at which a cast is checked:
 
 ```js
-Proxy<T = any>
+// Intrinsic declaration signature: Proxy<T: type = any>
 
 interface ProxyHandler<T: type> {
   get?(target: T, key: string | symbol, receiver: any): any;
@@ -4313,3 +4313,5 @@ Original thread: https://esdiscuss.org/topic/es8-proposal-optional-static-typing
 This one contains a lot of my old thoughts:   https://esdiscuss.org/topic/proposal-for-new-floating-point-and-integer-data-types  
 https://esdiscuss.org/topic/optional-strong-typing  
 https://esdiscuss.org/topic/optional-argument-types  
+
+Implementation coverage and execution requirements are recorded in the [example status inventory](generic-example-status.md).

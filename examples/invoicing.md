@@ -180,3 +180,5 @@ function overdueInvoices(invoices: [].<Invoice>, today: Temporal.PlainDate): [].
 - **String-valued generic parameters - resolved.** ```convert<From: string, To: string>``` binds ```string``` value generics and uses them inside metadata objects; the generics document now lists ```string``` and enum types among the permitted value-generic types, with this exact currency example.
 - **Nested exhaustive switches - resolved.** ```case Status.Draft:``` ends in an inner ```switch``` whose every arm returns or throws, so it diverges and needs no ```break```; the control structures section's divergence rule specifies exactly this, using this document's own ```transition``` function as its example.
 - **Enum values in template literals - resolved.** ```Status``` is ```string```-underlying, so ```${status}``` interpolates as its value (```paid```, ```void```) directly, which the terminal-state error above now uses; the enum section specifies this through the underlying-type conversion.
+
+Implementation coverage and execution requirements are recorded in the [example status inventory](../generic-example-status.md).

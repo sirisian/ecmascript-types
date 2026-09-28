@@ -10,10 +10,10 @@ The [iteration types](README.md) are six interfaces, and the asynchronous three 
 
 ```js
 interface Iterator<T: type, R: type = void, N: type = void> {
-  next(value?: N): IteratorResult<T, R>;
+  next(value?: N): IteratorResult.<T, R>;
 }
 interface AsyncIterator<T: type, R: type = void, N: type = void> {
-  next(value?: N): Promise.<IteratorResult<T, R>, any>;
+  next(value?: N): Promise.<IteratorResult.<T, R>, any>;
 }
 ```
 
@@ -51,7 +51,7 @@ Three other spellings were considered and rejected. ```<W<~>>``` is the tilde of
 Inside the declaration, a higher-kinded parameter is applied like any other generic:
 
 ```js
-next(value?: N): W.<IteratorResult<T, R>>;
+next(value?: N): W.<IteratorResult.<T, R>>;
 ```
 
 At the use site, the argument is a generic declaration with its arguments left off:
@@ -94,9 +94,9 @@ A higher-kinded parameter may carry a default like any other, and doing so decid
 
 ```js
 interface Iterator<T: type, R: type = void, N: type = void, W<_>: type = Identity> {
-  next(value?: N): W.<IteratorResult<T, R>>;
-  return?(value?: R): W.<IteratorResult<T, R>>;
-  throw?(e?: any): W.<IteratorResult<T, R>>;
+  next(value?: N): W.<IteratorResult.<T, R>>;
+  return?(value?: R): W.<IteratorResult.<T, R>>;
+  throw?(e?: any): W.<IteratorResult.<T, R>>;
 }
 ```
 

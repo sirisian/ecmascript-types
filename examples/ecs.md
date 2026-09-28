@@ -343,7 +343,7 @@ class PreparedQuery {
 			}
 		}
 	}
-	// Three- and four-component overloads follow the same shape — and the
+	// Three- and four-component overloads follow the same shape â€” and the
 	// family collapses into one declaration under variadic generics
 	// (generics.md, Variadic Generic Parameters), the pack of component
 	// selectors typing the callback with `ref` distributed over the run:
@@ -354,8 +354,8 @@ class PreparedQuery {
 	//
 	// componentTypes is the elementwise builder over componentType, written
 	// once; declare an @inverse for it and `world.each((e, ref t: Transform)
-	// => …)` infers Cs from the callback alone. Cs.length is a constant of
-	// each specialization, so the body is the loops above written once — the
+	// => â€¦)` infers Cs from the callback alone. Cs.length is a constant of
+	// each specialization, so the body is the loops above written once â€” the
 	// column reads and the callback's ref arguments unroll per arity exactly
 	// as the two-component overload writes them by hand.
 }
@@ -1155,3 +1155,5 @@ The TypeScript original leans on four type-level features this proposal doesn't 
 - **Variadic generic parameters.** `each` is written as one overload per arity. Tuple spread already exists in type arguments (`[...ReadTypes, T]` in the packet reader), so `each<...Cs: [].<Component>>` with the callback's ref parameters derived from the tuple is expressible in spirit; recommending it as the follow-up that makes query APIs scale past hand-written arities.
 - **`ref` callback parameters as the iteration idiom.** Resolved: the value type references section now presents `each((entity, ref t, ref v) => ...)` as the way to iterate several arrays in step and mutate an element of each, composing `ref` parameters with `ref` element access. References have no identity and cannot escape, so passing one allocates nothing; that much is guaranteed. Whether the *call* is inlined is an optimizer's decision, not the language's, which is why the vectorized systems above drop to the columns where the arithmetic justifies it. Making inlining a guarantee needs a mechanism the proposal doesn't have - `inline` functions or monomorphization over the callback's type - which is the last open item in this example's list.
 - **Small wins worth recording:** `array.window.<N>(start)` replaces `subarray` and takes element indices, so `dirtyWords` needs no byte arithmetic, and a handle's slot being `uint32` already retires the `uint32(entityId)` casts that indexing needed; enum sentinel arithmetic (`DisabledVelocity = __COUNT`) works as written via value references, and the enum section now records that `Reflect.getReflection.<Reflect.Enum, T>().size` supplies a count where no sentinel is wanted; `>>` being logical on `uint32` retires `>>>`; structural `==` on value classes is what lets the broadphase compare handles directly; and the deleted-code list from the intro - the BitSet pool, `copyFrom`, `toKey`, the scratch-object generator, the parallel-array transition log, and the session generation map - is the value-type performance story measured in removed lines rather than added ones.
+
+Implementation coverage and execution requirements are recorded in the [example status inventory](../generic-example-status.md).

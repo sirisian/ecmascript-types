@@ -161,7 +161,7 @@ The second error also refuses a step whose only topic belongs to a *nested* pipe
 ```js
 interface Env { [key: string]: string; }
 
-async function report(env: Env, url: string): string {
+async function report(env: Env, url: string): Promise.<string> {
   const settings: Settings = env
     |> Object.entries(%)
     |> %.filter(([key]) => key.startsWith('BUILD_'))
@@ -188,3 +188,5 @@ async function report(env: Env, url: string): string {
 ```
 
 The last arm's body is itself a pipeline, and its topic is the arm's binding rather than the outer one - an inner pipe shadows the outer for the extent of its own step, which is the rule any binding form follows.
+
+Implementation coverage and execution requirements are recorded in the [example status inventory](../generic-example-status.md).
