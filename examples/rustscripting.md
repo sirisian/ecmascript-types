@@ -385,5 +385,3 @@ The schema table is the one artifact that must exist twice, once as these Rust f
 **Hot reload is a re-import, because the state never lived in the script.** Every durable byte - positions, health, brains, the rings, the counts - is in the host's buffer. Reloading a module rebinds views over unchanged memory and re-runs the schema check; a reload after a component edit fails the handshake by name, which is the moment a developer wants to hear about it. The scripts are stateless functions over shared state, which is what makes them scripts.
 
 **The op surface is the sandbox.** A script's write authority is the columns it was given and the command vocabulary the host declared; everything else - files, network, process - is a Deno op the host chose to register or did not. The security review of a mod is the schema and the enum, which fit on one screen.
-
-Implementation coverage and execution requirements are recorded in the [example status inventory](../generic-example-status.md).

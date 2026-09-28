@@ -4313,5 +4313,3 @@ Original thread: https://esdiscuss.org/topic/es8-proposal-optional-static-typing
 This one contains a lot of my old thoughts:   https://esdiscuss.org/topic/proposal-for-new-floating-point-and-integer-data-types  
 https://esdiscuss.org/topic/optional-strong-typing  
 https://esdiscuss.org/topic/optional-argument-types  
-
-Implementation coverage and execution requirements are recorded in the [example status inventory](generic-example-status.md).

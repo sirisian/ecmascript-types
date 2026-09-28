@@ -355,6 +355,10 @@ A ```partial class``` or ```partial interface``` target is a pattern too, and it
 
 A member added this way is present on an instantiation only where the declaring module is loaded, which is true of every partial and is why a narrowing the language itself relies on belongs to the standard library rather than to a program.
 
+Every matching partial contributes its members. There is no most-specific winner: two overlapping partials may add different methods to the same instantiation. A collision with a primary member or another matching contribution is a type error, including an identical redeclaration. Overloads written together within one contribution retain the ordinary overload rules. Static and instance members occupy separate namespaces.
+
+A partial may extend an imported family. It does not share the replacement case's same-statement-list restriction, and loading it extends both existing and future instantiations without changing constructor or type-object identity. No fields, constructors, or instance layout are added. The primary parameters remain in scope with the application's arguments; captures introduce the names bound by the pattern. Added methods obey the same type and reference-liveness checks as primary methods. An interface partial extends the required contract; it does not add properties to objects that already exist.
+
 ### Specialized Overloads
 
 Functions, methods, and operators already overload, so their generic lists follow the model C++ uses for function templates rather than for class templates: every generic list declares an overload of its own. Within it, a fixed argument or capture is an unnamed position and a ```name: domain``` entry is a named public parameter, and the two mix freely:
@@ -454,7 +458,7 @@ A pack may declare a tuple default — ```<...I: [].<uint32> = [0, 1, 2]>``` —
 **Deriving from a pack.** A value pack is an array in the body, so transforming one is plain code — ```I.map(i => i * 2)``` inside a compile-time function. A type pack restructures with spread and transforms per element with a [type-programming](typeprogramming.md) builder, written once and named, rather than with a mapped-type sub-language:
 
 ```js
-type promisesOf(Ts: type): type {
+function promisesOf(Ts: type): type {
   const elements = Reflect.getReflection(Ts).elements.map((e) => ({ type: Promise.<e.type> }));
   return Reflect.makeType({ kind: 'tuple', elements });
 }
@@ -486,7 +490,7 @@ A function type may declare type parameters, and an interface's call and method 
 ```js
 let g: <T: type>(x: T) => T;
 interface Mapper { <T: type>(x: T): T; }
-interface Bus { on<T extends Event>(name: string, h: (e: T) => void): void; }
+interface Bus { on<T: type extends Event>(name: string, h: (e: T) => void): void; }
 ```
 
 Two generic signatures are the same type when they are the same up to renaming: parameter names are carried for tooling and named arguments, never compared, so ```<T: type>(x: T) => T``` and ```<U: type>(x: U) => U``` are one type, while a constraint, a default, a variance annotation, or the parameter order makes two. A class satisfies a generic interface signature by shape under the same reading, so an implementation is free to pick its own parameter names.

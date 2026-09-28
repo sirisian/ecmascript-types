@@ -213,5 +213,3 @@ while (socket.read() is Ok(let chunk)) {
 ## What This Example Establishes
 
 The client never tested a ```status``` twice, never read a header field the type didn't prove, and never wrote an ```instanceof``` ladder - each ```match``` is the control flow the shape of the data already implied. Three checks did standing work: the response union and the ```Result``` hierarchy are exhaustive, so a new response kind or result case is a build break at every site that must care; the regex group names are checked against the patterns that define them; and the one ```default``` over an open subject (```uint16```) is present because the type says it must be. The pieces composed without a special case anywhere - extractors are methods, constants are values, ranges are values, types are patterns - which is what the pattern matching document means when it claims the type system was ready.
-
-Implementation coverage and execution requirements are recorded in the [example status inventory](../generic-example-status.md).

@@ -70,37 +70,37 @@ A decorator runs when its declaration is evaluated: class definition time for a 
 
 Block, `let`, and `const` decorators are on the other timeline: they fire when the statement executes rather than when a declaration is evaluated. A block decorator on a loop body therefore fires once per iteration, which makes block decorators the only ones that can run more than once — deliberate, since a decorator that observes a block is observing an execution rather than a declaration.
 
-Decorators can target almost anything and are defined by the following target contexts:
+The following catalog lists the target-context families and their parameter declarations. It is an API signature sketch, not an executable namespace declaration; a use of one of these families supplies arguments with `.<...>`.
 
 ```
 namespace Reflect {
-	Class<T>
-	ClassField<T, TClass>
-	ClassAccessor<T, TClass>
-	ClassGetter<T, TClass>
-	ClassGetterReturn<T, TClass>
-	ClassSetter<T, TClass>
-	ClassSetterParameter<T, TClass>
-	ClassMethod<T, TClass>
-	ClassMethodParameter<T, TMethod, TClass>
-	ClassMethodReturn<T, TMethod, TClass>
-	ClassOperator<T, TClass>
-	ClassOperatorParameter<T, TMethod, TClass>
-	ClassOperatorReturn<T, TMethod, TClass>
-	Function<T>
-	FunctionParameter<T, TFunction>
-	FunctionReturn<T, TFunction>
-	Let<T>
-	Const<T>
-	Object<T>
-	ObjectField<T, TObject>
-	ObjectGetter<T, TObject>
-	ObjectGetterReturn<T, TObject>
-	ObjectSetter<T, TObject>
-	ObjectSetterParameter<T, TObject>
-	ObjectMethod<T, TObject>
-	ObjectMethodParameter<T, TMethod, TObject>
-	ObjectMethodReturn<T, TMethod, TObject>
+	Class<T: type>
+	ClassField<T: type, TClass: type>
+	ClassAccessor<T: type, TClass: type>
+	ClassGetter<T: type, TClass: type>
+	ClassGetterReturn<T: type, TClass: type>
+	ClassSetter<T: type, TClass: type>
+	ClassSetterParameter<T: type, TClass: type>
+	ClassMethod<T: type, TClass: type>
+	ClassMethodParameter<T: type, TMethod: type, TClass: type>
+	ClassMethodReturn<T: type, TMethod: type, TClass: type>
+	ClassOperator<T: type, TClass: type>
+	ClassOperatorParameter<T: type, TMethod: type, TClass: type>
+	ClassOperatorReturn<T: type, TMethod: type, TClass: type>
+	Function<T: type>
+	FunctionParameter<T: type, TFunction: type>
+	FunctionReturn<T: type, TFunction: type>
+	Let<T: type>
+	Const<T: type>
+	Object<T: type>
+	ObjectField<T: type, TObject: type>
+	ObjectGetter<T: type, TObject: type>
+	ObjectGetterReturn<T: type, TObject: type>
+	ObjectSetter<T: type, TObject: type>
+	ObjectSetterParameter<T: type, TObject: type>
+	ObjectMethod<T: type, TObject: type>
+	ObjectMethodParameter<T: type, TMethod: type, TObject: type>
+	ObjectMethodReturn<T: type, TMethod: type, TObject: type>
 	Block
 	IfBlock
 	ElseIfBlock
@@ -110,10 +110,10 @@ namespace Reflect {
 	ForBlock
 	ForInBlock
 	ForOfBlock
-	Enum<T extends enum.<TValue>, TValue = int32>
-	EnumEnumerator<T extends enum.<TValue>, TValue = int32>
-	Tuple<T>
-	Record<T>
+	Enum<T extends enum.<TValue>, TValue: type = int32>
+	EnumEnumerator<T extends enum.<TValue>, TValue: type = int32>
+	Tuple<T: type>
+	Record<T: type>
 }
 ```
 
@@ -1625,7 +1625,7 @@ namespace Reflect {
 const memoKey = Symbol('memo');
 
 partial interface FunctionMetadata {
-	[memoKey]: { maxSize: uint32 } = { maxSize: 1000 };
+	[memoKey]?: { maxSize: uint32 } = { maxSize: 1000 };
 }
 
 function memo<T: type extends (...args: [].<any>) => any>(
@@ -2105,7 +2105,7 @@ A naive example below that assumes we only want to run a validation for the whol
 const validatorsSymbol = Symbol('validators');
 
 partial interface ClassFieldMetadata {
-	[validatorsSymbol]: [].<(value: any) => boolean> = [];
+	[validatorsSymbol]?: [].<(value: any) => boolean> = [];
 }
 
 function addValidators<T: type, TClass: type>({ name, metadata }: Reflect.ClassField.<T, TClass>, validator: (value: T) => boolean) {

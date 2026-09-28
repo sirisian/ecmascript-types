@@ -113,5 +113,3 @@ A format with a different convention — length-prefixed, space-padded, NUL-term
 ## The bytes are private
 
 ```#bytes```, and ```operator ==``` is the only member that reaches across to another instance's copy of it. That works because a value type class carries its private fields through a copy — a typed parameter boundary copies the operand, and a copy that dropped the private store would leave the operator reading a field that is not there.
-
-Implementation coverage and execution requirements are recorded in the [example status inventory](../generic-example-status.md).
