@@ -75,6 +75,19 @@ class Pairs<K: type, V: type> {
 Generic function types, interface call signatures, and generic function and arrow expressions declare their parameters the same way: ```<T: type>(x: T) => T```.
 
 
+### Library Type Applications
+
+Library declarations bind explicit applications using their declared parameter names, order, required arguments and defaults before forming or consuming a type. Annotation and expression spellings share this binding. Expand stated-extent spreads first; reject excess arguments, missing required arguments, unknown names, repeated supply and invalid positional/named ordering. A lexical shadow has its own declaration, and an expression application needs evidence of the actual generic selected.
+
+| Declaration | Parameters | Defaults in an explicit application |
+| --- | --- | --- |
+| `Map`, `WeakMap` | `K`, `V` | None |
+| `Set`, `WeakSet`, `WeakRef`, `FinalizationRegistry`, `Proxy` | `T` | None |
+| `Promise` | `R`, `E` | Both `any` |
+| `Generator`, `AsyncGenerator` | `Y`, `R`, `N` | `R` and `N` are `void` |
+
+These lists are not variadic. Bare `new Map()` and construction without explicit arguments retain adoption or inference. Weak holdability constraints still apply after binding. Other families retain their own declarations; `Iterator` includes its wrapper parameter.
+
 ### Named Generic Arguments
 
 A type argument may be supplied by name, mirroring named call arguments. This matters where a generic has parameters with defaults, since supplying only a later one otherwise means repeating the earlier ones:

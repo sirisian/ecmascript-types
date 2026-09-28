@@ -12,6 +12,12 @@ Typed Atomics operations check their known target categories and established ope
 
 A proved `Object.assign`, `Reflect.set` or `Object.defineProperty` must preserve an established typed own-data boundary. For example, `Object.assign({ (x: uint8): 0 }, { x: "s" })` is an early type error with the original helper and these fresh data literals. A valid value or unrelated untyped property remains legal. Establish the actual copied properties, descriptors and receiver; structural membership does not establish ownness or enumerability. Check writes in execution order: a later source cannot undo an earlier failed write. Unknown getters, proxies, source contents or a distinct reflective receiver remain dynamic, and no helper gains permission to replace protected storage.
 
+A proved selected function also exposes whether it is generic. Explicit arguments on the original nongeneric `Object.keys`, including a proved alias, are an early type error. `Object.values`, `Object.entries`, `Array.from` and `Array.of` keep their declared generic parameters. A replacement function is checked under its own contract.
+
+A proved `Promise.all`, `race`, `any` or `allSettled` requires synchronous iteration. A participating known non-iterable input is an early error; an iterable of ordinary values is valid and need not contain Promises. Unknown inputs, replacements and effects retain the original runtime rejection behaviour.
+
+A proved `Array.from`, `Array.fromAsync`, `Object.groupBy` or `Map.groupBy` checks callback callability and the arguments of each established invocation, including its index and receiver. Use the ordinary value boundary, with defaults, rests and permitted conversions; numeric indices can convert to `string`. An omitted or `undefined` Array mapper means identity mapping, while grouping always requires a callback. An empty source does not invoke a callback merely to test its element contract. `Array.fromAsync` uses its own await stages for input values and mapper results. Immutable tuple Composites can supply position facts; mutable array storage alone cannot establish what its iterator yields. Inferred callback results do not replace validation of explicit parameter contracts.
+
 ## Numeric Library
 
 The Math functions are overloaded over the numeric types with declared, checked returns. The normative listing lives in the specification's numeric library clause; the rules it follows:

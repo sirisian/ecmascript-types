@@ -302,6 +302,8 @@ export function mapElements(T: type, f): type {        // the homomorphic siblin
 
 ### 4.1 The operators: `keyof` and indexed access
 
+A deferred indexed access keeps its formation obligation through generic aliases and nested types. Once its operands are closed, a missing property is a type error at that application even if the containing declaration is unused. For `type V<T: type> = T["absent"]`, applying `V.<{ x: uint8 }>` fails just as the direct projection does. Failure does not turn into `any`, `never` or unknown information; a still-open projection remains deferred.
+
 `keyof` is a built-in, and `type keyof T` reaches it from expression position over a type object held in a variable, so the operator is the only spelling and there is no reflective reimplementation to keep in step with it. What `keyof` means on unions and intersections follows TypeScript: keys of a union are the *common* keys, keys of an intersection are the union of keys.
 
 ```ts

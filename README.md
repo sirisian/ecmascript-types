@@ -678,6 +678,8 @@ Layout follows the same rule as a class: a tuple of value types is itself a valu
 
 ### Array length Type And Operations
 
+A proved intrinsic `push`, `pop`, `shift`, `unshift` or `splice` on a fixed-extent array is an early error when its established length effect necessarily changes that extent. Compute `splice` effects after index coercion and clamping. Zero-item insertions, removing from an empty array and equal-count replacement do not fail this extent rule. Dynamic extents, unknown counts and replaced methods retain runtime checks. Unchanged length does not waive element, storage or reference-liveness rules.
+
 Array-method diagnostics require proof that the call selects the intrinsic. A typed receiver and a method name alone are insufficient: own methods and prototypes can be replaced, and getters or argument effects can change lookup. A bounded source proof can use fresh lexical origins and engine-owned identities; uncertain cases retain runtime checks. An execution-time inline-cache guard cannot justify rejecting a program early.
 
 At a proven intrinsic `with` call, the replacement must fit the array element or selected tuple position, including a known negative index. Comparators for `sort` and `toSorted` must accept the two elements; their result retains JavaScript numeric coercion, so returning `"0"` is allowed. Reducers must accept the accumulator, element, index and receiver; the accumulator may have a different type from the element. No callback body is executed or ordering law proved during checking.
@@ -1124,6 +1126,8 @@ An implicit `ToPrimitive` step can also fail from an effective declared `Symbol.
 When the effective exotic hook is proved nullish, the checker can follow ordinary fallback: `toString` then `valueOf` for a string hint, and the reverse for a number or ordinary default hint. Known non-callables are skipped, Object-only results continue, and a possible primitive result prevents an exhaustion proof. If neither candidate can produce a primitive, conversion is an early error. Missing declarations on open objects do not prove that the exotic hook or fallback members are absent. This analysis reads effective contracts without running getters or methods.
 
 A successful primitive conversion also retains its result contract for the particular consuming operation. A hook returning only Symbol cannot feed implicit text or numeric conversion, and a hook returning only BigInt cannot feed unary plus. Those are early errors on a participating, selected built-in path. Symbol results remain valid property keys, BigInt results can be negated or interpolated, and an applicable declared operator can bypass conversion. The result summary is local to the conversion; the original expression and binding keep their Object type. Actual hints and viable overload/union/fallback alternatives determine whether a negative proof is possible.
+
+Known primitive conversions feed the selected operator's numeric-family rule. On a built-in numeric path, Boolean, `null` and `undefined` become Number; that does not make them operands of a matching sized numeric family. Reject a participating operation when every converted path fails, including a comparison whose own family rule fails. Preserve ordinary Number coercions, supported String coercions, contextual literal adoption, declared operators and unresolved or `any` alternatives.
 
 
 ```js
@@ -1937,6 +1941,8 @@ An index signature whose key depends on a generic argument retains the key-domai
 
 A computed read with a statically established finite set of keys joins the ordinary exact-key read contracts. Named properties take precedence over index signatures, including named exceptions with different types. Unknown alternatives and general non-finite key domains remain dynamic. This establishes no new property-existence guarantee and executes no key or getter.
 
+A required named property needs evidence that the source has that property. An index signature alone supplies no such evidence: `{ [k: string]: uint8 }` cannot satisfy `{ x: uint8 }`. An optional target `x?: uint8` still permits absence. String and Symbol keys follow the same rule, and `readonly` changes value variance without creating a presence guarantee.
+
 An interface or object type can constrain arbitrary keys with an index signature. The key type must be ```string```, ```symbol```, ```uint32```, or a union of these. The signature governs the properties the type does not declare by name; a declared property is typed by its own annotation and is not constrained by the signature, so ```{ name: string, [key: string]: uint32 }``` is a type whose ```name``` is a string and whose every other string key holds a ```uint32```. (TypeScript requires the declared property to satisfy the signature too, to give ```o[k]``` for a computed ```k``` a sound static type; here a general non-finite read is checked at the boundary rather than typed as the signature's value, so the constraint buys nothing and is not imposed.)
 
 ```js
@@ -2608,6 +2614,8 @@ An effective declared iterator hook can establish an early error even when the c
 
 Async selection preserves fallback: a nullish `Symbol.asyncIterator` selects the synchronous protocol, while a present numeric async hook fails without trying it. Optional and union hooks are rejected only when every possible selected path is known invalid. An undeclared hook on an open object, an unrelated symbol or a symbol index signature alone does not prove failure. An open object-shaped hook might itself be callable. No getter or iterator is run during checking. Named argument spreading and index-based reference iteration keep their separate rules.
 
+A synchronous iterator result is excluded as terminal only when `done` is required and established truthy. `done?: true` can be absent, so its `value` remains a possible yielded value. Preserve that contribution in loops, spreads and array patterns; the same presence distinction governs async and delegated iteration.
+
 The proof can follow callable contracts through acquisition and stepping. A known non-object hook result fails acquisition. A consumer that requests a step also fails when `next` is known non-callable or its result is known non-object. `const [] = source` still acquires an iterator but never calls `next`; a nonempty pattern, elision or rest does request a step. A step result of `{}` is an Object and remains valid; the early check does not require a complete `IteratorResult` interface or boolean `done`.
 
 For a real async iterator the step result is awaited before the Object check. The entry-hook result is never awaited. Synchronous fallback checks the raw synchronous step result as an Object and awaits its yielded value, not the step object. Unknown returns, open members and unresolved overload results do not prove failure; a union is rejected only when every selected path fails a reached stage. The check evaluates no getters or protocol methods and changes no closing or liveness obligations.
@@ -3094,6 +3102,8 @@ Replacing an inherited field with an accessor of the same name, or the reverse, 
 #### Methods and Inheritance
 
 Methods overload by signature like functions. A derived class adds its signatures to the set inherited from the base rather than hiding them, so overload resolution on a derived instance considers both, and ```super``` restricts resolution to the base's set.
+
+An override preserves the inherited argument-binding contract as well as its return and narrowing contracts. It must accept every admitted argument sequence, including omission and rest calls. The selected derived method uses its own defaults. Replacing `m(x: uint8 = 1)` with `m(x: uint8)` therefore fails: the latter cannot accept the omitted argument admitted through the base view. Parameter types still identify the override; optionality, defaults, rests and reference modes determine whether it is compatible. Recheck dependent contracts when specialization closes them.
 
 ```js
 class A {
