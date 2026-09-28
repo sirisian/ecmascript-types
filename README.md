@@ -2087,6 +2087,10 @@ function f(a: B) {
 
 ### Implementing Interfaces
 
+Resolve an `implements` target exactly as a type annotation: transparent aliases retain the interface's declaration identity, lexical shadowing matters, and generic arguments use the common binder for names, packs, defaults, constraints and family cases. Retain that resolved identity and its arguments for later nominal checks. An established non-interface target is an error. An unresolved generic obligation waits for specialization.
+
+Index signatures also participate in declaration checking. Own enumerable instance fields, including inherited fields, must satisfy every applicable signature unless the interface explicitly names that key with its own contract. Prototype methods and accessors are not instance fields; the signature does not require every possible key to exist. String and Symbol keys keep their actual identities, and unknown dynamic additions remain runtime checks.
+
 An `implements` clause checks the effective property capability as well as its value type. Readonly fields and getter-only properties do not satisfy writable interface properties. Preserve readonly covariance, writable-property invariance, optionality, method signature compatibility and inherited members.
 
 ```js
@@ -2176,6 +2180,8 @@ let { a, b } := { (a: uint8): 1, (b: uint32): 2 }; // a is type uint8 and b is t
 ```
 
 ### Function Overloading
+
+A reached optional call checks spread eligibility just as a direct call does. For example, `f?.(...x)` is an early error when `f` may be called and `x: uint8`; a definitely nullish callee skips the argument operation. Named object spreads, `any` and uncertain iteration counts follow the existing argument-binding rules.
 
 All function can be overloaded if the signature is non-ambiguous. A signature is defined by the parameter types and return type. (Return type overloading is covered in a subsection below as this is rare).
 
@@ -2586,6 +2592,10 @@ Closing has its own negative proof, applied only when the consumer is known to r
 
 Each reached iterator call also checks its actual argument boundary. Entry hooks, ordinary consumer steps and iterator closing receive no arguments; initial `yield*` forwarding supplies one `undefined`. A method requiring `number` cannot accept either, even if its declared result is a valid Object. Defaults, optional parameters, implicit conversions, reference markers and rest distribution follow the ordinary parameter-boundary rules; this is not a requirement to spell one canonical iterator signature. Empty patterns skip `next`, exhaustion skips closing, and a throw that takes precedence still masks a closing failure. Use the established async/sync forwarding path and defer unknown later resume arguments. Named argument spread and index-based reference iteration are unaffected.
 
+Implicit protocol calls also check the actual receiver against a signature's explicit `thisType`. Disposal uses the resource, iterator entry uses the iterable, stepping and closing use the iterator, primitive conversion uses the original object, and promise assimilation uses the thenable. Combine receiver, argument and result failures within each candidate signature. A viable or unknown alternative prevents an all-invalid proof. Ordinary method receiver markers, optional paths, closing precedence and reference liveness retain their existing meaning; checking invokes no hook.
+
+For `for await`, a real async iterator contributes the `value` of its awaited `next()` result without separately awaiting that value. The async-from-sync fallback awaits the synchronous contribution. This distinction types both explicit loop heads and inferred body bindings: `AsyncIterable.<string>` cannot feed a `uint8` binding, while a real async iterator returning a Promise-valued `value` leaves that value a Promise. Optional hooks and unions combine the reachable contributions conservatively; done-only paths yield nothing and unknown paths remain unknown. No exact iteration count follows from mutable indexed storage.
+
 
 The protocols are interfaces, so a value satisfies them by having the members. This is not a stylistic choice: ```for...of``` asks whether ```[Symbol.iterator]``` is callable and never asks what a value declared, so a type that refused a hand-written iterator would describe a language this is not.
 
@@ -2849,6 +2859,8 @@ const b: [10].<A|null>; // [null, ...]
 **Copy cost and construction.** Assigning, passing, or returning a value type copies its ```byteLength``` bytes; there is no move that would leave the source invalid, so a large value type - a class with an inline ```[1024].<float64>``` field, say - is expensive to pass by value. Pass such a type by ```ref```, which is the borrow: a storage location and an index, with no copy and no allocation. Construction, on the other hand, never copies through a temporary. A constructor call, an object-literal ```:=``` conversion, and a value type ```return``` build their result directly in the destination - a binding, a field, an array element, or the caller's receiving slot - so ```return { ... } := Matrix4``` writes the caller's ```Matrix4``` in place rather than constructing one and copying it. This is the guaranteed copy elision C++17 specifies for prvalues, made part of the semantics here rather than left to the optimizer.
 
 ### Class Members
+
+A typed instance field that masks an inherited concrete member must preserve the inherited capability. Its readable type must satisfy an inherited getter; a function field must accept the inherited method's arguments and return its promised result. A compatible function field need not carry the method's receiver marker. An inherited setter additionally requires writable storage that accepts its input type. Known violations are early errors, and dependent contracts are checked when specialization resolves them. Apply actual own-field precedence: an inherited own field still masks a derived prototype method. This does not permit redeclaring an inherited typed field, change entirely untyped JavaScript, or alter identity and reference liveness.
 
 Repeated own field definitions share one storage contract per property key and per static/instance placement. Conflicting explicit types, metadata, `readonly` or layout controls are type errors, rather than a last declaration replacing the slot's type. Compatible repetitions retain initializer order and the last value, with one physical layout slot. A later unannotated initializer must still satisfy the existing typed slot. Entirely untyped duplicates retain JavaScript behavior; unresolved keys or dependent contracts are checked when established. This does not relax the separate restriction on redeclaring an inherited typed field.
 
@@ -4043,6 +4055,10 @@ Where the type is known statically, all of these are compile-time errors - at th
 // type R = WeakRef.<A | null>;     // TypeError: A | null cannot be held weakly
 new WeakMap.<object | symbol, uint8>(); // the constraint itself
 ```
+
+A proved intrinsic `new WeakRef.<T>(target)` checks the actual target's weak-holdability as well as its compatibility with `T`. Explicit specialization does not bypass the eligibility check. Named arguments and established spreads use ordinary argument binding; unknown origins or positions remain dynamic, and shadowed constructors use their own contracts.
+
+`new FinalizationRegistry.<T>(callback)` contextually types the callback as `(heldValue: T) => void`, including when supplied by the public name `callback`. Known non-callable values and incompatible parameter contracts are early errors. Optional, defaulted and rest callbacks follow ordinary function compatibility, and a returned value is ignored. Dynamic values meet the same constructor boundary at runtime. The checker does not run a cleanup callback, force collection or promise cleanup timing.
 
 ```FinalizationRegistry```'s held value is unconstrained, so it can be a value type. This is the common case, since a held value must not be the target and is usually a key or handle:
 

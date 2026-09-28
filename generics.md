@@ -23,6 +23,12 @@ const d = new A(5);              // A.<number>: an untyped literal is a Number
 
 In that example by default the field ```a``` is type ```uint8```, but the programmer foresaw someone might need to change this sometimes. Rather than hardcode this, the library exposes a generic parameter. A default is what a parameter takes when nothing else binds it: a bare ```A``` in a type position is ```A.<uint8>```, as is ```A.<>```, and so is a construction whose arguments reach ```T``` through nothing. Where an argument does reach ```T```, inference beats the default, exactly as it does in every language with both: ```new A(5)``` with no annotation is ```A.<number>```, because ```5``` is a Number, and ```new A((7 := uint16))``` is ```A.<uint16>```.
 
+### Operations under a bound
+
+An established upper bound supplies the operations available in an unspecialized body. For `T: type extends { x: uint8 }`, reading `o.x` gives `uint8` and assigning a String to it is an early error, even when the function is unused. Bounds also supply readonly permissions, callable signatures, array element contracts and applicable primitive operations.
+
+The parameter itself stays opaque. A value of the bound is not necessarily a value of `T`, a reference to the bound is not a reference to `T`, and a dependent expression still waits for its inputs. A store admitted by an upper bound alone is not proof that every narrower specialization admits it. Unknown or cyclic bounds remain conservative; checking an operation does not execute a dependent builder or invent a closed specialization.
+
 ### Generic Application Syntax
 
 Generic parameters are declared with ```<...>``` at declaration sites, as in ```class A<T: type> {}``` and ```function f<V: int32>() {}```. Every application of generic arguments, whether in a type or an expression, uses ```.<...>```, as in ```new A.<uint32>(1024)``` and ```f.<5>()```. The leading ```.``` removes the grammar ambiguity between generic argument lists and comparison operators, since ```a<b>(c)``` parses as chained comparisons today. Inside a generic argument list the tokens ```>>``` and ```>>>``` close nested lists, as in ```[].<[].<uint8>>```, rather than lexing as shift operators.
