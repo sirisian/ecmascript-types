@@ -168,6 +168,8 @@ let d: (uint8) => uint8 = x => x * x; // typeof d == "function"
 
 ### instanceof Operator
 
+A class used on the right of `instanceof` supplies its effective static `Symbol.hasInstance` contract, including inherited and specialized hooks and established immutable class aliases. A known incompatible argument is checked just as at the corresponding direct hook call. Unknown and viable alternatives retain runtime dispatch; the checker executes no hook or getter.
+
 Type objects implement ```Symbol.hasInstance```, so ```instanceof``` extends to every type in the proposal through the existing protocol with no new operator semantics. The check is a subtype test against the value's runtime type:
 
 The right operand must be an object. A known scalar value there is an early type error, including in an unused function; the same rule applies to `in` and private-name `in`. A union is rejected by this check only when every alternative is known to be non-object. Type objects such as `uint8` remain valid, as do objects with a custom `Symbol.hasInstance`; being eligible does not require being a constructor. Unknown operands retain the runtime checks.
@@ -715,6 +717,8 @@ A ```[].<T>``` keeps a capacity at least its length, so ```push``` is amortized 
 
 The capacity - the allocation backing the array, counted in elements - is controllable, so a loop that knows its output size allocates once. ```capacity``` reads it, ```reserve(n)``` grows it to hold at least ```n``` elements without changing the length, and the static ```[].<T>.withCapacity(n)``` constructs an empty array with room for ```n```:
 
+The intrinsic `[].<T>.withCapacity(n)` accepts the index type and returns an empty growable `[].<T>`. Publish that static contract only when bounded origin and effect facts prove that the call selects the original method. The property remains replaceable: prior mutation, getters, argument effects, or a future call through an unknown origin can defeat the proof. Capacity is allocation state, never a fixed extent or permission to keep references live across relocation.
+
 ```js
 const out = [].<uint32>.withCapacity(1024); // length 0, capacity >= 1024
 out.push(x); // No reallocation until the capacity is exceeded
@@ -964,6 +968,8 @@ const gridView = new GridArray(grid);
 
 ### Conversions
 
+Calling an immutable alias of a known Type Object preserves its explicit-conversion contract and exact-literal behavior. Resolve the alias initializer in its own lexical scope. Shadowing and explicit `any` erasure keep their existing meanings; a mutable or unknown value is not a proved conversion target. No initializer or type builder executes to discover that target, and initialization order is unchanged.
+
 **A value of one value type never implicitly becomes a value of another.** ```uint8``` does not widen to ```uint16```, ```float32``` does not widen to ```float64```, and ```number``` is a value type like the rest, so it converts to none of them. Every conversion between distinct value types is written out. This is the rule Rust, Swift, and Go use, and it exists because there is no widening that is lossless for every pair: ```int64``` to ```float64``` loses precision above 2^53, and a language that admits the easy cases has to enumerate the hard ones anyway.
 
 ```js
@@ -1102,6 +1108,8 @@ Arithmetic never promotes. Two operands of the same value type produce that type
 For a numeric union, the checker rejects an operator only when every possible operand alternative is known to fail. It considers declared and derived operators first, then the built-in family's supported operations and numeric identity, including brands. For example, `(uint8 | int8) * (uint16 | int16)` has no valid pair, and `~x` for `x: float32 | float64` has no supported alternative. An overlapping pair, unknown alternative, or possible declared operator retains the runtime judgment. Literals are considered in each applicable numeric context without committing a failed attempt. This differs from calls, which must satisfy every reachable known function alternative.
 
 Built-in `++` and `--` also reject an established conversion or write-back failure. All four prefix/postfix forms reject a `boolean`, `null`, `undefined`, or `symbol` location when its contract leaves no successful path. A numeric singleton such as `1` requires checking the updated value: it cannot hold `2`. The destination is the actual write contract, which may be wider than a narrowed read or getter result. A `1 | 2` parameter remains usable because incrementing `1` can succeed; incrementing `2` keeps its runtime error. Number, BigInt, numeric wrapping and the current numeric-to-String update conversion remain valid. Declared updates keep their own result/store checks; readonly and reference-liveness rules still apply.
+
+A built-in update uses both the location's read type and its actual write contract. A known numeric result cannot be stored through a callable or structural-object setter, or into a nominal destination without an applicable conversion. Reject only when every established conversion/store path fails. Numeric-to-string update conversion remains valid, declared operators retain precedence, and reference liveness is unchanged.
 
 An untagged template or built-in string concatenation rejects a participating operand known to be only Symbol: `function f(s: symbol) { return `${s}`; }`, `"" + s`, and `s + ""` are early errors. Participation is the operand-contract rule above. Explicit `String(s)`, a tag receiving the raw Symbol, and applicable declared operators remain valid. A `symbol | string` operand, `any`, or an ordinary JavaScript `${Symbol()}` retains runtime conversion and exception timing. A nested untagged template still converts its own substitutions even when its result is passed to a tag.
 
@@ -1919,6 +1927,8 @@ g({ a: 'a' });
 
 #### Index Signatures
 
+An index signature whose key depends on a generic argument retains the key-domain obligation. Once substitution closes that domain, it must be `string`, `symbol`, `uint32`, or a union of those types, including in nested aliases and interfaces. Accepting the argument under `K: type` does not validate every use of `K` in the resulting type.
+
 A computed read with a statically established finite set of keys joins the ordinary exact-key read contracts. Named properties take precedence over index signatures, including named exceptions with different types. Unknown alternatives and general non-finite key domains remain dynamic. This establishes no new property-existence guarantee and executes no key or getter.
 
 An interface or object type can constrain arbitrary keys with an index signature. The key type must be ```string```, ```symbol```, ```uint32```, or a union of these. The signature governs the properties the type does not declare by name; a declared property is typed by its own annotation and is not constrained by the signature, so ```{ name: string, [key: string]: uint32 }``` is a type whose ```name``` is a string and whose every other string key holds a ```uint32```. (TypeScript requires the declared property to satisfy the signature too, to give ```o[k]``` for a computed ```k``` a sound static type; here a general non-finite read is checked at the boundary rather than typed as the signature's value, so the constraint buys nothing and is not imposed.)
@@ -2352,6 +2362,8 @@ function f(...mixed: [].<Mixed>) {
 ```
 
 ### Rest Parameters
+
+An annotated rest denotes its collected array or tuple in a function type, interface call or method signature, and abstract method, just as in a concrete function. Aliases and unnamed parameters follow the same rule. A generic rest parameter needs an array-or-tuple bound; declaring a signature without an implementation does not exempt it. Reference-rest escape restrictions remain unchanged.
 
 An unannotated rest parameter adopts the type of the argument sequence it collects from its contextual signature. It retains an array element type or a tuple's positional types and extent, so `(...xs: [].<uint8>) => void` gives the body an array of `uint8`, and a fixed `(x: uint8, y: string) => void` context gives `(...xs)` a corresponding tuple. The checker and the function value use the same effective argument contracts. This is parameter collection; it needs no assumption about an array's replaceable iterator and does not relax reference-rest restrictions.
 
@@ -3019,6 +3031,8 @@ function outside(a: Account) {
 An object-literal getter whose result derives from a declared type publishes that result into the object's read shape, just as a class getter does. An unannotated `const` preserves that participating shape. A later-published helper result updates dependent member reads; the checker never executes the getter. Literal-only and `any` results remain dynamic. The setter's parameter supplies the independent write contract.
 
 The accessor-pair compatibility rule also applies to object literals, using their effective descriptors after property replacement. A data property or method replaces preceding accessor halves. Known String/Symbol keys, declaration order, and published getter returns participate; unknown contracts remain dynamic. Neither accessor runs during checking.
+
+The same accessor-pair rule applies to public and private names, on instances and constructors. Resolve the effective descriptor before comparing its halves; static and instance names are separate, and a private name belongs to its declaring class. An unused pair is still checked, while a getter or setter on its own remains valid.
 
 A getter's return type and a setter's parameter type are annotated normally. A pair sharing a name must agree: the setter's parameter type has to accept every value the getter can return. A property with only a getter is read only, and assigning to it is a compile-time TypeError rather than a silent no-op, since typed code is strict.
 
