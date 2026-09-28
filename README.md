@@ -734,6 +734,8 @@ These three members live on the prototype of an array that HAS an element type, 
 
 A count passed to one of these is CHECKED rather than coerced. ```a.reserve("4")``` is refused, because ```length``` and ```capacity``` read at the index type and an operation that accepted a String as a count would disagree with the operations that report one. The ceiling is the range of the index type, not the maximum length of an ordinary ```Array```.
 
+A write to `capacity` is an early type error when the actual getter-only descriptor is established. The array type alone is insufficient: an own writable shadow or a replacement setter may make the write valid. The same principle applies to a collection's `size`. Compound stores and updates retain the write requirement; a skipped logical store does not. Establishing the descriptor runs no getter and changes neither reservation nor reference liveness.
+
 ```js
 let a: [].<uint8> = [0, 1, 2, 3, 4];
 a.length = 4; // [0, 1, 2, 3]
@@ -1305,6 +1307,10 @@ Optional calls apply the same receiver-presence rule as ordinary calls on the pa
 Completion analysis follows normal flow, returns, throws, and the targets of breaks and continues. An empty final switch clause reaches the implicit return; a grouped empty clause can instead fall through to a returning clause. A later unreachable return does not make a function total, and `finally` can replace an earlier completion. The resulting implicit `undefined` is checked against a written effective return type and included in inference where applicable.
 
 A declared predicate is a signature contract, including on methods. Its narrowing types are substituted with the type arguments, and its target is matched to the argument actually bound by named or positional argument binding. Boolean predicates narrow guarded paths; void assertions narrow positions dominated by successful return. Unknown overload selection contributes no guessed predicate, and mutations still invalidate facts.
+
+A fresh function literal with an unannotated return position can take its contextual signature's narrowing declaration, translating parameter targets by position. This is a declaration on the new function, without proving its body. Assigning a pre-existing plain Boolean function to a guard type cannot manufacture a narrowing promise, and a written return contract is not overwritten by context.
+
+Callable conformance preserves the declared narrowing guarantee, including through assignments, callbacks, interfaces and overrides. A Boolean predicate promises both branches: a guard for `uint8` cannot replace a guard for `uint8 | string` over a domain containing String, because its false result could wrongly exclude String. Require equivalent narrowed sets within the advertised parameter domain; comparing the substituted types for identity is conservative. A void assertion has only its successful continuation and may establish a stronger fact. Parameter targets correspond by position, not spelling. This compares declarations rather than proving predicate bodies, and explicit `any` retains its gradual boundary.
 
 An explicit `ThisType` is checked against the receiver supplied at a call, with runtime entry enforcement when its type is unresolved. The receiver keeps its identity. The self marker on ordinary methods continues to mean the receiver through which the method is reached, not the declaring class.
 
@@ -2725,6 +2731,8 @@ For ```await using```, asynchronous acquisition also considers ```[Symbol.asyncD
 Computed names of object methods/accessors and class methods/fields are checked as expressions in their enclosing evaluation scope, before entering the member's parameters, body, or instance/static `this` scope. This includes generator and async methods. Class self-name and generic scopes still apply. Existing call, property-key conversion, assignment and reference rules apply inside each name, even in an unused body. Checking does not evaluate the key or change its runtime evaluation count.
 
 An explicitly typed own property checks its initializer at that definition: `{ (x: uint8): "s" }` is an early type error, even in an unused function or a discarded literal. A later overwrite does not erase the earlier boundary. The member annotation supplies contextual literal and metadata processing independently of the outer object's type, including inside `Composite(...)`. Correct decimal and rational literals retain their representation-sensitive context. Unknown values are checked at runtime; computed keys and initializers execute once in their ordinary order.
+
+When an expected object type has several index signatures admitting one fresh property's known key, that property must satisfy their conjunction with one produced representation. `{ [a: string]: uint8; [b: string]: string }` accepts `{}` but rejects `{ x: 1 }`. Compatible overlaps remain useful; named properties keep their own contracts. Checking also applies to established shorthand, method and final spread contributions. It does not convert one property separately into conflicting numeric representations, and unknown contributions retain runtime checks.
 
 A read through a known symbol key retains the declared member's type, including optionality, inherited members and generic substitutions. For example, `function f(o: { [Symbol.dispose]: uint8 }) { o[Symbol.dispose](); }` is an early type error even if `f` is never called. A callable symbol member instead supplies its parameter and return types. Symbol identities are resolved in their lexical scope; unknown keys and undeclared members stay dynamic, and an array's symbol property is not its element type.
 

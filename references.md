@@ -71,6 +71,8 @@ Reference iteration is direct, index-based element access: it does not go throug
 
 ## Reference callback parameters
 
+Function compatibility preserves the reference calling convention at every receiving position, including fixed and rest parameters. A `ref` parameter requires an argument even when its annotation is `any`; a reference rest can collect no arguments. A reference referent is invariant, so an assignment, callback or method override cannot silently replace a value parameter with a reference parameter, or widen or narrow the borrowed storage contract. The same markers participate in function-type identity. Explicit `any` at a value boundary remains dynamic. Passing a reference directly to a by-value parameter still decays normally; no wrapper invents a temporary location to adapt incompatible callable signatures.
+
 `for...of` walks one array. Iterating several in step, mutating an element of each, is what a `ref` callback parameter is for. A container passes references into a callback, one per array, rebound each iteration:
 
 ```js
