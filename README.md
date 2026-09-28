@@ -912,6 +912,8 @@ With the [ranges](ranges.md) extension the index operator takes a range, so ```r
 
 ### Multidimensional and Jagged Array Support Via User-defined Index Operators
 
+A numeric index operation is writable only when its selected contract supplies a setter or a read operator returning a reference location. A known getter-only value result makes assignment, updates, compound fallback and destructuring stores early errors. A declared compound operator without a store, a definitely skipped logical store and an ordinary string-key property access retain their existing behavior. Unknown selection remains checked at runtime; reference permission and liveness checks still apply.
+
 Rather than defining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. More than one can be defined as long as they have unique signatures.
 
 An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates:
@@ -1267,6 +1269,8 @@ function f(a: int32, b: string, c: [].<bigint>, callback: (boolean, string) => s
 
 #### Optional Parameters
 
+A contextual function signature preserves optional/default flags as well as parameter types. In `(x?: uint8) => void`, an unannotated implementation parameter has body type `uint8 | undefined` unless an effective default supplies the omitted value. Written annotations take precedence. All parameter binding identities and contracts are visible while checking defaults, including later and destructured parameters. This does not initialize them: an earlier default may create a closure over a later parameter, while invoking that closure too early still hits the temporal dead zone. Body declarations are outside the default-parameter environment.
+
 While function overloading can be used to handle many cases of optional arguments it's possible to define one function that handles both:
 
 ```js
@@ -1285,6 +1289,8 @@ type G = (uint8 = 1, uint8) => uint8;       // TypeError: the default can never 
 A contextually typed function expression, arrow or object method checks each ordinary parameter default against its effective parameter type: its written annotation, otherwise the adopted contextual type. That type also governs the body binding and destructuring. A default does not override the contextual type. Defaults retain per-call evaluation and effects; a statically incompatible default is rejected even if a particular call supplies the argument.
 
 ### Typed Arrow Functions
+
+Optional calls apply the same receiver-presence rule as ordinary calls on the path that actually calls. After `const f = c.m`, `f?.()` has no receiver, while `c.m?.()` and `(c.m)?.()` preserve it. A nullish skipped call performs no receiver check. A receiver-free function signature remains callable; every class method retains its self receiver contract even if its body does not read `this`.
 
 Completion analysis follows normal flow, returns, throws, and the targets of breaks and continues. An empty final switch clause reaches the implicit return; a grouped empty clause can instead fall through to a returning clause. A later unreachable return does not make a function total, and `finally` can replace an earlier completion. The resulting implicit `undefined` is checked against a written effective return type and included in inference where applicable.
 
@@ -2327,6 +2333,8 @@ function f(...mixed: [].<Mixed>) {
 
 ### Rest Parameters
 
+An unannotated rest parameter adopts the type of the argument sequence it collects from its contextual signature. It retains an array element type or a tuple's positional types and extent, so `(...xs: [].<uint8>) => void` gives the body an array of `uint8`, and a fixed `(x: uint8, y: string) => void` context gives `(...xs)` a corresponding tuple. The checker and the function value use the same effective argument contracts. This is parameter collection; it needs no assumption about an array's replaceable iterator and does not relax reference-rest restrictions.
+
 ```js
 function f(a: string, ...args: [].<uint32>) {}
 f('a', 0, 1, 2, 3);
@@ -2830,6 +2838,8 @@ const b: [10].<A|null>; // [null, ...]
 
 ### Class Members
 
+Repeated own field definitions share one storage contract per property key and per static/instance placement. Conflicting explicit types, metadata, `readonly` or layout controls are type errors, rather than a last declaration replacing the slot's type. Compatible repetitions retain initializer order and the last value, with one physical layout slot. A later unannotated initializer must still satisfy the existing typed slot. Entirely untyped duplicates retain JavaScript behavior; unresolved keys or dependent contracts are checked when established. This does not relax the separate restriction on redeclaring an inherited typed field.
+
 A field declared without an initializer takes its type's default value rather than ```undefined```, following the variable declaration section. A typed slot never holds ```undefined``` unless its type says so.
 
 ```js
@@ -2971,6 +2981,8 @@ function outside(a: Account) {
 ```protected``` differs from a ```#``` private member in what it guarantees and where. A ```#``` field is a runtime-hard boundary: an access off a non-instance throws, and the field is invisible to bracket access and reflection. ```protected``` is an access rule checked where the static type is known, and it is deliberately not a runtime wall — a protected field occupies the normal layout and stays reachable through reflection or an ```any```-typed reference, the erasure other languages apply to it. So ```#``` is for true encapsulation and ```protected``` for the internal surface a hierarchy shares. It combines with ```readonly```, and being an access rule rather than a layout rule it never affects whether a class qualifies as a value type: a ```protected``` field participates in the layout exactly as a public one does. Interface members cannot be ```protected```, since an interface is an external contract and protected access is meaningful only along a subclass chain, which an interface does not establish.
 
 #### Accessors
+
+An object-literal getter whose result derives from a declared type publishes that result into the object's read shape, just as a class getter does. An unannotated `const` preserves that participating shape. A later-published helper result updates dependent member reads; the checker never executes the getter. Literal-only and `any` results remain dynamic. The setter's parameter supplies the independent write contract.
 
 A getter's return type and a setter's parameter type are annotated normally. A pair sharing a name must agree: the setter's parameter type has to accept every value the getter can return. A property with only a getter is read only, and assigning to it is a compile-time TypeError rather than a silent no-op, since typed code is strict.
 
@@ -3356,7 +3368,9 @@ A sealed class is the proposal's closed hierarchy. Combined with type objects be
 
 ### Abstract Classes
 
-An ```abstract``` class cannot be instantiated: ```new Shape()``` on one is a TypeError. It exists to be extended, carrying shared implementation and declaring the members its subclasses must supply. An ```abstract``` method is a signature with no body; a concrete subclass must implement every inherited abstract method, or itself be declared ```abstract```. An ```abstract``` member is always a method signature; abstract fields and accessors are not part of the proposal, and a required property is stated by an interface the class implements.
+An implementation must match the obligation's instance property identity and member kind, with a compatible full signature. A static method or a field with the same name does not implement an abstract instance method. Getter and setter obligations are distinct, and computed Symbol keys retain their identity. Generator implementations are compared through their `Generator` or `AsyncGenerator` carrier return, and async implementations through their `Promise` return. Compatible inherited implementations count unless masked by a nearer declaration. An abstract redeclaration obeys ordinary signature compatibility and return covariance before becoming the nearest contract for its subclasses; `uint8` is not a covariant replacement for `number`. Determinable failures are early errors even inside an unused function.
+
+An ```abstract``` class cannot be instantiated: ```new Shape()``` on one is a TypeError. It exists to be extended, carrying shared implementation and declaring the members its subclasses must supply. An ```abstract``` method is a signature with no body; a concrete subclass must implement every inherited abstract method, or itself be declared ```abstract```. An abstract member may be a method, getter or setter signature. Abstract fields are not part of the proposal; an interface can require a property independently of how a class implements it.
 
 ```js
 abstract class Shape {
@@ -3420,6 +3434,8 @@ class JsonNumber extends Json { value: float64; render(): string { return `${thi
 Reflection reports the ```abstract``` modifier on the class and on each abstract method, so a tool can distinguish a required member from an inherited concrete one.
 
 ### Class Expressions and Mixins
+
+Static members and static blocks use the enclosing class's constructor-side type for `this`, including anonymous and named class expressions. The type belongs to the class and its specialization, so an outer declaration name is not needed. Nested arrows retain that receiver; ordinary nested functions have their own receiver context.
 
 A class expression takes the same annotations and type parameters as a declaration. Generic parameters are declared with ```<...>``` and applied with ```.<...>``` as everywhere else:
 
@@ -3711,6 +3727,8 @@ switch (b) {
     break;
 }
 ```
+
+An enum switch follows declaration identity through transparent type aliases, typed member reads and typed call results. Each case label resolves in its own scope and must belong to that declaration, even if another enum has the same spelling. Names sharing one enum value need coverage of that value only once. A primitive underlying type or `any` does not identify an enum.
 
 When the switch expression is enum-typed, case labels must be enumerators of that enum, and the compiler checks exhaustiveness: a switch over an enum with no ```default``` must list every enumerator or it's a compile-time TypeError. Adding an enumerator later then surfaces every switch that needs updating.
 
