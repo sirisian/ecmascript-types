@@ -1269,6 +1269,8 @@ function f(a: int32, b: string, c: [].<bigint>, callback: (boolean, string) => s
 
 #### Optional Parameters
 
+A function used through another signature must accept its admitted omissions as well as its supplied values. An optional target without a default cannot promise a required source value. Defaults at either side and source types admitting `undefined` retain their effective binding semantics; rest distribution, reference markers and `any` retain their existing rules.
+
 A contextual function signature preserves optional/default flags as well as parameter types. In `(x?: uint8) => void`, an unannotated implementation parameter has body type `uint8 | undefined` unless an effective default supplies the omitted value. Written annotations take precedence. All parameter binding identities and contracts are visible while checking defaults, including later and destructured parameters. This does not initialize them: an earlier default may create a closure over a later parameter, while invoking that closure too early still hits the temporal dead zone. Body declarations are outside the default-parameter environment.
 
 While function overloading can be used to handle many cases of optional arguments it's possible to define one function that handles both:
@@ -1909,7 +1911,9 @@ g({ a: 'a' });
 
 #### Index Signatures
 
-An interface or object type can constrain arbitrary keys with an index signature. The key type must be ```string```, ```symbol```, ```uint32```, or a union of these. The signature governs the properties the type does not declare by name; a declared property is typed by its own annotation and is not constrained by the signature, so ```{ name: string, [key: string]: uint32 }``` is a type whose ```name``` is a string and whose every other string key holds a ```uint32```. (TypeScript requires the declared property to satisfy the signature too, to give ```o[k]``` for a computed ```k``` a sound static type; here such a read is checked at the boundary rather than typed as the signature's value, so the constraint buys nothing and is not imposed.)
+A computed read with a statically established finite set of keys joins the ordinary exact-key read contracts. Named properties take precedence over index signatures, including named exceptions with different types. Unknown alternatives and general non-finite key domains remain dynamic. This establishes no new property-existence guarantee and executes no key or getter.
+
+An interface or object type can constrain arbitrary keys with an index signature. The key type must be ```string```, ```symbol```, ```uint32```, or a union of these. The signature governs the properties the type does not declare by name; a declared property is typed by its own annotation and is not constrained by the signature, so ```{ name: string, [key: string]: uint32 }``` is a type whose ```name``` is a string and whose every other string key holds a ```uint32```. (TypeScript requires the declared property to satisfy the signature too, to give ```o[k]``` for a computed ```k``` a sound static type; here a general non-finite read is checked at the boundary rather than typed as the signature's value, so the constraint buys nothing and is not imposed.)
 
 ```js
 interface StringMap {
@@ -2082,6 +2086,8 @@ function f(a: B) {
 ```
 
 ### Implementing Interfaces
+
+An `implements` clause checks the effective property capability as well as its value type. Readonly fields and getter-only properties do not satisfy writable interface properties. Preserve readonly covariance, writable-property invariance, optionality, method signature compatibility and inherited members.
 
 ```js
 interface A {
@@ -2374,6 +2380,10 @@ The behavior can create confusing signatures. While these are allowed, they aren
 
 ### Typed Promises
 
+For an established intrinsic `Promise.<R, E>` construction, the executor's parameters receive the resolving and rejecting function contracts. Known incompatible direct values and explicit executor parameter types are early errors, including in unused bodies. The resolver accepts direct `R` values and Promise/thenable assimilation; `void` admits resolution without a value. An unknown assimilation result remains checked at runtime. Constructor shadowing and replacement preserve the selected constructor's own contract; checking never invokes the executor or a thenable.
+
+An explicitly typed intrinsic construction records its types before its executor runs. After assimilation, the fulfillment value crosses the `R` boundary; an application rejection crosses the `E` boundary. A failed boundary rejects with its exception, without recursively converting that exception to `E`. Existing intrinsic Promise failures retain ordinary rejection behavior. Single settlement, scheduling and reference liveness are unchanged. Reflection retains the completed constructor type arguments.
+
 Omitted type arguments are completed before any type judgment: `Promise.<T>` is `Promise.<T, any>`, and bare `Promise` is `Promise.<any, any>`. Await inference, callback checking, identity and assignability all use that completed type.
 
 Typed promises use a generic syntax where the resolve and reject type default to any.
@@ -2426,6 +2436,8 @@ Refer to the [error handling](errorhandling.md) extension on how different excep
 For primitive strings, a reached write to `length`, or deletion of `length`, is an early type error. An established in-range character property has the same protection, using UTF-16 extent. A skipped logical-assignment store is preserved. This rule follows fixed own descriptors; it does not ban every primitive property write, inherited setter, boxed lookalike or configurable member.
 
 ### Typed Iteration and Generators
+
+A `for...of` binding and its uses in the body retain the declared yielded type of a structural iterable. The static iteration contribution supplies this type; indexed storage alone does not establish a replacement iterator's result. Incompatible annotated bindings are early errors without executing iterator hooks.
 
 Synchronous `yield*` has a bounded resume-forwarding check in addition to its yield and return checks. When direct local, parameterless generators have an immediate delegated literal yield, a fresh top-level immutable generator local resumed twice can establish the later forwarding boundary. With proven intrinsic iterator/next identities and no unknown effects or escapes, the enclosing input contract must be assignable to the delegated input contract. Whole-generator invariance is not the comparison. Uncalled bodies cannot assume the protocol will remain intrinsic; immediate completion, replacement, unknown completion or inputs, and `any` retain runtime handling. No callback or getter is executed by this proof, which does not cover async or throw/return forwarding and removes no suspension or reference-liveness checks.
 
@@ -2984,6 +2996,8 @@ function outside(a: Account) {
 
 An object-literal getter whose result derives from a declared type publishes that result into the object's read shape, just as a class getter does. An unannotated `const` preserves that participating shape. A later-published helper result updates dependent member reads; the checker never executes the getter. Literal-only and `any` results remain dynamic. The setter's parameter supplies the independent write contract.
 
+The accessor-pair compatibility rule also applies to object literals, using their effective descriptors after property replacement. A data property or method replaces preceding accessor halves. Known String/Symbol keys, declaration order, and published getter returns participate; unknown contracts remain dynamic. Neither accessor runs during checking.
+
 A getter's return type and a setter's parameter type are annotated normally. A pair sharing a name must agree: the setter's parameter type has to accept every value the getter can return. A property with only a getter is read only, and assigning to it is a compile-time TypeError rather than a silent no-op, since typed code is strict.
 
 The setter parameter is bound in the setter body just like an ordinary parameter, including destructuring and lexical shadowing; computed names use the enclosing scope. A setter-only property reads as `undefined`, independently of its write contract. This also applies to object literals. A getter/setter pair uses the getter result for reads in either declaration order. An own setter-only descriptor masks an inherited getter rather than combining with it.
@@ -3147,6 +3161,8 @@ Parameters need no variance rule. A derived method with different parameter type
 Override return compatibility uses the declared return where present and the published inferred return otherwise, on both sides. Publication must be established before dependent comparisons are final. Removing a redundant return annotation cannot remove an override error. A genuinely unknown return remains unknown, and a different parameter signature still introduces an overload.
 
 ### Constructor Overloading
+
+Constructor declaration ambiguity includes different formal parameter counts when defaults, optional parameters or rests admit a common argument list. Use ordinary specificity: sharing an argument count alone is not ambiguity. A proved conflict is reported at the class even without a construction.
 
 ```js
 class MyType {
@@ -3322,6 +3338,8 @@ This is kind of niche, but it's consistent with other method definitions, so it'
 
 ### Class Extension
 
+A partial class names an existing lexical target and introduces no binding. Known non-class targets are early errors across nested scopes and immutable aliases; valid outer classes and class aliases remain usable. Shadowing follows ordinary lexical resolution, and dynamic targets keep runtime checking.
+
 A ```partial class``` re-opens an existing class - one declared earlier, in another module, or an intrinsic - to add methods and operators to it. The ```partial``` keyword is required: a bare re-declaration of an already-declared class is a TypeError, not a silent extension, so a program can never fork a class's behavior by accident.
 
 ```js
@@ -3474,6 +3492,8 @@ The layout of a mixin's class is determined when the mixin is applied, not where
 
 ### SIMD Operators
 
+Mask method values have callable types: `any()` and `all()` return `boolean`, while `select` accepts two vectors of one type with the mask's lane count and returns that vector type. A scalar input is incompatible before the selected lane type is inferred. Both arguments are still evaluated eagerly.
+
 All SIMD types would have operator overloading added when used with the same type.
 ```js
 let a = uint32x4(1, 2, 3, 4) + uint32x4(5, 6, 7, 8); // uint32x4
@@ -3484,6 +3504,8 @@ Lane access, the ```v.xyz``` and ```v.rgba``` component accessors, permutation, 
 It's also possible to overload class operators to work with them. Whether such an operator compiles to the SIMD instructions it describes depends on conditions the [operator overloading](operatoroverloading.md) extension sets out: value type storage, natural alignment, lane indices as compile-time value generic arguments, and inlining of the operator itself.
 
 ### enum Type
+
+A known non-numeric enum requires an explicit first initializer in every lexical scope, including an unused body. Numeric default starts, empty enums and valid later omissions retain their rules; unresolved generic underlying types defer to specialization.
 
 Enumerations with ```enum``` that support any type including functions and symbols.
 ```js
