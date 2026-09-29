@@ -4,6 +4,10 @@ This document collects typed signatures for the standard library's generic metho
 
 ## Proved Library Operations
 
+The same proof that supplies inputs to synchronous `Array.from` also supplies its result element contract: the mapper's established result, or the source's iteration contribution for identity mapping. Check that result at a receiving type's ordinary conversion boundary. A String result cannot silently become `[].<uint8>`. An empty source does not establish an incompatible produced element, and knowing a result's initial length does not make it fixed storage. Unknown results, replacement operations and unavailable effects retain runtime checking. `Array.fromAsync` keeps its distinct await stages.
+
+A proved `Reflect.apply` checks target callability, the receiver and its forwarded arguments under the ordinary call binder, including overloads, defaults, rests and reference decay. Its list is array-like, not necessarily iterable; establish its positional reads and effects. A proved `Reflect.construct` separately checks target and newTarget construction capability and binds arguments to the target's constructor. A custom newTarget does not change which parameter contract runs or prove the ordinary target instance type. Do not import direct `new`'s abstract-instantiation restriction into the newTarget judgment. Replacements, proxies, unknown list reads and `any` stay dynamic; neither helper extends reference lifetimes.
+
 Mutable built-ins contribute these checks only when the actual selected operation and relevant receiver, argument and storage facts are established. Account for earlier scripts, shadows, prototype replacement, evaluation order, implicit conversions and possible concurrent interference. A familiar name or a runtime inline-cache guard alone cannot justify rejecting a source text. Unknown effects and explicit `any` retain runtime checks. Checking runs no ordinary getter, setter, callback, conversion or thread body.
 
 For intrinsic `call` and `apply`, check the forwarded target's arguments and receiver. `apply` reads an array-like argument list, not an iterator. For intrinsic `bind`, check the fixed arguments and retain an established residual signature; do not require arguments left for a later call. These built-in boundaries decay reference arguments, so forwarding does not recreate a borrow. Ordinary overload selection and generic binding still apply.
@@ -41,6 +45,8 @@ type Identity<T: type> = T;
 It is an ordinary generic alias rather than a built-in, because nothing about it is built in. ```Identity.<uint8>``` is ```uint8```.
 
 ## Iterables
+
+An optional iterator-result property `value?: T` reads as `T | undefined` on a possible non-terminal result. Preserve that absence alternative in loops, spreads, destructuring and delegation, then apply the selected protocol's await stages. A real async iterator does not separately await its yielded value for `for await`; async-from-sync does. Required truthy `done` removes a yield contribution, while a delegated completion is checked where consumed. Optionality alone is not a reason to forget the known type.
 
 The iteration interfaces are the ```...``` operator from the main proposal's typed iteration section, expressed as interface requirements. ```*operator...()``` is how a class declares ```[Symbol.iterator]```, so these are the same member the [iteration types](README.md) state:
 

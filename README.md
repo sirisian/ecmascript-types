@@ -721,6 +721,8 @@ The capacity - the allocation backing the array, counted in elements - is contro
 
 The intrinsic `[].<T>.withCapacity(n)` accepts the index type and returns an empty growable `[].<T>`. Publish that static contract only when bounded origin and effect facts prove that the call selects the original method. The property remains replaceable: prior mutation, getters, argument effects, or a future call through an unknown origin can defeat the proof. Capacity is allocation state, never a fixed extent or permission to keep references live across relocation.
 
+A proved tuple mutation checks each actual destination slot, not the union of the tuple's element types. `reverse`, `copyWithin`, `fill` and `splice` must respect their index conversions, selected ranges, overlap order and permitted stored-value conversions. For `[uint8, string]`, moving the String to slot zero fails; filling only slot one with a String is valid. Empty ranges perform no writes. Unknown indices, effects, replacements and `any` remain dynamic, and an arbitrary sort callback proves no permutation. Store compatibility proves neither extent preservation nor reference liveness.
+
 ```js
 const out = [].<uint32>.withCapacity(1024); // length 0, capacity >= 1024
 out.push(x); // No reallocation until the capacity is exceeded
@@ -1942,6 +1944,10 @@ An index signature whose key depends on a generic argument retains the key-domai
 A computed read with a statically established finite set of keys joins the ordinary exact-key read contracts. Named properties take precedence over index signatures, including named exceptions with different types. Unknown alternatives and general non-finite key domains remain dynamic. This establishes no new property-existence guarantee and executes no key or getter.
 
 A required named property needs evidence that the source has that property. An index signature alone supplies no such evidence: `{ [k: string]: uint8 }` cannot satisfy `{ x: uint8 }`. An optional target `x?: uint8` still permits absence. String and Symbol keys follow the same rule, and `readonly` changes value variance without creating a presence guarantee.
+
+For a fresh literal, known primitive spreads keep their exact contribution: nullish and non-String primitives supply no enumerable own members, and a known String supplies its UTF-16 index properties. Apply final-property replacement order. Unknown Strings or Object spreads do not establish a complete member set, and an empty spread does not hide a missing required property.
+
+Required Symbol members use Symbol identity. Reject absence only when final literal contributions and the relevant prototype lookup prove it: `Object.prototype[Symbol.toStringTag]` may supply an inherited member. Optional members still permit absence. Unknown computed keys and effects stay dynamic, and diagnostics must display Symbol keys without ordinary String coercion.
 
 An interface or object type can constrain arbitrary keys with an index signature. The key type must be ```string```, ```symbol```, ```uint32```, or a union of these. The signature governs the properties the type does not declare by name; a declared property is typed by its own annotation and is not constrained by the signature, so ```{ name: string, [key: string]: uint32 }``` is a type whose ```name``` is a string and whose every other string key holds a ```uint32```. (TypeScript requires the declared property to satisfy the signature too, to give ```o[k]``` for a computed ```k``` a sound static type; here a general non-finite read is checked at the boundary rather than typed as the signature's value, so the constraint buys nothing and is not imposed.)
 
@@ -3987,6 +3993,10 @@ The ```Reflect``` methods mirror the operations above. ```Reflect.get``` and ```
 ### Keyed Collections
 
 Explicit type arguments and an immediate typed adoption both check the collection's final contents after construction consumes its seed. Each surviving key/value/element converts at its declared type. For a proved intrinsic constructor with established iterator and insertion behavior, finite literal seed facts can make a failed conversion an early error. Map positions remain separate, and known primitive keys use the collection's actual equality rule before adoption: `new Map.<string, uint8>([["x", "bad"], ["x", 1]])` is valid because the incompatible value has been overwritten. Reversing those entries fails. All seed expressions still evaluate in order, and conversions remain at adoption rather than being applied to transient entries.
+
+A proved collection constructor also checks its input protocol. Omission, `null` and `undefined` create an empty collection. Other inputs need the synchronous iterator the operation actually uses. A numeric type alone does not prove non-iterability: an earlier script may have installed `Symbol.iterator` on its boxed prototype. Use established lookup and effect facts; unknown getters or replacement methods stay dynamic.
+
+A Map seed entry must first be an Object, then supplies its key and value by reads of `"0"` and `"1"`. Ordinary `{0: "x", 1: 1}` entries are valid; neither array identity nor a two-element length is required. A proved non-Object entry fails during traversal even if later entries would overwrite its key. A proved absent positional read supplies `undefined`, but a short array may inherit that position. Getters and unknown traversal effects stay dynamic. Surviving-value conversion still happens only after ordinary insertion.
 
 Unknown keys that may overwrite a value, general iterables/spreads, getters, replaced constructors/iterators/adders and unresolved origins retain runtime checks. The bounded proof neither infers a permanent type for bare collections nor closes open object shapes; ordinary literal numeric and declared user conversions remain available. Nullish and empty seeds remain valid. Weak collections retain their separate eligibility requirements.
 

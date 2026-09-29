@@ -77,6 +77,8 @@ Generic function types, interface call signatures, and generic function and arro
 
 ### Library Type Applications
 
+Dependent built-in applications retain their formation rules until their arguments are known. Recheck a closed application before publishing it, even through nested aliases, container arguments, member types or unused function signatures. For example, `type C<T: type> = Composite.<T>; type Bad = C.<uint8>;` fails the same shape rule as direct `Composite.<uint8>`, and an alias cannot hide an invalid `vector` lane type or count. Open applications remain deferred. Recursive traversal must terminate and keep shadowed parameters distinct; forming a type executes no value constructor.
+
 Library declarations bind explicit applications using their declared parameter names, order, required arguments and defaults before forming or consuming a type. Annotation and expression spellings share this binding. Expand stated-extent spreads first; reject excess arguments, missing required arguments, unknown names, repeated supply and invalid positional/named ordering. A lexical shadow has its own declaration, and an expression application needs evidence of the actual generic selected.
 
 | Declaration | Parameters | Defaults in an explicit application |
