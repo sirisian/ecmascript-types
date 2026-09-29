@@ -63,6 +63,8 @@ function drainAsync(it: Iterator.<Promise, uint8>): Promise.<[].<uint8>, any> {}
 
 A bare ```W``` — before it is applied — is **not a type**. It is a constructor of one, and it may only appear where this extension expects a constructor: as an argument to a higher-kinded parameter, or applied. Writing ```const x: W = …``` is an error, and the message says that ```W``` takes an argument.
 
+Applied, ```W``` takes **exactly its arity**, positionally. ```W.<A, B>``` for a ```W<_>``` is an error at the declaration, and so is ```W.<>```, even where every declaration the program happens to bind to ```W``` defaults its parameter: the holes are the contract, and a count that held only for today's bindings would break at the next one. The holes have no names, so ```W.<T: uint8>``` is an error too. Once an application binds ```W```, each ```W.<X>``` is an ordinary application of the bound declaration and is checked like one, so binding ```Box<T: type extends string>``` to a ```W``` used as ```W.<uint8>``` is refused where the binding is written. Rust's generic associated types, the nearest thing it has, likewise require their full argument list.
+
 ## What may be supplied
 
 Any generic declaration of matching arity: a class, an interface, or a type alias.
