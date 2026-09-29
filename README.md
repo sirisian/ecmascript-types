@@ -999,6 +999,16 @@ let d = uint8.tryParse(read());     // uint8 | null, handled by narrowing
 let e: uint8 = Number(read());      // also fine: Number(s) is written, and is numeric
 ```
 
+**`any` does not erase a numeric value's type.** A sized numeric value must already satisfy a numeric target or be explicitly converted, even after passing through `any`. For example, a `uint16` at a `uint8` boundary is a TypeError whether its value is 1 or 300. The checked numeric conversion applies to ordinary Number and BigInt values: 1 can become a `uint8`, while 300 raises a RangeError. Explicit numeric casts retain their specified wrapping, truncation and rounding behavior.
+
+```js
+function typed(): any { return (1 := uint16); }
+// let a: uint8 = typed(); // TypeError: uint16 remains uint16 through any
+let b: uint8 = typed() := uint8; // explicit conversion
+function untyped(): any { return 300; }
+// let c: uint8 = untyped(); // RangeError: Number conversion would wrap
+```
+
 **The ```string``` type takes what has a canonical text, when it converts.** A number, a bigint, and a boolean each have exactly one text that denotes them, and ToString of them is total and loses nothing. ```undefined```, ```null```, an object, and a symbol have only a diagnostic text: those are the language's best known silent failures, the ```"undefined"``` that reaches a user and the ```"[object Object]"``` where a field was meant. So a conversion to ```string``` admits the first group and refuses the second, and a program that wants one of the second writes ```String(v)```.
 
 **A conversion happens only where the type was not known.** A value whose type is known statically is judged by assignability, and assignability converts nothing: a ```number``` is not a ```string```, so ```let a: string = 5``` is a TypeError before the program runs, exactly as ```let n: number = 5; let a: uint8 = n``` is. The canonical-text rule decides the case the checker cannot, a value that reaches a ```string``` boundary untyped, as an ```any``` does, and there it runs at the boundary. This is the same shape as the numeric rule above, which converts an untyped number and refuses an untyped string.
