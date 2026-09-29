@@ -166,3 +166,8 @@ switch (t.family) {
 ```family``` answers what a type IS, not what may be assigned to it. Two types of one family are no more assignable to each other than two of different families are, this proposal widening nothing implicitly; that question belongs to ```is```, ```instanceof```, and ```Reflect.isAssignable```.
 
 That structural reflection is one context of the broader reflection facility — the same `Reflect.getReflection` reflects a *declaration*'s members (a class's fields, a function's parameters, an enum's enumerators), keyed on the declaration rather than on a bare type. The full reflection API, its context taxonomy, and its metadata are defined in the [decorators](decorators.md) extension; this document covers the type-object half it operates on.
+
+
+### Conversion and construction capability
+
+A Type Object's conversion call does not imply that it supports `new`. Known conversion-only objects such as `uint8` or a structural Composite type reject ordinary construction early, including as the target or newTarget of a proved `Reflect.construct`. Class and array constructors keep their actual construction capability; `const T: type = C` does not stop a class constructor from supporting `new T()`. Established aliases preserve the selected value's capability. An annotation of `type` alone establishes neither answer, and an unknown identity or `any` remains dynamic. Placement construction keeps its separate rules.

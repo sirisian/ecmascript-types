@@ -43,6 +43,8 @@ function stride<T: type>(): uint32 {
 Reflect.typeOf(value).byteLength; // One property load on an interned type object
 ```
 
+For a completed type with layout, these are own data properties with `writable`, `enumerable` and `configurable` all `false`. Each class or array constructor and completed specialization exposes its own applicable constants. A static declaration or decorator cannot replace them with user data. A conflicting own member fails before the completed type is published. Proved assignments, compound assignments and updates are early type errors in every language mode; a logical assignment whose store is known to be skipped remains valid. Immutable aliases retain the permission. This rule does not make every property of every value annotated `type` readonly.
+
 **They are compile-time constants.** For any type whose layout is known, `byteLength`, `bitLength`, and `alignment` are compile-time evaluable in the sense of the [type objects](typeobjects.md) extension's compile-time type expressions: they constant-fold, never compute anything at run time, and can appear anywhere a constant can, including as an array extent or a value generic argument.
 
 ```js

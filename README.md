@@ -1693,6 +1693,9 @@ Contextual checks do not stamp one alternative's conversions or inferred generic
 
 ### Destructuring Assignment Casting
 
+A member annotation in a formal pattern remains a caller-side binding obligation even without a whole-parameter annotation: `function f({ (x: uint8) }) {}` rejects an established string contribution to `x`. The obligation retains the declaration's alias environment and generic bindings, follows the ordinary argument mapper, and recurses through nested patterns, defaults and collected rests. A written whole-pattern default is checked independently. This does not close the object shape or infer an iterator from mutable indexed storage; getters, missing-property fallback, iterator positions and rest-copy facts need their own proofs. Unknown inputs retain runtime checking and existing reference rules.
+
+
 An object binding or assignment pattern rejects a participating source known to be exclusively `null` or `undefined`, including an empty `{}` pattern. The judgment applies to the selected source at each nested pattern, after an enclosing default or fallback; a property's own default cannot repair a nullish container. A nullable union with a viable source remains dynamic. Non-nullish primitives retain ordinary boxing, and object-literal `{ ...null }` remains a no-op. Borrowing requirements and runtime reference-liveness checks are unchanged.
 
 A pattern retains the contribution of a known declared property, including a symbol-keyed property. If every member of a union source declares that key, its read types are joined, preserving optional `undefined`. An element annotation is checked against that contribution; typed parameter patterns and participating `const` patterns preserve it too. This does not add inference to an otherwise untyped `let` pattern or infer a contribution from an unknown key or overwriting spread.
@@ -2423,6 +2426,8 @@ f(a: 0, 1, 2, b: 3, 4, 5, 6); // a: [0, 1, 2], b: [3, 4, 5], c: 6 - a name start
 The behavior can create confusing signatures. While these are allowed, they aren't recommended: two rests of the same element type read as one, and it is the parameter after them that says where they split.
 
 ### Typed Promises
+
+A proved intrinsic typed Promise construction checks executor callability independently of inline-function recognition. A known scalar executor is an early error when construction participates through its type arguments or the executor's annotation. An unknown executor stays dynamic; an untyped `new Promise(1)` retains its ordinary runtime exception. Constructor shadows and replacements use their own contracts.
 
 For an established intrinsic `Promise.<R, E>` construction, the executor's parameters receive the resolving and rejecting function contracts. Known incompatible direct values and explicit executor parameter types are early errors, including in unused bodies. The resolver accepts direct `R` values and Promise/thenable assimilation; `void` admits resolution without a value. An unknown assimilation result remains checked at runtime. Constructor shadowing and replacement preserve the selected constructor's own contract; checking never invokes the executor or a thenable.
 
