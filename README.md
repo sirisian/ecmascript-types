@@ -425,7 +425,7 @@ type U<T: type> = string | (number & T);
 type T = number | bigint;    // the thing that was almost certainly meant
 ```
 
-This is the same call the language already makes for a narrowing test that can never succeed — ```d ?? 5``` where ```d``` is a ```uint8``` is dead code and is reported, not silently narrowed. A written empty intersection is that mistake with less excuse, since both members are right there.
+This is the same call the language already makes for a narrowing test that can never succeed — ```d ?? 5``` where ```d``` is a ```uint8``` is dead code and is reported, not silently narrowed. A written empty intersection is that mistake with less excuse, since both members are right there. A test written as a library call is held to the same standard: ```Object.is(d, 300)``` for a ```uint8``` ```d``` can never be true and is reported as ```d === 300``` is, though it does not narrow, since SameValue separates ```+0``` from ```-0``` where a literal type would not.
 
 Only the *syntax* is refused. ```never``` is a real type and computation reaches it freely: ```exclude(T, T)``` is ```never```, a builder constructing a disjoint intersection gets ```never``` rather than a throw, and a generic body is not rejected for an instantiation that may never happen — in ```type F<T: type> = T & string``` nothing is disjoint until ```T``` is known, and ```F.<number>``` is then ```never``` with no complaint. Writing ```never``` directly is fine, and so is ```uint8 & never```, which states what the rule is for catching.
 
@@ -1906,7 +1906,7 @@ interface IExample {
   a: string;
   b: (uint32) => uint32;
   c?: any; // Optional property. A default value can be assigned like:
-  // c?: any = [];
+  // d?: uint8 = 0;
 }
 
 function f(): IExample {
@@ -1914,7 +1914,7 @@ function f(): IExample {
 }
 ```
 
-A default requires the ```?```: an initializer on a required member is an error, since a required member is never absent for the default to fill. A default is written wherever a value is *built* - an object literal taking the type, a ```:=``` fill, a typed parse, a typed [composite](composites.md) creation - and never by a check of a value that already exists. A check reads: an object lacking an optional member satisfies the type with the member absent, and reads ```undefined``` for it. The distinction is invisible for a fresh literal, which is built at the position it is checked against, and load-bearing for a frozen or shared object, which cannot receive a member at all.
+A default requires the ```?```: an initializer on a required member is an error, since a required member is never absent for the default to fill. A default is a constant of the type, interned with it and shared by every value built at it, so its value must copy: a value type, a string, or an enumerator. ```c?: any = []``` is an error, since one array would be shared by every such object; build the array where the value is built instead. A default is written wherever a value is *built* - an object literal taking the type, a ```:=``` fill, a typed parse, a typed [composite](composites.md) creation - and never by a check of a value that already exists. A check reads: an object lacking an optional member satisfies the type with the member absent, and reads ```undefined``` for it. The distinction is invisible for a fresh literal, which is built at the position it is checked against, and load-bearing for a frozen or shared object, which cannot receive a member at all.
 
 Interface and type-literal members may be separated by ```;``` or ```,```, as in an object literal; both appear in this document and mean the same thing.
 
@@ -3812,6 +3812,8 @@ switch (a) {
   case 10:
     break;
   case 'baz': // TypeError: uint32 and string are disjoint, so this comparison is always false
+    break;
+  case 5000000000: // TypeError: a uint32 can never hold it, so the case can never be taken
     break;
 }
 ```
