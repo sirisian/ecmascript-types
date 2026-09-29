@@ -1469,14 +1469,17 @@ Math.divFloor(a, b) * b + Math.mod(a, b) === a; // The identity, for this pair
 
 Division by zero throws. An integer type has no ```Infinity``` and no ```NaN```, so there is nothing to return, and ```bigint``` already behaves this way.
 
-A literal zero divisor never reaches runtime. It is the same kind of mistake as a literal that doesn't fit its type, so it doesn't compile.
+A literal zero divisor never reaches runtime. It is the same kind of mistake as a literal that doesn't fit its type, so it doesn't compile. The same is true of a zero the checker can read as one: a ```const``` bound to a constant, an explicit conversion of a literal in either spelling, ```int32(0)``` or ```0 := int32```, or a ```const``` of the operand's own type - and a shift distance written any of these ways that is negative or at least the width is refused by the same rule.
 
 ```js
 let a: int32 = 1;
 let b: int32 = readDivisor();
+const Z: int32 = 0;
 
 // a / 0; // TypeError: the divisor is a literal zero
 // a % 0; // TypeError: the divisor is a literal zero
+// a / int32(0); // TypeError: the divisor is a literal zero
+// a / Z; // TypeError: the divisor is a literal zero
 a / b; // RangeError at runtime when b is zero
 
 float32(1) / 0; // Infinity, unchanged. A float has somewhere to put it
