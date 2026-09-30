@@ -209,7 +209,9 @@ export function literalValues(T: type) {
   }
   return out;
 }
-export function prop(name: string | symbol, type: type,
+// Keep the public parameter name while using an unshadowed metatype annotation.
+type TypeObject = type;
+export function prop(name: string | symbol, type: TypeObject,
     { optional = false, readonly = false, initial = undefined } = {}) {
   return { name, type, optional, readonly, initial };
 }
