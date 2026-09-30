@@ -3836,7 +3836,7 @@ switch (b) {
 
 An enum switch follows declaration identity through transparent type aliases, typed member reads and typed call results. Each case label resolves in its own scope and must belong to that declaration, even if another enum has the same spelling. Names sharing one enum value need coverage of that value only once. A primitive underlying type or `any` does not identify an enum.
 
-When the switch expression is enum-typed, case labels must be enumerators of that enum, and the compiler checks exhaustiveness: a switch over an enum with no ```default``` must list every enumerator or it's a compile-time TypeError. Adding an enumerator later then surfaces every switch that needs updating.
+When the switch expression is enum-typed, case labels must be enumerators of that enum, and the compiler checks exhaustiveness: a switch over an enum with no ```default``` must list every enumerator or it's a compile-time TypeError. Adding an enumerator later then surfaces every switch that needs updating. The converse holds too: a ```default``` after a case for every enumerator can never be taken, so it's a compile-time TypeError, as it is after a case for every subclass of a ```sealed abstract class```. A ```match``` reads it the same way.
 
 ```js
 enum Count { Zero, One, Two };
