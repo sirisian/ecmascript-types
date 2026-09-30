@@ -2758,6 +2758,8 @@ For ```await using```, asynchronous acquisition also considers ```[Symbol.asyncD
 
 ### Object Typing
 
+A function type is a subtype of the empty object type `{}`: every callable value is an Object, and the empty contract asks for no members. This does not make `{}` callable or establish any named property or index signature from a function signature. Function and object types remain distinct for identity and reflection. For example, `const value: {} = (x: uint8): uint8 => x;` is valid, while calling `value` still requires an established callable contract or a dynamic boundary such as `any`.
+
 `readonly` applies to named properties. A `readonly` index signature is unsupported syntax and is rejected rather than silently becoming writable. A property actually named `readonly` remains legal.
 
 Computed names of object methods/accessors and class methods/fields are checked as expressions in their enclosing evaluation scope, before entering the member's parameters, body, or instance/static `this` scope. This includes generator and async methods. Class self-name and generic scopes still apply. Existing call, property-key conversion, assignment and reference rules apply inside each name, even in an unused body. Checking does not evaluate the key or change its runtime evaluation count.
