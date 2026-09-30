@@ -3797,6 +3797,18 @@ This is the design C++, Rust, and Swift take with ```#[inline(always)]``` and ``
 
 Nothing about truthiness changes. A typed value in a boolean context follows the existing ToBoolean: numeric zero and ```NaN``` are falsy, as are ```0n```, the empty string, ```null```, and ```undefined```; every other value, including every typed object and every array regardless of length, is truthy. Zero is falsy for the new numeric types on the same rule, so a zero ```rational```, ```decimal```, or ```float128``` is falsy, as is a ```complex``` equal to ```0 + 0i```.
 
+
+Where a test decides a branch, a type that settles its truthiness makes the branch dead, and that is a compile-time TypeError as any other test that can never succeed or can never fail is. An object is always truthy and ```0 | null``` always falsy, while a ```uint8``` or a ```string``` can be either. The literal idioms keep their meaning: a test written as ```true```, ```false```, ```0``` or ```1``` is exempt.
+
+```js
+function f(o: { x: uint8 }, z: 0 | null, count: uint8) {
+  if (o) {} else {}     // TypeError: an object is always truthy, so the else branch is dead
+  if (z) {}             // TypeError: 0 | null is always falsy
+  if (count) {}         // fine
+  while (true) { break; } // fine
+}
+```
+
 The SIMD types have no implicit cast to ```boolean```, so using one in a boolean context is a TypeError reporting that no implicit cast is available. Comparing SIMD vectors produces a mask, which is what the program almost certainly wanted.
 
 #### switch
@@ -3815,6 +3827,18 @@ switch (a) {
     break;
   case 5000000000: // TypeError: a uint32 can never hold it, so the case can never be taken
     break;
+}
+```
+
+A ```switch (true)``` reads each label as a test. The label narrows the clause it enters, the labels after it see its negation, and a label that can never succeed or can never fail is a compile-time TypeError.
+
+```js
+function f(a: uint8 | string | boolean) {
+  switch (true) {
+    case a is uint8:  return a + 1;       // a: uint8
+    case a is string: return a.length;    // a: string
+    case a is uint8:  break;              // TypeError: an earlier label already took every uint8
+  }
 }
 ```
 
