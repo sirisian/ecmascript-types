@@ -111,12 +111,12 @@ Round-tripping every type requires a node model that can express every type. The
 
 A signature's `parameters` are records of `type`, `name`, `index`, `optional`, `rest`, `initial`, and `metadata`; its `return` is a record of `type` and `metadata`; `thisType` and `narrows` are the declarative checker facts of §6.3. A node is a plain object and there is no interface naming these shapes — an earlier draft of this section annotated the catalog below with `Reflect.TypeReflection`, `TypePropertyReflection`, `TypeTupleElement`, and `TypeIndexSignature`, twenty uses of four names that exist in neither the specification nor the engine, and the kit erased them rather than invent them.
 
-**Three things the model settles.** `generic` is *undefined* everywhere except on an instantiation: the unapplied family (`int`, `vector`) is itself a `primitive` node whose `generic` is *undefined*, and an instantiation's `base` is that family's type object. The `metadata` slots on signature and parameter records are always *undefined* when the record arrives through *type* reflection, since two identically-signed functions are one interned type however differently decorated; the same records serve declaration reflection ([decorators.md](decorators.md)), which is where decorators populate them. And a *computed* cycle has no name to print: an alias-produced cycle carries the alias's name and a builder-produced one has none, so the canonical print form is what a display shows.
+**Three things the model settles.** A concrete intrinsic application's `generic` record has `base`, the intrinsic declaration's String name; `arguments`, its complete normalized arguments; and `parameters`, records with `name`, `domain`, and `default` where declared. For example, `rational64` reflects the base `'rational'` and arguments `[64]`. Nominal applications, including library types such as `Promise`, retain their declaration Type Object as `base`. `Promise.<string>` reflects arguments `[string, any]`; its base is `reflect(type Promise).generic.base`, not `type Promise`, which already denotes `Promise.<any, any>`. A bare intrinsic name in a concrete type position applies its defaults or reports a missing required argument; reflection introduces no public unapplied intrinsic family value. The `metadata` slots on signature and parameter records are always *undefined* when the record arrives through *type* reflection, since two identically-signed functions are one interned type however differently decorated; the same records serve declaration reflection ([decorators.md](decorators.md)), which is where decorators populate them. And a *computed* cycle has no name to print: an alias-produced cycle carries the alias's name and a builder-produced one has none, so the canonical print form is what a display shows.
 
 Notes on the kinds that carry weight:
 
 - **`literal`** carries the value and its base primitive, so builders read `'circle'` back out of the type `'circle'` (`literalValues` in §4.0 is built on this) and mint literal types from computed strings (key remapping, §4.2).
-- **`generic` on `primitive`** exposes a nominal generic application's arguments. This is what replaces most uses of `infer`: TypeScript writes `T extends Promise<infer U> ? U : never` because it has no other way to reach inside `Promise<T>`; here `node.generic` hands back `{ base: Promise, arguments: [U] }` directly. Value generic arguments appear as values, type arguments as type objects. `family` rides alongside, so a walker holding a node need not return to the type object to ask which kind of leaf it has.
+- **`generic` on `primitive`** exposes a generic application's arguments. This is what replaces most uses of `infer`: TypeScript writes `T extends Promise<infer U> ? U : never` because it has no other way to reach inside `Promise<T>`; here `node.generic` hands back `{ base: reflect(type Promise).generic.base, arguments: [U, any] }` directly. Value generic arguments appear as values, type arguments as type objects. `family` rides alongside, so a walker holding a node need not return to the type object to ask which kind of leaf it has.
 - **`parameterized`** is the metadata half of the same story: `Reflect.typeOf` returns the full parameterization for a metadata-carrying value, so the node model expresses and rebuilds it. Builders can thereby *manipulate metadata* — strip units, tighten bounds — with the same tools they use on shapes.
 - **`readonly`, `initial`, `indexSignatures`** exist in the type grammar (readonly fields, `a?: T = []` optional defaults, `[T, U = d]` trailing tuple defaults, index signatures) and are surfaced here, as are `rest` and `optional` on parameter records — without which a rest parameter is indistinguishable from a plain one, which `parameters` (§4.3) needs. Construct signatures need no context of their own: the constructor is the method named `'constructor'`, so `Reflect.ClassMethod` returns its overload list and `Reflect.ClassMethodParameter` its parameters, which is how [decorators.md](decorators.md)'s dependency-injection example reads them. Without `readonly` in the node, `Readonly`/`Mutable` builders would be unwritable and every mapped builder would silently strip the flag — the completeness of this record is exactly what makes builders homomorphic by default (§4.2).
 - **Provenance is not in the node.** An earlier draft carried an `origin` field on property records. It is a *host-facing* channel instead ([#sec-provenance](https://sirisian.github.io/proposal-runtime-types/#sec-provenance)), reached by a tool and not by a program, because canonicalization unions origins across structurally identical declarations — so a program that could read one would watch its own type's origins change when an unrelated module declared the same shape. §6.9 gives the reasoning.
@@ -265,7 +265,7 @@ export function elementTypes(T: type): [].<type> {   // the corpus's most-used o
 export function intersection(members: [].<type>): type {   // union has been a function since this section's first lines; its dual joins it
   return Reflect.makeType({ kind: 'intersection', members });
 }
-export function genericApplication(base: type, args: [].<any>): type {   // Promise.<T>, Map.<K, V>: the constructor that `generic` (§3.1) reads back
+export function genericApplication(base: type | string, args: [].<any>): type {   // Promise.<T>, Map.<K, V>: the constructor that `generic` (§3.1) reads back
   return Reflect.makeType({ kind: 'generic', base, arguments: args });     // the WRITE form is a kind, not a field
 }
 
@@ -297,6 +297,8 @@ export function mapElements(T: type, f): type {        // the homomorphic siblin
   throw new TypeError(`mapElements expects a tuple or array type, got ${String(T)}`);
 }
 ```
+
+`genericApplication` takes a numeric or range intrinsic declaration's String name, or a nominal declaration's Type Object base. It forwards to `Reflect.makeType`, which completes declared library defaults and validates intrinsic argument domains. `type Promise` already denotes `Promise.<any, any>`; use `reflect(type Promise).generic.base` to name its declaration. Both an omitted rejection argument and an explicit `any` reconstruct the same `Promise.<T, any>`.
 
 `genericApplication` is the one place read and write are not the same shape, and the asymmetry is worth stating because getting it wrong fails silently. A generic instantiation *reads* as a `primitive` node carrying a `generic` field; it is *written* as a node whose `kind` is `'generic'`. The spelling this section carried until the kit was implemented — `{ ...reflect(base), generic: { base, arguments } }`, mirroring the read view — hands `makeType` a `primitive` node with an extra field, which the write side ignores, so it returns the bare base rather than the application: a wrong type instead of an error.
 
@@ -567,7 +569,7 @@ type Awaited<T> =
 export function awaited(T: type): type {
   const node = reflect(T);
   if (node.kind === 'union') return union(node.members.map(awaited));
-  if (node.kind === 'primitive' && node.generic?.base === type Promise)   // `type Promise`: bare `Promise` is the CONSTRUCTOR
+  if (node.kind === 'primitive' && node.generic?.base === reflect(type Promise).generic.base)
     return awaited(node.generic.arguments[0]);                             // Promise.<V> → recurse on V
   const then = node.kind === 'object' && node.properties.find(p => p.name === 'then');
   if (then) {                                                     // structural thenable: unwrap onfulfilled's first parameter
@@ -612,7 +614,7 @@ An earlier draft wrote the class branch as `signatures[0].return.type`, reading 
 
 ```js
 const K = Reflect.inferSlot('K'), V = Reflect.inferSlot('V');
-const m = Reflect.matchType(genericApplication(Map, [K, arrayOf(V)]), T); // pattern for Map.<K, [].<V>>
+const m = Reflect.matchType(genericApplication(reflect(type Map.<any, any>).generic.base, [K, arrayOf(V)]), T); // pattern for Map.<K, [].<V>>
 if (m) { /* m.K and m.V are the bound type objects */ }
 ```
 

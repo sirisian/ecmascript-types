@@ -258,7 +258,7 @@ type MyAwaited<T extends PromiseLike<any>> = T extends PromiseLike<infer U>
 // Builder
 function thenValue(T: type): type | null {
   const node = reflect(T);
-  if (node.kind === 'primitive' && node.generic?.base === type Promise)
+  if (node.kind === 'primitive' && node.generic?.base === reflect(type Promise).generic.base)
     return node.generic.arguments[0];
   const then = node.kind === 'object' && node.properties.find(p => p.name === 'then');
   return then ? firstParameter(reflect(then.type).signatures[0].parameters[0].type) : null;
@@ -757,7 +757,7 @@ promiseAll.<[].<uint32 | Promise.<string>>>;        // returns Promise.<[].<uint
 
 ```js
 // With std:types
-std.genericApplication(type Promise, [std.mapElements(type [1, 2, Promise.<uint32>], std.awaited)])
+std.genericApplication(Reflect.getReflection(type Promise).generic.base, [std.mapElements(type [1, 2, Promise.<uint32>], std.awaited)])
   === type Promise.<[1, 2, uint32]>;
 std.mapElements(type [].<uint32 | Promise.<string>>, std.awaited) === type [].<uint32 | string>;
 ```
@@ -5683,7 +5683,7 @@ function unbox(T: type, depth: uint32 = 0): type {
     const node = reflect(t);
     if (node.kind === 'function') return node.signatures[0].return.type;
     if (node.kind === 'array' || node.kind === 'tuple') return node.element ?? union(node.elements.map(e => e.type));
-    if (node.generic?.base === type Promise) return node.generic.arguments[0];
+    if (node.generic?.base === reflect(type Promise).generic.base) return node.generic.arguments[0];
     return undefined;
   };
   let out = T;
