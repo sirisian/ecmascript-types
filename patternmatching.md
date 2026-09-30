@@ -91,6 +91,10 @@ bindings, per-arm narrowing, arm bodies and block decorators are all the same:
   or not an earlier one matched, so it learns nothing from the earlier failure -
   where a ```match```'s ```default``` after ```when null:``` sees a non-null
   subject.
+- **An arm that can never match is still an error.** The exemptions above are
+  about other arms; an arm whose pattern can match no value of the subject's
+  type, ```when boolean``` over a ```uint8 | string```, can never contribute to
+  the list and is refused as it is in a ```match```.
 
 **```default``` is a Syntax Error in a ```match all```.** It and ```_``` are
 synonyms in a ```match```, and a word meaning "always" in one form and "only if

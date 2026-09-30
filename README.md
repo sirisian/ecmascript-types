@@ -293,7 +293,7 @@ let b: uint8 | null = null;
 let c: uint8 | undefined; // undefined
 ```
 
-The nullish coalescing operators `??` and `??=` narrow the union they operate on. Using them where the left side can never be nullish is a compile-time TypeError because the fallback is dead code:
+The nullish coalescing operators `??` and `??=` narrow the union they operate on. Using them where the left side can never be nullish is a compile-time TypeError because the fallback is dead code, and so is using them, or `?.`, where the left side is always nullish, since then the other branch is the dead one:
 
 ```js
 let a: uint8 | null = f();
@@ -3836,7 +3836,7 @@ switch (b) {
 
 An enum switch follows declaration identity through transparent type aliases, typed member reads and typed call results. Each case label resolves in its own scope and must belong to that declaration, even if another enum has the same spelling. Names sharing one enum value need coverage of that value only once. A primitive underlying type or `any` does not identify an enum.
 
-When the switch expression is enum-typed, case labels must be enumerators of that enum, and the compiler checks exhaustiveness: a switch over an enum with no ```default``` must list every enumerator or it's a compile-time TypeError. Adding an enumerator later then surfaces every switch that needs updating. The converse holds too: a ```default``` after a case for every enumerator can never be taken, so it's a compile-time TypeError, as it is after a case for every subclass of a ```sealed abstract class```. A ```match``` reads it the same way.
+When the switch expression is enum-typed, case labels must be enumerators of that enum, and the compiler checks exhaustiveness: a switch over an enum with no ```default``` must list every enumerator or it's a compile-time TypeError. Adding an enumerator later then surfaces every switch that needs updating. The converse holds too: a ```default``` after a case for every enumerator can never be taken, so it's a compile-time TypeError, as it is after a case for every subclass of a ```sealed abstract class```. A ```match``` reads it the same way. So is a second case for an enumerator's value, which an earlier case has already taken.
 
 ```js
 enum Count { Zero, One, Two };
