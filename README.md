@@ -3027,7 +3027,7 @@ class A {
 }
 ```
 
-The brand check ```#a in value``` narrows the static type of ```value``` to the class in the true branch, joining ```instanceof``` and the structural ```is``` operator as a narrowing form. These forms narrow in any boolean-tested position, not only an ```if```: the condition of a conditional expression narrows its two branches, and the right operand of ```&&``` or ```||``` is narrowed by the left. On a sealed typed class the check is a tag test:
+The brand check ```#a in value``` narrows the static type of ```value``` to the class in the true branch, joining ```instanceof``` and the structural ```is``` operator as a narrowing form. These forms narrow in any boolean-tested position, not only an ```if```: the condition of a conditional expression narrows its two branches, and the right operand of ```&&``` or ```||``` is narrowed by the left. Facts also flow where control joins: after ```if (a === null || b === null) return;``` both ```a``` and ```b``` are present, after ```while (x !== null) { x = next(); }``` ```x``` is ```null```, and after a ```switch``` whose cases all return, the discriminant has the values no case named. A test those facts settle can never succeed or never fail and is a compile-time TypeError, as is a range pattern whose interval holds no value of its subject, such as ```x is 300..<400``` for a ```uint8```. A call whose return type is ```void``` has no value to test or compute with, so ```if (log())``` and ```log() + 1``` are compile-time TypeErrors, while ```log();``` and ```return log();``` from a ```void``` function are fine. On a sealed typed class the check is a tag test:
 
 ```js
 class A {
@@ -3862,7 +3862,7 @@ switch (b) {
 
 An enum switch follows declaration identity through transparent type aliases, typed member reads and typed call results. Each case label resolves in its own scope and must belong to that declaration, even if another enum has the same spelling. Names sharing one enum value need coverage of that value only once. A primitive underlying type or `any` does not identify an enum.
 
-When the switch expression is enum-typed, case labels must be enumerators of that enum, and the compiler checks exhaustiveness: a switch over an enum with no ```default``` must list every enumerator or it's a compile-time TypeError. Adding an enumerator later then surfaces every switch that needs updating. The converse holds too: a ```default``` after a case for every enumerator can never be taken, so it's a compile-time TypeError, as it is after a case for every subclass of a ```sealed abstract class```. A ```match``` reads it the same way. So is a second case for an enumerator's value, which an earlier case has already taken.
+When the switch expression is enum-typed, case labels must be enumerators of that enum, and the compiler checks exhaustiveness: a switch over an enum with no ```default``` must list every enumerator or it's a compile-time TypeError. Adding an enumerator later then surfaces every switch that needs updating. The converse holds too: a ```default``` after a case for every enumerator can never be taken, so it's a compile-time TypeError, as it is after a case for every subclass of a ```sealed abstract class```. A ```match``` reads it the same way. So is a second case for an enumerator's value, which an earlier case has already taken. The enumerators narrow outside a ```switch``` too: after ```if (a === Count.Zero) return;``` the binding is ```Count.One``` or ```Count.Two```, and a comparison with a value no enumerator has, or a truthiness test every enumerator settles, is a compile-time TypeError.
 
 ```js
 enum Count { Zero, One, Two };
@@ -3876,7 +3876,7 @@ switch (a) {
 }
 ```
 
-When the switch expression's static type is a sealed class, the case labels are type objects rather than values. Each case is an ```instanceof``` test evaluated in source order, the matched case narrows the expression to that type, and a switch with no ```default``` must cover every direct subclass. This makes a sealed hierarchy exhaustive in the same way an enum is: adding a subclass turns every such switch into a compile-time TypeError until it's handled.
+When the switch expression's static type is a sealed class, the case labels are type objects rather than values. Each case is an ```instanceof``` test evaluated in source order, the matched case narrows the expression to that type, and a switch with no ```default``` must cover every direct subclass. This makes a sealed hierarchy exhaustive in the same way an enum is: adding a subclass turns every such switch into a compile-time TypeError until it's handled. A case for a class an earlier case already covers, or for a class outside the hierarchy, can never be selected and is a compile-time TypeError, and outside a ```switch``` the direct subclasses of a ```sealed abstract``` class narrow as cases do: past an ```instanceof``` test whose branch returns, the binding is one of the other subclasses.
 
 ```js
 function evaluate(node: Node): float64 {
