@@ -3813,6 +3813,53 @@ function f(o: { x: uint8 }, z: 0 | null, count: uint8) {
 
 The SIMD types have no implicit cast to ```boolean```, so using one in a boolean context is a TypeError reporting that no implicit cast is available. Comparing SIMD vectors produces a mask, which is what the program almost certainly wanted.
 
+#### Narrowing through control flow
+
+Narrowing facts follow the paths that can reach a position. Tests have separate true and false facts. Sequential tests accumulate facts; alternatives join the types they permit. A branch with no fact contributes an unknown possibility, so a fact from just one alternative cannot narrow the other.
+
+```js
+function compare(a: uint8 | string, b: uint8 | string) {
+  if (a is uint8 && b is uint8) {
+    if (b is string) {} // TypeError: b is uint8 here
+  }
+}
+function choose(v: uint8 | string | boolean) {
+  if (v is uint8 || v is string) {
+    if (v is boolean) {} // TypeError: neither successful alternative admits boolean
+  }
+}
+```
+
+Parentheses preserve facts, `!` exchanges the two results, a comma expression takes its result facts from its last operand, and a conditional expression joins the corresponding results of its arms. The same facts type the arms of a ternary, including one used as a return value. Operands still run in their usual order: an assignment or call can invalidate an earlier operand's fact.
+
+Only normal completion reaches the next statement. A nested block exports facts about outer bindings without exporting its own declarations. If one arm returns or throws, the surviving arm's facts reach the successor. Breaks and continues retain their actual targets, including labels.
+
+```js
+function requireNumber(v: uint8 | string) {
+  { if (v is string) return; }
+  if (v is string) {} // TypeError: only the uint8 path reaches this test
+}
+function repeat(v: uint8 | string) {
+  for (; v is uint8; v is string ? 1 : 2) {} // TypeError in the update
+}
+function afterLoop(v: uint8 | string) {
+  while (v is uint8) {}
+  if (v is uint8) {} // TypeError: normal test exit establishes string
+}
+```
+
+A `for` update and a `do`-`while` test receive the normal body paths and the continues targeting that loop. A loop's successor joins its false test exit with its breaks; adding a possible break can make the last test above live. Facts about names the repeated code can change are widened before the loop is checked. This is bounded reasoning about paths, without proving that a loop terminates or analyzing arbitrarily many iterations. Iterator loops also include the path on which the body never runs.
+
+A `finally` runs for pending normal and abrupt completions. Its writes and assertions affect the facts carried by those completions; its own return, throw, break, or continue replaces the pending completion. Catch entry conservatively includes implicit exceptions, and a typed catch variable retains its declared filter type.
+
+Switches first select a label, then execute bodies with fallthrough. A `default` selection follows every failed label even when it is written first. Body entry joins selection and fallthrough facts, and exits join the paths that reach the successor. `switch (typeof v)` narrows `v` to every type having the selected tag: `"number"` does not distinguish `uint8` from `uint16`. A case declaring an unrelated `let` keeps its narrowing; a declaration shadowing `v` introduces a different binding in the shared case-block scope. A label that reassigns `v` cannot narrow that new value by comparing the old discriminant.
+
+The right operand of `??` or `??=` sees the nullish path; optional-chain keys and arguments see the present path. `&&=` and `||=` use the same reached-operand facts as `&&` and `||`. Stores still use the destination's declared type. If an earlier argument changes the receiver binding, later arguments cannot rely on the receiver value captured before that change.
+
+A declared void assertion establishes its fact when the call returns normally, wherever the call is written. `(assertU8(v))` and a comma operand `assertU8(v), ...` have the same effect as a standalone assertion. If a branch skips the call, the assertion alone cannot narrow code after the join; braces do not change that result.
+
+These rules retain the existing limits on deciding positions and stable type tests. They do not prove arbitrary expressions, infer the truth of user-declared predicates, change runtime storage shapes, or keep references alive. A known-answer membership query used as a value remains legal; reference-liveness and runtime boundary checks keep their existing rules. The specification defines the transfers in [Propagation of Narrowing Facts](https://sirisian.github.io/proposal-runtime-types/#sec-narrowing-flow).
+
 #### switch
 
 A typed switch discriminant may be a numeric type - the integer types ```int8/16/32/64/128``` and ```uint8/16/32/64/128```, the float types, and ```number``` - or ```string``` or ```symbol```. A case label is either a value of the discriminant's type, matched with ```===```, or a range, matched by containment. Containment needs only an ordering, so range labels suit any ordered discriminant. Case ranges are defined in the [ranges](ranges.md) extension; the core grammar reserves the bare-range case syntax and throws a ```TypeError``` on any other use, so the extension defines it without conflict.
