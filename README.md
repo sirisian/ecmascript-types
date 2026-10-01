@@ -3832,7 +3832,11 @@ function choose(v: uint8 | string | boolean) {
 
 Parentheses preserve facts, `!` exchanges the two results, a comma expression takes its result facts from its last operand, and a conditional expression joins the corresponding results of its arms. The same facts type the arms of a ternary, including one used as a return value. Operands still run in their usual order: an assignment or call can invalidate an earlier operand's fact.
 
-Only normal completion reaches the next statement. A nested block exports facts about outer bindings without exporting its own declarations. If one arm returns or throws, the surviving arm's facts reach the successor. Breaks and continues retain their actual targets, including labels.
+Bare-place tests use the representable truthy and falsy parts of the type. `if (b)` narrows a `boolean` to `true` in its body and `false` in its else branch. For `boolean | null`, the false branch is `false | null`, not just `null`. Numeric, String and BigInt members remain in both parts where their precise falsy subset is not represented. Parentheses around operands preserve recognition, so `(typeof x) === "number"` narrows as `typeof x === "number"` does.
+
+A computed object property with an established constant String key participates like its dot spelling: `x["tag"] === "a"` can discriminate a union as `x.tag === "a"` does, including an immutable constant naming the key. This requires no unknown evaluation or coercion. Property identity and invalidation are shared, while `x["a.b"]` remains distinct from `x.a.b`. Dynamic array elements keep their existing path restrictions.
+
+Only normal completion reaches the next statement. A nested block exports facts about outer bindings without exporting its own declarations. If one arm returns, throws, or evaluates a call with an established immediate `never` result, the surviving arm's facts reach the successor. Such a call can still throw into a handler or run a finalizer. A returning or unknown selected alternative defeats the proof; returning `Promise.<never>` or a generator object does not remove the normal edge. Breaks and continues retain their actual targets, including labels.
 
 ```js
 function requireNumber(v: uint8 | string) {
@@ -3850,7 +3854,7 @@ function afterLoop(v: uint8 | string) {
 
 A `for` update and a `do`-`while` test receive the normal body paths and the continues targeting that loop. A loop's successor joins its false test exit with its breaks; adding a possible break can make the last test above live. Facts about names the repeated code can change are widened before the loop is checked. This is bounded reasoning about paths, without proving that a loop terminates or analyzing arbitrarily many iterations. Iterator loops also include the path on which the body never runs.
 
-A `finally` runs for pending normal and abrupt completions. Its writes and assertions affect the facts carried by those completions; its own return, throw, break, or continue replaces the pending completion. Catch entry conservatively includes implicit exceptions, and a typed catch variable retains its declared filter type.
+A `finally` runs for pending normal and abrupt completions. Its writes and assertions affect the facts carried by those completions; its own return, throw, break, or continue replaces the pending completion. Catch entry conservatively includes implicit exceptions. A typed catch variable retains its annotated store type but starts with the residual input left by earlier stable filters: after `catch (e: uint8)`, a later `catch (e: uint8 | string)` starts as `string`. Reassignment may restore the full annotation. Structural membership effects do not supply an unsupported subtraction proof, and this does not infer all values the try body might throw.
 
 Switches first select a label, then execute bodies with fallthrough. A `default` selection follows every failed label even when it is written first. Body entry joins selection and fallthrough facts, and exits join the paths that reach the successor. `switch (typeof v)` narrows `v` to every type having the selected tag: `"number"` does not distinguish `uint8` from `uint16`. A case declaring an unrelated `let` keeps its narrowing; a declaration shadowing `v` introduces a different binding in the shared case-block scope. A label that reassigns `v` cannot narrow that new value by comparing the old discriminant.
 
@@ -3871,9 +3875,13 @@ Only feasible answers enter a result join. In `if ((x is uint8) || false)`, the 
 
 Built-in strict comparisons of Boolean results with an established `true` or `false` preserve or exchange these facts: `(x is uint8) === true` and `(x is uint8) !== false` narrow alike. This requires Boolean value correspondence, not a guess about truthiness or an overloaded comparison. Later operand effects invalidate earlier captured-value facts.
 
+Strict equality of two known primitive domains also shares the alternatives capable of holding an equal value. For `x: string | boolean` and `y: string | uint8`, the true edge of `x === y` narrows both to `string`; the false edge of `x !== y` does the same. The other edge generally excludes no whole domain. Numeric identity, existing operator rules and literal adoption still apply. Capture operands in evaluation order: a later operand that replaces `x` prevents narrowing its new value from the old comparison. A binding or proved data slot can preserve the captured value; an open structural property contract alone cannot rule out a getter returning a different value on the next read. Coercing comparisons and unresolved domains supply no such proof.
+
 An assignment used as a test can carry its returned predicate facts: `if (b = (x is uint8))` narrows `x` after the Boolean store. Logical assignments join the skipped and stored answers separately: the true result of `b &&= (x is uint8)` requires the predicate to succeed, whereas `b ||= (x is uint8)` can be true without evaluating it. Destination evaluation, conversions, setters and writes still occur in order and may invalidate a fact. This does not turn a later read of `b` into a predicate alias.
 
 A truthy optional-chain result cannot come from a skipped link, whose result is `undefined`. Thus `if (o?.b)` excludes nullish values from a stable, unchanged `o`, and an optional call can carry its selected declared predicate's argument facts. The predicate contract must be known: `let guard := b ? g : null` opts into inference, while an untyped `let guard = b ? g : null` does not acquire that contract. A false result does not prove the receiver nullish: a present receiver can return false. A getter, key or later argument that changes the receiver or target prevents narrowing its new value from the captured one.
+
+Comparisons and switch labels can select an optional result's evaluated alternatives too. `o?.tag === "a"`, `o?.tag !== undefined`, and a matching `case "a"` exclude the skipped `undefined` result and can establish receiver presence. `o?.tag !== "a"` and `o?.tag === undefined` do not generally do so. Keys, getters, later operands and labels may invalidate the captured receiver; repeated accessor results need not identify the same value. Fallthrough still joins with selected case entry.
 
 An ordinary `match` used as a test joins its arms' true and false results separately. If every arm returning true establishes `x: uint8`, the true branch knows that fact. Block arms follow ordinary `do` completion-value rules, including finalizer effects and empty completions. Arm-local bindings do not escape. `match all` returns a collection and does not use this scalar rule.
 
@@ -3882,6 +3890,12 @@ A tested pipeline takes its result facts from its body. For `if (x |> % is uint8
 Boolean switch dispatch also applies when the captured discriminant is established to be exactly true or false, including a known literal constant or a previously narrowed Boolean. An unknown `boolean` supplies no dispatch sense. Labels still run in order and bodies still join fallthrough.
 
 Constant ranges filter union members individually. In the successful branch of `x is 300..=400`, an `x: uint8 | uint16` cannot be `uint8`; after `x is 0..=255` fails, it cannot be `uint8` either. The same member filtering applies to match and range-switch selection. Partially overlapping domains remain, floating domains retain NaN on the miss path, and unknown bounds or inexact endpoint representations establish no exclusion. No new public interval type is needed.
+
+Pattern verdicts use established generic upper bounds without replacing the parameter's identity. `x is 300..=400` cannot succeed for `T: type extends uint8`, including a corresponding match arm; `0..=255` covers that bound. Partial overlap and unknown bounds remain conservative, and a value-only membership query stays legal.
+
+A switch domain made only of the language-owned closed sets `boolean`, `null` and `undefined` has an unselectable default when its labels cover every member. Pure `null | undefined` needs no Boolean member to use this rule. It does not add switch exhaustiveness requirements or extend coverage to a written union of literal types. Statements under an unselectable label may still execute by fallthrough.
+
+When the selected numeric intrinsic has a proved constant answer for its argument contract, its ordinary call type is the corresponding Boolean literal. Equality, match, switch and explicitly inferred bindings consume the same result. Shadowing, replacement, unknown effects or an unestablished origin prevent borrowing the intrinsic's answer from its spelling; ordinary value queries remain legal.
 
 A range switch label fully covered by preceding proved constant ranges is an early error, including coverage by several intervals. For a `uint8`, `case 0..=255` leaves nothing for a later `case 1..=2` to select. This is a diagnostic about label selection: fallthrough may still execute the statements under that label. Partial overlap stays valid, and numeric-switch exhaustiveness and default requirements are unchanged.
 
@@ -3984,9 +3998,10 @@ A ```switch``` that has outgrown its labels - wanting destructuring, guards, or 
 
 #### Divergence
 
-A statement *diverges* when no path of control through it completes normally. The analysis is syntactic, so it never reasons about values:
+A statement *diverges* when no path of control through it completes normally. The analysis composes statement completions and established immediate call-result contracts, without executing code or analyzing arbitrary callee bodies:
 
 - ```return```, ```throw```, and a ```break``` or ```continue``` targeting an enclosing statement diverge.
+- An evaluated call with an established selected `never` result has no normal successor, while its possible exception still reaches handlers and finalizers. Unknown or returning alternatives prevent this proof; a Promise or generator containing `never` is still a normally returned object.
 - A block diverges when any statement in it diverges.
 - An ```if``` diverges when it has an ```else``` and both branches diverge.
 - A ```switch``` diverges when it's exhaustive - every enumerator, every direct subclass, or a ```default``` - and every case clause diverges.

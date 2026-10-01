@@ -20,7 +20,7 @@ try {
 }
 ```
 
-Within a typed clause the binding is narrowed to that type, so `e.message` and any properties specific to the error type are available without a cast. A value not matched by any typed clause propagates to the enclosing handler, exactly as an unhandled type would; typed clauses filter, they do not swallow. This is the same narrowing the `is` operator and `instanceof` provide, applied to the catch binding.
+Within a typed clause the annotation is the binding's store type, so `e.message` and any properties specific to the error type are available without a cast. Its incoming value is additionally narrowed by the stable members excluded by earlier filters. For example, after `catch (e: uint8)`, a later `catch (e: uint8 | string)` starts with `e: string`. Assigning to `e` still checks the full annotation and may invalidate the entry fact. Observable structural membership effects do not establish an unsupported exclusion; the checker does not infer the set of thrown values from the try body. A value not matched by any typed clause propagates to the enclosing handler, exactly as an unhandled type would; typed clauses filter, they do not swallow. This is the same narrowing the `is` operator and `instanceof` provide, applied to the catch binding.
 
 ## The errors a typed program raises
 
