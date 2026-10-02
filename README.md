@@ -3821,6 +3821,8 @@ The SIMD types have no implicit cast to ```boolean```, so using one in a boolean
 
 #### Narrowing through control flow
 
+The errors this section describes for tests the types already settle apply in [checked code](#checked-code); code using none of the proposal's syntax keeps its behaviour.
+
 Narrowing facts follow the paths that can reach a position. Tests have separate true and false facts. Sequential tests accumulate facts; alternatives join the types they permit. A branch with no fact contributes an unknown possibility, so a fact from just one alternative cannot narrow the other.
 
 ```js
@@ -4483,6 +4485,8 @@ All new syntax in this proposal is a syntax error in current ECMAScript, so no e
 - ```:=``` and ```.<``` are token sequences that cannot appear in any valid program today, which is why the typed assignment and generic application syntaxes are built on them.
 - ```a: Type``` annotations appear only in declaration positions (bindings, parameters, class members, return types) where a ```:``` is currently invalid. Object literal and destructuring positions, where ```:``` already has a meaning, use the parenthesized ```(a: Type)``` form throughout the proposal for exactly this reason.
 
+Checking follows the same line: the errors that read types inferred from code, and the contracts this proposal gives things JavaScript already has, apply only to code that uses the proposal's syntax (see [Checked Code](#checked-code)).
+
 ### Strict Mode
 
 Typed code is strict mode code. A syntactic type annotation in a Script's own body, or in a function-like unit's parameters, return position or own body, makes that whole unit strict regardless of source order. Nested functions inherit strictness. A nested function's annotations, including its parameter and return annotations, belong to that function and do not make its parent or siblings strict. Class bodies and modules remain strict as before; a class body's annotations do not activate the enclosing Script's mode. A method's computed name and decorator expressions belong to their enclosing evaluation scope.
@@ -4499,6 +4503,26 @@ Each sloppy mode behavior this removes is one that conflicts with something type
 - Legacy octal literals and the ```\8``` and ```\9``` escapes are SyntaxErrors, keeping the numeric literal grammar unambiguous alongside separators and type propagation to literals.
 - ```Function.prototype.caller``` and ```arguments.callee``` are absent, so a function's identity cannot be recovered from its frame.
 - A direct ```eval``` gets its own scope and cannot introduce bindings into the enclosing typed scope. The compiler's knowledge of a typed scope is therefore complete, which is what allows a typed function to be compiled without guards against injected bindings.
+
+
+### Checked Code
+
+Checking follows the same line as the syntax: code that uses none of this proposal's syntax behaves exactly as it does today. A function, method, class, Script or Module is *checked code* when its own source uses any syntax this proposal adds: an annotation, ```:=```, ```.<>```, ```is```, ```ref```, ```type```, ```interface```, ```enum```, ```do```, ```match```, a range, a pipeline, a decorator, a class modifier and so on. Everything nested in checked code is checked too, wherever in the unit the syntax appears, while a nested function's syntax checks only that function.
+
+Checked code adds two kinds of error that plain JavaScript never sees:
+
+- Tests whose result the types already settle, such as ```if ([])```, ```for (const x of [])``` or a repeated ```else if (a < b)```. Outside checked code they run as they always have.
+- The contracts this proposal gives things JavaScript already has: the typed signatures of built-in methods (```[1, 2, 3].includes("2")```), stores to built-in accessors (```new Map().size = 4```), the object operand of ```in``` and ```instanceof```, calls of values that are not callable, and overload sets from duplicate function declarations. Outside checked code these keep JavaScript's behaviour, run-time errors included, and duplicate declarations keep the rule that the later one wins. An overload set forms when at least one declaration of the name is checked code; an unannotated declaration then joins it as a fallback.
+
+Errors about declared types, and about the globals this proposal adds (```uint8("hello")```, ```new uint8()```), apply everywhere, since no existing program can reach them.
+
+```js
+if ([]) {}                                            // Fine: no proposal syntax, so it behaves as today
+function f(p: number) { if ([]) {} }                  // TypeError: the branch it guards is dead code
+function g() { if ([]) {} function h(q: number) {} }  // Fine: h's annotation checks only h
+```
+
+Direct ```eval``` inherits its caller's classification, as it inherits strictness; indirect ```eval``` and ```new Function``` classify their own source. Checked code is not strict mode: strictness follows annotations only, because it changes run-time behaviour, while checking follows all of the proposal's syntax and only adds errors.
 
 ## Modules
 
