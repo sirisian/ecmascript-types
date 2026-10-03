@@ -1256,6 +1256,8 @@ Declaration provenance is separate from the number of possible values. Returning
 
 A closure's published result uses a captured binding's declared or inferred contract, independently of the current value where the closure declaration is visited. For `let s: string | number = "s"; function g() { return s; }`, the capture contributes `string | number`; a later valid Number store remains valid. This changes neither capture semantics nor reference liveness. See [the inference design decisions](inference-provenance.md).
 
+Publication precedes the checks that consume it, independently of declaration order. Thus `{ const q: number = g(); function g() { return s; } let s: string = "s"; }` is rejected before execution. Resolving `g` uses its own lexical environment, including the contracts of captured typed constants; a requesting caller cannot substitute its own same-spelled parameter. Preparation obtains contracts without running initializers or initializing value bindings. With a compatible `q: string`, the same forward call still encounters the ordinary temporal dead zone at runtime. A provisional result from a literal-only callee creates no annotation-derived anchor and is not published merely because another inference requested it.
+
 ```js
 function first(): uint32 { return 5; }
 function wrap() { return first(); }   // anchored through first: uint32
