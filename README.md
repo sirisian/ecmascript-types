@@ -4518,11 +4518,13 @@ Errors about declared types, and about the globals this proposal adds (```uint8(
 
 ```js
 if ([]) {}                                            // Fine: no proposal syntax, so it behaves as today
-function f(p: number) { if ([]) {} }                  // TypeError: the branch it guards is dead code
+function f(p: number) { if ([]) {} }                  // StaticTypeError: the branch it guards is dead code
 function g() { if ([]) {} function h(q: number) {} }  // Fine: h's annotation checks only h
 ```
 
 Direct ```eval``` inherits its caller's classification, as it inherits strictness; indirect ```eval``` and ```new Function``` classify their own source. Checked code is not strict mode: strictness follows annotations only, because it changes run-time behaviour, while checking follows all of the proposal's syntax and only adds errors.
+
+[Type-checking diagnostics](diagnostics.md) defines diagnostic identity, provisional and stable identifiers, source ownership, and the host-facing reporting policy. Diagnostic wording does not determine whether a rule applies.
 
 ## Modules
 

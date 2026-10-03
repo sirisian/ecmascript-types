@@ -1,0 +1,60 @@
+# Type-checking diagnostics
+
+The specification defines which programs are rejected. Diagnostic identifiers explain those rejections to people and tools; an identifier does not add a rejection rule. engine262 is a proof of concept against that specification, not its semantic authority.
+
+`StaticTypeError` identifies a type violation found before the candidate source body executes. It inherits from `Error`, separately from `SyntaxError` and the dynamic `TypeError` boundary. Like other native errors it accepts a message and an optional cause, supports subclassing, and has a constructor in each realm. The formal definition is `sec-statictypeerror-objects`.
+
+## Identity and applicability
+
+The specification repository owns `diagnostics.json`. Each entry identifies a diagnostic family, a rule, its checked-code applicability, permitted phases and error class, an explanation, argument and related-location schemas, and the specification clauses that define its meaning. The generated rule index is informative: its links lead to the predicates; the JSON does not duplicate those predicates.
+
+A family can contain several rules. For example, `RT_CONSTRUCTOR_REQUIRED` includes the checked-only inference rule for calling `new` on an ordinary nonconstructor and the always-applicable rule for a proposal Type Object that supports conversion but not construction. Renaming a message cannot change which rule applies.
+
+The applicable source unit belongs to the obligation. Deferring a metadata judgment does not transfer ownership to the module or helper that resolves it. Declared contracts remain mandatory when a caller is unchecked or its argument type was inferred. Added contracts on existing built-ins and inference-based impossibility errors follow the checked-code boundary. Existing built-in contextual types and overload formation make this decision when creating obligations, before a final diagnostic exists.
+
+An inapplicable diagnostic does not erase facts. In particular, an established empty meet stays empty when its error is suppressed. An unknown result, an empty domain, a hook failure and an abandoned evaluation are different outcomes. None creates a reference or extends reference liveness.
+
+## Host records
+
+An engine may expose an immutable host diagnostic record with a family, rule, phase, primary source location, owning unit, applicability, arguments and related locations. This proposal does not require a JavaScript-visible `error.code` property or a specific rendering order, number of secondary errors, wording, or language of the message.
+
+engine262's `TypeDiagnosticOf(error)` supplies this host record for registered checker errors. It keeps records in a weak side table. It does not add bookkeeping properties to program objects or use diagnostic information in runtime inline caches. A constructor-created `new StaticTypeError()` is an ordinary error object; it need not have a host checker record.
+
+The registry currently marks its identifiers **provisional**. An identifier becomes stable only when its meaning, applicable obligations and conformance witnesses are settled. A stable identifier is never reassigned. Retirement reserves the identifier; a split or replacement requires new identifiers and a migration explanation. Discovering another error is not a reason to delay useful provisional identities.
+
+## Design choices
+
+Every row considers ergonomics, Rust and other relevant prior art, production-engine cost, correctness, and other concerns. The selected direction is independent of implementation effort.
+
+| Direction | Ergonomics | Prior art | Performance | Correctness | Other and decision |
+| --- | --- | --- | --- | --- | --- |
+| Free-form messages alone | Searches and tests break on wording changes. | Gives up the structured identities used by Rust, TypeScript and C#. | Formatting is cheap but unnecessary for classification. | Message matching can change acceptance. | **Rejected.** Prose is presentation. |
+| One code per emitter or test | Many codes explain the same mistake differently. | Rust compiler categories are a closer model than test identifiers. | Larger tables without better semantics. | Refactoring changes identity. | **Rejected.** A code describes a useful family. |
+| Immediately require portable `error.code` properties | Convenient caught-error inspection, but prematurely freezes unsettled categories. | Rust compiler JSON is not an ECMAScript object API; Node's host errors are a different precedent. | Adds observable object properties and compatibility obligations. | Conflates language validity with host presentation. | **Rejected.** Host records meet the present need. |
+| A specification-owned registry and host records | Searchable explanations and precise tests; tools can present source context. | Retains the useful identity separation of Rust, TypeScript and C#. | Compact tables and weak side records; no required program-object shape or IC change. | Predicates remain normative and wording-independent. | **Selected.** Identifiers stabilize individually. |
+| Applicability on the diagnostic family alone | Similar messages appear to behave inconsistently at different boundaries. | Rust's codes identify errors; they do not define this proposal's opt-in boundary. | Cheap but missing required context. | A family can cover both built-in and declared contracts. | **Rejected.** Family identity is insufficient. |
+| Skip all analysis in unchecked code | Loses facts that make a later declared call valid. | Rust's type and lifetime obligations do not support dropping facts when a diagnostic is suppressed. | Avoids work at the cost of incorrect acceptance. | Violates retained facts and declared contracts, including reference obligations. | **Rejected.** Only equivalent omission is allowed. |
+| Carry rule and source ownership, separate facts from reporting | Explains both a wrong guess and the responsible unit; tools retain useful narrowing information. | Uses structured compiler diagnostics without importing Rust's different participation policy. | Classification can be summarized once; compact obligation records survive deferral. | Preserves contract precedence and liveness. | **Selected.** Applicability precedes rendering. |
+| Wait for all possible early errors before creating identifiers | Delays better tooling indefinitely. | Rust, TypeScript and C# evolve their catalogs. | No engine benefit. | Broad negative tests keep accepting unrelated failures. | **Rejected.** There is no reliable final-inventory date. |
+| Freeze all identifiers immediately | Early stability followed by awkward explanations for changed rules. | Existing catalogs do not justify freezing unsettled meanings. | No material advantage. | Locks in mistaken grouping and predicates. | **Rejected.** Stability requires semantic evidence. |
+| Provisional identities with explicit stabilization and retirement | Useful today with an honest compatibility status. | Fits an evolving compiler catalog, including Rust's diagnostic practice. | Same eventual lookup cost. | Settled meanings become stable; retired identifiers are not reused. | **Selected.** New language rejections still require compatibility review. |
+
+## Implicit protocol contracts
+
+A typed return can expose a non-callable `Symbol.hasInstance` to an unchecked caller. That caller keeps the existing runtime callability error. When the hook is callable but its declared parameter or receiver contract cannot accept the implicit call, the declared contract still applies before execution. A union member that fails only the suppressed callability rule cannot establish an always-applicable failure.
+
+| Direction | Ergonomics | Prior art | Performance | Correctness | Other and decision |
+| --- | --- | --- | --- | --- | --- |
+| Always reject every known protocol failure | More early feedback, but an unchecked caller loses its documented runtime behavior. | Rust checks trait obligations statically, but has no comparable legacy JavaScript boundary. | One combined proof; no shape or IC benefit. | Conflicts with the checked-only non-callability rule. | **Rejected.** A typed return does not activate its caller. |
+| Suppress every protocol failure in unchecked code | A wrong declared argument appears valid until execution. | Rust, TypeScript and C# distinguish callable signatures from their invocation sites; none motivates dropping a declared contract here. | Avoids some diagnosis work, with the same runtime representation. | Loses always-applicable declared receiver and parameter obligations. | **Rejected.** The operator does not erase a hook's contract. |
+| Separate operator eligibility and declared-call obligations | Predictable boundary and useful signature information for tools. | Retains Rust's emphasis on enforcing declared call obligations while respecting JavaScript's different participation policy. | At most two bounded contract queries; no required object metadata or IC changes. | Each alternative is checked under the rule that actually applies; liveness is unchanged. | **Selected.** Both rules may share a diagnostic family. |
+
+## Conformance and implementation independence
+
+Negative tests should identify the intended rule and error class and establish that the candidate body did not execute. A timeout, parse failure, or unrelated type error is not evidence for the intended rejection. A host-side observer is useful when inserting a source sentinel would itself invalidate an origin or effect proof. Module tests must separately observe dependency effects and candidate-body rejection; async evaluation must settle.
+
+The independent Boolean-flow model in the specification repository enumerates a bounded domain and emits neutral source fixtures consumed by an engine adapter. Its coverage declaration excludes metadata, mutation, reference liveness, numeric domains and module scheduling. Its agreement is evidence within that domain, not a claim that every type judgment is independently validated.
+
+Source classification can use node ownership and a downward inheritance traversal; it must not repeatedly scan every ancestor's subtree. Cached checking depends on source, strictness, inherited direct-eval status, declaration and module environments, and any realm state admitted by the relevant rule. Speculative runtime feedback cannot justify an additional mandatory rejection. Uncalled functions still require the checks applicable to their source.
+
+A subsequent production implementation may choose different representations, traversal schedules and caches while preserving these outcomes. The future Deno V8 fork work has its own source, integration and performance validation; this document chooses no fork, build scripts or engine-specific integration points.
