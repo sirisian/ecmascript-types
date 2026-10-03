@@ -1258,6 +1258,8 @@ A closure's published result uses a captured binding's declared or inferred cont
 
 Publication precedes the checks that consume it, independently of declaration order. Thus `{ const q: number = g(); function g() { return s; } let s: string = "s"; }` is rejected before execution. Resolving `g` uses its own lexical environment, including the contracts of captured typed constants; a requesting caller cannot substitute its own same-spelled parameter. Preparation obtains contracts without running initializers or initializing value bindings. With a compatible `q: string`, the same forward call still encounters the ordinary temporal dead zone at runtime. A provisional result from a literal-only callee creates no annotation-derived anchor and is not published merely because another inference requested it.
 
+The dependency rule applies across ordinary functions, async functions, generators and async generators. A finite chain of async returns or delegated yields must not be rejected merely because its declarations exceed a checker's pass count. The call result retains its protocol: async fulfillment becomes `Promise.<T, any>`, and a generator keeps yielded and completion types separate. A default iterator shape or a private provisional result does not create an annotation-derived anchor. Unknown yield or completion information stays `any`; it is not a proof of `void`.
+
 ```js
 function first(): uint32 { return 5; }
 function wrap() { return first(); }   // anchored through first: uint32
