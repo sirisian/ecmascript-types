@@ -1252,6 +1252,10 @@ This gives the local no type of its own: ```v``` is still ```any``` where anythi
 
 Inference is bounded by what the program annotated. A function participates when its signature declares a type, or when what it returns derives from one; a function with neither returns ```any``` as it always has, so a source text with no annotations computes nothing and means exactly what it meant before. What an annotation buys is reach: the type travels as far through returns as the returns carry it.
 
+Declaration provenance is separate from the number of possible values. Returning `s` from `let s: string = "s"` remains anchored even when flow knows the singleton value, and an explicit `null`, `undefined` or literal-type annotation can also anchor a return. Parentheses preserve this provenance. An unchanged unannotated local carries its initializer's contribution and provenance: naming or widening a literal alone creates no anchor. An untyped local or parameter still shadows an outer annotation.
+
+A closure's published result uses a captured binding's declared or inferred contract, independently of the current value where the closure declaration is visited. For `let s: string | number = "s"; function g() { return s; }`, the capture contributes `string | number`; a later valid Number store remains valid. This changes neither capture semantics nor reference liveness. See [the inference design decisions](inference-provenance.md).
+
 ```js
 function first(): uint32 { return 5; }
 function wrap() { return first(); }   // anchored through first: uint32
