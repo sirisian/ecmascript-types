@@ -239,3 +239,33 @@ The specification requires completion of the relevant dependency relation, not a
 The proof of concept shares binding-task registration with ordinary declaration checking and resolves supported local initializers on demand. It proves a conservative set of cases independent of incoming flow, and also admits written conversions and unambiguous declared return contracts where that independence is established. Its remaining source-flow and recursive-component work is an implementation limitation. Those implementation boundaries do not relax the specification or authorize treating pending work as unknown.
 
 Prior-art sources: [Rust Reference: statements and inferred locals](https://doc.rust-lang.org/reference/statements.html), [TypeScript 4.4: control-flow analysis of aliases](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-4.html), and [C#: local functions, capture and definite assignment](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/local-functions). The comparisons concern analysis and source semantics, not adoption of those languages' runtime or capture models.
+
+## Flow at a captured initializer
+
+A guard can determine the contract of a new constant without determining the future value of its source parameter:
+
+```js
+function f(x: string | number) {
+  if (typeof x !== "string") return "s";
+  const s = x;
+  return g();
+  function g() { return s; }
+}
+```
+
+The normal path reaching `s` supplies String. `g` therefore reads the String contract of `s`; a String consumer of `f` is compatible, and a Number consumer is rejected in checked code. A subsequent store to `x` cannot change `s`. Returning `x` directly from `g` instead reads the captured parameter's union contract: the point at which the checker asks about `g` is not proof of its future invocation state. A reference to `x` likewise retains its location contract, not the type of a copied value.
+
+The source judgment applies the existing flow rules, including normal versus abrupt predecessors, branch joins, loop back edges, targeted breaks and continues, switch fallthrough, exception and finally paths, and effect invalidation. Initializers in a multi-binding declaration occur in order. An earlier call, write, accessor or suspension can invalidate a fact before the next initializer. A nested contribution computation has a separate completion state. Its return must not end the enclosing path, and inspecting unreachable source must not revive that path.
+
+The remaining choice is how these facts affect captured contracts. The criteria are the same as for initializer dependencies above:
+
+| Direction | Ergonomics | Prior art | Production performance | Correctness and reference liveness | Other and decision |
+| --- | --- | --- | --- | --- | --- |
+| Always copy the source operand's declared union | Autocomplete stays broad after a successful guard; correct consumers need redundant annotations. | TypeScript's flow-sensitive analysis is a close counterexample. Rust infers locals, but does not provide this union-narrowing or capturing nested-item model. C# capture and definite assignment do not justify replacing an initializer judgment. | Cheap, but runtime optimization cannot repair a false early rejection; no required shape or IC benefit. | Conflicts with the proposal's initializer-position rule. A broader type does not establish reference lifetime. | Reject. |
+| Copy the current flow into every nested function query | Tooling and acceptance depend on the requesting use; a wrong guess can publish a result a later call violates. | Rust nested function items cannot implicitly capture these locals. TypeScript flow analysis and C# local functions distinguish captured storage from a copied value; neither analogy grants arbitrary caller-context reuse. | Small caches can reuse the wrong context; extra runtime guards cannot make an incorrect early judgment conforming. No necessary shape changes. | Freezes mutable storage facts and confuses receiver, scope and completion ownership. Does not prove alias stability or liveness. | Reject. |
+| Require an explicit annotation whenever a guard precedes a capture | Predictable but ordinary refactoring adds annotation work and loses useful completion information. | Rust local inference, TypeScript narrowing and C# capture analysis address different subsets; none requires this proposal-specific restriction. | Less compiler analysis, with no inherent object-layout or IC advantage. | Changes the already specified constant and typed-initializer participation rules. | Reject; annotations remain available by choice. |
+| Resolve the initializer's source flow, then capture its completed binding contract | Completion and diagnostics reflect the value copied at the declaration; later writes to other bindings cannot change it. Incorrect consumers fail at the defined checking boundary. | TypeScript is the closest narrowing analogy. Rust separates inferred locals from initialization and capture permissions; C# separates capture availability from definite assignment. Their detailed type and scope rules remain different. | Use compiler binding identities and flow graphs, sharing transfer logic and dependency results. No new program-object fields, shapes or polymorphic IC states are required. | Preserves participation and source order, keeps mutable captures and reference locations distinct, and supplies no new liveness or check-elision permission. | **Choose**, independently of implementation effort. |
+
+The proof of concept now carries guarded flow through contribution collection and uses the established edge algebra for conditional and loop tests. It isolates nested query completion, preserves targeted transfers and invalidates facts between initializers. A visited `:=` initializer can use its saved source-position facts. Switch and exception collection conservatively isolate alternative entries; they do not yet reproduce every ordinary-checker transfer. Forward flow-dependent preparation, exact store transfer and dependency replay remain incomplete. These are implementation gaps, not permissions to widen required contracts or silently treat pending work as unknown.
+
+The [Rust Reference](https://doc.rust-lang.org/reference/statements.html), [TypeScript 4.4 flow-analysis notes](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-4.html), and [C# local-function documentation](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/local-functions) support the comparisons above. The production-engine assessment is a design inference: the required facts describe compiler state and do not require JavaScript object-layout changes.
