@@ -148,3 +148,29 @@ Sources for the scoping comparison:
 - [Rust Reference: async functions](https://doc.rust-lang.org/reference/items/functions.html#async-functions): an async function's returned Future and the body's output are distinct; Rust's explicit named-function signatures and ownership rules limit the analogy.
 - [TypeScript 3.6: stricter generators](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-6.html#stricter-generators): yield, return and next types are distinct components, without this proposal's enforced publication policy.
 - [C#: async return types](https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/async-return-types): Task carries the asynchronous result and IAsyncEnumerable represents async streams; C# is not a precedent for typing existing unannotated JavaScript.
+
+## Contribution environments
+
+Return, resolution and yield inference must resolve each contribution in its source scope. An inner same-named declaration cannot overwrite an outer alias's type or anchoring provenance. Conversely, a later unknown local shadows the outer declaration throughout its scope. This is specified in `sec-contribution-environments` alongside `sec-anchored-contributions` and the binding-identity requirements of `sec-elision-stability`.
+
+```js
+function f(x: string) {
+  let g = x;
+  { let g; g = 1; }
+  return g;
+}
+const q: number = f("s"); // Early Error: the result is string.
+```
+
+The inner `g` does not change the outer alias. An unknown local also has an identity: in `{ return g; let g; }`, the return cannot borrow an outer `g` annotation. Establishing a static name or contract leaves runtime initialization and TDZ behavior intact.
+
+| Direction | Ergonomics | Prior art | Production performance | Correctness and reference liveness | Other and decision |
+| --- | --- | --- | --- | --- | --- |
+| Flatten declarations into one function-wide map | Adding an unrelated block changes autocomplete and can lose an early error or reject valid code. | Rust and TypeScript distinguish shadowing bindings; C# declaration spaces also require lexical resolution, despite different name restrictions. | A small map saves bookkeeping but cannot represent required binding identity. There is no shape or inline-cache benefit. | Leaks annotations and initializer provenance between different variables; cannot justify any lifetime conclusion. | Reject: inconsistent with existing lexical semantics. |
+| Save and restore names only when declarations are visited | Fixes some scope-exit leaks, but forward shadows and hoisted declarations still read the wrong variable. | Rust let scope starts after the statement, so its precise start rule cannot replace JavaScript's whole-block lexical shadowing and TDZ. TypeScript's let/var distinctions are closer. C# also distinguishes scope from whether a read is permitted. | Cheap single traversal, with incorrect answers before declarations. No runtime layout benefit. | Cannot reproduce TDZ shadowing, shared switch environments or function-scoped var bindings. Reference identity remains wrong. | Reject: declaration visitation is not declaration instantiation. |
+| Resolve contributions through declaration-instantiation environments | Local refactors preserve the outer contract; tools can identify the binding and provenance behind each result. Unknown shadows remain unknown. | Rust's distinct bindings support the identity principle, while JavaScript/TypeScript provide the actual scope rules. C# supports lexical contract lookup but has different redeclaration restrictions. None defines this proposal's participation or runtime enforcement policy. | Reuse compiler binding symbols, scope tables and dependency records. The proof of concept's temporary frames are not required. No hidden-class transitions, program-object metadata or extra polymorphic inline-cache states are needed. | Preserves scopes, hoisting, contracts and provenance independently of initialization. Reference liveness and capture rules remain separate. | **Choose.** Normative source-position environments and portable positive/negative tests are the completion criterion; implementation effort does not alter the choice. |
+| Wait for execution to determine the binding or add identity guards | Errors arrive after effects, and uncalled bodies receive no mandatory diagnostics. | Rust, TypeScript and C# do not defer lexical name resolution to ordinary execution. JavaScript's explicit dynamic lookup cases do not justify making ordinary scopes dynamic. | Adds execution work and guard/invalidation pressure without making a prior Early Error valid. | Runtime evidence cannot repair an irrevocable source rejection or replace static reference rules. | Reject for language acceptance; valid runtime optimizations remain available. |
+
+The environments include function parameters and vars, body and nested blocks, one shared switch CaseBlock, loop heads, individual catch parameters and their body blocks. Bindings and their initializer/provenance facts leave lookup together. A var binding survives leaving a nested block. Nested function bodies and class bodies supply no enclosing return/yield contributions. This does not choose a new flow or reachability model; existing contribution rules still decide which types are joined.
+
+Prior-art sources: [Rust Reference: scopes](https://doc.rust-lang.org/reference/names/scopes.html), [TypeScript: variable declarations](https://www.typescriptlang.org/docs/handbook/variable-declarations.html), and [C# specification: basic concepts](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/basic-concepts). These are analogies for identity and scope, not precedents for this proposal's runtime contracts.
