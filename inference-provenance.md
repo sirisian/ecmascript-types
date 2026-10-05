@@ -360,3 +360,37 @@ This is a scheduling improvement, not a complete solver. General replay of flow 
 Prior-art sources: [Rust Reference: inferred locals and nested items](https://doc.rust-lang.org/reference/statements.html), [TypeScript: control-flow analysis](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#control-flow-analysis), and [C#: local functions and definite assignment](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/local-functions). Production-engine cost and shape/IC observations are design inferences, not measurements or a prescribed compiler architecture.
 
 Completion preserves the ordinary call-effect rules. For `write(); return g(); function write() { x = "s"; } function g() { return s; } const s = x;` with `x: string | number`, the writer invalidates a prior fact about `x`; checking its body does not export a String store summary. The completed contract of `s` remains `string | number`, which admits a union consumer and rejects either narrower consumer. An earlier permissive result caused by stopping at the pending capture is not a compatibility guarantee. No new interprocedural store inference is introduced.
+
+## Switch contributions, selection and fallthrough
+
+Contribution inference uses the switch flow specified in `sec-narrowing-flow`; it does not get a separate rule that starts each clause from the switch's original entry. Label selection and clause execution have different predecessor relations. A selected entry is saved while later labels are examined. A clause body receives that entry joined with preceding normal fallthrough. The default's selection follows all failed labels, including labels after the default in source text. Only breaks targeting this switch join its successor.
+
+An empty clause has an empty statement list for declaration discovery, but still has its label and flow edges. Removing the entire clause can discard an evaluated expression or an entry that falls through into a later body. Case-block declarations share their existing lexical scope; preparing them executes no initializer and does not bypass a temporal dead zone.
+
+```js
+function f(x: string | number | boolean) {
+  switch (typeof x) {
+    case "number": return "s";
+    default:
+      return g();
+      function g() { return s; }
+      const s = x;
+    case "boolean": return "s";
+  }
+}
+```
+
+Here the default selection has excluded both Number and Boolean. The captured constant has a String contract, and a Number consumer of `f` is incompatible. Executing `g` before `s` is initialized still fails at runtime. If an earlier clause instead falls through into the default, its normal flow must also join that entry; the default's selected residual alone is not the body's complete input.
+
+| Direction | Ergonomics | Prior art | Production performance | Correctness and reference liveness | Other and decision |
+| --- | --- | --- | --- | --- | --- |
+| Discard clauses without statements | A harmless grouped case can disappear from diagnostics or autocomplete. A label's side effects may be overlooked. | Rust `match` arms select a branch and C# groups multiple labels into a section; neither licenses discarding JavaScript label evaluation. TypeScript retains JavaScript switch semantics. | Reduces syntax nodes but loses required work. No useful shape or IC effect. | Loses selected predecessors and may overlook invalidating effects. Supplies no lifetime proof. | Reject. |
+| Normalize absent statement lists, but analyze every clause independently | Stops the host crash, but extracting a captured constant still loses the selected type and fallthrough stores. Tools can offer a broader or incorrect result. | TypeScript's control-flow narrowing is the closest analogy. Rust `match` and C# switch sections do not supply JavaScript's implicit body fallthrough. | Cheap per-clause analysis, but it omits required predecessor joins. No runtime layout benefit. | Does not reproduce the existing source-flow judgment or targeted completion rules. | Reject as the completed design. |
+| Let source visitation supply the last seen flow | Some straight-line cases look precise, but later labels or sibling bodies change an earlier return's inferred type. A wrong guess can cause false early rejection. | None of these languages makes a later unrelated branch the predecessor of an earlier selected body. Rust's arm selection is especially distinct from JavaScript fallthrough. | Small state footprint; invalid early errors cannot be repaired by deoptimization. | Confuses label search with body execution, including effects and alias stability. | Reject. |
+| Preserve selected entries, failed selection and normal fallthrough separately | Grouped cases and local extraction preserve justified types. Autocomplete can show the joined result, and mistakes are diagnosed at the existing boundary. | TypeScript supplies the closest flow-analysis comparison. Rust and C# support separating selection from branch result checking, with different transfer semantics that must not be imported. | Reuse compiler flow nodes and lexical symbols. Visit labels and bodies with their required edges; no new JavaScript object field, shape or IC state is needed. | Matches the existing narrowing, captured-storage, completion, initialization and reference-liveness rules. | **Choose**, independently of implementation effort. |
+
+The proof of concept now applies selected/residual facts for its supported place and `typeof` comparisons and singleton-Boolean discriminants, joins fallthrough, retains default and targeted-break entries, and accepts empty statement lists without dropping clauses. Source-position return/yield queries retain those incoming facts. Stores and calls in labels use the existing effect invalidation. This does not add a callee effect summary or change reference contracts.
+
+The contribution collector still does not implement every richer ordinary-switch transfer, including saved predicate/optional-result relations and all range or nominal selection cases. Exhaustiveness and implicit-return completion retain their existing separate analyses. General replay after unfinished flow inputs, precise exception/finally transfer and recursive dependency completion also remain unfinished. These are implementation gaps, not exceptions to the normative switch flow.
+
+Prior-art sources: [Rust Reference: match selection and arm results](https://doc.rust-lang.org/reference/expressions/match-expr.html), [C#: switch sections and transfer restrictions](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/selection-statements), and [TypeScript: control-flow narrowing](https://www.typescriptlang.org/docs/handbook/2/narrowing.html). The production-engine assessment is a design inference, not a benchmark or a prescribed engine architecture.
