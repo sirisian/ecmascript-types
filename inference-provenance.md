@@ -479,3 +479,34 @@ The proof of concept now records eligible local predicate initializers in contri
 General replay of unfinished flow dependencies, recursive dependency completion, complete range/nominal switch transfer, precise exception/finally handling and method receiver result publication remain incomplete. The completion-state correction does not claim to settle those dependencies. Independent specification reconstruction and full-suite validation remain separate completion gates.
 
 Prior-art sources: [TypeScript 4.4: aliased conditions, transitivity and cutoff](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-4.html), [Rust Reference: Boolean conditions and pattern scopes](https://doc.rust-lang.org/reference/expressions/if-expr.html), and [C#: nullable conditional postconditions](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/nullable-analysis). Production-engine performance statements are design assessments, not benchmarks or a prescribed V8 architecture.
+
+
+## Class method result receivers
+
+A class method's inferred result uses the declaring receiver and type environment. Effective member contracts must be available before result consumers are finalized. A forward sibling is a dependency; its unfinished result is not completed `any`. Instance and static views stay separate. A mutable field contributes its storage contract, subject to justified flow at the read, rather than the value of its initializer on every invocation.
+
+```js
+class C {
+  result() { return this.value(); }
+  value() { return this.text; }
+  text: string = "s";
+}
+function unused() {
+  const q: number = new C().result();
+}
+```
+
+This is an early type error. Both methods publish String regardless of member order. A String consumer is compatible. A field declared `string | number` does not publish String merely because its initializer is `"s"`. Class and method type arguments must substitute into published results, including generic method shadowing. Ordinary nested functions establish their own receiver; arrows inherit the lexical receiver. Establishing a compile-time receiver does not bind an extracted JavaScript method at runtime.
+
+| Direction | Ergonomics | Prior art | Production performance | Correctness and reference liveness | Other and decision |
+| --- | --- | --- | --- | --- | --- |
+| Use the receiver of the query or caller | Autocomplete and errors can change with the first consumer; a method can acquire another class's field types. Wrong guesses escape the checking boundary or reject valid code. | Rust ties `self` to the associated type; TypeScript and C# class member analysis use the declaring context. None supports an arbitrary analysis caller as the declaration environment. | Avoids saving context but prevents dependable caching. No useful runtime shape or IC benefit. | Violates lexical ownership, static/instance separation and generic scopes; supplies no reference-liveness proof. | Reject. |
+| Infer once in member source order, retaining unknown forward results | Moving a field or helper silently loses a result contract and useful autocomplete. Errors depend on source layout. | Rust associated items do not impose this result-inference policy; TypeScript is the closer method-inference analogy. C# ordinarily requires a declared method return. | Cheap traversal, but incomplete contracts need rechecking anyway. No layout or IC benefit. | Treats unfinished dependencies as completed unknowns and misses required early errors. | Reject as the finalized design. |
+| Require explicit return annotations for receiver-dependent methods | Predictable annotations, but an ordinary extraction of `this.field` requires avoidable duplication; a wrong annotation adds maintenance cost. | Rust and C# ordinarily write method results, so this is a real alternative. It is not the existing TypeScript-style inference expectation or this proposal's participation rule. | Simplifies compile-time dependency solving. Does not remove runtime boundaries or improve instance shapes. | Could be coherent only with a deliberate change to the already specified inference feature; it is not a repair consistent with that feature. Reference rules remain separate. | Reject for this proposal. |
+| Complete effective member contracts, then infer in the declaring receiver and lexical type environment | Member reordering and forward helpers preserve result information. Compatible consumers remain accepted; incompatible consumers fail at the checking boundary. | TypeScript is the closest result-inference comparison. Rust's explicit `self` and C#'s instance context support declaration ownership, not identical inference or runtime semantics. | Compiler-owned member/dependency records can share environments and complete acyclic edges on demand. This requires no added JavaScript field, hidden shape transition, bound-method allocation or IC state. Recursive components still require the specified solver semantics. | Preserves declaration identities, generic substitution, member precedence, publication rules and reference liveness. It executes no source code and licenses no check elision. | **Choose**, independently of implementation effort. |
+
+The specification states this judgment in `sec-method-contribution-receivers`. The proof of concept separates regular/async/generator method signature collection from result inference, retains signature identity during member folding, and carries the declaring receiver through dependency queries. Published generic member results participate in parameter detection and substitution. The AST effect walk ignores non-syntax type metadata, including cyclic receiver-result records. Existing diagnostic identities are reused.
+
+This increment does not complete all getter/object-method receiver dependencies, every interface-result obligation, full partial-class dependency completion, general replay of unfinished flow, or recursive dependency solving. The existing eight-pass recursive safeguard is not the finalized language rule. Independent reconstruction from the specification and full-suite validation remain completion gates. These implementation limits are not normative exemptions.
+
+Prior-art sources: [Rust Reference: associated items and method receivers](https://doc.rust-lang.org/reference/items/associated-items.html), [TypeScript Handbook: classes and `this`](https://www.typescriptlang.org/docs/handbook/2/classes.html), and [C#: `this`](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/this). Rust and C# ordinarily specify method results; TypeScript infers results but erases types, unlike this proposal's runtime boundaries. C# static methods have no `this`, unlike JavaScript static methods. Production performance statements are design assessments, not benchmarks or a prescribed V8 implementation.
