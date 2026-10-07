@@ -391,6 +391,59 @@ Here the default selection has excluded both Number and Boolean. The captured co
 
 The proof of concept now applies selected/residual facts for its supported place and `typeof` comparisons and singleton-Boolean discriminants, joins fallthrough, retains default and targeted-break entries, and accepts empty statement lists without dropping clauses. Source-position return/yield queries retain those incoming facts. Stores and calls in labels use the existing effect invalidation. This does not add a callee effect summary or change reference contracts.
 
-The contribution collector still does not implement every richer ordinary-switch transfer, including saved predicate/optional-result relations and all range or nominal selection cases. Exhaustiveness and implicit-return completion retain their existing separate analyses. General replay after unfinished flow inputs, precise exception/finally transfer and recursive dependency completion also remain unfinished. These are implementation gaps, not exceptions to the normative switch flow.
+The contribution collector still does not implement every richer ordinary-switch transfer, including complete local predicate-alias recording and all range or nominal selection cases. Exhaustiveness and implicit-return completion retain their existing separate analyses. General replay after unfinished flow inputs, precise exception/finally transfer and recursive dependency completion also remain unfinished. These are implementation gaps, not exceptions to the normative switch flow.
 
 Prior-art sources: [Rust Reference: match selection and arm results](https://doc.rust-lang.org/reference/expressions/match-expr.html), [C#: switch sections and transfer restrictions](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/selection-statements), and [TypeScript: control-flow narrowing](https://www.typescriptlang.org/docs/handbook/2/narrowing.html). The production-engine assessment is a design inference, not a benchmark or a prescribed engine architecture.
+
+
+## Captured switch expression results
+
+The switch flow judgment retains the relation between a captured discriminant result and the source facts that produced it. A Boolean expression such as `x is string` has distinct result environments. An optional chain has evaluated and skipped alternatives; the evaluated result can itself be `undefined`. Applying `typeof` transforms their result values without erasing their source relations. Contribution inference and an initializer contract consumed by a contribution use these same environments at the source position, as required by `sec-initializer-inference-obligations` and `sec-narrowing-flow`.
+
+```js
+function outer() {
+  function f(x: string | number) {
+    switch (x is string) {
+      case true:
+        return g();
+        function g() { return s; }
+        const s = x;
+      default: return "s";
+    }
+  }
+  const q: string = f("s");
+}
+```
+
+The selected `true` environment gives `s` a String contract. This makes the String consumer compatible and a Number consumer incompatible. Runtime initialization remains separate: executing the early call to `g` still reads `s` in its temporal dead zone. Reading captured mutable `x` directly in `g` does not acquire the immutable constant's contract.
+
+For optional switch selection, failed singleton labels also remove their matching result alternatives in order:
+
+```js
+function f(o: { tag: "a" | "b" } | null) {
+  switch (o?.tag) {
+    case "a": break;
+    case "b": break;
+    default:
+      if (o is null) {} // The test is always true: a type error.
+      break;
+  }
+}
+```
+
+The two failed labels exhaust the evaluated result's domain. Only the skipped alternative reaches the default selection, and neither preceding body falls through. In contrast, one label of type `"a" | "b"` need not match the captured value: its failure cannot exclude both values. A member typed `string` likewise retains values after a failed literal label. If the evaluated property can itself be `undefined`, selecting or retaining `undefined` does not prove receiver absence.
+
+Use the admitted built-in strict equality relation for exclusion. Within one numeric type, `0` and `-0` match the same label, while NaN never matches itself. A type identity or assignment relation alone is insufficient. Existing literal adoption and operator-admission rules still establish which value domains can be compared. Label effects can invalidate a relation to the original receiver or binding without changing the discriminant value already captured. Do not repeat a getter, call or discriminant evaluation to recover that relation.
+
+| Direction | Ergonomics | Prior art | Production performance | Correctness and reference liveness | Other and decision |
+| --- | --- | --- | --- | --- | --- |
+| Retain only the scalar discriminant type | Extracting a test into a switch loses the source type in autocomplete and can falsely reject a captured initializer's consumer. | Rust's match arms and C#'s selected sections have their own source contexts; neither supports erasing an established JavaScript result relation. TypeScript control-flow narrowing is the closest comparison. | Small analysis state, with no useful runtime shape or IC benefit. | Cannot reproduce already required source-flow judgments. Losing facts supplies no new lifetime guarantee. | Reject as the finalized design. |
+| Reevaluate the discriminant or receiver at each label | A getter or stateful call can appear to produce different facts from the value the switch actually captured. Wrong assumptions can reach runtime. | Rust evaluates the scrutinee for matching; TypeScript and C# do not redefine selection to reevaluate the selector per label. Rust has no JavaScript implicit body fallthrough. | May duplicate engine work or require unsound purity assumptions. Any runtime duplication changes observable effects and IC traffic. | Violates evaluation order and captured-place identity; cannot establish reference validity. | Reject. |
+| Exclude a failed label's entire type or use assignment compatibility | A variable label unexpectedly makes valid later clauses disappear. Numeric representation or signed-zero cases can be misclassified. | Exhaustive Rust patterns are not analogous to comparing a single evaluated JavaScript value from a union. C# pattern coverage is also distinct from a runtime value comparison. | Compact domain subtraction, but wrong early errors cannot be repaired by deoptimization. No shape benefit. | A failed comparison excludes its established equal value, not every value its type could have supplied. Assignment conversion is not strict equality. | Reject. |
+| Preserve captured alternatives, apply reached label effects, and remove only established equal singleton results | Direct returns and captured constants expose the same justified result to autocomplete. Incorrect narrower consumers fail at the existing checking boundary. | TypeScript is the closest flow-analysis analogy. Rust and C# support separating selection from branch analysis, but their pattern and transfer semantics must not replace JavaScript's strict comparisons and fallthrough. | Compiler flow nodes can share environments and result domains. This requires compile-time dependency and join work, not additional JavaScript fields, object shapes or IC state. | Preserves source identities, ordered exclusions, fallthrough, mutable-storage contracts and reference-liveness rules. It does not execute initializers or prove runtime initialization. | **Choose**, independently of implementation effort. |
+
+The proof of concept now carries Boolean expression and optional-result alternatives into its contribution collector, including negation, conditional and logical result flow, optional calls, nested receivers and `typeof` tags where the existing expression judgment supports them. Ordinary checking and contribution inference share the optional-label residual transfer. Label writes invalidate source relations; later label effects do not alter earlier selected entries. The source rules prescribe these judgments rather than a particular interpreter helper or production-engine data structure.
+
+This does not complete local predicate-alias recording, general replay of unfinished flow dependencies, recursive dependency solving, method receiver publication, all range or nominal switch transfers, or exception/finally precision. None is an exception to the normative requirement. Exhaustiveness, implicit-return completion, storage contracts and reference liveness retain their separate rules.
+
+Prior-art sources: [Rust Reference: match expressions](https://doc.rust-lang.org/reference/expressions/match-expr.html), [TypeScript Handbook: narrowing and control-flow analysis](https://www.typescriptlang.org/docs/handbook/2/narrowing.html), and [C#: selection statements](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/selection-statements). Production-engine performance statements are design assessments, not benchmark results or a prescribed V8 implementation.
