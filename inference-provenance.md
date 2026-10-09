@@ -1289,3 +1289,38 @@ Regression checking found `String((65 := uint16) === (65 := uint8))` accepted wh
 
 
 Primary comparison references: [Rust PartialEq](https://doc.rust-lang.org/std/cmp/trait.PartialEq.html) defines the equality trait and permits a distinct right-hand type through its parameter; [TypeScript narrowing](https://www.typescriptlang.org/docs/handbook/2/narrowing.html) shows overlap-based comparison diagnostics; [C# equality operators](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/equality-operators) describes value/reference equality and operator overloading. These support the stated limited analogies, not this proposal's literal propagation or runtime type model.
+
+## Recursive unknown results and publication replacement
+
+An inference task has three distinct states: no contribution answer yet, a known provisional result (which can be `never`), and a computed unknown join. Unfinished binding or evaluation dependencies remain recorded separately. The initial `never` contribution breaks a recursive dependency while its first answer is unavailable. It must not replace an unknown answer already computed for that dependency.
+
+```javascript
+globalThis.seed = "s";
+function first(n: uint32) {
+  return n > 0 ? second(n) : globalThis.seed;
+}
+function second(n: uint32) { return first(n); }
+const value: string = second(0);
+value;
+```
+
+`first` has an unknown result. That answer must reach `second`, replacing an earlier provisional `never`. Keeping `never` in either the callable signature or the runtime return contract rejects the actual String even though the source has no incompatible return annotation. In engine262, both declaration orders exhibited this failure. An async version also rejected its promise with the obsolete `never` contract.
+
+Recomputation replaces the provisional answer, including when the new answer is unknown. Publication is then reconsidered from the current result and its provenance. An unknown join publishes no inferred result; losing the only declaration-derived anchor also removes publication. Clear the superseded signature result, inferred return boundary and anchoring provenance together. Explicit return annotations remain authoritative. A generator retains its independently specified protocol shape, and unknown protocol components remain unknown under the existing component rules.
+
+The distinction is visible to consumers. An explicitly annotated String binding in the example succeeds; `const value := second(0);` is a static declaration-inference error because no Static Type is established; a Number binding reaches its runtime boundary and rejects the String. Unknown information supplies no proof of an always-true or always-false narrowing test. A private provisional answer can change even when neither the old nor new answer is published, so publication alone is not the convergence state.
+
+### Direction assessment
+
+The criteria apply to the language behavior and a production implementation, rather than to the convenience of this interpreter.
+
+| Direction | Ergonomics | Prior art | Performance | Correctness and reference liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Retain the first nonempty inferred result | Autocomplete can advertise `never`; valid calls then fail unexpectedly. Moving declarations can change the result. | Neither Rust's explicit item signatures nor TypeScript's distinction between unknown and `never` supports such a claim. | Saves invalidation work but retains incorrect metadata; no legitimate shape or inline-cache benefit. | Confuses the initial seed with the completed answer and installs an unjustified runtime check. It does not solve liveness. | Reject: an approximation is not a contract. |
+| Publish `any` when a result becomes unknown | Removes the immediate false rejection but makes an inferred contract appear where the proposal requires none. | TypeScript has `any`, but its erased checking is not this proposal's runtime publication model. | A simple representation, with unnecessary published metadata and possible downstream specialization. | Collapses absence of publication with an explicit `any` annotation and can obscure participation. No liveness benefit. | Reject: preserve the existing distinction instead of changing the language to fit a cache. |
+| Require explicit return annotations on all recursive declarations | Gives clear signatures but forces annotations on finite cycles and wrappers already supported by the proposal; a wrong guess requires editing the API. | Rust function items and C# local functions use declared result contracts; C# lambdas and this proposal's wrapper inference are different cases. | Avoids recursive result inference, without requiring runtime object-shape changes. | Could define another coherent language, but contradicts the established inference commitment. Reference rules would still need independent enforcement. | Reject: unnecessary restriction on existing inference. |
+| Replace provisional answers and withdraw superseded publication | Autocomplete and consumers observe the final justified contract; an unavailable result remains visibly unknown. Annotation advice belongs at `:=` when needed. | Uses the unknown/bottom distinction illustrated by TypeScript while retaining this proposal's own annotation-seeded inference. Rust and C# signatures illustrate the need for an enforceable final contract, not a matching inference algorithm. | Checker metadata updates only. Worklists and canonical type comparison can avoid redundant recomputation; user-object shapes and runtime inline-cache keys need no change. | Separates unfinished work, unknown joins and `never`; removes unjustified enforcement and provenance together. Storage, captures and reference liveness are unchanged. | **Recommended and implemented for these witnesses.** No new diagnostic family is needed. |
+
+The specification records these state transitions in `sec-inference-fixpoint`, with publication and dependent obligations governed by `sec-anchored-contributions` and `sec-return-publication-dependencies`. The conformance corpus includes known-result and nontermination controls, unknown results through ordinary and generic calls, preserved outer object/array shapes, legacy checking modes, async settlement, and recovery in the same realm after a failed check. These tests establish the publication replacement behavior; they do not establish a complete termination decision procedure for recursive inference.
+
+Prior-art sources: [Rust function items](https://doc.rust-lang.org/reference/items/functions.html) specify unit when a return type is omitted, rather than this proposal's inferred item result. [TypeScript functions](https://www.typescriptlang.org/docs/handbook/2/functions.html) distinguish unknown values from `never` results. [C# local functions](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/local-functions) include a return type in their declaration and distinguish local functions from inferred lambda expressions. These are semantic comparisons, not claims about the compilers' internal scheduling.
