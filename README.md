@@ -4599,3 +4599,5 @@ https://esdiscuss.org/topic/optional-argument-types
 Completed inferred binding contracts must reach all dependent consumers, including deciding tests, while preserving the initializer's original source context and the consumer's current flow facts. See [completed binding contracts](inference-provenance.md#completed-binding-contracts-at-consuming-positions) and the specification's `sec-completed-binding-consumers`. Completion does not initialize a value or establish reference liveness.
 
 Published callable results retain declaration-specific captures across same-named intermediate generic binders; see [published captures across same-named binders](inference-provenance.md#published-captures-across-same-named-binders).
+
+An explicit generic argument whose description is pending still occupies its parameter slot and bypasses that slot's default; see [pending explicit arguments](inference-provenance.md#explicit-arguments-whose-descriptions-are-pending).

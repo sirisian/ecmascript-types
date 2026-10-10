@@ -580,6 +580,37 @@ This closes the computed alias witness and the tested direct-computed `any` cros
 
 Primary comparisons: [Rust generic scope and bounds](https://doc.rust-lang.org/reference/items/generics.html), [Rust closure expressions](https://doc.rust-lang.org/reference/expressions/closure-expr.html), and [rustc query evaluation](https://rustc-dev-guide.rust-lang.org/queries/query-evaluation-model-in-detail.html). Performance statements are design assessments, not engine benchmarks.
 
+## Explicit arguments whose descriptions are pending
+
+An explicit argument occupies its assigned generic parameter slot even when checking has not yet obtained the argument's type description. Missing information is not omission. A default belongs only to a slot left unbound by the applicable argument-binding and inference rules; it is not a fallback for a supplied expression whose description or evaluation is pending or has failed.
+
+```js
+function identity(t: type): type { return t; }
+function fail(): type { throw new Error("default ran"); }
+function outer<T: type>(x: T) {
+  type R<U: type = fail()> = identity(U);
+  return function f<V: type extends R.<T> >(y: V): V { return y; };
+}
+const fn = outer.<string>("x");
+fn.<string>("ok");
+```
+
+This evaluates to `"ok"`. `R.<T>` supplies U; an early description pass that cannot resolve T must keep that supplied argument pending. It must not evaluate `fail()`. Named arguments and arguments obtained from a resolved spread obey the same rule. An unresolved spread can leave the assignment itself pending: it does not establish that the remaining runs are empty. In contrast, a resolved empty spread may leave a slot omitted and select its default normally.
+
+Required properties are: retain argument-to-parameter assignment separately from the availability of a completed description; preserve the argument's source and the declaration's captured environment; retain later dependent defaults until their inputs exist; still require defaults for actually omitted parameters; preserve constraint checks, diagnostics, failure/budget precedence and cleanup; introduce no reference-liveness facts.
+
+| Direction | Ergonomics / autocomplete | Prior art, including Rust | Production performance | Correctness / liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Treat an unavailable explicit description as omission | Supplying the advertised argument can still run an unrelated default; completion and diagnostics suggest the wrong remedy. | Rust distinguishes explicit type/const arguments from declarations and const evaluation; its restrictions do not justify substituting an unused default. | Cheap bookkeeping produces incorrect demand and extra evaluation; no object-shape or IC benefit. | Violates supplied-argument priority, and may replace the intended failure or exhaust a bypassed computation. | Reject. |
+| Bind the pending argument to any or its constraint | Tooling invents a completed result; a wrong guess may silently pass. | Rust does not identify an unresolved generic input with this proposal's gradual any. | Incorrect completed cache entries are cheap but unusable; no layout advantage. | Erases the pending obligation and can hide constraint violations; proves no liveness. | Reject. |
+| Stop all default work whenever any argument is pending | Unrelated omitted defaults and their errors can be delayed even when their required inputs are available. | Rust generic/const checking is not a blanket license to skip independent obligations. | Avoids some work but loses useful incremental completion; no shape/IC gain. | Too broad: supplied-slot uncertainty and default-input availability are separate questions. | Reject as the general rule. |
+| Stop traversing generic alias parameter lists | Masks this witness but loses enclosing captures reached through defaults and constraints. | Binder-aware Rust scoping distinguishes bound and free parameters rather than discarding dependencies. | Incomplete summaries give invalid reuse; no shape benefit. | Reopens captured-alias failures. | Reject. |
+| Preserve pending supplied slots and complete only defaults selected by the actual application | Explicit arguments reliably bypass defaults; autocomplete can keep a result pending rather than inventing one. Wrong arguments are checked against their real constraints. | Rust's explicit generic inputs and const-evaluation context are useful limited analogies. This proposal's binding operation and ECMAScript declaration environments determine the actual rule. | A compiler-owned occupancy/pending state accompanies the existing binding query; memoize only with determining inputs. No added user fields, shapes or member-IC cases are required. | Preserves assignment, default demand, retained dependencies, constraint obligations and failure restoration; grants no initialization or reference permission. | **Choose independently of implementation effort.** |
+
+The proof of concept carries pending supplied parameter slots from explicit argument assignment into default completion, including the later call-checking pass. If spread distribution is unavailable, completion cannot infer omitted slots from an empty result map. This fixes the shown false default demand; it is not a complete proof of every dependent constraint's checking phase or of every deferred application route.
+
+Prior-art sources: [Rust generic parameters](https://doc.rust-lang.org/reference/items/generics.html) and [Rust constant evaluation](https://doc.rust-lang.org/reference/const_eval.html). Rust's permitted declaration forms, const expressions and nested-item scopes differ from reified JavaScript type builders; those restrictions are not adopted wholesale. Production-performance claims are design assessments, not benchmarks.
+
 ## Published captures across same-named binders
 
 A published result retains each captured generic declaration and its creating activation. Ordinary lexical lookup may hide an outer name without discarding a retained capture of that outer declaration. Restoring a closure's publication and applying its own generic arguments are separate substitutions.
