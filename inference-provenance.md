@@ -548,6 +548,38 @@ This increment does not complete all getter/object-method receiver dependencies,
 Prior-art sources: [Rust Reference: associated items and method receivers](https://doc.rust-lang.org/reference/items/associated-items.html), [TypeScript Handbook: classes and `this`](https://www.typescriptlang.org/docs/handbook/2/classes.html), and [C#: `this`](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/this). Rust and C# ordinarily specify method results; TypeScript infers results but erases types, unlike this proposal's runtime boundaries. C# static methods have no `this`, unlike JavaScript static methods. Production performance statements are design assessments, not benchmarks or a prescribed V8 implementation.
 
 
+## Captured bounds at callable admission
+
+A computed bound retained by a published callable result remains an obligation. Once its captured inputs are available, a boundary requiring that callable contract compares the effective bound, not the absence of its earlier description. This applies independently to source and target, including a value arriving through `any`.
+
+```js
+function identity(t: type): type { return t; }
+function outer<T: type>(x: T) {
+  type R<U: type = T> = identity(U);
+  return function f<V: type extends R.<> >(y: V): V { return y; };
+}
+const fn = outer.<string>("x");
+fn.<string>("ok");
+```
+
+This program succeeds. Both the returned function and its published contract constrain `V` to String. A caller's own `T` or `R` does not change that fact. Independent String and uint8 activations keep independent bounds. At an `any` crossing, the String-constrained function cannot satisfy a generic contract admitting arbitrary types or uint8; a source admitting String or Number can satisfy a target admitting only String, according to the existing contravariant bound rule. The callable's own binders remain opaque and are paired by the ordinary generic signature relation.
+
+The requirements are: retain lexical binder and captured-input identity; complete an available bound when the comparison demands it; keep incomplete constraints distinct from absent constraints; preserve declaration-time symbolic descriptions and other activations; leave unused defaults and own-parameter-dependent computations deferred; retain evaluation limits, abrupt completion and restoration; and derive no reference-liveness fact from completing a type.
+
+| Direction | Ergonomics / autocomplete | Prior art, including Rust | Production performance | Correctness / liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Remove the published return check or erase missing bounds | The displayed generic contract accepts calls the actual closure forbids; wrong guesses fail later or escape checking. | Rust callable bounds do not justify erasing a published promise. JavaScript's untyped calls are a different contract. | Saves work by discarding enforcement; no legitimate shape or inline-cache benefit. | Loses the return boundary and bound admission, including through `any`; supplies no liveness evidence. | Reject. |
+| Compare names or source syntax alone | Equivalent captures can be refused, and different activations with identical syntax can be accepted. | Rust separates generic declarations and instantiations; ECMAScript closures retain environments. Neither identifies inputs by spelling alone. | Cheap incomplete comparison keys produce incorrect reuse; no IC gain. | Ignores captured bindings and potentially different declaration environments. | Reject. |
+| Evaluate all bounds and defaults at declaration or reflection | Tooling can execute unused computations or fail on inputs that a future application must supply. | Rust declaration checking is not runtime execution of arbitrary reified type builders; its nested items also differ from these capturing functions. | Performs unused work, with unnecessary invalidation and potential effects. Object-shape changes do not solve availability. | Violates demand, default selection and independent own binders; grants no initialization or liveness. | Reject. |
+| Store the last concrete bound on the shared declaration | Results and suggestions depend on which activation was inspected first. | Rust query results are associated with determining inputs, not one mutable answer per spelling. | A small cache with an incomplete key is incorrect; no useful shape benefit. | One activation overwrites another and can corrupt the unspecialized declaration. | Reject. |
+| Complete required available bounds under each signature's captured context, then apply the ordinary relation | The runtime boundary agrees with the advertised contract; invalid wider promises are refused there. | Rust's instantiated generic bounds and query inputs are useful scope/completion analogies. Rust closures are not these reified generic function values; JavaScript environment and this proposal's admission rules govern. | Compiler-owned descriptors can share immutable environments and memoize by complete determining inputs. No added user-object properties, shape transitions or member IC cases are required. | Preserves binder identity, constraint variance, demand, budget/restoration and independent reference liveness. Missing completion remains an obligation, not an unconstrained parameter. | **Choose independently of implementation effort.** |
+
+The proof of concept now prepares available captured bounds at runtime function membership using the same declaration-aware evaluator used for required generic sources. A live function value uses its actual lexical environment and captured frame, preserving helper closures across intermediate same-named binders. A retained target description uses declaration-aware preparation. It compares temporary signature descriptions without overwriting their symbolic declarations. Runtime signature formation reads its locally resolved bounds and substitutes captures on both function values and written function types. Parameter defaults are not applied by this preparation, and unresolved own-parameter-dependent sources stay deferred.
+
+This closes the computed alias witness and the tested direct-computed `any` crossings. It does not close arbitrary symbolic constraint implication, nested same-name producer capture restoration, every first-class type environment, or the broader checking-phase and cache-accounting audits. Those limits are implementation work, not exceptions to the requirements above.
+
+Primary comparisons: [Rust generic scope and bounds](https://doc.rust-lang.org/reference/items/generics.html), [Rust closure expressions](https://doc.rust-lang.org/reference/expressions/closure-expr.html), and [rustc query evaluation](https://rustc-dev-guide.rust-lang.org/queries/query-evaluation-model-in-detail.html). Performance statements are design assessments, not engine benchmarks.
+
 ## Published callable results at conformance boundaries
 
 A published result is a contract wherever a callable is used. It is not enough to use it for the Static Type of a direct call and then ignore it while verifying an interface, callback or returned function. `EffectiveSignatureReturn` in `sec-effectivesignaturereturn` chooses the explicit result first and the completed published result otherwise, for both source and target. A completed unknown join publishes nothing; an explicit `any` annotation is retained and judged as written. An unfinished computation is neither outcome.
