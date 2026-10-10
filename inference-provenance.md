@@ -4,6 +4,42 @@ The result type of a contribution and its declaration provenance answer differen
 
 This specifies the binding-read cases of `sec-anchored-contributions` and preserves `sec-published-return-types`: publication affects result checking and typed consumers, while signature identity and overload ranking remain declared-only. It neither infers types for ordinary unannotated `let` bindings nor changes which units are checked.
 
+## Callable literal contributions
+
+A returned function literal carries the provenance of its callable contract. A non-`any` written or contextually adopted parameter, receiver or result position supplies an anchor. A completed inferred result also supplies one when the literal itself participates. Merely knowing the shape of a plain unannotated literal does not publish its enclosing producer.
+
+```js
+function outer<T: type>() {
+  type R<U: type = T> = U;
+  return function f<V: type = R.<> >(x: V): V { return x; };
+}
+const f = outer.<string>();
+function use<T: type>() {
+  const g = f.<>;
+  return g(1); // type error before execution; g("ok") is valid
+}
+```
+
+The literal's annotated callable positions anchor `outer` without adding an otherwise unused typed parameter to that producer. Its published result retains the outer String capture; applying the returned function completes its own default. The caller's `T` supplies no substitute. Publishing this signature does not evaluate a default or an ordinary body.
+
+The distinction is declaration provenance, not the presence of any annotation anywhere. `() => "ok"` has only a private literal result, whereas `(x: any) => "ok"` participates by its annotated parameter and has a published String result. `(): any => "ok"` has an explicit unknown result and supplies no result anchor. A generic parameter list alone supplies none. In `() => flag ? 1 : 2`, a Boolean annotation on `flag` controls selection but does not type either value-producing arm.
+
+For async and generator literals, keep result provenance separate from the carrier type. A Promise or iterator shape alone is no annotation seed. A generator's yield and completion contributions are independent: an unknown yield does not erase a captured String completion. Resolve both under the literal's declaration environment, and retain unknown components as unknown. Initialization, capture mode and reference-liveness judgments remain separate.
+
+Required properties are annotation-seeded publication, preservation of explicit and contextual callable contracts, continued privacy of unanchored answers, declaration and activation identity, component-wise resumable results, and no execution or liveness permission from inference. Choose the semantics independently of implementation work.
+
+| Direction | Ergonomics, autocomplete and wrong guesses | Prior art, including Rust | Production performance | Correctness and reference liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Keep every callable literal unanchored | An annotated callback loses its signature when returned by an unannotated wrapper; wrong calls can escape early checking. | Rust closures can have explicit and contextual types; treating literal syntax as absence of a contract is not the useful analogy. | Cheap classification discards useful information; no shape or IC advantage. | Erases declaration-derived contracts already required by the proposal. | Reject. |
+| Publish every known literal shape or every generic producer | Completion looks richer, but unrelated generic syntax or a plain JavaScript literal creates enforced boundaries. | Rust's fully static model does not justify broadening this proposal's publication policy. | More inference and enforcement across legacy code; no required layout benefit. | Private answers and generic syntax alone are not annotation seeds. | Reject. |
+| Count written literal annotations only | Fixes the direct example but loses contextual signatures and captured declaration-derived results. | Rust permits closure parameter types to come from context; syntax-only classification misses that distinction. | Small scan, repeated lost queries; no user-object advantage. | Incomplete declaration provenance, especially across wrappers and function forms. | Reject. |
+| Remember one anchor bit for each source node or canonical function type | A result can depend on a previous query or an unrelated equivalent signature; suggestions become context-sensitive in the wrong way. | Compiler queries distinguish determining inputs; source syntax alone is not the complete key. | Cheap but invalid result sharing; no shape benefit. | Can turn a private answer into a published result or lose a valid anchor. | Reject. |
+| Carry declaration provenance with the particular callable-contract computation and its dependencies | Annotations remain useful through returned closures; plain literals stay compatible and errors identify the actual contract. | Rust's typed/contextual closures and query inputs are useful comparisons. Its anonymous closure identity, nested-item restrictions and static inference are not this proposal's reified signatures or participation policy. | Reuse compiler provenance and dependency records; memoize only with determining context. No extra properties, shape transitions or member IC cases on JavaScript objects. | Preserves participation, captured binders, pending/completed distinctions and independent initialization/liveness rules. | **Choose independently of effort.** |
+
+The prototype associates provenance with the fresh callable type description produced by a literal query. It reuses existing result inference and consumer scheduling. It also computes generator completion contributions when their yields are unknown. This metadata is not part of canonical type identity, and the implementation structure is not prescribed by the specification.
+
+Primary comparisons: [Rust closure expressions](https://doc.rust-lang.org/reference/expressions/closure-expr.html), [Rust generic scope](https://doc.rust-lang.org/reference/items/generics.html), and [Rust compiler queries](https://rustc-dev-guide.rust-lang.org/queries/query-evaluation-model-in-detail.html). Closures capture in Rust, while nested function items do not inherit outer generic parameters; the ECMAScript environment model governs this proposal's captures.
+
 ## Required outcomes
 
 - `let s: string = "s"; function g(){ return s; } const n: number = g();` has an early return-contract error, including in a nested scope or uncalled body.
