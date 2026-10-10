@@ -580,6 +580,39 @@ This closes the computed alias witness and the tested direct-computed `any` cros
 
 Primary comparisons: [Rust generic scope and bounds](https://doc.rust-lang.org/reference/items/generics.html), [Rust closure expressions](https://doc.rust-lang.org/reference/expressions/closure-expr.html), and [rustc query evaluation](https://rustc-dev-guide.rust-lang.org/queries/query-evaluation-model-in-detail.html). Performance statements are design assessments, not engine benchmarks.
 
+## Published captures across same-named binders
+
+A published result retains each captured generic declaration and its creating activation. Ordinary lexical lookup may hide an outer name without discarding a retained capture of that outer declaration. Restoring a closure's publication and applying its own generic arguments are separate substitutions.
+
+```js
+function outer<T: type>(x: T) {
+  function bound(): type { return T; }
+  return function middle<T: type>(x: T) {
+    type R<U: type = bound()> = U;
+    return function f<V: type extends R.<> >(y: V): V { return y; };
+  };
+}
+const mid = outer.<string>("x");
+const fn = mid.<uint8>(1);
+fn.<string>("ok");
+```
+
+This evaluates to `"ok"`. The bound comes from `outer`'s String activation, while `middle`'s parameter has uint8. Both the source function and the published return target retain that distinction. Renaming either binder, inserting another generic producer, inspecting the escaped producer, or calling it under an unrelated generic frame must not select another capture. A bound written directly as `T` inside `middle` instead denotes its own parameter. Autocomplete must distinguish these declarations even if both are displayed as `T`.
+
+A valid direction must retain declaration and activation identity; preserve own-binder opacity in reflection and before application; agree across return checks, concise-body contexts and callable admission; reject incompatible promises through `any`; preserve independent activations and failure restoration; avoid evaluating bypassed defaults; and establish no reference-liveness fact.
+
+| Direction | Ergonomics / autocomplete | Prior art, including Rust | Production performance | Correctness / liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Remove the published return check or widen its captured bounds | A displayed promise accepts calls the closure forbids; a wrong guess escapes the intended boundary. | Rust generic contracts offer no precedent for dropping a required bound. Untyped JavaScript calls have a different contract. | Saves work by removing enforcement; no legitimate object-shape or IC benefit. | Loses required return admission and `any` protection; grants no liveness. | Reject. |
+| Substitute every capture from the innermost name map | An unrelated rename changes the contract and diagnostics; tooling cannot explain which `T` it means. | Rust distinguishes generic declarations, although its nested items do not capture enclosing generic parameters as these functions do. | A cheap incomplete environment cannot support correct reuse; no shape advantage. | Conflates different declarations and activations. | Reject. |
+| Rebind helpers in the current target or caller environment | A helper changes meaning when moved through another producer. | ECMAScript closures retain their creation environment; Rust lexical binding is not caller rebinding. | Extra reconstruction and invalid reuse; no member-IC benefit. | Alters the live source's contract to conceal a target mismatch. | Reject. |
+| Ban shadowing or nested capture | Makes the valid program require needless renaming or explicit plumbing; a wrong guess becomes an arbitrary restriction. | Rust's nested-item restriction is a real alternative, but these are JavaScript closures with reified generic contracts, not Rust nested items. | Could simplify descriptors but does not remove capture needs for distinct names; no shape gain. | Conflicts with the proposal's existing lexical-capture commitment. | Reject. |
+| Restore captured bindings by declaration and creating activation, then apply only the producer's own arguments | Renaming and inspection leave the contract intact; incorrect promises fail at the existing boundary. | Rust declaration identity is a useful limited analogy. ECMAScript closure environments supply activation identity; this proposal supplies reified type admission. | Compiler-owned immutable context descriptors can share enclosing data and cache by determining inputs. No user-visible fields, object-shape transitions or member-IC cases are required. | Preserves captured/own separation, independent activations, default demand, return enforcement and restoration; conveys no reference permission. | **Choose independently of implementation effort.** |
+
+The engine proof of concept now retains a declaration-indexed view alongside name lookup, including when shadowing removes every visible name from a copied frame. Return enforcement, concise return context and reflection use the same publication instantiation. Captured constraint/default descriptions use the same declaration-indexed inputs. This is an implementation strategy, not a required map representation or a complete audit of every context-copying route.
+
+Prior-art sources: [Rust generic scopes](https://doc.rust-lang.org/reference/items/generics.html#generic-parameters), [Rust closure expressions](https://doc.rust-lang.org/reference/expressions/closure-expr.html), and [ECMAScript OrdinaryFunctionCreate](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinaryfunctioncreate). Rust's capture and lifetime rules are not adopted wholesale. Production performance statements are design assessments, not benchmarks.
+
 ## Published callable results at conformance boundaries
 
 A published result is a contract wherever a callable is used. It is not enough to use it for the Static Type of a direct call and then ignore it while verifying an interface, callback or returned function. `EffectiveSignatureReturn` in `sec-effectivesignaturereturn` chooses the explicit result first and the completed published result otherwise, for both source and target. A completed unknown join publishes nothing; an explicit `any` annotation is retained and judged as written. An unfinished computation is neither outcome.
