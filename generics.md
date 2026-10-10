@@ -281,6 +281,8 @@ Type aliases and interfaces enforce the same application-site domains and bounds
 
 A recursive generic default is evaluated only when an application needs that default. Declaring `type R<T: type = R.<> > = T` does not apply `R`, and `R.<string>` bypasses the default. Requiring `R.<>` cannot finish binding its argument and exhausts the existing type-evaluation budget; it does not produce `any`. By contrast, `type R<T: type = R.<string>> = T` has the finite default `string`. A checker may stop recursively describing a default, but must retain the requiring application's obligation and check its consumers once the result is known. Publishing a generic class likewise does not apply its defaults: a later construction follows the ordinary inference ladder. See [recursive default evaluation](generic-default-evaluation.md) for the decision and rejected alternatives.
 
+A published returned signature also retains captured dependencies through generic aliases, including their defaults and computed bodies. The alias's own parameters remain distinct from outer captures and same-named caller parameters. Complete a required default under those bindings and recheck its consumers, including unused function bodies. [Captures through generic aliases](generic-default-evaluation.md#captures-through-generic-aliases) gives a paired consumer example and the design decision.
+
 #### Referring to a value parameter's type
 
 A value generic's type is its declared constraint, so ```V: int32``` can be named ```int32``` directly. Where the type is inferred, or you would rather not repeat it, ```Reflect.typeOf(V)``` is a compile-time type expression that yields it, per the runtime type objects and compile-time type expression sections:

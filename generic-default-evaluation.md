@@ -28,3 +28,33 @@ Required properties are demand-driven default evaluation, preservation of finite
 The prototype uses an active marker for speculative description and the existing application-context records and metered evaluator for required defaults. This does not establish a universal stack-capacity bound for every static traversal or close the broader portable-budget audit. A production implementation can use an explicit work queue to bound host-stack use without changing source outcomes.
 
 Primary comparisons: [Rust compiler query evaluation](https://rustc-dev-guide.rust-lang.org/queries/query-evaluation-model-in-detail.html), [Rust generic parameters](https://doc.rust-lang.org/reference/items/generics.html), and [ECMAScript Environment Records](https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-environment-records).
+
+## Captures through generic aliases
+
+A returned signature retains dependencies reached through a generic alias's body, constraints and defaults. The alias's own parameters remain bound by its application; they are not captures of the surrounding function. Follow dependencies by declaration identity through intermediate aliases and helpers. Retaining a source dependency does not execute it or force an unused default.
+
+```js
+function identity(t: type): type { return t; }
+function outer<T: type>(x: T) {
+  type R<U: type = T> = identity(U);
+  return function inner<V: type = R.<> >(y: V): V { return y; };
+}
+const fn = outer.<string>("x");
+function use<T: type>() {
+  const g = fn.<>;
+  return g(1); // type error before evaluation, including when use is uncalled
+}
+```
+
+The typed parameter makes `outer` participate in result inference. The published signature carries the captured String argument into `R`, completes the required default, and supplies the consumer's String parameter. A caller's `T`, an alias's own `U`, and a different activation of `outer` cannot replace that capture. Replacing `1` with `"ok"` admits the consumer. An explicit or inferred argument for `V` still bypasses its default. Completing a type supplies no initialization or reference-liveness evidence.
+
+The required properties are complete lexical dependencies, separation of local binders and captures, activation-sensitive substitution, application-time demand, completed consumer checking and restoration after failure. None is traded away to reduce implementation work.
+
+| Direction | Ergonomics, autocomplete and wrong guesses | Prior art, including Rust | Production performance | Correctness and reference liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Stop dependency collection at generic aliases | Extraction into an alias loses the closed signature and lets wrong calls pass. | Rust generic scope is declaration-based; its nested items cannot capture enclosing generics, so that restriction is not a model for these JavaScript closures. | Less checking by discarding an input; no shape or inline-cache benefit. | Misses required defaults and their consumers; supplies no valid liveness proof. | Reject. |
+| Read alias bodies alone and resolve free names in the consumer | Alias-local parameters can become false captures; autocomplete changes with caller spelling. | Rust's scoped parameters and ECMAScript lexical environments distinguish these binders. | Small name maps permit incorrect reuse; no layout advantage. | Loses declaration and activation identity. | Reject. |
+| Execute alias defaults while collecting captures | Makes even explicitly bypassed or unused defaults fail. | Rust's compiler query model separates inputs from computed results; its const restrictions differ from this proposal. | Extra evaluation and specializations, potentially user calls; unnecessary cache pressure. | Violates demand and initialization ordering. | Reject. |
+| Retain declaration-identified transitive captures, then complete required defaults and reconsider their consumers | Alias extraction preserves completion and early diagnostics; distinct activations keep distinct contracts. | Rust query inputs and scoped substitution are useful analogies. ECMAScript environments supply the actual capture semantics. | Reuse compiler binding symbols and dependency summaries; memoize by determining inputs. No added user-object properties, shape transitions or member IC cases. | Preserves local binders, captures, demand, constraints and independent reference liveness. | **Choose independently of effort.** |
+
+The prototype walks whole alias declarations during capture collection, using its existing free-reference analysis to exclude each alias's own parameters. The existing default evaluator and consumer recheck then use those captures. This repair does not change which function results participate in inference or complete the broader callable-compatibility audit.
