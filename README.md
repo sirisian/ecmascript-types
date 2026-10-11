@@ -4607,3 +4607,5 @@ Alias application bounds survive transparent expansion, including when the resul
 An open supplied argument does not suppress another parameter's omitted default; see [application-specific function default obligations](inference-provenance.md#omitted-function-defaults-retain-their-own-obligations).
 
 Completing a dependent default also rechecks the call's dependent value arguments, preserving contextual literal rules; see [completed defaults and their consumers](inference-provenance.md#completed-defaults-recheck-their-value-consumers).
+
+Storing a pending specialization preserves its consumer dependencies without publishing an incomplete callable signature; see [stored pending specializations](inference-provenance.md#stored-pending-specializations-preserve-consumer-dependencies).

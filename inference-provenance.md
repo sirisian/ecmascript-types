@@ -666,9 +666,41 @@ Required properties: retain the selected application and argument-to-formal mapp
 
 The proof of concept retains pending by-value argument checks with selected generic applications. After defaults close, it substitutes the caller's source inputs separately from the callee's parameter bindings, then uses the existing admission operation. Plain data-object and array creations retain syntax and typed leaves; temporary expression views permit contextual checking without overwriting the original source or looking their leaves up in the later consumer's scope. The source summaries can be used by importing Module checks. No completed-answer stamp is placed on the shared call, and these checks do not establish conversion elision or reference permission.
 
-Stored function values whose pending specialization hides their callable contract still need consumer dependency propagation. Fresh methods, computed property names, written member annotations and shorthand properties require richer declaration/context descriptions than the implemented data-literal subset. They must retain their obligations; the proof of concept does not yet close those paths. General overload reselection, reference argument contracts, returned-result propagation, cross-Script producer recovery, convergence and total cost accounting remain separate audits.
+Stored function values preserve their pending consumer dependencies as described below. Fresh methods, computed property names, written member annotations and shorthand properties require richer declaration/context descriptions than the implemented data-literal subset. They must retain their obligations; the proof of concept does not yet close those paths. General overload reselection, reference argument contracts, returned-result propagation, cross-Script producer recovery, convergence and total cost accounting remain separate audits.
 
 Primary comparisons: [rustc obligation registration and fulfillment](https://rustc-dev-guide.rust-lang.org/traits/resolution.html), [Rust generic scope](https://doc.rust-lang.org/reference/items/generics.html), and [Rust coercion sites](https://doc.rust-lang.org/reference/type-coercions.html). These are limited analogies, not adoption of Rust's coercion or nested-item rules. Performance statements are design assessments, not benchmarks.
+
+## Stored pending specializations preserve consumer dependencies
+
+A pending specialization is not a completed callable contract, but storing it does not discard the known relationship between its producer and a later call. Retain that relationship under the same binding identity and stability rules as other source facts. Complete the original application's arguments and defaults before checking consumers; a call through the stored value does not infer those type arguments again.
+
+```js
+function identity(t: type): type { return t; }
+function outer<T: type>() {
+  function inner<U: type, W: type = identity(U)>(y: W) { return "ok"; }
+  const fn = inner.<T>;
+  return fn("bad");
+}
+outer.<uint8>(); // Known wrong argument, before the Script body runs.
+```
+
+The String specialization is valid. A `const` alias of `fn`, or a binding using `:=`, does not erase the consumer dependency. A replacement value, a shadowing parameter or an explicit `any` contract cannot inherit an earlier producer's proof. Passing `inner.<T>` to a factory does not prove that the factory returns that same callable. The producer's enclosing type parameters remain identified by their declarations, even when a nested consumer declares its own unrelated `T`.
+
+Required properties: retain the actual value origin and original argument/default assignment; respect binding scope, conversion and mutation boundaries; keep incomplete callable publication separate from private checking dependencies; distinguish producer and consumer binders; preserve contextual argument admission, phase, budget and failure cleanup; do not initialize a stored binding or establish reference liveness by completing its type description.
+
+| Direction | Ergonomics / autocomplete | Prior art, including Rust | Production performance | Correctness / liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Leave all stored specializations to runtime | Introducing a local variable loses useful completion and lets known wrong arguments run effects before failing. | Rust obligations are not discarded merely because a value is bound locally; its static generics differ from reified JavaScript applications. | Avoids checker work but repeats runtime checks; no shape or IC benefit. | Misses the required boundary for closed consumers, including unused callers. | Reject as a blanket rule. |
+| Publish the original generic signature while a default is pending | Completion suggests parameters are still inferable, and a later call can appear to choose a different W. | Rust inference variables and generic parameters have distinct roles; a pending JavaScript specialization is not an unapplied generic item. | Cheap reuse of the wrong signature; no layout benefit. | Violates completed specialization publication and argument/default ordering. | Reject. |
+| Store the last concrete signature on the shared source | Completion and diagnostics depend on which application was checked first. | Rust query inputs distinguish contexts; ECMAScript closures additionally distinguish creating activations. | Invalid cache reuse; user-object metadata could add unnecessary shape transitions. | Conflates applications, captures and invalidated bindings. | Reject. |
+| Follow every initializer dependency, or re-read it in the consumer's scope | A factory argument is mistaken for its result, and shadows change remote contracts. | Rust lexical resolution and ECMAScript environments preserve source identity; neither analogy licenses arbitrary dependency-to-value inference. | Broad replay and lookup work, potentially user calls and IC invalidation if execution is used. | Does not prove the actual callable origin; executing bodies violates preparation. | Reject both shortcuts. |
+| Retain private application/consumer dependencies through established value origins | Stable aliases preserve useful contracts; incomplete and genuinely dynamic values retain their appropriate checking boundary. | Rust's obligation worklist and parameter environments are architectural comparisons only; proposal defaults, phases and JavaScript captures determine the semantics. | Compiler-owned descriptors and binding dependencies, with affected-consumer scheduling. No extra user fields, shape transitions or member-IC cases are required. | Preserves original binding assignment, identity, contextual admission, phase, restoration and independent liveness. | **Choose independently of implementation effort.** |
+
+The proof of concept retains the current pending application description separately from the callable Static Type. It follows established unannotated or inferred binding origins, including aliases, while excluding replaced mutable origins, explicit converted/`any` views and unproved factory results. Alias traversal is iterative and detects cycles. For a single established pending candidate, by-value argument judgments retain their producing source types and creation syntax. The original application owns default evaluation; attaching a consumer does not create a second type-argument inference operation. Declaration-indexed enclosing inputs close the producer's context separately from the consumer's context. Importing Module checks retain these source summaries.
+
+This is not complete callable propagation. Conditional/factory result provenance, multiple pending overload candidates, missing/surplus argument judgments, returned-result propagation, reference arguments, copied mutable origins and broader context-rich literals remain audits. A separate runtime defect still loses parameter names for a valid named call through a specialization wrapper; early rejection of invalid named arguments does not close that gate. Cross-Script recovery, full cost accounting and inference convergence also remain open.
+
+Primary comparisons: [rustc obligation fulfillment and parameter environments](https://rustc-dev-guide.rust-lang.org/traits/resolution.html) and [Rust generic scopes](https://doc.rust-lang.org/reference/items/generics.html). Rust nested items do not capture outer generic parameters as JavaScript closures do here. Performance claims are architectural assessments, not measurements.
 
 ## Explicit arguments whose descriptions are pending
 
