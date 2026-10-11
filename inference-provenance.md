@@ -610,6 +610,35 @@ Coverage of this repair does not close the general phase/precedence audit, all d
 
 Primary sources: [rustc type-alias-bounds lint](https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#type-alias-bounds), [Rust type aliases](https://doc.rust-lang.org/reference/items/type-aliases.html), [Rust generic scope](https://doc.rust-lang.org/reference/items/generics.html), and [rustc obligation solving](https://rustc-dev-guide.rust-lang.org/traits/resolution.html). Rust nested items do not capture an enclosing function's generic parameters as these JavaScript closures do. Performance claims here are design assessments, not engine benchmarks.
 
+## Omitted function defaults retain their own obligations
+
+An application can have a supplied argument whose description is still open and a different, genuinely omitted parameter. These are separate states. After the applicable inference rungs, retain each selected default with the application's assigned arguments and declaration context. Determine availability from that default's dependencies, rather than requiring every supplied argument to be closed. Revisit a dependent default when an enclosing specialization supplies its inputs.
+
+```js
+function fail(): type { throw new Error("default ran"); }
+function outer<T: type>(x: T): T {
+  function inner<U: type = fail(), W: type = fail()>(y: U): U { return y; }
+  return inner.<T>(x);
+}
+outer.<string>("ok");
+```
+
+U is supplied and bypasses its default. W is omitted and its default fails before the containing Script body runs. Replacing W's default with `failInput(U)` retains a dependent obligation that closes under `outer.<string>`. An unapplied outer parameter stays pending when it is actually needed. An unused declaration with no application selects no default; an application in an unused body still has the ordinary closed checking obligations. Preparing those obligations executes neither enclosing nor applied ordinary bodies.
+
+Required properties: distinguish supplied, inferred, omitted and pending slots; preserve inference-before-default ordering; retain application and declaration identity, captures and preceding bindings; check available required computations at their prescribed boundary; preserve bypass, failures, resource limits and restoration; and derive no initialization or reference-liveness fact from a completed type.
+
+| Direction | Ergonomics / autocomplete | Prior art, including Rust | Production performance | Correctness / liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Skip all remaining defaults while any supplied input is open | Completion omits a declared default obligation; adding an unrelated parameter changes when errors appear. | Rust distinguishes explicit inputs from inferred inputs; that does not justify dropping another obligation. | Saves required work and yields incomplete answers; no shape or IC benefit. | Loses W's demand even when its own inputs are available; establishes no liveness. | Reject. |
+| Accept every failure at eventual invocation | Invalid closed applications appear usable until effects have run; unused callers hide errors. | Rust static obligations are a limited phase analogy, not a rule for JavaScript runtime builders. | Moves available checks into runtime; no inherent IC advantage. | Violates the existing checking boundary for closed required sources. | Reject as a general rule. |
+| Evaluate every declaration default or execute enclosing bodies to discover inputs | Autocomplete can run unused computations or ordinary effects; explicitly bypassing a default stops being reliable. | Rust item checking and const evaluation are not execution of arbitrary JavaScript enclosing bodies. Nested Rust items also cannot capture the enclosing generic parameters in this example. | Unnecessary calls and potential user-object mutations and IC invalidations. | Violates demand, inference order, availability and initialization; supplies no valid liveness proof. | Reject both eager policies. |
+| Keep only the default syntax or one completed answer per declaration | Same-spelled binders and distinct applications can receive another application's result. | Rust's obligation solving retains its inference context; ECMAScript lexical environments additionally govern captures. | Incomplete cache keys are cheap but incorrect; no layout gain. | Loses argument assignment and determining inputs. | Reject. |
+| Retain application-specific default obligations and complete their determining inputs | Completion and checking agree about actual omitted defaults; supplied arguments keep their priority and dependent errors appear at the required boundary. | Rust obligation registration and fulfillment are an architectural analogy. Its static generic/const system is not a precedent for these reified function defaults; this proposal determines demand and phases. | Compiler-owned dependency summaries and input-sensitive results; a production engine can index summaries instead of repeatedly walking syntax. No new user-object fields, shape transitions or member-IC cases. | Preserves demand, inference order, declaration/capture identity, pending inputs, diagnostics, budgets, restoration and independent liveness. | **Choose independently of implementation effort.** |
+
+The proof of concept shares its retained application descriptions between alias applications, selected ordinary generic calls and stored function specializations. Call descriptions are retained after argument inference; each enclosing specialization closes a temporary binding/parameter description without overwriting the producer. Actual default evaluation uses the existing lexical-dependency availability check and metered source evaluator. Producer descriptions remain associated with their source across Module checking. Retention itself neither invokes the applied function nor records an unfinished computation as completed.
+
+This repair does not establish arbitrary cross-Script producer recovery, complete inference convergence, full resource accounting, or every downstream consumer's admission. Those remain separate gates. Primary comparisons: [Rust generic scopes and const parameters](https://doc.rust-lang.org/reference/items/generics.html) and [rustc obligation registration and fulfillment](https://rustc-dev-guide.rust-lang.org/traits/resolution.html). Performance assessments are architectural, not engine benchmarks.
+
 ## Explicit arguments whose descriptions are pending
 
 An explicit argument occupies its assigned generic parameter slot even when checking has not yet obtained the argument's type description. Missing information is not omission. A default belongs only to a slot left unbound by the applicable argument-binding and inference rules; it is not a fallback for a supplied expression whose description or evaluation is pending or has failed.
