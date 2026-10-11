@@ -2378,6 +2378,8 @@ These are two of the forms a comparison overloads to; the wide ```boolean32x4```
 
 Named parameters are a compact way to skip default parameters.
 
+Object-spread arguments choose their protocol from the evaluated value, including when that value comes from a variable. A callable iterator supplies positional arguments; otherwise a nullish iterator hook on an object selects its own enumerable String-keyed properties as names. See [argument spread routing](argument-spread-routing.md) for once-only lookup, mutation order, failure precedence, and the retained design alternatives.
+
 ```js
 function f(a: uint8, b: string = '', ...args: [].<string>) {}
 f(8, args: 'a', 'b');
