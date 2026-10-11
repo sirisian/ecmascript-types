@@ -580,6 +580,36 @@ This closes the computed alias witness and the tested direct-computed `any` cros
 
 Primary comparisons: [Rust generic scope and bounds](https://doc.rust-lang.org/reference/items/generics.html), [Rust closure expressions](https://doc.rust-lang.org/reference/expressions/closure-expr.html), and [rustc query evaluation](https://rustc-dev-guide.rust-lang.org/queries/query-evaluation-model-in-detail.html). Performance statements are design assessments, not engine benchmarks.
 
+## Alias application obligations survive expansion
+
+An alias's expanded result and the validity of its application are separate judgments. An application binds and validates its parameters even if expansion removes every mention of one of them. If an argument or captured bound is initially open, retain the application obligation until the determining substitutions are available. Do not recover that obligation by inspecting the expanded result: it may be just `string`.
+
+```js
+function outer<T: type>(x: T) {
+  type R<U: type extends string> = string;
+  return function f<V: type extends R.<T> >(y: V): V { return y; };
+}
+const fn = outer.<uint8>(1);
+```
+
+This fails before the containing Script body runs: the closed `R.<uint8>` application violates U's bound. No call of `fn` is needed. Using `outer.<string>("x")` is valid. Writing `=fail()` on U would not change either judgment: the explicit argument still bypasses that default. The rule also follows chains of aliases and obligations whose bounds capture an enclosing parameter, including a computed bound. A distinct inner parameter remains open until its own application supplies it.
+
+Required properties: preserve the alias declaration, source application, argument assignment, pending supplied slots, and creating generic context; retain obligations independently of normalized result types; close only the determining inputs; check before the existing required source boundary; preserve transparent alias identity, demanded-default rules, diagnostics, budgets and restoration; establish no initialization or reference-liveness facts. Producer descriptions must remain available when a later Script or importing Module specializes the producer. A consumer must not overwrite those descriptions with its own activation's completed bindings.
+
+| Direction | Ergonomics / autocomplete | Prior art, including Rust | Production performance | Correctness / liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Erase bounds with the expanded alias | Completion advertises a bound that use sites ignore; a wrong argument may pass silently. | Ordinary Rust type-alias bounds are currently not enforced at use sites; rustc documents this as a misleading limitation and offers a checked-alias feature. | Less checking, but invalid application reuse; no shape/IC advantage over erased compiler metadata. | Contradicts this proposal's existing BindTypeArguments requirement, including unused parameters. | Reject, despite that concrete Rust precedent. |
+| Validate only an eventual invocation or runtime annotation | Creating a statically invalid contract appears valid; moving a call into unused code can hide the error. | Rust's general obligation solving is a limited static-checking analogy; JavaScript closures and reified computations have different availability. | Shifts work to runtime and loses available static proofs; no useful layout gain. | Misses the required boundary for closed applications. | Reject as the general rule. |
+| Restore evaluation of a bypassed default | Autocomplete suggests an explicit argument but an unrelated default still fails. | Neither the Rust limitation nor its checked-alias direction calls for unused runtime builder evaluation. | Performs irrelevant work and consumes the wrong budget. | Masks the bound failure and violates supplied-slot priority. | Reject. |
+| Make every constrained alias a new nominal or opaque type | Users lose ordinary transparent assignability and see unnecessary wrapper distinctions. | Rust separates aliases from newtype declarations; opacity changes the API. | Introduces distinct type identities/specializations; runtime wrappers could add shape/IC cases. | Changes existing type identity merely to retain a checking obligation. | Reject. |
+| Retain source application obligations separately and specialize their determining inputs | Completion presents the transparent result only with its application obligations intact; invalid inputs receive their actual bound errors. | Rust's obligation registration/fulfillment is an architectural analogy. Its ordinary-alias limitation is not adopted; this proposal's bounds and ECMAScript declaration environments control. | Compiler-owned source summaries and input-keyed checks; a real engine can index summaries instead of rescanning syntax. No added user-object fields, shape transitions or member-IC cases. | Preserves declaration/capture identity, transparency, pending work, phase, defaults, restoration and independent liveness. | **Choose independently of implementation effort.** |
+
+The proof of concept retains alias binding descriptions beside its source-checking data and revisits them when an enclosing application specializes. It follows nested alias applications even when their results erase the relevant parameters. Captures retain declaration identities across same-named binders. An active traversal guard includes the application and determining declaration-indexed inputs; it only avoids revisiting the same in-progress obligation, supplies no completed type, and is not a resource-policy or semantic-cycle verdict. Shared producer summaries are source metadata, not successful-result caches or canonical Type Record annotations.
+
+Coverage of this repair does not close the general phase/precedence audit, all dynamic applications, arbitrary inference convergence, or portable cost accounting. In particular, multiple simultaneously invalid consumers can still expose ordering questions that must be assessed separately.
+
+Primary sources: [rustc type-alias-bounds lint](https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#type-alias-bounds), [Rust type aliases](https://doc.rust-lang.org/reference/items/type-aliases.html), [Rust generic scope](https://doc.rust-lang.org/reference/items/generics.html), and [rustc obligation solving](https://rustc-dev-guide.rust-lang.org/traits/resolution.html). Rust nested items do not capture an enclosing function's generic parameters as these JavaScript closures do. Performance claims here are design assessments, not engine benchmarks.
+
 ## Explicit arguments whose descriptions are pending
 
 An explicit argument occupies its assigned generic parameter slot even when checking has not yet obtained the argument's type description. Missing information is not omission. A default belongs only to a slot left unbound by the applicable argument-binding and inference rules; it is not a fallback for a supplied expression whose description or evaluation is pending or has failed.

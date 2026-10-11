@@ -4601,3 +4601,5 @@ Completed inferred binding contracts must reach all dependent consumers, includi
 Published callable results retain declaration-specific captures across same-named intermediate generic binders; see [published captures across same-named binders](inference-provenance.md#published-captures-across-same-named-binders).
 
 An explicit generic argument whose description is pending still occupies its parameter slot and bypasses that slot's default; see [pending explicit arguments](inference-provenance.md#explicit-arguments-whose-descriptions-are-pending).
+
+Alias application bounds survive transparent expansion, including when the result erases a constrained parameter; see [retained alias application obligations](inference-provenance.md#alias-application-obligations-survive-expansion).
