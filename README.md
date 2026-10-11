@@ -1990,6 +1990,8 @@ An index signature whose key depends on a generic argument retains the key-domai
 
 A computed read with a statically established finite set of keys joins the ordinary exact-key read contracts. Named properties take precedence over index signatures, including named exceptions with different types. Unknown alternatives and general non-finite key domains remain dynamic. This establishes no new property-existence guarantee and executes no key or getter.
 
+An established current key fact counts here: after `let k: string = "n"`, `o[k]` selects the known `n` contract until the fact is invalidated. The declared `string` storage contract remains unchanged. [Comparison participation and current flow facts](comparison-participation.md) also explains why an initialized union differs from a broad parameter and why a `String(...)` wrapper does not exempt a disjoint strict comparison.
+
 A required named property needs evidence that the source has that property. An index signature alone supplies no such evidence: `{ [k: string]: uint8 }` cannot satisfy `{ x: uint8 }`. An optional target `x?: uint8` still permits absence. String and Symbol keys follow the same rule, and `readonly` changes value variance without creating a presence guarantee.
 
 For a fresh literal, known primitive spreads keep their exact contribution: nullish and non-String primitives supply no enumerable own members, and a known String supplies its UTF-16 index properties. Apply final-property replacement order. Unknown Strings or Object spreads do not establish a complete member set, and an empty spread does not hide a missing required property.
