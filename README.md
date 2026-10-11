@@ -4605,3 +4605,5 @@ An explicit generic argument whose description is pending still occupies its par
 Alias application bounds survive transparent expansion, including when the result erases a constrained parameter; see [retained alias application obligations](inference-provenance.md#alias-application-obligations-survive-expansion).
 
 An open supplied argument does not suppress another parameter's omitted default; see [application-specific function default obligations](inference-provenance.md#omitted-function-defaults-retain-their-own-obligations).
+
+Completing a dependent default also rechecks the call's dependent value arguments, preserving contextual literal rules; see [completed defaults and their consumers](inference-provenance.md#completed-defaults-recheck-their-value-consumers).

@@ -639,6 +639,37 @@ The proof of concept shares its retained application descriptions between alias 
 
 This repair does not establish arbitrary cross-Script producer recovery, complete inference convergence, full resource accounting, or every downstream consumer's admission. Those remain separate gates. Primary comparisons: [Rust generic scopes and const parameters](https://doc.rust-lang.org/reference/items/generics.html) and [rustc obligation registration and fulfillment](https://rustc-dev-guide.rust-lang.org/traits/resolution.html). Performance assessments are architectural, not engine benchmarks.
 
+## Completed defaults recheck their value consumers
+
+Completing a defaulted type argument completes an input to the call's checking; it does not prove the call valid. Retain value-argument judgments that depend on that input, then apply the ordinary admission rules when the application and enclosing substitutions determine the receiving type.
+
+```js
+function identity(t: type): type { return t; }
+function outer<T: type>(x: T) {
+  function inner<U: type, W: type = identity(U)>(y: W): W { return y; }
+  return inner.<T>("bad");
+}
+outer.<uint8>(1);
+```
+
+Here W becomes uint8. The String argument fails checking before the containing Script body runs. Replacing the outer application with `outer.<string>("ok")` is valid. A fresh `{x: 1}` at a completed `{x: uint8}` target uses ordinary contextual member checking; comparing its unadapted `{x: number}` shape would reject a valid creation. A retained source type alone is therefore insufficient for every consumer. Named arguments, optional omission and rest positions retain their ordinary mapping and admission rules.
+
+Required properties: retain the selected application and argument-to-formal mapping after inference; preserve source-position types and creation syntax where context matters; substitute caller inputs separately from the applied declaration's bindings; recheck only when the determining inputs are available; use existing literal, conversion, freshness and gradual rules; leave shared source descriptions unchanged across applications; preserve failures, budgets and independent reference liveness. A completed default does not establish that its value consumer ran or that a runtime conversion can be elided.
+
+| Direction | Ergonomics / autocomplete | Prior art, including Rust | Production performance | Correctness / liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Treat default completion as sufficient and leave every consumer to runtime | Tooling can display W=uint8 while a known String call survives until effects run. | Rust obligation fulfillment is a useful static-checking analogy; its static generics do not define this proposal's dynamic cases. | Omits required checking and repeats runtime work; no shape or IC benefit. | Misses the required boundary for the closed consumer; proves no liveness. | Reject as a blanket rule. |
+| Store the last completed W or contextual target on the shared call/signature | Results and completion depend on which application was checked first. | Rust inference/query contexts distinguish determining inputs; JavaScript adds lexical activations. | Small cache with invalid reuse; no useful layout gain. | Conflates applications and captures. | Reject. |
+| Compare only captured source and target types | Scalar examples work, but valid fresh object and array literals can be refused before contextual adaptation. | Rust also has expression-specific coercion sites; its coercions are not this proposal's fresh-literal conversions. | Compact records, but the omitted expression judgment is semantically necessary. No IC advantage justifies false rejection. | Loses creation, literal propagation and freshness rules. | Reject as a complete representation; retain type operands where sufficient. |
+| Replay the original expression in the current consumer scope, or execute ordinary bodies to recover its values | Caller shadows can alter distant contracts; executing bodies can introduce effects during checking. | Rust lexical resolution and ECMAScript closures do not authorize replacement by a scheduler's environment or arbitrary execution. | Repeated lookup or user calls, with possible mutation and IC invalidation. | Loses source-position identity, availability and initialization guarantees. | Reject both shortcuts. |
+| Retain application-specific consumer descriptions and replay ordinary admission under their determining inputs | Completion drives the actual known call, while valid fresh creations keep contextual behavior and dynamic inputs keep runtime checks. | Rust obligation fulfillment and expression coercion sites are architectural comparisons only. This proposal's inference, conversions, checking phases and ECMAScript captures govern. | Compiler-owned dependency records; a production compiler can schedule affected judgments and share descriptions. No new user-object fields, shape transitions or member-IC cases are required. | Preserves argument mapping, source/callee contexts, pending work, phase, cleanup and independent liveness. | **Choose independently of implementation effort.** |
+
+The proof of concept retains pending by-value argument checks with selected generic applications. After defaults close, it substitutes the caller's source inputs separately from the callee's parameter bindings, then uses the existing admission operation. Plain data-object and array creations retain syntax and typed leaves; temporary expression views permit contextual checking without overwriting the original source or looking their leaves up in the later consumer's scope. The source summaries can be used by importing Module checks. No completed-answer stamp is placed on the shared call, and these checks do not establish conversion elision or reference permission.
+
+Stored function values whose pending specialization hides their callable contract still need consumer dependency propagation. Fresh methods, computed property names, written member annotations and shorthand properties require richer declaration/context descriptions than the implemented data-literal subset. They must retain their obligations; the proof of concept does not yet close those paths. General overload reselection, reference argument contracts, returned-result propagation, cross-Script producer recovery, convergence and total cost accounting remain separate audits.
+
+Primary comparisons: [rustc obligation registration and fulfillment](https://rustc-dev-guide.rust-lang.org/traits/resolution.html), [Rust generic scope](https://doc.rust-lang.org/reference/items/generics.html), and [Rust coercion sites](https://doc.rust-lang.org/reference/type-coercions.html). These are limited analogies, not adoption of Rust's coercion or nested-item rules. Performance statements are design assessments, not benchmarks.
+
 ## Explicit arguments whose descriptions are pending
 
 An explicit argument occupies its assigned generic parameter slot even when checking has not yet obtained the argument's type description. Missing information is not omission. A default belongs only to a slot left unbound by the applicable argument-binding and inference rules; it is not a fallback for a supplied expression whose description or evaluation is pending or has failed.
