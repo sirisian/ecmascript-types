@@ -45,6 +45,8 @@ A union receiver or finite set of property keys can also prove a bit-field borro
 
 A known `ref e` has a reference type whose target is the declared location type. A reference return is checked against the declared return contract before the caller's value-context decay, using invariant reference compatibility. At an ordinary value parameter the reference decays first, so argument checking, overload selection and generic inference use the referent type. These checks do not read storage or change permission and liveness rules; unknown location types retain runtime checking.
 
+Named argument mapping and rest distribution preserve this distinction: retain the original location, use the receiving parameter's reference or value contract, and keep final binding's liveness checks. [Distributing reference arguments](reference-argument-distribution.md) gives the required ordering and design alternatives, including mixed named calls and reference-run forwarding.
+
 ## Reference iteration
 
 Reference iteration requires array or [SoA](soa.md) storage. A statically known String, Set, Map, or generator is an early type error as its source, even though ordinary `for...of` accepts it. A union is rejected only when every member is ineligible; an unknown source is checked at runtime. Array aliases remain eligible, and the rule adds no general reference-iterator protocol.
