@@ -107,6 +107,8 @@ p instanceof Composite;                       // true
 p instanceof Composite.<IPoint>;              // true, and narrows from Composite or any
 ```
 
+Static overlap follows these contracts, not the internal Type Record kind. `Composite` overlaps every shaped Composite; different shapes can overlap through width subtyping or omitted optional members. Known incompatible kinds, required members and admitted tuple lengths still prove disjointness. See [Composite overlap](composite-overlap.md) for the shared judgment, recursion rules and all considered directions.
+
 The pieces behind that example:
 
 **Fields carry their types in the ordinary way.** A composite's properties are own data properties, and this proposal's property descriptors carry a ```type```; ```Object.getOwnPropertyDescriptor(p, 'x').type``` is ```int32```. Nothing composite-specific is added to reflection - ```Reflect.typeOf``` returns the interned structural type object, the same one ```Composite.<{ x: int32; y: int32 }>``` written in source denotes, so type-object identity works: two composites of the same shape have ```===``` runtime types.
