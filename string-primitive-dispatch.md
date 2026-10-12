@@ -31,7 +31,7 @@ A dynamic Function's synthetic checking root must expose its local operator decl
 
 ## Retained result-admission audit
 
-The later [raw operator result admission repair](raw-operator-results.md) addresses the incompatible raw-return witness. An unused invalid destination in a later Script still lacks its required static judgment from an earlier block. The raw-body rule erases metadata requirements, not the obligation that a result belongs to the declared primitive family. The next audit should compare declared, inferred and deferred results, ordinary and generated sources, bodyless composition, and failures before side effects.
+The later [raw operator result admission repair](raw-operator-results.md) addresses the incompatible raw-return witness. The subsequent [registered-signature repair](registered-operator-signatures.md) gives the retained unused invalid destination in a later Script its required static judgment from the earlier block. The raw-body rule erases metadata requirements, not the obligation that a result belongs to the declared primitive family. The focused repairs cover declared and selected deferred results across Script, Module and generated Function consumers. Broader inferred results, conversion-dependent bodyless composition and failure-state coverage remain open.
 
 | Direction | Ergonomics/autocomplete and wrong guesses | Prior art, including Rust | Production performance, shapes and ICs | Correctness/liveness | Other / decision |
 | --- | --- | --- | --- | --- | --- |

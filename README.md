@@ -1998,6 +1998,8 @@ Established String-constant evidence survives an unannotated immutable alias and
 
 [Raw operator result admission](raw-operator-results.md) separates checked base results from metadata attachment, including implicit casts and failure timing.
 
+[Registered operator signatures](registered-operator-signatures.md) covers cross-source checking, captured declaration context, dependent results and selection before result evaluation.
+
 A required named property needs evidence that the source has that property. An index signature alone supplies no such evidence: `{ [k: string]: uint8 }` cannot satisfy `{ x: uint8 }`. An optional target `x?: uint8` still permits absence. String and Symbol keys follow the same rule, and `readonly` changes value variance without creating a presence guarantee.
 
 For a fresh literal, known primitive spreads keep their exact contribution: nullish and non-String primitives supply no enumerable own members, and a known String supplies its UTF-16 index properties. Apply final-property replacement order. Unknown Strings or Object spreads do not establish a complete member set, and an empty spread does not hide a missing required property.
