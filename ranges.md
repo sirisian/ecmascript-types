@@ -163,7 +163,7 @@ interface RangeBounds<T: type extends Ordered.<T>> {
 	get isFull(): boolean;  // Every value of T does
 	contains(value: T): boolean { /* … */ return false; }
 	contains(range: RangeBounds.<T>): boolean { /* … */ return false; }
-	intersect(other: RangeBounds.<T>): RangeBounds.<T> { /* … */ return undefined; }
+	intersect<U: type>(other: RangeBounds.<U>): RangeBounds.<T | U> { /* … */ return undefined; }
 }
 
 // Scaling needs arithmetic, and ordering does not imply it: Temporal.Instant is
@@ -300,6 +300,8 @@ Descending ranges are **empty**, not reversed: ```10..<0``` contains nothing, an
 **The interface's operations are total across the four shapes**, because the interface is what a consumer of an arbitrary range holds: the [metadata](primitivemetadata.md) bounds field is a ```RangeBounds.<T>```, and narrowing reaches it through ```..``` where there is no bound yet.
 
 ```contains``` overloads on a value and on a range. Against a range it is the subset test, so an empty range is contained in every range and ```..``` contains them all. The two overloads cannot be ambiguous: a range is not ```Ordered```, so ```T``` is never itself a ```RangeBounds```.
+
+The ordering-only operations preserve endpoint values and compare them without numeric coercion. Their result-domain, comparison-order and equivalent-endpoint rules are specified in [range-selection.md](range-selection.md). Intersection joins operand domains, with `RangeFull<any>` neutral, independently of which endpoints win. This preserves a declared union domain and typed full ranges. The generic signature below is subject to mutual ordering and that full-any identity rule.
 
 ```intersect``` is the point-set intersection, and it is what makes flow narrowing monotone rather than a rule per comparison operator. It is commutative and associative with ```..``` as its identity. Where two ranges share an endpoint the exclusive bound wins, since ```0..<10``` and ```0..=10``` agree everywhere below 10 and disagree only at it. Where they are disjoint the result is the crossed pair, the greater start with the lesser end, which is descending and therefore empty by the rule above - so an empty intersection needs no representation of its own. The result's shape depends on the operands, which is why the return type is the interface rather than a ```Range```: intersecting a ```RangeFrom``` with a ```RangeTo``` produces a ```Range```, and intersecting anything with ```..``` produces the other operand.
 

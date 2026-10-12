@@ -938,6 +938,8 @@ See [Metadata range endpoints and special carriers](metadata-range-admission.md)
 
 Endpoint-domain membership, reflection, and iteration fit are distinguished in [range-membership.md](range-membership.md).
 
+Domain-preserving intersection, containment and emptiness are detailed in [range-selection.md](range-selection.md).
+
 An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates:
 
 ```js
