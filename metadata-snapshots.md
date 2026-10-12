@@ -44,3 +44,5 @@ Top-level flat-record admission, syntactic invalid-leaf projection, specialized 
 Primary comparisons: [Rust constant evaluation](https://doc.rust-lang.org/reference/const_eval.html) (including its support for function paths and some closures, unlike this metadata language); [ECMAScript ordinary and exotic objects](https://tc39.es/ecma262/2025/multipage/ordinary-and-exotic-objects-behaviours.html). The recommendations above are this proposal's decisions, not claims that either prior art implements this metadata system.
 
 Follow-up status: [Symbol metadata](symbol-metadata.md), [Symbol binding identity](symbol-binding-identity.md), and [metadata producer admission](metadata-producer-admission.md) address the historical Symbol, root-record and written-leaf failures above. Specialized range endpoints, carrier admission and deep downstream/resource accounting remain independent audits.
+
+Follow-up: [metadata range admission](metadata-range-admission.md) validates present endpoint atoms and rejects Composite/Span carriers before projection. Host-base endpoint normalization, other special carriers and downstream/resource accounting remain separate.
