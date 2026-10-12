@@ -932,7 +932,7 @@ Rather than defining index functions for various multidimensional and jagged arr
 
 `m[(effect(), 2)]` supplies one index, and the final literal receives the selected index parameter's contextual type. Earlier operands keep their effects and checks. `m[a, b]` supplies two indices where an accessor applies. See [comma index contracts](comma-index-contracts.md) for the evaluation, provenance and reference boundaries.
 
-Generic metadata key claiming and closed computed operator results have distinct declaration and application boundaries. See [metadata admission](metadata-admission.md) for the checking-phase decisions, dependency handling and retained availability questions.
+Generic metadata key claiming and closed computed operator results have distinct declaration and application boundaries. See [metadata admission](metadata-admission.md) for the checking-phase decisions, dependency handling and retained availability questions. See [metadata publication](meta-publication.md) for failed-declaration recovery, pending-input conflicts and default evaluation limits.
 
 An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates:
 
