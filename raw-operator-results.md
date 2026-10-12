@@ -1,0 +1,29 @@
+# Raw primitive operator result admission
+
+A primitive operator's declared result has two jobs: a base value contract and result metadata. A raw body still owes the first. `primitive string { operator +(n:uint8):uint8 { return "bad"; } }` is an early type error even if unused. Metadata cannot turn a String into an integer or repair an incompatible numeric representation.
+
+Check a declared return against its raw result type. Remove the result's metadata parameterization; for a vector, remove lane metadata while retaining the lane's base and count. Apply that projection to union and intersection alternatives. Keep literal restrictions, component types, widths, and ordinary object-member contracts. Unknown metadata alone does not hide an independently known base. An undecided component remains subject to the proposal's existing deferred checking rules.
+
+At runtime, resolve the selected definition's result in its captured declaration environment and selected capture frame. Keep existing operand conversion and result-contribution conflict checks before its body. After a successful body completion, admit the raw result with the ordinary checked boundary at the projected type, then attach the composed metadata. A failed admission publishes no result and restores operator suppression and capture frames; effects already performed by the body remain. A thrown body completion propagates unchanged. A missing return has the usual undefined obligation. Unannotated bodies acquire no receiver-type promise merely from being operators.
+
+The base boundary preserves existing conversion rules: a fitting Number can become a typed numeric value; an incompatible typed width does not silently change; overflow is checked. An unknown numeric value reaching a String boundary follows the existing canonical String conversion. A known incompatible return receives the existing static assignability judgment. `any` and union annotations are contracts, not replacement primitive tags for an admitted value.
+
+An implicit cast follows the same separation. Its target metadata is attached by the crossing, so the raw body does not check that metadata or re-enter the cast. Its raw value must nevertheless be admitted at the target base before stamping. The crossing's existing metadata validation still follows. Identity casts and ordinary base construction remain valid.
+
+## Decision matrix
+
+Required properties: completion can trust the result contract; raw bodies need no result metadata; widths and representations remain sound; known errors precede source effects; unknown errors occur at the actual boundary; identity, capture restoration and reference liveness remain independent.
+
+| Direction | Ergonomics and autocomplete | Prior art, including Rust | Production performance, shapes and inline caches | Correctness and liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Trust and stamp every raw result | A suggested numeric result can actually be a String; errors emerge downstream | Rust Add's Output describes an actual returned value, not an unchecked label | Cheap stamping invalidates representation guards and optimized consumers | Violates base admission and may fabricate numeric layout | Reject |
+| Enforce the entire result annotation inside the body | Ordinary identity casts and raw arithmetic unexpectedly require metadata they are meant to supply | Rust has no corresponding metadata crossing to justify this rule | Repeated conversions, builder work and recursive casts | Violates raw-body semantics and selected capture context | Reject |
+| Require exact base membership without checked conversion | Common literal returns stop working; authors must add casts everywhere | Rust's stricter conversion rules are not this proposal's contextual numeric rules | Simple membership guards but unnecessary explicit conversions | Inconsistent with existing checked boundaries | Reject |
+| Always defer raw return checking until invocation | Unused obviously wrong bodies are accepted; completion promises too much | Rust checks operator implementations independently of calls | Avoids a compile-time judgment but leaves predictable runtime failures | Violates the existing checking-phase obligations | Reject |
+| Check the projected base statically where decided; apply its ordinary checked boundary at runtime before metadata attachment | Return contracts predict values; mistakes fail at the responsible position; identity casts remain natural | Rust's RHS/Output distinction is a limited result-contract analogy; metadata and JS conversion remain proposal-specific | Compiler-owned projected descriptors and normal result guards; stable proof can remove checks; no new user-object fields or shape transitions | Preserves representation, effect precedence, capture identity and independent reference liveness | **Choose independently of effort** |
+
+Primary reference: [Rust Add](https://doc.rust-lang.org/std/ops/trait.Add.html). Its method returns its associated Output, and RHS need not equal Self; Rust trait coherence and this proposal's open block registry are different mechanisms.
+
+## Implementation coverage and remaining boundaries
+
+The engine repair covers declared raw returns, captured metadata with a known base, runtime component captures, implicit cast base admission, plain union/any result representation, and Script, Module and generated Function entry. Existing metadata composition and cast tests remain regression gates. This does not complete identity-correct recovery of registered signatures during checking in later sources, or the broader inferred/dependent/composite-result audit. In particular, metadata-bearing union result composition and fully recursive result projection still need dedicated coverage; do not treat passing scalar and vector cases as proof for them.
