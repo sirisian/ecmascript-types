@@ -1,0 +1,36 @@
+# Comma index contracts
+
+An index expression retains its syntax through argument checking. The checker previously replaced non-literal index expressions with fixed-type views. That lost contextual literal adaptation in `m[(1, 2)]`, even though parsing and runtime evaluation already selected the one-index accessor. Ordinary calls accepted the corresponding `f((1, 2))`.
+
+## Required behavior
+
+Unparenthesized top-level commas separate supplied indices for accessor selection. A parenthesized comma supplies one argument, evaluates each operand in order, and produces its last operand's value. Once an applicable signature is selected, its parameter context reaches that final operand. This preserves exact wide numeric literals and the existing constant-expression rules. It neither turns an annotated Number into a literal nor assigns the index parameter's context to discarded operands.
+
+Every evaluated prefix keeps its effects and abrupt completion. Its applicable static obligations also remain, even when the final operand alone determines the index's type. The audit exposed a second omission: a mismatched numeric operation in a discarded comma prefix could escape checking once the index itself was accepted. The source-order comma walk now applies the established discarded-expression judgment to each earlier operand before advancing its effects. Conditional prefixes retain their own guard environments.
+
+The same argument contract applies to getters, setters and a getter returning a reference. A setter's assigned value is a separate argument. A borrowed destination keeps its target contract and liveness rules. Numeric-only dispatch, ordinary property fallback, receiver evaluation, top-level arity and optional skipping remain distinct operations.
+
+## Directions considered
+
+| Direction | Ergonomics / autocomplete / wrong guesses | Prior art including Rust | Real-engine performance / shapes / ICs | Correctness / liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Keep comma results as fixed Numbers; require an explicit conversion | Grouping or adding an effect breaks the otherwise applicable parameter contract; suggested parameter types no longer predict literal acceptance | Rust treats indexing as a typed operation, but does not supply this JS comma model | Simple shortcut, but can round wide values before conversion; no shape advantage | Loses established contextual transfer and exact literal construction | Reject |
+| Flatten all nested commas into separate indices | Parentheses unexpectedly select another overload and change returned values | Rust's single index expression and JS parentheses provide no basis for flattening | Can select different dispatch stubs and IC targets without a semantic reason | Violates the explicit one-index rule | Reject |
+| Replace the whole index with its last operand | Apparent acceptance hides missing side effects, exceptions and diagnostics | ECMAScript comma evaluation explicitly observes earlier operands; Rust's typed indexing does not justify deleting effects | Invalid optimization can look faster by omitting required work | Loses evaluation order and effects that may invalidate references or facts | Reject |
+| Give every comma operand the index parameter's context | Discarded `300` fails a `uint8` boundary it never crosses; completions imply nonexistent argument slots | No correspondence to Rust's single argument or JS's final result | Extra contextual checks and potential numeric representations; no IC benefit | Changes prefix values and obligations; final-value transfer is not a whole-expression cast | Reject |
+| Check discarded operands using only the final flow environment | Later stores or calls change earlier diagnostics; wrong guesses depend on unrelated suffixes | JS evaluation is ordered; Rust borrowing also cannot be justified by future state | Reuses one snapshot but permits invalid proofs; no valid layout gain | Violates source-position facts and invalidation | Reject |
+| Preserve the full index expression; use ordinary selected-parameter context and check prefixes at their own positions | Parameter suggestions remain reliable, grouping preserves arity, and failures name the actual index/prefix/store boundary | Rust's `Index`/`IndexMut` model is a limited analogy for typed index contracts; JS defines comma order and last-value semantics | Compiler-owned expression/context data; no new runtime wrapper, user-object field, shape transition or member IC polymorphism | Preserves exact literals, numeric provenance, overload rules, effects, and independent reference liveness | **Recommend independently of effort** |
+
+Primary sources: [Rust indexing](https://doc.rust-lang.org/reference/expressions/array-expr.html#array-and-slice-indexing-expressions) and [ECMAScript comma evaluation](https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-comma-operator-runtime-semantics-evaluation). Rust's array index type and reference-based traits differ from this proposal's numeric gate, multi-index accessor syntax and ordinary-property fallback; they are not adopted wholesale.
+
+## Retained reference-result boundary
+
+An unannotated getter returning `ref this.data[i]`, where `data` is `[].<uint8>`, can still defer an invalid `300` store to runtime. An explicit `: ref uint8` getter supplies the static target contract and rejects that store before source entry. The comma-context repair exposes this distinction; it does not complete inferred reference-result publication or its downstream location consumers.
+
+| Direction | Ergonomics / autocomplete | Prior art including Rust | Production performance / shapes / ICs | Correctness / liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Treat runtime rejection as complete static conformance | Tooling loses a declared target domain visible in the getter's result | Rust distinguishes reference target contracts; it is not authority for JS inference | Fewer static checks, more runtime failures; no shape benefit | Does not establish required inference or early checking | Reject as closure evidence |
+| Infer a location contract from displayed result text or a singleton value | Can show a plausible but unjustified writable target | Rust reference types carry target/permission information, not a textual resemblance | Cheap guess; unsound specialization and elision risk | Value precision grants no reference permission or liveness | Reject |
+| Trace the getter's anchored reference result through publication and location consumption | Useful target-type completion with errors at the actual store | Rust reference target contracts are relevant; this proposal owns its inference and runtime checks | Shared compiler descriptors, no extra user-object shape | Keeps target type, reference permission, result identity and liveness separate | **Recommend a subsequent audit independently of effort** |
+
+Same-arity overload ranking with contextual compound expressions, unresolved receiver/parameter contracts and broader optional-index acquisition remain outside this bounded repair. Existing no-context fallback and reference checks must not be weakened to close them. The remaining four metadata regression failures retain their own triage queue.

@@ -930,6 +930,8 @@ A numeric index operation is writable only when its selected contract supplies a
 
 Rather than defining index functions for various multidimensional and jagged array implementations the user is given the ability to define their own. More than one can be defined as long as they have unique signatures.
 
+`m[(effect(), 2)]` supplies one index, and the final literal receives the selected index parameter's contextual type. Earlier operands keep their effects and checks. `m[a, b]` supplies two indices where an accessor applies. See [comma index contracts](comma-index-contracts.md) for the evaluation, provenance and reference boundaries.
+
 An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates:
 
 ```js
