@@ -934,7 +934,7 @@ Rather than defining index functions for various multidimensional and jagged arr
 
 Generic metadata key claiming and closed computed operator results have distinct declaration and application boundaries. See [metadata admission](metadata-admission.md) for the checking-phase decisions, dependency handling and retained availability questions. See [metadata publication](meta-publication.md) and [metadata snapshot admission](metadata-snapshots.md), [metadata producer admission](metadata-producer-admission.md) and [Symbol-keyed metadata](symbol-metadata.md) and [Symbol binding identity](symbol-binding-identity.md) for failed-declaration recovery, pending-input conflicts and default evaluation limits.
 
-See [Metadata range endpoints and special carriers](metadata-range-admission.md) for endpoint and carrier admission.
+See [Metadata range endpoints and special carriers](metadata-range-admission.md) for endpoint and carrier admission, and [Metadata range normalization](metadata-range-normalization.md) for endpoint domains.
 
 An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates:
 
