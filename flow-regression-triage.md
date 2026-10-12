@@ -1,0 +1,30 @@
+# Flow domains and operator provenance
+
+This audit separates a declaration's allowed stores, the value currently proved at a read, and eligibility for contextual numeric literal adaptation. It closes six failures from the eleven-test regression backlog: five outdated positive fixtures and one checker omission. It does not close the broader flow, convergence, or final regression gates.
+
+## Required outcomes
+
+Successful initialization narrows the current read domain. Thus `let x: uint32 | undefined = undefined; x ?? 10` has a settled nullish test, and the corresponding initializer `5` settles it in the other direction. Both are rejected under the existing nullish-test rule. `let b: boolean = false; b && f()` contains an unreachable right operand. This does not change `0 || 10`, whose right operand runs, or JavaScript's operand-valued logical results.
+
+Similarly, initializing `uint8 | int32` with a `uint8` leaves no viable `int32` alternative for multiplication by an `int32`. Initializing `uint8 | [].<uint8>` with a `uint8` leaves no iterable alternative. A function parameter with either broad union and no current-value fact is a different input to these judgments. Positive tests of union composition must retain that broad input. The original initialized witnesses remain explicit static rejection tests, including native error class, rule, phase, and absence of ScriptBody entry. A wrong coalesce destination retains its existing assignability failure precedence.
+
+Current-value precision does not grant numeric adaptation. After `let x: number = 1`, `n < x` with `n: uint8` must report numeric mixing before evaluation, even inside an uncalled function. The same applies to an explicitly annotated `const`, an immutable alias of the read, a later assignment, and parentheses. Written numeric literals and eligible unannotated numeric constants keep their adaptation. Ordinary Number/BigInt ordering, explicit conversions, and declared operator selection retain their existing rules.
+
+## Directions considered
+
+| Direction | Ergonomics / autocomplete / wrong guesses | Prior art including Rust | Real-engine performance / shapes / ICs | Correctness / liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Ignore initialization facts and always use the declared union | Suggestions retain impossible alternatives and mistakes escape checking | TypeScript distinguishes observed and declared types; Rust has no direct JS union-flow analogue | Discards useful compiler facts; no shape benefit | Contradicts established flow rules; grants no reference permission | Reject |
+| Relax all settled short-circuit checks to preserve old fixtures | Familiar JavaScript idioms survive, but established checked-code diagnostics disappear | Rust permits a short-circuited false conjunction, but its operands are Boolean and it has no operand-valued nullish union analogue | Can remove checks; does not justify changing object layout or ICs | Changes the proposal's committed deciding-test policy | Reject for this repair; would require an explicit general policy revision |
+| Retain current-value judgments; use broad parameters for broad-union fixtures and keep original negative witnesses | Completions describe the current value; a mistaken broad-domain assumption gets an early diagnostic | TypeScript assignment narrowing is a close domain analogy; Rust supplies only limited short-circuit comparison | Reuses compiler-owned flow facts; no new runtime checks or shapes | Preserves declared store contracts, failure phases, invalidation, and independent reference liveness | **Recommend independently of effort** |
+| Exempt every singleton numeric record from mixing checks | A stored Number silently behaves like a written literal; wrong guesses fail later or depend on flow precision | Rust's typed numeric operands and explicit casts do not justify this conflation | Cheap shortcut but invalid representation assumptions can enter optimized paths | Violates numeric provenance and no-promotion commitments | Reject |
+| Exempt only written literal syntax, rejecting all numeric constant names | Naming an expression breaks accepted code and completion suggestions require needless inlining | Rust literal inference is not the proposal's unannotated-constant propagation policy | Simple syntax check; no material shape benefit | Removes explicitly supported constant propagation | Reject |
+| Resolve adaptation from source expression and declaration identity; keep singleton domains for other judgments | Literals and eligible names agree; annotations retain their numeric contract | Rust's separation of typed operands and explicit numeric casts is relevant; its inference and constant rules are not copied wholesale | Existing compiler metadata and syntax walk; no user-object fields, shape transitions, or new IC polymorphism | Preserves domain checks, operator/conversion selection, scope shadowing, and reference rules | **Recommend independently of effort** |
+
+Primary comparisons: [Rust operator expressions](https://doc.rust-lang.org/reference/expressions/operator-expr.html#lazy-boolean-operators), including explicit numeric casts, and [TypeScript assignment narrowing](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#assignments). Neither defines this proposal's dead-code policy.
+
+## Scope and remaining evidence
+
+The engine repair changes the ordered-comparison exemption from a Type Record kind test to the existing source/declaration numeric-constant eligibility judgment. It does not widen exact flow domains. Existing strict-equality literal-name checking remains distinct. The spec makes operator-operand application of numeric provenance explicit.
+
+The regression subset must include comparisons, numeric unions, literal provenance, declared dispatch, and the prior eleven failure names. The remaining index and metadata failures require their own normative triage; green replacement fixtures alone are not closure evidence. Full-suite verification, numeric adoption at every consumer, dependent result scheduling, and portable accounting remain separate gates.
