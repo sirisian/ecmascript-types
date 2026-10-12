@@ -1994,6 +1994,8 @@ An established current key fact counts here: after `let k: string = "n"`, `o[k]`
 
 Established String-constant evidence survives an unannotated immutable alias and remains available from a successfully initialized binding in a preceding Script. Keep that value evidence separate from the binding's declared/inferred contract and from the source forms that name a literal type. Publication follows binding, realm and activation identity; rejected checking, an unreached initializer, a shadow or a runtime getter supplies no substitute evidence. See [constant publication](constant-publication.md) for the decisions, eval environments and limits.
 
+[String primitive-block dispatch](string-primitive-dispatch.md) covers receiver lookup, plain-pair protection, raw String metadata, and the retained source-boundary/result-admission audit.
+
 A required named property needs evidence that the source has that property. An index signature alone supplies no such evidence: `{ [k: string]: uint8 }` cannot satisfy `{ x: uint8 }`. An optional target `x?: uint8` still permits absence. String and Symbol keys follow the same rule, and `readonly` changes value variance without creating a presence guarantee.
 
 For a fresh literal, known primitive spreads keep their exact contribution: nullish and non-String primitives supply no enumerable own members, and a known String supplies its UTF-16 index properties. Apply final-property replacement order. Unknown Strings or Object spreads do not establish a complete member set, and an empty spread does not hide a missing required property.
