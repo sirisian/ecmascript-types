@@ -116,6 +116,8 @@ Two hazards worth writing into the grammar notes. A statement beginning with ```
 
 ## Types
 
+The endpoint-domain and iteration rules below follow [range-membership.md](range-membership.md), which records the alternatives, compatibility changes and five-criteria decision.
+
 A range is not itself an ordered endpoint value. Using a statically known built-in range as another range's endpoint, or on the built-in path of `<`, `<=`, `>` or `>=`, is an early type error, including in an unused body. The range literal supplies its range type without requiring an outer annotation; parentheses and participating constant aliases preserve it. The endpoints' ordering does not give the interval an ordering.
 
 A present endpoint with a participating static type restricted to `symbol`, `null` or `undefined` is also an early type error: these intrinsic domains supply no range ordering. A union proves this only when every alternative is excluded. An omitted endpoint is different from a present `undefined`. Unknown types and ordering capabilities supplied by classes or metadata retain their existing checks; this rule is not a numeric whitelist and does not execute an ordering operator.
@@ -227,7 +229,7 @@ class RangeFull<T: type extends Ordered.<T>> implements RangeBounds.<T> {}
 
 ```T``` is bounded by ```Ordered.<T>```, an interface whose one member is ```operator<``` (the operator-bearing interface pattern from [operator overloading](operatoroverloading.md)), so ranges work over the integer types, the float types, ```bigint```, ```decimal128```, ```rational```, dimensioned quantities, and ```Temporal.Instant``` - anything with an ordering.
 
-**Each endpoint's bound lives in the type**, one parameter per endpoint, so ```1..=6``` is a ```Range.<uint8, Bound.Closed, Bound.Closed>``` and a function taking a range specializes on its inclusivity with no branch surviving to runtime. Every marker in the syntax sets exactly one parameter - the start marker sets ```S```, the end marker sets ```E``` - so a literal desugars one endpoint at a time, and the defaults reproduce the unmarked spellings. All four two-endpoint intervals now have literals, so ```Range.of``` is no longer how any of them is written.
+**Each endpoint's bound lives in the type**, one parameter per endpoint, so an uncontextualized ```1..=6``` is a ```Range.<number, Bound.Closed, Bound.Closed>``` and a function taking a range specializes on its inclusivity with no branch surviving to runtime. Every marker in the syntax sets exactly one parameter - the start marker sets ```S```, the end marker sets ```E``` - so a literal desugars one endpoint at a time, and the defaults reproduce the unmarked spellings. All four two-endpoint intervals now have literals, so ```Range.of``` is no longer how any of them is written.
 
 **Why two parameters rather than one four-valued interval kind.** An earlier draft carried a single ```I: Interval```, and the reasons for splitting it are worth recording, because the four states are the same either way. A one-ended shape has one endpoint, so a four-valued parameter gives it a half that means nothing: ```RangeFrom.<T, Interval.OpenClosed>``` would be a legal type that no value can inhabit and that an overload could name, which is the type-level twin of the contradictory metadata records this proposal exists to make unwritable. Every operation over a range decomposes the interval at its first line anyway, since ```contains``` is one comparison per endpoint. A per-endpoint operation becomes a substitution rather than a computation over an enum, so a future ```withEnd.<E2: Bound>(value: T): Range.<T, S, E2>``` needs no type-level function. A signature can quantify one endpoint and fix the other - ```Range.<T, Bound.Closed, E>``` is "definite inclusive start, either end" in one overload, where a single parameter would need a union of two interval values. And ```Bound.Open``` sits at the endpoint it describes, where ```OpenClosed``` asks a reader to remember which side is which. Julia's ```IntervalSets``` carries the two bounds as type parameters for the same reasons; Rust and Swift avoid the question by giving each interval its own type, which this proposal cannot do without giving up specialization.
 
@@ -251,23 +253,27 @@ Element types come from literal propagation, as anywhere else:
 ```js
 const a = 1..=6; // ClosedRange.<number>
 const b: ClosedRange.<uint8> = 1..=6; // uint8 endpoints
-for (const c: uint8 of 1..=6) {} // the loop's annotation types the range, as b's does
+for (const c: uint8 of 1..=6) {} // the annotation checks/converts produced values
 0n..<10n; // ClosedOpenRange.<bigint>
 Meter(0)..<Meter(10); // ClosedOpenRange.<float32.<{ m: 1 }>>
 ```
 
-The loop head is not a special case. A `for`-`of` binding takes an annotation exactly as `b` does, and a range literal written directly in the head reads it the same way; without that, the one place a literal sat beside an annotation would be the one place it ignored it. Only a literal written in the head is read this way - a range produced by a call or held in a binding keeps the type it was given, and the annotation checks its elements.
+A concrete range annotation supplies the domain of **stored endpoints**. Each present endpoint is checked, including an excluded end. `const r: Range.<uint8> = 0..<256` is a type error because `r.end` must be a `uint8`. Literal endpoints receive the annotation's context; an existing range keeps its specialization. Concrete range domains are invariant. `is` checks shape, bounds and domain without converting endpoints. A `RangeBounds<T>` view requires every present endpoint to already satisfy `T`; a full range satisfies that view vacuously.
 
-**A range read at an element type must produce only values of that type**, and it is the elements that are checked, not the endpoints, because an open end is never produced:
+Without a construction context, reflection preserves both endpoint domains, using their canonical union when different. A full range uses its contextual domain or `any`. Testing membership does not choose a context for the operand: `(0..<5) is Range.<uint8>` is false, and `(0..<5) is Range.<number>` is true.
+
+A loop binding, spread or collection seed supplies an **iteration** element type. It does not change stored endpoints. Only a literal directly at that position is judged by the produced-element fit rule; an existing iterable retains its own type and its yielded values meet the consuming boundary.
+
+**A range consumed at an iteration element type must produce only values of that type**, and it is the elements that are checked, not the endpoints, because an open end is never produced:
 
 ```js
 for (const b: uint8 of 0..<256) {} // every byte: 256 is the stop, never produced
 for (const b: uint8 of 0..=256) {} // type error: 256 is produced, and is not a uint8
 ```
 
-An endpoint rule would refuse the first, the most natural byte loop there is. An empty range fits any element type, since it produces nothing, and a range with no end - `0..` - fits no bounded one.
+An endpoint rule would refuse the first, the most natural byte loop there is. An empty range fits any iteration element type, since it produces nothing, and a range with no end - `0..` - fits no bounded iteration type. This does not exempt stored endpoints from their domain or prevent `RangeFrom<uint8>` from describing an unbounded interval.
 
-**The element type can come from an endpoint instead of context**, and the rule is the same. An endpoint that isn't a constant is still bounded by its type, and that's enough to decide:
+**The iteration element type can come from a typed endpoint instead of context**, and the produced-element rule is the same. This inference does not change the stored endpoint domains. An endpoint that isn't a constant is still bounded by its type, and that's enough to decide:
 
 ```js
 function f(s: uint8) {
@@ -283,7 +289,7 @@ for (const x: float16 of 0..<2049) {} // fine: 0 through 2048
 for (const x: float16 of 0..<4000) {} // type error: 2049 is produced, and float16 can't hold it
 ```
 
-A float range with a non-integer endpoint, like `0.5..<3`, has no implicit step and so no elements; it's refused only if an endpoint overflows the type.
+A float range with a non-integer endpoint, like `0.5..<3`, has no implicit step. A concrete `Range<float32>` annotation checks its endpoints by the ordinary float literal/boundary rules; the separate exact-integer rule applies when a consumer asks for implicitly stepped float values.
 
 **An endpoint may be infinite, and that is not the same as having none.** ```0..<Infinity``` and ```0..``` contain the same values and iterate the same - an infinite end stops the iteration nowhere, exactly as an absent end does - but they are different shapes and say so: the first has an ```end```, an ```endBound``` of ```Bound.Open``` and an ```interval``` of ```Interval.ClosedOpen```, where the second reports none of the three. Only the absent form is ```isFull``` when both sides are missing, so ```-Infinity..<Infinity``` is not ```..```. Both spellings are allowed because a computed endpoint may *be* infinite without an author choosing it - a bound derived from a division, or a length that overflowed - and refusing would turn a survivable program into a throw. Write ```0..``` when you mean "no upper bound"; ```0..<Infinity``` is what a computation hands you.
 

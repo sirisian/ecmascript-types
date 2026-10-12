@@ -936,6 +936,8 @@ Generic metadata key claiming and closed computed operator results have distinct
 
 See [Metadata range endpoints and special carriers](metadata-range-admission.md) for endpoint and carrier admission, and [Metadata range normalization](metadata-range-normalization.md) for endpoint domains.
 
+Endpoint-domain membership, reflection, and iteration fit are distinguished in [range-membership.md](range-membership.md).
+
 An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates:
 
 ```js
