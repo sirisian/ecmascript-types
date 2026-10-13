@@ -4640,3 +4640,5 @@ Storing a pending specialization preserves its consumer dependencies without pub
 Exact numeric range counts and range-returning adapters: [range-adapters.md](range-adapters.md).
 
 Numeric range scaling and unary reflection: [range-scaling.md](range-scaling.md).
+
+Exact additive range arithmetic and common endpoint domains: [range-addition.md](range-addition.md).
