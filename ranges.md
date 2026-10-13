@@ -318,7 +318,7 @@ The ordering-only operations preserve endpoint values and compare them without n
 (1..=2) / (0..=4);    // .., a divisor that can be zero says nothing
 ```
 
-A rational scaling factor is kept exact until each endpoint is converted to its numeric domain; it is not first rounded through Number.
+Numeric scaling preserves the original range domain and each endpoint's own numeric type. Every finite real factor is kept exact: integer and rational results must fit exactly, while floating bounds round outward to enclose the exact image. A moved bound becomes closed. Unary negation uses the same checked reflection path. [range-scaling.md](range-scaling.md) specifies factor validation, zero/empty/identity cases, overflow, decimal cohorts, metadata admission and failure order. Ordinary scalar conversion retains its own rounding contract.
 
 Addition adds the corresponding endpoints; subtraction crosses them, the result's low being the left's low minus the right's **high**; negation reflects, as ```scale(-1)``` does. For all three, **a result bound is exclusive where either contributing bound is**: ```(3..) + (5<..)``` is ```8<..```, because the right operand approaches 5 without reaching it, so the sum approaches 8 without reaching it.
 

@@ -4638,3 +4638,5 @@ Completing a dependent default also rechecks the call's dependent value argument
 Storing a pending specialization preserves its consumer dependencies without publishing an incomplete callable signature; see [stored pending specializations](inference-provenance.md#stored-pending-specializations-preserve-consumer-dependencies).
 
 Exact numeric range counts and range-returning adapters: [range-adapters.md](range-adapters.md).
+
+Numeric range scaling and unary reflection: [range-scaling.md](range-scaling.md).

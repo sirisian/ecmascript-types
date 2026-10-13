@@ -68,4 +68,4 @@ Every result stores the original endpoint domain, including an inferred union, e
 - [Rust ExactSizeIterator](https://doc.rust-lang.org/std/iter/trait.ExactSizeIterator.html): exact length is limited by `usize`; not all iterators qualify.
 - [Python ranges](https://docs.python.org/3/library/stdtypes.html#ranges): large integer endpoints and constant storage do not guarantee that `len` fits its supported size.
 
-Scaling, interval arithmetic, custom arithmetic domains, and complete static range-adapter result typing remain separate audits. The `length` result contract is `bigint` also for statically known range-family property reads. This change does not claim closure of the broader checking or inference work packages.
+Numeric scaling is now specified in [range-scaling.md](range-scaling.md). Interval arithmetic, custom arithmetic domains, and complete static range-adapter result typing remain separate audits. The `length` result contract is `bigint` also for statically known range-family property reads. This change does not claim closure of the broader checking or inference work packages.
