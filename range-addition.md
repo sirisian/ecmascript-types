@@ -1,6 +1,6 @@
 # Additive numeric interval arithmetic
 
-The built-in `+` and `-` operations on two numeric ranges compute an enclosure of coordinate addition or subtraction. They require one agreed numeric endpoint type, retain that type, and use exact endpoint arithmetic followed by checked representation. This closes the old Number narrowing path for addition and subtraction. Binary multiplication and division remain a separate audit because product domains and divisor singularities need additional decisions.
+The built-in `+` and `-` operations on two numeric ranges compute an enclosure of coordinate addition or subtraction. They require one agreed numeric endpoint type, retain that type, and use exact endpoint arithmetic followed by checked representation. This closes the old Number narrowing path for addition and subtraction. The separate nonlinear decisions and completed multiplication/division contract are in [range-products.md](range-products.md).
 
 ## Required outcomes
 
@@ -72,6 +72,6 @@ Binary addition/subtraction of decimal endpoints uses the reduced coefficient/ex
 
 The corpus covers every supported real numeric family, wide values, all four bound combinations, erased/union/full domains, empty images, finite overflow, exact outward enclosure, signed zeros, explicit infinities, metadata order and failure recovery, generic factories and reference liveness. Module checks cover imported wide ranges and float128 enclosure across suspension.
 
-Multiplication/division still use the legacy Number implementation and are not certified by this repair. Complete static range-result typing, extended-family iteration, custom interval enclosure declarations and the existing mixed plain BigInt construction restriction also remain open. The broader checking and inference gates are unchanged.
+Multiplication/division now have their own exact coordinate implementation and decision record in [range-products.md](range-products.md). Complete static range-result typing, extended-family iteration, custom interval enclosure declarations and the existing mixed plain BigInt construction restriction also remain open. The broader checking and inference gates are unchanged.
 
 Primary sources: [Rust Range](https://doc.rust-lang.org/std/ops/struct.Range.html), [Rust checked addition/subtraction](https://doc.rust-lang.org/std/primitive.i32.html#method.checked_add), and [Boost interval arithmetic](https://www.boost.org/doc/libs/latest/libs/numeric/interval/doc/interval.htm). Boost's inclusion and directed-rounding requirements are close analogies; its closed real-set intervals and infinity policies are not copied wholesale.

@@ -176,7 +176,10 @@ partial interface RangeBounds<const T extends Scalable.<T>> {
 // Interval arithmetic, on the ranges whose element type has arithmetic. The
 // operands are ranges and so is the result: this is what a bound on a computed
 // value is, and the [metadata](primitivemetadata.md) extension's numeric
-// operators are its first caller.
+// operators are its first caller. This signature sketch does not automatically
+// lift arbitrary scalar bodies: built-in numeric coordinate operations are
+// specified in range-addition.md and range-products.md. A custom enclosure
+// contract is separate from the Arithmetic interface.
 partial interface RangeBounds<const T extends Arithmetic.<T>> {
 	operator+(other: RangeBounds.<T>): RangeBounds.<T>;
 	operator-(other: RangeBounds.<T>): RangeBounds.<T>;
@@ -324,9 +327,11 @@ Addition and subtraction require one agreed concrete numeric endpoint type, reta
 
 Addition adds the corresponding endpoints; subtraction crosses them, the result's low being the left's low minus the right's **high**; negation reflects, as ```scale(-1)``` does. For exact results, **a result bound is exclusive where either contributing bound is**; a floating bound moved by outward rounding is closed: ```(3..) + (5<..)``` is ```8<..```, because the right operand approaches 5 without reaching it, so the sum approaches 8 without reaching it.
 
-Multiplication is the four products of the endpoints, the least and the greatest of them being the result's. Its exclusivity rule is the one that repays stating: **a result bound is exclusive only where every product attaining it involves an exclusive source bound.** For ```(0..=1) * (0..<2)``` the least product is zero, attained both by ```0 * 0``` from two inclusive endpoints and by ```0 * 2``` touching an exclusive one - and because one attaining combination is inclusive, zero is reached and the low bound is closed. The greatest product is two, and it is attained only by ```1 * 2```, whose right endpoint is exclusive: the product approaches two without reaching it, so the high bound is open and the result is ```0..<2```. Where the operands are not both fully bounded, multiplication propagates what it can: two non-negative lower bounds still give a lower bound, which is the ```(2..) * (3..)``` line above.
+Multiplication is the four products of the endpoints, the least and the greatest of them being the result's. Its exclusivity rule is the one that repays stating: **a result bound is exclusive only where every product attaining it involves an exclusive source bound.** For ```(0..=1) * (0..<2)``` the least product is zero, attained both by ```0 * 0``` from two inclusive endpoints and by ```0 * 2``` touching an exclusive one - and because one attaining combination is inclusive, zero is reached and the low bound is closed. The greatest product is two, and it is attained only by ```1 * 2```, whose right endpoint is exclusive: the product approaches two without reaching it, so the high bound is open and the result is ```0..<2```. Interior points can also attain constant extrema: ```(0..=0) * (0<..<1)``` is closed zero despite both endpoints of the second operand being excluded. Missing bounds use private signed limits with absence preserved, so all sign regions participate, including ```(..=-2) * (..=-3)``` yielding ```6..```.
 
-Division is multiplication by the reciprocal, and it is defined only where the divisor is bounded away from zero - a strictly positive low or a strictly negative high. A divisor whose range merely excludes zero at an open endpoint, like ```0<..=1```, is not enough: its values approach zero, so the quotient is unbounded and the result is ```..```.
+Division is multiplication by the reciprocal, and it is defined only where the divisor is bounded away from zero - a strictly positive low or a strictly negative high. A divisor whose range merely excludes zero at an open endpoint, like ```0<..=1```, is not enough: its values approach zero, so the existing conservative contract returns ```..```. This is a deliberate full-range fallback, not a claim that every such quotient has no tighter one-sided enclosure. Domain checks and empty-image handling precede the fallback.
+
+Both operations retain one agreed concrete numeric coordinate domain, compute exact extrema without Number conversion or a rounded reciprocal, and represent only the final bounds. They use checked integer/rational representation and outward floating rounding. They do not infer quantity units or automatically lift arbitrary scalar operators. [range-products.md](range-products.md) specifies domain alternatives, every sign/presence case, interior attainment, explicit infinity failures, representation and admission order.
 
 ## Random
 
