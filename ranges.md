@@ -191,7 +191,7 @@ class Range<T: type extends Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bou
 	get length(): uint32 { /* … */ return 0; }
 	get interval(): Interval; // Derived from S and E, never a parameter
 	contains(value: T): boolean { /* … */ return false; }
-	step(by: T): Iterator.<T> { /* … */ return undefined; }
+	step<D: type>(by: D): Iterator.<T> { /* … */ return undefined; } // Admitted difference domains are specified under Iteration
 	reverse(): Iterator.<T> { /* … */ return undefined; }
 	*operator...(): Iterator.<T>;
 
@@ -377,7 +377,9 @@ for (const i of 0..=9) {} // 0 through 9
 [...0..<5]; // [0, 1, 2, 3, 4]. Spread is prefix, so no ambiguity
 ```
 
-```step``` supplies a step where there is none, and widens the stride where there is one. The step is a *difference*, so its type is the type of ```end - start```: the element type itself for a numeric range, and a ```Temporal.Duration``` for a range of instants.
+```step``` supplies a step where there is none, and widens the stride where there is one. The step is a *difference*, independent of the width of a yielded item: a numeric range accepts a positive finite numeric difference, integral for an integer item type, so a byte range can use a stride of 1000. A range of instants instead needs a ```Temporal.Duration```. The per-domain admission is part of the operation's contract, not permission to coerce an arbitrary ```D```.
+
+The numeric item type, exact integral progression, floating rounding, bound checks and post-failure cursor state are specified in [range-iteration.md](range-iteration.md). A concrete stored numeric domain wins; otherwise a typed start, a typed end, then ```number``` supplies the item type. Reverse traversal uses that same choice. A next value beyond the stop does not have to fit the item type; an in-range value that cannot be represented throws and closes the cursor.
 
 ```js
 (0..<10).step(2); // 0, 2, 4, 6, 8
@@ -399,15 +401,15 @@ The nth value is ```start + n * by``` rather than the previous value plus ```by`
 
 Repeated addition would have ended at ```0.8999999999999999```. Individual values still round, so the fourth is ```0.30000000000000004```. The rule prevents accumulation, not rounding.
 
-A range whose element type has no natural unit, which is every type but the integers, is a TypeError to iterate without a step rather than a silent choice of ```1```:
+A range with a nonintegral finite endpoint needs an explicit step. Binary floating-point ranges whose endpoints are whole integers may iterate implicitly, provided each integer produced is exactly representable in the item type:
 
 <!-- run -->
 ```js
-// for (const x of 0.0..<1.0) {} // TypeError: a float range has no implicit step
-for (const x of (0.0..<1.0).step(0.1)) {}
+// for (const x of 0.5..<1.0) {} // TypeError: a fractional endpoint needs a step
+for (const x of (0.5..<1.0).step(0.1)) {}
 ```
 
-```RangeTo``` and ```RangeFull``` are never iterable, having no start. ```RangeFrom``` is unbounded, so the iterator helpers are how it is used.
+```RangeTo``` and ```RangeFull``` have no forward iterator, having no start. An integral ```RangeTo``` with a finite end supports explicit ```reverse()``` traversal. ```RangeFrom``` is unbounded, so the iterator helpers are how it is used; leaving a finite carrier is an error rather than implicit wrapping or silent completion.
 
 A range is an ordinary iterable, so the [standard library](standardlibrary.md)'s iterator helpers apply, and materializing one is a spread or a ```toArray```. The element type propagates into a typed array:
 

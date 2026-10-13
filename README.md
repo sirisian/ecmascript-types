@@ -937,6 +937,7 @@ Generic metadata key claiming and closed computed operator results have distinct
 See [Metadata range endpoints and special carriers](metadata-range-admission.md) for endpoint and carrier admission, and [Metadata range normalization](metadata-range-normalization.md) for endpoint domains.
 
 Endpoint-domain membership, reflection, and iteration fit are distinguished in [range-membership.md](range-membership.md).
+Numeric iterator item types, exact progression, rounding and failure state are specified in [range-iteration.md](range-iteration.md).
 
 Domain-preserving intersection, containment and emptiness are detailed in [range-selection.md](range-selection.md).
 
