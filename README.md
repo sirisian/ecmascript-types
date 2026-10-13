@@ -4636,3 +4636,5 @@ An open supplied argument does not suppress another parameter's omitted default;
 Completing a dependent default also rechecks the call's dependent value arguments, preserving contextual literal rules; see [completed defaults and their consumers](inference-provenance.md#completed-defaults-recheck-their-value-consumers).
 
 Storing a pending specialization preserves its consumer dependencies without publishing an incomplete callable signature; see [stored pending specializations](inference-provenance.md#stored-pending-specializations-preserve-consumer-dependencies).
+
+Exact numeric range counts and range-returning adapters: [range-adapters.md](range-adapters.md).

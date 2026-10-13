@@ -86,4 +86,4 @@ Numeric parameterizations retain their existing checked admission and error beha
 
 No endpoint enumeration is required to construct a cursor. A production engine can lower ordinary bounded loops to checked machine counters and specialize on an immutable carrier descriptor; the proof-of-concept's internal WeakMap is not a production layout prescription. Reference location validation remains at the existing accesses.
 
-This increment covers implicit numeric iteration, numeric `step`, `reverse`, and the helpers delegating to these cursors. It does not repair `length`, range-returning `take`/`drop`, scaling, interval arithmetic, general custom arithmetic domains, or all static iterator-result adapters. Those remain independent audits.
+This increment covers implicit numeric iteration, numeric `step`, `reverse`, and the helpers delegating to these cursors. Exact `length` and range-returning `take`/`drop` are specified separately in [range-adapters.md](range-adapters.md). Scaling, interval arithmetic, general custom arithmetic domains, and all static iterator-result adapters remain independent audits.

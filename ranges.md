@@ -188,7 +188,7 @@ partial interface RangeBounds<const T extends Arithmetic.<T>> {
 class Range<T: type extends Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bound.Open> implements RangeBounds.<T> {
 	readonly start: T;
 	readonly end: T;
-	get length(): uint32 { /* … */ return 0; }
+	get length(): bigint { /* … */ return 0n; }
 	get interval(): Interval; // Derived from S and E, never a parameter
 	contains(value: T): boolean { /* … */ return false; }
 	step<D: type>(by: D): Iterator.<T> { /* … */ return undefined; } // Admitted difference domains are specified under Iteration
@@ -293,7 +293,7 @@ A float range with a non-integer endpoint, like `0.5..<3`, has no implicit step.
 
 **An endpoint may be infinite, and that is not the same as having none.** ```0..<Infinity``` and ```0..``` contain the same values and iterate the same - an infinite end stops the iteration nowhere, exactly as an absent end does - but they are different shapes and say so: the first has an ```end```, an ```endBound``` of ```Bound.Open``` and an ```interval``` of ```Interval.ClosedOpen```, where the second reports none of the three. Only the absent form is ```isFull``` when both sides are missing, so ```-Infinity..<Infinity``` is not ```..```. Both spellings are allowed because a computed endpoint may *be* infinite without an author choosing it - a bound derived from a division, or a length that overflowed - and refusing would turn a survivable program into a throw. Write ```0..``` when you mean "no upper bound"; ```0..<Infinity``` is what a computation hands you.
 
-**```length``` adjusts once per open endpoint.** Over a bounded integer range it is ```end - start + 1``` less one for each endpoint that excludes its own value, so ```0..=10``` has 11 members, ```0..<10``` and ```0<..=10``` have 10, and ```0<..<10``` has 9; it is never negative. **```isEmpty``` reads the bounds at equal endpoints**: ```5..=5``` holds exactly one value, while ```5..<5```, ```5<..=5```, and ```5<..<5``` hold none, since an open endpoint excludes the only value the interval could contain.
+**```length: bigint``` adjusts once per open endpoint.** Over a bounded integer range it is ```end - start + 1``` less one for each endpoint that excludes its own value, so ```0..=10``` has 11 members, ```0..<10``` and ```0<..=10``` have 10, and ```0<..<10``` has 9; it is never negative. The arithmetic is exact and the result is always a BigInt, independent of endpoint type or width. Missing, infinite, fractional, or unsupported numeric endpoints throw TypeError. The count describes the integer lattice, not successful per-item metadata admissions. **```isEmpty``` reads the bounds at equal endpoints**: ```5..=5``` holds exactly one value, while ```5..<5```, ```5<..=5```, and ```5<..<5``` hold none, since an open endpoint excludes the only value the interval could contain.
 
 Descending ranges are **empty**, not reversed: ```10..<0``` contains nothing, and ```(0..<10).reverse()``` is how you count down. This is Rust's rule and it exists because the alternative silently produces a loop that runs backwards when a variable goes negative.
 
@@ -420,6 +420,8 @@ const a: [].<uint32> = [...0..<10]; // A typed array of uint32
 Array.from(0..<10, i => i * i);
 (0..).take(10).toArray();
 ```
+
+The range-returning ```take(n)``` and ```drop(n)``` preserve the endpoint domain and compute exact unit-lattice cuts. A partial take closes at the last selected value; a partial drop opens after the last removed value. For example, ```(0..<10).take(3)``` is ```0..=2```, and ```(0..<10).drop(3)``` is ```2<..<10```. Counts must be nonnegative finite integral numeric values, without coercion. [range-adapters.md](range-adapters.md) specifies zero and oversized counts, metadata admission, exact BigInt ```length```, and reflected bounds.
 
 Because ```Range``` is a value type and ```*operator...()``` is an ordinary iteration operator, ```for (const i of 0..<n)``` inlines to a counted loop with no iterator object allocated. It is the C-style loop, spelled once.
 
