@@ -2583,24 +2583,19 @@ function* g(): Generator.<int32, string, boolean> {
   return 'done';
 }
 const it = g();
-it.next(true); // { value, done } with value: int32 until done, then string
+it.next(true); // { value, done } with value: int32 until done, then string | undefined
 ```
 
-A generator is an iterator: ```Generator.<Y, R, N>``` satisfies ```IterableIterator<Y, R, N>``` and ```Iterable<Y>```, which is why a generator may be spread, consumed by ```for...of```, or passed anywhere an iterator is expected. That relation holds because the two families default ```R``` and ```N``` the same way, and the iteration types were written to match rather than the reverse.
+A generator supplies an iterable element view. Its operation results also include ordinary exhaustion: `Generator.<Y,R,N>` keeps its body R and reads completed values as `IteratorCompletionValue(R) | undefined`. Structural iterator conformance follows those method signatures; a string body completion needs an exhaustion-aware `Iterator<Y,string|undefined,N>` view. See [generator-lifecycle.md](generator-lifecycle.md).
 
 ```next``` takes the generator's next type and returns an iterator result:
 
 ```js
-type IteratorResult<Y: type, R: type> = {
-  value: Y | R,
-  done: boolean
-};
-
-class Generator<Y: type, R: type = void, N: type = void> {
-  next(value: N): IteratorResult.<Y, R> { /* … */ return undefined; }
-  return(value: R): IteratorResult.<Y, R> { /* … */ return undefined; }
-  throw(exception: any): IteratorResult.<Y, R> { /* … */ return undefined; }
-}
+// Specification notation, not additional source-level type operators:
+// GeneratorResult<Y,R> = {done:false,value:Y}
+//                    | {done:true,value:GeneratorCompletionValue(R)}
+// next(value?: N), return(value?: R), and throw(exception?: any)
+// all return this result. The self-iteration hook returns Generator<Y,R,N>.
 ```
 
 Testing ```done``` narrows ```value```: it's ```Y``` where ```done``` is false and ```R``` where it's true. This narrowing is a rule about the built-in iterator result, not a general facility for discriminating a record by one of its fields. When ```R``` is ```void``` there's no union to narrow and ```value``` is simply ```Y```, which is why a generator used as a token stream reads cleanly:
@@ -2692,7 +2687,7 @@ interface AsyncIterable<T: type> {
 interface AsyncIterableIterator<T: type, R: type = void, N: type = void> extends AsyncIterable.<T>, AsyncIterator.<T, R, N> {}
 ```
 
-An ```AsyncGenerator.<Y, R, N>``` satisfies ```AsyncIterableIterator<Y, R, N>``` for the reason its synchronous counterpart does. ```AsyncIterator``` becomes a class when the async iterator helpers proposal advances, and needs no change here when it does.
+An `AsyncGenerator.<Y,R,N>` uses the same exhaustion-aware operation result, wrapped in a Promise, and preserves Y/R/N through its self-iteration hook. Its structural conformance follows those signatures. ```AsyncIterator``` becomes a class when the async iterator helpers proposal advances, and needs no change here when it does.
 
 #### The Iteration Types
 
@@ -2738,7 +2733,7 @@ interface IterableIterator<T: type, R: type = void, N: type = void> extends Iter
 }
 ```
 
-A bare argument is the element type, as it is for a generator: ```Iterator.<uint8>``` is ```Iterator.<uint8, void, void>```. The defaults are ```void``` because ```Generator.<Y, R, N>```'s are, and that agreement is what makes **a generator an iterator**: ```Generator.<Y, R, N>``` satisfies ```IterableIterator<Y, R, N>```. Had the two been chosen apart, a generator would have been *nearly* an iterator, which is the trap TypeScript documented when its builtin iterators and its generators disagreed on the same parameter.
+A bare argument is the element type, as it is for a generator: `Iterator.<uint8>` is `Iterator.<uint8,void,void>`. Both families default R and N to void. A generator's more precise operation result includes ordinary exhaustion; equal defaults do not imply that every explicit R supplies the same structural result in both families.
 
 ```Iterator``` is also a class - the one iterator helpers put ```map```, ```filter```, and ```take``` on - and it declares that it implements ```IterableIterator```. A class that declares an interface is checked once at its declaration and by brand afterwards, so the common path costs a prototype check and only a hand-written object pays a member walk.
 
