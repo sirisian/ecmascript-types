@@ -161,8 +161,7 @@ interface RangeBounds<T: type extends Ordered.<T>> {
 
 	get isEmpty(): boolean; // No value falls within it
 	get isFull(): boolean;  // Every value of T does
-	contains(value: T): boolean { /* … */ return false; }
-	contains(range: RangeBounds.<T>): boolean { /* … */ return false; }
+	contains(value: any = undefined): boolean { /* ... */ return false; }
 	intersect<U: type>(other: RangeBounds.<U>): RangeBounds.<T | U> { /* … */ return undefined; }
 }
 
@@ -194,9 +193,9 @@ class Range<T: type extends Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bou
 	readonly end: T;
 	get length(): bigint { /* … */ return 0n; }
 	get interval(): Interval; // Derived from S and E, never a parameter
-	contains(value: T): boolean { /* … */ return false; }
-	step<D: type>(by: D): Iterator.<T> { /* … */ return undefined; } // Admitted difference domains are specified under Iteration
-	reverse(): Iterator.<T> { /* … */ return undefined; }
+	contains(value: any = undefined): boolean { /* ... */ return false; }
+	step(by: any = undefined): Iterator.<any, undefined, any> { /* ... */ return undefined; } // Precise item contribution: range-iterator-results.md
+	reverse(): Iterator.<any, undefined, any> { /* ... */ return undefined; } // Precise item contribution: range-iterator-results.md
 	*operator...(): Iterator.<T>;
 
 	// The bounds are value generics, not arguments. A runtime bound would
@@ -303,7 +302,7 @@ Descending ranges are **empty**, not reversed: ```10..<0``` contains nothing, an
 
 **The interface's operations are total across the four shapes**, because the interface is what a consumer of an arbitrary range holds: the [metadata](primitivemetadata.md) bounds field is a ```RangeBounds.<T>```, and narrowing reaches it through ```..``` where there is no bound yet.
 
-```contains``` overloads on a value and on a range. Against a range it is the subset test, so an empty range is contained in every range and ```..``` contains them all. The two overloads cannot be ambiguous: a range is not ```Ordered```, so ```T``` is never itself a ```RangeBounds```.
+```contains``` accepts a candidate without converting it to `T`. A range candidate selects the subset test: an empty range is contained in every range and ```..``` contains them all. A scalar candidate uses the existing ordering rules, including exact heterogeneous numeric comparison. The Boolean result and intersection's union result contract are detailed in [range-selection-types.md](range-selection-types.md).
 
 The ordering-only operations preserve endpoint values and compare them without numeric coercion. Their result-domain, comparison-order and equivalent-endpoint rules are specified in [range-selection.md](range-selection.md). Intersection joins operand domains, with `RangeFull<any>` neutral, independently of which endpoints win. This preserves a declared union domain and typed full ranges. The generic signature below is subject to mutual ordering and that full-any identity rule.
 
@@ -398,6 +397,8 @@ The numeric item type, exact integral progression, floating rounding, bound chec
 (0..).step(3).take(4); // 0, 3, 6, 9
 ```
 
+The static item contribution and explicit `undefined` completion for `step` and `reverse` are specified in [range-iterator-results.md](range-iterator-results.md).
+
 **```step``` returns an ```Iterator```, not a stepped range**, and the reason is algebraic rather than ergonomic. ```RangeBounds``` is an *interval* abstraction: ```contains```, ```intersect```, ```scale```, and the arithmetic operators are all point-set operations, and intersection is **closed** over intervals - which is what makes narrowing monotone. A step turns the point set into a lattice, and intersection is not closed over lattices: the multiples of 2 in ```0..<10``` intersected with the multiples of 3 are the multiples of 6, which no single stepped range with one step expresses. A stepped range would therefore make ```intersect``` either wrong or union-valued. Kotlin can afford ```IntProgression``` with ```contains``` precisely because it has no interval arithmetic to keep closed; Rust's ```step_by``` returns an iterator, as here.
 
 The nth value is ```start + n * by``` rather than the previous value plus ```by```, and iteration stops when that value reaches ```end```, tested against the value and not against a computed count. Both halves matter for a float range: ```(end - start) / by``` can round up and yield one value too many, and repeated addition accumulates error.
@@ -430,6 +431,10 @@ const a: [].<uint32> = [...0..<10]; // A typed array of uint32
 Array.from(0..<10, i => i * i);
 (0..).take(10).toArray();
 ```
+
+The terminal helpers `toArray`, `forEach`, `some`, `every` and `find` use the cursor item contribution, which can differ from the endpoint domain. Their callbacks adopt the item type and a `uint64` index; adoption includes runtime binding admission. `find` includes `undefined` for no match, and `forEach` has a discarded `void` result. [range-terminal-helpers.md](range-terminal-helpers.md) specifies the contracts, replacement behavior and design decisions.
+
+The lazy `map` helper infers its yielded type from the mapper after establishing its item and `uint64` input positions; `filter` preserves the cursor item type and requires a Boolean predicate. Both return helper-bearing iterators with `undefined` completion, including through self-iteration. Their creation does not invoke callbacks. See [range-lazy-helpers.md](range-lazy-helpers.md) for inference, receiving contracts and replacement rules.
 
 The range-returning ```take(n)``` and ```drop(n)``` preserve the endpoint domain and compute exact unit-lattice cuts. A partial take closes at the last selected value; a partial drop opens after the last removed value. For example, ```(0..<10).take(3)``` is ```0..=2```, and ```(0..<10).drop(3)``` is ```2<..<10```. Counts must be nonnegative finite integral numeric values, without coercion. [range-adapters.md](range-adapters.md) specifies zero and oversized counts, metadata admission, exact BigInt ```length```, and reflected bounds.
 

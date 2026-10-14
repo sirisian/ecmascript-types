@@ -941,7 +941,7 @@ Numeric iterator item types, exact progression, rounding and failure state are s
 
 Domain-preserving intersection, containment and emptiness are detailed in [range-selection.md](range-selection.md), with static method results in [range-selection-types.md](range-selection-types.md).
 Explicit range iterator result contracts are detailed in [range-iterator-results.md](range-iterator-results.md).
-Terminal range helper and callback contracts are detailed in [range-terminal-helpers.md](range-terminal-helpers.md).
+Terminal range helper and callback contracts are detailed in [range-terminal-helpers.md](range-terminal-helpers.md). Lazy mapper inference and filter preservation are detailed in [range-lazy-helpers.md](range-lazy-helpers.md).
 
 An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates:
 
