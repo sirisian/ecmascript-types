@@ -65,4 +65,4 @@ Primary references: [Rust Reference: functions](https://doc.rust-lang.org/refere
 
 ## Remaining boundary
 
-Explicit generic intrinsic application such as `r.map.<string>(callback:f)` remains a separate task. A descriptor must not silently accept and ignore type arguments. General bound/proxy/reflective callable-view transport, arbitrary standard-library named parameters and callback-context propagation also remain separate. Existing static and runtime admission still decide whether any concrete invocation succeeds.
+Explicit `map` application now follows [intrinsic-generic-map.md](intrinsic-generic-map.md). Its generic capability and lazy output checks are separate from the named-parameter descriptor, which must not silently accept and ignore type arguments. General bound/proxy/reflective callable-view transport, arbitrary standard-library named parameters and callback-context propagation also remain separate. Existing static and runtime admission still decide whether any concrete invocation succeeds.
