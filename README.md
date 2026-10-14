@@ -939,7 +939,7 @@ See [Metadata range endpoints and special carriers](metadata-range-admission.md)
 Endpoint-domain membership, reflection, and iteration fit are distinguished in [range-membership.md](range-membership.md).
 Numeric iterator item types, exact progression, rounding and failure state are specified in [range-iteration.md](range-iteration.md).
 
-Domain-preserving intersection, containment and emptiness are detailed in [range-selection.md](range-selection.md).
+Domain-preserving intersection, containment and emptiness are detailed in [range-selection.md](range-selection.md), with static method results in [range-selection-types.md](range-selection-types.md).
 
 An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates:
 
