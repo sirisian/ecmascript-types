@@ -436,6 +436,8 @@ The terminal helpers `toArray`, `forEach`, `some`, `every` and `find` use the cu
 
 The lazy `map` helper infers its yielded type from the mapper after establishing its item and `uint64` input positions; `filter` preserves the cursor item type and requires a Boolean predicate. Both return helper-bearing iterators with `undefined` completion, including through self-iteration. Their creation does not invoke callbacks. See [range-lazy-helpers.md](range-lazy-helpers.md) for inference, receiving contracts and replacement rules. Flattening uses a separate callback-result eligibility judgment and derives items from the reached inner iterator protocol; see [range-flatmap.md](range-flatmap.md).
 
+The forwarded `reduce` uses one accumulator type across its initial value, callback recurrence and normal result, with the cursor item and `uint64` index as separate inputs. See [range-reduce.md](range-reduce.md) for inference, empty traversal, gradual callbacks and replacement boundaries.
+
 The range-returning ```take(n)``` and ```drop(n)``` preserve the endpoint domain and compute exact unit-lattice cuts. A partial take closes at the last selected value; a partial drop opens after the last removed value. For example, ```(0..<10).take(3)``` is ```0..=2```, and ```(0..<10).drop(3)``` is ```2<..<10```. Counts must be nonnegative finite integral numeric values, without coercion. [range-adapters.md](range-adapters.md) specifies zero and oversized counts, metadata admission, exact BigInt ```length```, and reflected bounds.
 
 Because ```Range``` is a value type and ```*operator...()``` is an ordinary iteration operator, ```for (const i of 0..<n)``` inlines to a counted loop with no iterator object allocated. It is the C-style loop, spelled once.

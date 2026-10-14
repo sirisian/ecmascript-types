@@ -40,7 +40,7 @@ Ordinary property lookup and effects remain observable. A method name or inherit
 
 ## Boundaries still open
 
-`flatMap` eligibility and established flattened contributions are specified in [range-flatmap.md](range-flatmap.md); reduction must preserve an accumulator contract. Default range `Symbol.iterator`, general `bind`/`apply` transport, and named intrinsic arguments remain separate. This increment improves shared synchronous helper signatures, but does not establish async helper semantics.
+`flatMap` eligibility and established flattened contributions are specified in [range-flatmap.md](range-flatmap.md); reduction preserves the shared accumulator contract in [range-reduce.md](range-reduce.md). Default range `Symbol.iterator`, general `bind`/`apply` transport, and named intrinsic arguments remain separate. This increment improves shared synchronous helper signatures, but does not establish async helper semantics.
 
 Explicit type application of the built-in mapper remains an implementation gap: the static generic view does not itself make the runtime function generic. Ordinary inferred mapper calls are covered here. Resolve explicit application with intrinsic argument routing, using this decision:
 

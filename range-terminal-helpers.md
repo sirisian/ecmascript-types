@@ -47,6 +47,6 @@ The implementation increment publishes missing simple and ordinary rest binding 
 
 Established computed names, finite keys, optional access and extracted method views use the same member contract. Extraction does not bind `this`. A whole `any` receiver does not become participating solely from a familiar method name. Named intrinsic argument routing is a separate existing implementation gap; the parameter name in a static view does not prove that runtime routing is implemented.
 
-Lazy `map` and `filter` are specified in [range-lazy-helpers.md](range-lazy-helpers.md). `flatMap`, reduction recurrence, the range's default `Symbol.iterator` static view, and general `bind`/`apply` transport remain separate increments. `take` and `drop` remain range-returning algebraic adapters.
+Lazy `map` and `filter` are specified in [range-lazy-helpers.md](range-lazy-helpers.md). `flatMap` is specified in [range-flatmap.md](range-flatmap.md), and reduction recurrence in [range-reduce.md](range-reduce.md). The range's default `Symbol.iterator` static view, and general `bind`/`apply` transport remain separate increments. `take` and `drop` remain range-returning algebraic adapters.
 
 Primary references: [Rust Iterator](https://doc.rust-lang.org/std/iter/trait.Iterator.html) and [ECMAScript Iterator.prototype.forEach](https://tc39.es/ecma262/multipage/control-abstraction-objects.html#sec-iterator.prototype.foreach), including the neighboring terminal helper algorithms. Performance evaluations above are design analysis, not measured engine benchmarks.
