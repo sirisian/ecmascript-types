@@ -152,12 +152,12 @@ interface Arithmetic<T: type> {
 }
 
 interface RangeBounds<T: type extends Ordered.<T>> {
-	// The shape-independent view: an endpoint and its bound, or null where the
+	// The shape-independent view: an endpoint and its bound, or undefined where the
 	// shape has neither. This is what code over an arbitrary range reads.
-	get start(): T | null { /* … */ return undefined; }
-	get end(): T | null { /* … */ return undefined; }
-	get startBound(): Bound | null { /* … */ return undefined; }
-	get endBound(): Bound | null { /* … */ return undefined; }
+	get start(): T | undefined { /* … */ return undefined; }
+	get end(): T | undefined { /* … */ return undefined; }
+	get startBound(): Bound | undefined { /* … */ return undefined; }
+	get endBound(): Bound | undefined { /* … */ return undefined; }
 
 	get isEmpty(): boolean; // No value falls within it
 	get isFull(): boolean;  // Every value of T does
@@ -218,11 +218,11 @@ class Range<T: type extends Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bou
 }
 
 class RangeFrom<T: type extends Ordered.<T>, S: Bound = Bound.Closed> implements RangeBounds.<T> {
-	readonly start: T; // `end` and `endBound` are null
+	readonly start: T; // `end` and `endBound` are undefined
 }
 
 class RangeTo<T: type extends Ordered.<T>, E: Bound = Bound.Open> implements RangeBounds.<T> {
-	readonly end: T; // `start` and `startBound` are null
+	readonly end: T; // `start` and `startBound` are undefined
 }
 
 class RangeFull<T: type extends Ordered.<T>> implements RangeBounds.<T> {}
@@ -332,6 +332,8 @@ Multiplication is the four products of the endpoints, the least and the greatest
 Division is multiplication by the reciprocal, and it is defined only where the divisor is bounded away from zero - a strictly positive low or a strictly negative high. A divisor whose range merely excludes zero at an open endpoint, like ```0<..=1```, is not enough: its values approach zero, so the existing conservative contract returns ```..```. This is a deliberate full-range fallback, not a claim that every such quotient has no tighter one-sided enclosure. Domain checks and empty-image handling precede the fallback.
 
 Both operations retain one agreed concrete numeric coordinate domain, compute exact extrema without Number conversion or a rounded reciprocal, and represent only the final bounds. They use checked integer/rational representation and outward floating rounding. They do not infer quantity units or automatically lift arbitrary scalar operators. [range-products.md](range-products.md) specifies domain alternatives, every sign/presence case, interior attainment, explicit infinity failures, representation and admission order.
+
+The static property surface is specified in [range-properties.md](range-properties.md): concrete shapes retain endpoint presence, `RangeBounds<T>` includes `undefined` for possible absence, and known bounds retain their enum identity. Dot access, known computed keys and destructuring use the same contract. A public getter's static result type does not itself authorize check elision.
 
 ## Random
 
