@@ -40,9 +40,9 @@ Ordinary property lookup and effects remain observable. A method name or inherit
 
 ## Boundaries still open
 
-`flatMap` eligibility and established flattened contributions are specified in [range-flatmap.md](range-flatmap.md); reduction preserves the shared accumulator contract in [range-reduce.md](range-reduce.md). The default iterator is specified in [range-default-iterator.md](range-default-iterator.md); general `bind`/`apply` transport and named intrinsic arguments remain separate. This increment improves shared synchronous helper signatures, but does not establish async helper semantics.
+`flatMap` eligibility and established flattened contributions are specified in [range-flatmap.md](range-flatmap.md); reduction preserves the shared accumulator contract in [range-reduce.md](range-reduce.md). The default iterator is specified in [range-default-iterator.md](range-default-iterator.md); named intrinsic arguments now follow [named-intrinsic-routing.md](named-intrinsic-routing.md), while general `bind`/`apply` transport remains separate. This increment improves shared synchronous helper signatures, but does not establish async helper semantics.
 
-Explicit type application of the built-in mapper remains an implementation gap: the static generic view does not itself make the runtime function generic. Ordinary inferred mapper calls are covered here. Resolve explicit application with intrinsic argument routing, using this decision:
+Explicit type application of the built-in mapper remains an implementation gap: the static generic view does not itself make the runtime function generic. Ordinary inferred mapper calls are covered here. Resolve explicit application after intrinsic argument routing, using this decision:
 
 | Direction | Ergonomics / autocomplete / wrong guesses | Prior art | Real-engine performance | Correctness / reference liveness | Other / decision |
 |---|---|---|---|---|---|
