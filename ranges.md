@@ -432,6 +432,8 @@ Array.from(0..<10, i => i * i);
 (0..).take(10).toArray();
 ```
 
+The default `[Symbol.iterator]()` returns a fresh forward cursor with the same item, completion and input contracts as explicit iteration. See [range-default-iterator.md](range-default-iterator.md) for member views, consumers and loop-entry admission.
+
 The terminal helpers `toArray`, `forEach`, `some`, `every` and `find` use the cursor item contribution, which can differ from the endpoint domain. Their callbacks adopt the item type and a `uint64` index; adoption includes runtime binding admission. `find` includes `undefined` for no match, and `forEach` has a discarded `void` result. [range-terminal-helpers.md](range-terminal-helpers.md) specifies the contracts, replacement behavior and design decisions.
 
 The lazy `map` helper infers its yielded type from the mapper after establishing its item and `uint64` input positions; `filter` preserves the cursor item type and requires a Boolean predicate. Both return helper-bearing iterators with `undefined` completion, including through self-iteration. Their creation does not invoke callbacks. See [range-lazy-helpers.md](range-lazy-helpers.md) for inference, receiving contracts and replacement rules. Flattening uses a separate callback-result eligibility judgment and derives items from the reached inner iterator protocol; see [range-flatmap.md](range-flatmap.md).
