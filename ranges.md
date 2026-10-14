@@ -170,7 +170,8 @@ interface RangeBounds<T: type extends Ordered.<T>> {
 // Ordered and cannot be multiplied. So scale exists on the instantiations whose
 // element type scales, by the partial specialization rule in generics.md.
 partial interface RangeBounds<const T extends Scalable.<T>> {
-	scale(factor: number | float64 | rational64 | rational.<bigint>): RangeBounds.<T> { /* … */ return undefined; }
+	// Factor admission follows range-scaling.md; it is independent of T.
+	scale<F: type>(factor: F): RangeBounds.<T> { /* … */ return undefined; }
 }
 
 // Interval arithmetic, on the ranges whose element type has arithmetic. The
@@ -333,7 +334,7 @@ Division is multiplication by the reciprocal, and it is defined only where the d
 
 Both operations retain one agreed concrete numeric coordinate domain, compute exact extrema without Number conversion or a rounded reciprocal, and represent only the final bounds. They use checked integer/rational representation and outward floating rounding. They do not infer quantity units or automatically lift arbitrary scalar operators. [range-products.md](range-products.md) specifies domain alternatives, every sign/presence case, interior attainment, explicit infinity failures, representation and admission order.
 
-The static property surface is specified in [range-properties.md](range-properties.md): concrete shapes retain endpoint presence, `RangeBounds<T>` includes `undefined` for possible absence, and known bounds retain their enum identity. Dot access, known computed keys and destructuring use the same contract. A public getter's static result type does not itself authorize check elision.
+The static property surface is specified in [range-properties.md](range-properties.md): concrete shapes retain endpoint presence, `RangeBounds<T>` includes `undefined` for possible absence, and known bounds retain their enum identity. Dot access, known computed keys and destructuring use the same contract. A public getter's static result type does not itself authorize check elision. [range-results.md](range-results.md) defines the normal-result view for scale, take, drop, unary negation and binary interval arithmetic: `RangeBounds<T>` retains the endpoint domain without promising an unchanged concrete shape. Argument validation and replaceable-method receiving boundaries remain required.
 
 ## Random
 
