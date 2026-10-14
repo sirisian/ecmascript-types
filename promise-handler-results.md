@@ -1,0 +1,18 @@
+# Promise handler result contributions
+
+A Promise returned by a `then` or `catch` handler is assimilated. The next fulfillment handler receives its fulfilled value. The static result must apply the existing await contribution recursively to established Promise arguments and union alternatives before constructing the result Promise. Handler return type `Promise.<T, E>` therefore contributes `T`, not another Promise layer. The result rejection remains `any`.
+
+This repairs an existing async-generator method test: `g.next().then(() => g.next()).then(r => ...)` was typing `r` as a Promise, although the runtime supplied an iterator-result Object. Its adopted parameter check rejected that Object, preventing the success callback from running. The problem also affected ordinary Promise-returning recovery handlers.
+
+| Direction | Ergonomics / autocomplete / wrong guesses | Prior art | Real-engine performance | Correctness / reference liveness | Other / decision |
+|---|---|---|---|---|---|
+| Keep the returned Promise as the next handler's value type | Completion advertises Promise members and rejects the actual fulfilled Object. | ECMAScript Promise chaining assimilates returns. Rust Futures remain explicit until awaited, so blindly importing their wrapper is the wrong analogy. | Creates false callback-entry assumptions and extra failed checks; no useful shape advantage. | Contradicts the runtime's established resolution procedure. | **Reject.** |
+| Erase every chained result to any | Avoids the false rejection but hides known item mistakes. | Weaker than both established Promise contracts and Rust's known Future output. | Discards useful specialization facts without removing required assimilation. | Conservative but loses completed evidence. | **Reject.** |
+| Change runtime chaining to deliver the Promise itself | Would make this static signature appear correct but break existing JavaScript. | Unlike ECMAScript; Rust's explicit Future semantics are not a compatibility precedent. | Changes scheduling and call shapes for a typing mistake. | Violates Promise resolution, effects and possibly reference-liveness timing. | **Reject.** |
+| Use the established fulfilled contribution of each handler return | Completion and parameter admission match the value actually supplied. | ECMAScript is the direct precedent; Rust's `Future::Output` is only a returned-type/output distinction. | Static type traversal only; no runtime shape, wrapper or scheduling change. | Restores existing Promise semantics and leaves reference rules unchanged. | **Recommend.** |
+
+This increment fixes known Promise and union contributions in the existing direct-call inference path. It does not claim completion of arbitrary thenable inference, general extracted/bound Promise method transport or rejection-effect inference. No handler or thenable is executed during the query. The notation for the assimilated contribution in the specification is explanatory, not a new public type operator.
+
+The test harness's fallback job drain also used a nonexistent `callback` property. It now uses the engine's job runner, checks initial Script completion and reports exhaustion of its bounded job budget. This was not the cause of the chained Promise typing bug: the ordinary automatic event loop already ran those reactions. Existing tests using that harness are included in verification; the original failing assertion is retained.
+
+Primary references: [ECMAScript Promise reaction jobs](https://tc39.es/ecma262/multipage/control-abstraction-objects.html#sec-newpromisereactionjob) and [Rust Future](https://doc.rust-lang.org/std/future/trait.Future.html). Performance statements are design analysis, not benchmarks.
