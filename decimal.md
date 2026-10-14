@@ -76,6 +76,8 @@ Explicit in every direction, and each names its loss:
 - Between widths: `decimal32` to `decimal128` is exact; the reverse rounds.
 - To and from a [rational](rational.md): a terminating decimal is exactly a rational with a power-of-ten denominator, so `rational64(d)` is exact — `0.1` becomes `1/10` — while `decimal128(r)` rounds a non-terminating rational to the digit budget.
 
+A decimal metadata construction such as `T(d)` or `d := T` retains the admitted parameterization on its result while preserving the source decimal and its cohort. See [Numeric metadata construction identity](numeric-construction-identity.md). A successful membership predicate does not itself construct or retag a value.
+
 ## Example
 
 An order total, exact to the cent, next to the binary-float version that drifts:

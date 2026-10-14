@@ -1084,6 +1084,8 @@ i < array.length; // Fine. Comparing any with uint32 is dynamic
 
 **Metadata parameterizations of one primitive convert by their meta protocol.** ```Kilometer``` and ```Meter``` are both ```float32```, and the ```conversionFactor``` and ```quantize``` hooks in [primitive metadata](primitivemetadata.md) apply at assignment, argument, and return boundaries. That is a conversion within a type, not between two of them.
 
+Explicit numeric parameterization construction retains its admitted runtime type without changing the source or payload. See [Numeric metadata construction identity](numeric-construction-identity.md) for membership, same-type conversion, failures and both explicit spellings.
+
 **User-defined casts still apply**, because the class that declares them opted in. A constructor taking a ```float32``` makes ```let t: MyType = 1;``` legal, and an ```operator T()``` - a parameterless member that converts the receiver - makes the reverse legal. When a type can't grow such a constructor because its constructor is already spoken for, as ```Temporal.Instant```'s takes epoch nanoseconds, it declares a cast *from* the source instead: ```operator MyType(value: Source)```, a member of the target that takes the source and runs with no receiver. It is consulted at the same assignment, argument, and return boundaries a converting constructor is, with a constructor preferred when both could apply.
 
 The standard library is overloaded for the value types, so nothing in it forces a conversion. ```Math.clz32``` of a ```uint32``` is a ```uint32```, ```Math.min``` of two ```float32``` is a ```float32```, and ```array.length``` is a ```uint32``` that compares against a ```uint32``` loop counter without a cast.
