@@ -2586,7 +2586,7 @@ const it = g();
 it.next(true); // { value, done } with value: int32 until done, then string | undefined
 ```
 
-A generator supplies an iterable element view. Its operation results also include ordinary exhaustion: `Generator.<Y,R,N>` keeps its body R and reads completed values as `IteratorCompletionValue(R) | undefined`. Structural iterator conformance follows those method signatures; a string body completion needs an exhaustion-aware `Iterator<Y,string|undefined,N>` view. See [generator-lifecycle.md](generator-lifecycle.md).
+A generator supplies an iterable element view. Its operation results also include ordinary exhaustion: `Generator.<Y,R,N>` keeps its body R and reads completed values as `IteratorCompletionValue(R) | undefined`. Structural iterator conformance follows those method signatures; a string body completion needs an exhaustion-aware `Iterator<Y,string|undefined,N>` view. See [generator-lifecycle.md](generator-lifecycle.md). Synchronous external return requests admit optional R before resumption and preserve completion provenance through cleanup; see [generator-return-admission.md](generator-return-admission.md).
 
 ```next``` takes the generator's next type and returns an iterator result:
 
