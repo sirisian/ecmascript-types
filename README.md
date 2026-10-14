@@ -2722,7 +2722,8 @@ For `for await`, a real async iterator contributes the `value` of its awaited `n
 The protocols are interfaces, so a value satisfies them by having the members. This is not a stylistic choice: ```for...of``` asks whether ```[Symbol.iterator]``` is callable and never asks what a value declared, so a type that refused a hand-written iterator would describe a language this is not.
 
 ```js
-type IteratorResult<T: type, R: type> = { value: T; done: false } | { value: R; done: true };
+// Built-in result shape, using specification notation for the completed value:
+// IteratorResult<T,R> = { value:T; done:false } | { value:IteratorCompletionValue(R); done:true }
 
 interface Iterator<T: type, R: type = void, N: type = void> {
   next(value?: N): IteratorResult.<T, R>;
@@ -2732,7 +2733,9 @@ interface Iterator<T: type, R: type = void, N: type = void> {
 interface Iterable<T: type> {
   [Symbol.iterator](): Iterator.<T>;   // a class declares this as *operator...()
 }
-interface IterableIterator<T: type, R: type = void, N: type = void> extends Iterable.<T>, Iterator.<T, R, N> {}
+interface IterableIterator<T: type, R: type = void, N: type = void> extends Iterable.<T>, Iterator.<T, R, N> {
+  [Symbol.iterator](): Iterator.<T, R, N>;
+}
 ```
 
 A bare argument is the element type, as it is for a generator: ```Iterator.<uint8>``` is ```Iterator.<uint8, void, void>```. The defaults are ```void``` because ```Generator.<Y, R, N>```'s are, and that agreement is what makes **a generator an iterator**: ```Generator.<Y, R, N>``` satisfies ```IterableIterator<Y, R, N>```. Had the two been chosen apart, a generator would have been *nearly* an iterator, which is the trap TypeScript documented when its builtin iterators and its generators disagreed on the same parameter.
@@ -2753,11 +2756,11 @@ drain({ next: () => ({ value: 1, done: false }) });   // also fine: it has the m
 ```js
 match (it.next()) {
   when { done: false, let value }: use(value);      // value: uint8
-  when { done: true, let value }: finish(value);    // value: void
+  when { done: true, let value }: finish(value);    // value: any for discarded R=void
 }
 ```
 
-That is the shape TypeScript needed a compiler flag for, ```--strictBuiltinIteratorReturn```, because without one the result's ```value``` was ```any```. Here the discriminant does the work the flag was standing in for.
+The completed arm uses `IteratorCompletionValue(R)`: `any` for a discarded `void` completion, otherwise the established R. Explicit `undefined` stays precise; a direct read can be gradual when R is `void`, while narrowing to `done === false` recovers T. Input contracts and the generator body's written return obligation remain separate. See [iterator-completion.md](iterator-completion.md) for the rule, generic substitution and rejected alternatives.
 
 There are no per-collection iterator types. TypeScript has ```ArrayIterator```, ```MapIterator```, and ```SetIterator``` because it needs somewhere to put a narrower return type; the shorthand carries that here, so the family stays at three.
 
