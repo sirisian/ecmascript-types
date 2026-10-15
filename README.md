@@ -705,6 +705,8 @@ The index type is ```uint64```, and its full range is allocatable and usable: an
 
 A write to a typed array's `length` is a typed count boundary too. A literal takes `uint64` context, so `a.length = 3` is valid for a growable array; `a.length = "3"`, a negative or fractional literal, and a known `number` binding are early type errors. Write an explicit conversion for a known numeric value of another type. An `any` value is checked at runtime: a numeric value must be exactly representable, and a nonnumeric value is a TypeError. Untyped arrays retain JavaScript's existing length coercion.
 
+An explicit increase of a typed array's `length` initializes every new position with its backing type's default. These are present own elements, including when the default is `undefined`; they are never holes. Each position gets its own default and any required value copy. A type with no default refuses this increase. The engine prepares the defaults before publishing any of the requested new elements, length or allocation change. Ordinary default-evaluation effects remain observable, and a conflicting reentrant resize or backing-contract change rejects the outer operation. Descriptor and extensibility checks precede initialization and are checked again before publication. See [length-growth initialization](array-growth-initialization.md) for the decisions and insertion follow-up.
+
 A literal length that contradicts a fixed extent is an early type error, even in an unused function. A compatible count does not waive the [reference-liveness rules](references.md): resizing during a `ref` loop still fails, and removing a borrowed element still invalidates that borrow.
 
 The width is ```uint64``` rather than ```uint32``` because a view's length comes from its buffer rather than from an allocation the language caps. One type describes every count an array reports or accepts - a ```length```, a ```capacity```, an index, and a view's length - so the range that only a view can reach is still the range they all share.
@@ -717,7 +719,7 @@ An implementation may be unable to reach the full range - a host whose arrays ar
 
 An earlier draft of this design read a second type argument as the length type, written ```[].<T, Length = uint32>```. It was never implemented: the argument parsed and was discarded, so every such array got the default length type regardless of what was written, which made a typo indistinguishable from a feature. An array type with more than one type argument is now refused. Should a per-array index type be wanted later, an optional second argument defaulting to the index type can be added without changing the meaning of anything written today.
 
-Setting the ```length``` reallocates the array truncating when applicable.
+Setting the ```length``` truncates or initializes new elements as applicable. Growth reallocates only when the current capacity is insufficient.
 
 A ```[].<T>``` keeps a capacity at least its length, so ```push``` is amortized O(1); a reallocation copies the existing elements by their layout, which for value types is one contiguous copy rather than an element-by-element loop.
 
