@@ -38,7 +38,7 @@ Value-class instances retained when an untyped Array acquires owned element stor
 
 ## Tuple follow-up
 
-Direct tuple elements remain separate implementation work. The current interpreter's first-rest positional stamp disagrees with SequenceAssignment for non-final or multiple rests. A correction must cover later writes, resizing, deletion, reference admission and array methods, not just initial callable selection.
+Required fixed positions and a single trailing unbounded homogeneous array rest now use retained admission; see [tuple callable admission](tuple-callable-admission.md). Other tuple elements remain separate implementation work. The current interpreter's first-rest positional stamp disagrees with SequenceAssignment for non-final or multiple rests. A correction must cover later writes, resizing, deletion, reference admission and array methods, not just initial callable selection.
 
 | Direction | Ergonomics, autocomplete, wrong guesses | Prior art, including Rust | Real-engine performance | Correctness and references | Other / decision |
 |---|---|---|---|---|---|
@@ -47,6 +47,6 @@ Direct tuple elements remain separate implementation work. The current interpret
 | Give ambiguous positions a union of slot types | Autocomplete is broad; stores can destroy required suffixes | Rust offers no corresponding variadic tuple storage | Cheap local checks | Independent unions do not preserve the sequence language | Rejected |
 | Retain the full tuple contract; use selected evidence for admission and validate mutations against the required sequence | Initial body selection follows the declared greedy assignment; mutations preserve the tuple contract | Rust's exact tuple positions are analogous only for the fixed subset | Can need sequence analysis for ambiguous mutations; fixed shapes can retain indexed fast paths | Preserves declared sequences without inventing a frozen partition; must retain reference identity/liveness through effects | **Recommended for the next design/implementation increment** |
 
-This recommendation is independent of cost. It is not yet a complete mutation algorithm: the next task must settle observable candidate conversion, atomicity/effect order and which existing operations change the sequence, with the same five criteria. This increment does not claim to repair tuple storage or combined callable signatures.
+This recommendation is independent of cost. The tuple admission audit further requires preserving existing location contracts: a successful repartition alone cannot retype a live invariant reference. It is not yet a complete mutation algorithm: the next task must settle observable candidate conversion, atomicity/effect order and which existing operations change the sequence, with the same five criteria. This increment does not claim to repair tuple storage or combined callable signatures.
 
 Primary prior art: [Rust coercion sites](https://doc.rust-lang.org/reference/type-coercions.html) and [function item types](https://doc.rust-lang.org/reference/types/function-item.html). Rust's fixed array and tuple construction contexts support propagating expected element types; they do not specify runtime getters, alias retagging, proxies, or JavaScript reference liveness.
