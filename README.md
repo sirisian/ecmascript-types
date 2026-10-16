@@ -4672,3 +4672,5 @@ Repeated equal rest types can establish one complete positional domain; see [rep
 Concrete array and tuple conversion retains source observations across failed membership; see [sequence-conversion-observations.md](sequence-conversion-observations.md).
 
 The general heterogeneous-rest design and implementation gates are recorded in [heterogeneous-rest-storage.md](heterogeneous-rest-storage.md), including correlated backing, conversion selection and invariant reference contracts.
+
+See [Dynamic scalar rest storage](scalar-rest-storage.md) for the first bounded implementation, conversion decisions, and remaining limits.
