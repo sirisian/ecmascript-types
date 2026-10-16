@@ -4664,3 +4664,5 @@ Exact additive range arithmetic and common endpoint domains: [range-addition.md]
 [Required finite and nested tuple rests](finite-tuple-rests.md) preserves finite extents with compact positional domains across checking, conversion and storage.
 
 See [Defaults through tuple spreads](tuple-spread-defaults.md) for effective default placement, initializer provenance and compact omitted construction.
+
+See [Collected extents in tuples with multiple rests](multiple-rest-admission.md) for exact run admission, compact arity proofs and the remaining backing work.
