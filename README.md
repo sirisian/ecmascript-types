@@ -4668,3 +4668,5 @@ See [Defaults through tuple spreads](tuple-spread-defaults.md) for effective def
 See [Collected extents in tuples with multiple rests](multiple-rest-admission.md) for exact run admission, compact arity proofs and the remaining backing work.
 
 Repeated equal rest types can establish one complete positional domain; see [repeated-rest-domains.md](repeated-rest-domains.md).
+
+Concrete array and tuple conversion retains source observations across failed membership; see [sequence-conversion-observations.md](sequence-conversion-observations.md).
