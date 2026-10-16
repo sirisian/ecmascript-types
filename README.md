@@ -4660,3 +4660,5 @@ Exact additive range arithmetic and common endpoint domains: [range-addition.md]
 [Nested omitted tuple defaults](nested-tuple-defaults.md) carries selected construction through structural and union boundaries, completing separate results before parent writes.
 
 [Tuple defaults before a trailing array rest](tuple-rest-defaults.md) keeps omission positional and preserves the complete prefix/rest storage domain.
+
+[Required finite and nested tuple rests](finite-tuple-rests.md) preserves finite extents with compact positional domains across checking, conversion and storage.
