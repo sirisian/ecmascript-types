@@ -1,8 +1,8 @@
 # Object-valued rests: prototype and descendant dependencies
 
-Object-valued destinations remain outside the implemented scalar-rest specialization. Recognizing an intrinsic numeric payload represented by an interpreter Object does not establish support for a nominal or structural Object destination. The complete heterogeneous-rest design remains the recommendation; this note specifies its next proof obligations rather than changing class membership.
+General object-valued conversion planning remains outside the implemented scalar-rest specialization. Ordinary nominal tuple membership is now backed by the correlated prototype mechanism below. Recognizing an intrinsic numeric payload represented by an interpreter Object does not establish support for a nominal or structural Object destination. The complete heterogeneous-rest design remains the recommendation; this note specifies its next proof obligations rather than changing class membership.
 
-## Reproduced gaps
+## Original reproduced gaps
 
 At engine262 commit `5f92785d37ecb497838c66e8b301188ede1a2677`, this converting boundary invokes the constructor twice and returns a sequence that is not a member of its annotation:
 
@@ -43,9 +43,9 @@ The current nominal membership operation follows the object's prototype chain to
 
 This is an inference from the existing proposal. [Rust's variance rules](https://doc.rust-lang.org/reference/subtyping.html) do not establish a JavaScript ownership discipline. [ECMAScript OrdinarySetPrototypeOf](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinarysetprototypeof) permits ordinary prototype replacement under its own checks; adding an acquired type obligation requires a specified prepublication check, not a retrospective rollback.
 
-## Next implementation boundary
+## General implementation boundary
 
-Before admitting nominal rests, identify the exact constructor/prototype dependency, including inherited links, and distinguish ordinary internal evidence from observable Proxy or constructor-property operations. A prospective prototype change must leave all affected acquired sequence and child obligations valid before publication. A valid changed chain must establish dependencies on its new links. Replacement/removal must retire obsolete relationships; weak dependency handling must avoid retaining dead arrays through surviving children. Independently completed nested boundaries remain in force.
+The ordinary exact-class and tuple-membership mechanisms below identify fixed constructor/prototype dependencies, including inherited links. General nominal conversion and exotic backing must additionally distinguish their applicability and persistent evidence from observable Proxy or constructor-property operations. A prospective prototype change must leave all affected acquired sequence and child obligations valid before publication. A valid changed chain must establish dependencies on its new links. Replacement/removal must retire obsolete relationships; weak dependency handling must avoid retaining dead arrays through surviving children. Independently completed nested boundaries remain in force.
 
 Conversion planning must reserve finite runs without invoking constructors or operators while searching. Constructor applicability, selected execution, and successful backed result are distinct facts. Retain operation observations; execute only the selected conversions in index order; propagate a selected failure without retry; revalidate earlier results and relevant backing after later user effects. General constructor signatures, specialization, proxy membership and metadata cannot be replaced by a blanket one-parameter constructor test.
 
@@ -101,6 +101,46 @@ Keep the ordinary same-prototype, nonextensible and cycle checks in their existi
 
 ### Boundary of this milestone
 
-Pure `is` does not acquire an obligation. Whole membership in `C | D` does not acquire an exact C obligation just because C was the successful alternative. Likewise, this helper is not permission to turn a heterogeneous rest's successful partition into permanent exact child contracts. The two original heterogeneous-rest witnesses above remain open; their whole-sequence admission does not yet use this mechanism. An independently selected conversion to C is an exact receiving operation and completes its own obligation before a later enclosing failure.
+Pure `is` does not acquire an obligation. Whole membership in `C | D` does not acquire an exact C obligation just because C was the successful alternative. Likewise, this helper is not permission to turn a heterogeneous rest's successful partition into permanent exact child contracts. At the exact-class prerequisite milestone, both original heterogeneous-rest witnesses remained open. The subsequent ordinary tuple-membership extension below closes the prototype invalidation examples; constructor planning remains open. An independently selected conversion to C is an exact receiving operation and completes its own obligation before a later enclosing failure.
 
-General composite descendant acquisition, correlated owner roles, generic class specialization, unresolved or replaceable constructor prototypes, initial Proxy/exotic chains and metadata remain separate coverage. Class construction without an exact receiving operation is not itself generalized by this milestone. Copies must acquire any required obligation on the actual published result; broader copy/adoption transport needs continued audit. Weak dependency metadata does not close portable evaluation-budget or cache-accounting gates.
+General composite descendant acquisition, generic class specialization, unresolved or replaceable constructor prototypes, initial Proxy/exotic chains and metadata remain separate coverage. The next section covers correlated ordinary nominal tuple owners. Class construction without an exact receiving operation is not itself generalized by this milestone. Copies must acquire any required obligation on the actual published result; broader copy/adoption transport needs continued audit. Weak dependency metadata does not close portable evaluation-budget or cache-accounting gates.
+
+## Implemented extension: ordinary nominal tuple membership
+
+Successful owned-Array membership admission now retains an ordered guard for tuple patterns containing ordinary identity classes and the supported unparameterized scalar types. Required positions, finite runs and dynamic runs keep their counts; zero contributes no role. Nominal targets must be resolved, non-generic source classes with the permanent prototype identity described above. Value classes, metadata, unions used as element types, defaulted positions, unknown counts and initially exotic nominal evidence remain outside this extension. Stable fixed/prefix/suffix tuple shapes keep their declared location contracts and acquire the same nominal child protection.
+
+```js
+class C {}
+class D {}
+type T = [...[].<C>, ...[].<D>];
+const child: any = new C();
+const source: any = [child];
+const received: T = source;
+Reflect.setPrototypeOf(child, D.prototype); // true: the whole tuple still fits
+Reflect.setPrototypeOf(child, null);        // false: no valid role remains
+```
+
+For `[a, b]` initially containing two C instances, changing only `a` to D is refused when `b` still requires C: `[D, C]` violates the ordering. Changing `b` to D succeeds. Thus this is a sequence promise, not an independently writable element union or an exact class stamp on each child.
+
+### Decision: protecting nominal roles without fixing a partition
+
+| Direction | Ergonomics, completion and wrong guess | Prior art, including Rust | Production performance, shapes and ICs | Correctness and reference liveness | Other / decision |
+|---|---|---|---|---|---|
+| Acquire an exact permanent class obligation for each current role | Completion's declared alternatives no longer explain why a valid class-role change fails; removed children remain pinned | Rust nominal identity is not JavaScript prototype membership; Rust borrowing does not choose an observed tuple partition | Cheap exact guards, but retains stronger instance facts than the declaration promised | Prevents valid repartition and conflates owner membership with independently completed class boundaries | Rejected |
+| Recheck only on later reads or after the prototype write | A mutation can invalidate a currently held tuple promise before failure is reported | Neither Rust stable-place reasoning nor ECMAScript property ordering supplies retrospective repair | Late checks weaken optimized facts and can require rollback or deoptimization after exposure | Can publish invalid state and cannot undo effects or repair reference authority | Rejected |
+| Scan every acquired array on every prototype change | Correct results are possible, but unrelated arrays impose mutation latency | Rust supplies no global JavaScript alias scan; ECMAScript prototype operations have no such scan | Global owner traversal instead of targeted IC/dependency invalidation; weak registry maintenance still required | Can preserve contracts if all owners are visited; no correctness advantage over complete reverse dependencies | Rejected as the production design, independently of implementation effort |
+| Track relevant ordinary prototype paths and recheck each affected owner's whole ordered guard before publication | Completion retains declared alternatives; a wrong order fails at mutation, while valid repartition and removal work | Rust's invariant-place analogy applies to location contracts only; the correlated runtime guard is this proposal's addition | Shared run descriptors, targeted weak reverse edges, no per-partition object shapes; a check can still cost sequence and prototype-depth work | Preserves every acquired owner guard and independent exact class obligation; references keep their declaration-derived type and ordinary removal liveness | **Recommended** |
+
+The guard checks all acquired patterns against the same prospective values. A child may satisfy several classes, and two owners may use it differently. Matching one class in one successful assignment is not a permanent choice. Each affected owner re-evaluates its complete pattern using ordinary internal links with the proposed replacement substituted. These checks invoke no getters, conversion operators, constructors or Proxy traps. If no ordinary witness remains, the mutation fails before publishing the link or changing live dependencies. A valid change installs the new dependencies and retires obsolete ones. Negative roles do not need independent watchers: losing an unused possibility cannot invalidate the retained accepting witness; any change to that witness triggers a fresh whole-pattern check.
+
+Element replacement and successful length publication refresh dependencies from actual owned data. Removing a child retires that owner's relationship, including when a failed truncation removes only a suffix. Another occurrence, another owner or an independently completed exact C boundary can still constrain it. Newly inserted or reflectively replaced children acquire the owner relationship without a hidden narrow class stamp at a broad projected location. Non-index property changes require no sequence scan; staged growth attaches new child dependencies at length publication rather than rescanning once per unpublished tail slot. No user code runs between these publications and dependency updates.
+
+Admission revalidates retained values and their current ordinary roles before publishing a new guard. A prior getter can change a prototype; retaining the same Object identity does not validate the earlier class role. During later effectful scalar stores, the owner's guards already protect its published state, and the prospective converted sequence is rechecked after effects. A failed outer check preserves valid earlier effects and independently completed guards. Pure `is` acquires nothing.
+
+Owner links and dependency paths are weak. The inspector is an engine operation that reads the currently retained owner; its finalizer record captures no array, element or constructor graph. The previous weak-cleanup timing decision applies to unreachable owners too. This does not change language-level weak-target eligibility or reference removal/relocation rules.
+
+### Remaining boundary
+
+The original direct and inherited nominal-rest prototype witnesses are repaired for this ordinary family. General nominal conversion planning remains next: the required-String constructor witness still calls C twice and returns a nonmember. This increment does not classify nominal constructors or defaults as speculative scalar computations; the new backing path selects already-admitted nominal values only. It does not claim constructor/default conversion support for a new nominal store.
+
+Initial Proxy/array-like acquisition, value-class copy transport, metadata judgments, general structural descendants, custom species and contextual fresh-literal transport still need their own proof. Forwarding aliases of an already guarded child or indexed Array store reach the same target guard. Proxy-receiver intrinsic removal remains a separate existing limitation: a forwarding Proxy's `pop` can reach the direct typed-element deletion refusal instead of the owned-array removal plan. Portable evaluation and cache-accounting gates remain open.
