@@ -4673,4 +4673,4 @@ Concrete array and tuple conversion retains source observations across failed me
 
 The general heterogeneous-rest design and implementation gates are recorded in [heterogeneous-rest-storage.md](heterogeneous-rest-storage.md), including correlated backing, conversion selection and invariant reference contracts.
 
-See [Scalar rest storage](scalar-rest-storage.md) for the bounded scalar implementation, including required finite runs, length-sensitive contracts, conversion decisions, and remaining limits.
+See [Scalar rest storage](scalar-rest-storage.md) for the bounded scalar implementation, including required finite runs, length-sensitive contracts, conversion decisions, and remaining limits. Pure numeric-source planning is covered there; the next object-target obligations are in [Object rest dependencies](object-rest-dependencies.md).
