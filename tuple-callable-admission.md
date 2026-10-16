@@ -58,3 +58,5 @@ The audited consumers are `value.mts` (Set), `array-objects.mts` (definition and
 Primary prior art: [Rust tuple types](https://doc.rust-lang.org/reference/types/tuple.html), [coercion sites](https://doc.rust-lang.org/reference/type-coercions.html), and [reference/pointer types](https://doc.rust-lang.org/reference/types/pointer.html). Rust's heterogeneous tuple has a fixed field count and type per field. These are useful analogies for the implemented subset, not a specification of variable rests, JavaScript getters or this proposal's reference liveness.
 
 The next [mutation-plan increment](tuple-mutation-plans.md) repairs intrinsic movement and length planning for the existing positional/tail backing representation, including failure timing. General-rest representation and default construction remain open.
+
+The [defaulted tuple increment](defaulted-tuple-admission.md) now covers no-rest tuples, retaining every declared positional type and the full admitted length interval. Default/rest combinations remain part of general assignment work.

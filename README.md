@@ -4654,3 +4654,5 @@ Exact numeric range counts and range-returning adapters: [range-adapters.md](ran
 Numeric range scaling and unary reflection: [range-scaling.md](range-scaling.md).
 
 Exact additive range arithmetic and common endpoint domains: [range-addition.md](range-addition.md) and [range-products.md](range-products.md), plus the static property contract in [range-properties.md](range-properties.md) and derived result contracts in [range-results.md](range-results.md).
+
+[Defaulted tuple admission and storage](defaulted-tuple-admission.md) preserves supplied callable evidence, complete no-rest length domains, and positional copies.
