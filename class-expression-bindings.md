@@ -44,6 +44,8 @@ The implementation no longer uses the latest-constructor-by-source fallback for 
 
 ## Coverage and limits
 
+The following overload-set and selected-invocation work is recorded in [Overloaded callable result dependencies](overloaded-result-dependencies.md).
+
 The paired Script corpus covers anonymous, named and parenthesized expressions; type and value aliases; nested argument shapes; different and equal activations; recursion; loop captures; generic class expressions and captured parameters; self references; reflection; wrapper results; erasure; static-effect counts; private-name visibility; mutable-binding rejection; hostile public constructor access; and a failed initializer followed by a separate Script. Module cases cover exported and re-exported factories, asynchronous entry, and same-family reuse across exported converters.
 
 This completes the queued immutable class-expression binding repair. It does not establish general overload correspondence, arbitrary composite result transport, mutable-binding inference, or the remaining convergence, phase, budget and final-verification gates. See [evaluated nongeneric class arguments](nongeneric-argument-identity.md) for the underlying identity and structural argument rules.
