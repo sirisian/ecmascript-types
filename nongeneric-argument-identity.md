@@ -65,4 +65,6 @@ Choose the final direction. Parentheses do not change initializer identity. Writ
 
 ## Coverage and scope
 
+The remaining inference path for a class expression held by an immutable binding is specified in [Immutable class-expression dependencies](class-expression-bindings.md). Its successful binding initialization retains the expression's particular evaluated identity; source syntax alone is not a runtime fallback.
+
 The regression corpus exercises declared, anonymous and named expression classes, nested and structural argument forms, wrong and correct replacements, aliases, forward completion, recursive factories, reflection, heritage, cache reuse and erasure. This completes the queued nongeneric argument identity repair within the broader declaration-identity audit; it does not close the remaining convergence, checking-phase, budget, specification-only or full-regression gates.
