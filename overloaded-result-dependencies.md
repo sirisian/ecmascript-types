@@ -51,3 +51,5 @@ Reflection and runtime callable compatibility also describe each overload member
 ## Scope
 
 The regression work covers written and inferred results, declaration and expression classes, reversed declarations, equal and different activations, recursive forwarding, nested generic arguments, selected cases, effects, erasure and Module transport. Contract-level checks cover reordered, equivalent and conflicting retained descriptions and preservation of parameter permissions. General stored-specialization initialization, unresolved callable constraints/defaults, broader composite transport and the remaining convergence, phase, budget and full-verification gates require their own evidence.
+
+The next increment specifies [stored specialization binding dependencies](stored-specialization-bindings.md), including the immutable initializer boundary and ordinary generic-specialization forwarding.
