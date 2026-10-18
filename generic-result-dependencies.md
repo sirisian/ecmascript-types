@@ -54,3 +54,5 @@ The checker's compact numeric application arguments must be rebound to their dec
 The focused corpus covers direct and selected forwarding, named and Symbol-keyed object paths, closures and generic closures, separate factory activations, recursive factories, captured generic/value parameters, nested generic arguments, erasure, reflection and failed initialization. A retained object view continues to reject an incompatible replacement after an ordinary backing write. The plain object remains ordinary mutable storage.
 
 This is a bounded repair within declaration-identity coverage. It does not close the six broader identity, convergence, phase/failure-state, budget/cache, specification-only and final-regression gates. Other composite shapes, overloaded returned callables, general mutable bindings and wrapper/resumable paths remain open. The handoff report retains any next desired-outcome failures separately from the passing corpus.
+
+[Nongeneric argument identity](nongeneric-argument-identity.md) extends the evaluated-identity rule to local classes without type parameters, including their use inside generic arguments and forward-completed specialization keys.
