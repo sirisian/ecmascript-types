@@ -41,3 +41,5 @@ Creation and reflection do not execute the selected body or ordinary parameter i
 ## Scope
 
 This increment addresses stored case and owner selections and ordinary generic specializations, with written or inferred captured local-class results. Broader captured constraints/default computations, composite transport, resumable paths, convergence, failure precedence, budget/cache accounting and final full verification remain separate gates.
+
+For the declaration comparison that precedes runtime selection, see [declaration identity in callable replacement contracts](callable-contract-identity.md).
