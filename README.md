@@ -2213,6 +2213,9 @@ Index signatures also participate in declaration checking. Own enumerable instan
 
 An `implements` clause checks the effective property capability as well as its value type. Readonly fields and getter-only properties do not satisfy writable interface properties. Preserve readonly covariance, writable-property invariance, optionality, method signature compatibility and inherited members.
 
+A completed generic application verifies dependent interface targets against actual declared and inherited members before publishing its contract. A claimed interface cannot supply its own missing member. Methods use ordinary callable-signature compatibility, while writable function-valued fields retain storage invariance. See [dependent implements admission](dependent-implements-admission.md) for target ordering, recursive contracts, alternatives and failure handling.
+
+
 ```js
 interface A {
   a: uint32;
