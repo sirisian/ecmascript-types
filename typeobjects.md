@@ -175,3 +175,5 @@ That structural reflection is one context of the broader reflection facility —
 ### Conversion and construction capability
 
 A Type Object's conversion call does not imply that it supports `new`. Known conversion-only objects such as `uint8` or a structural Composite type reject ordinary construction early, including as the target or newTarget of a proved `Reflect.construct`. Class and array constructors keep their actual construction capability; `const T: type = C` does not stop a class constructor from supporting `new T()`. Established aliases preserve the selected value's capability. An annotation of `type` alone establishes neither answer, and an unknown identity or `any` remains dynamic. Placement construction keeps its separate rules.
+
+[Callable member membership](callable-member-membership.md) uses each function value's effective result, including a published inferred return. A syntactic untyped marker does not erase that result at a structural boundary.
