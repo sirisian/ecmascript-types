@@ -40,3 +40,5 @@ An unused import, an unused generic default, a constraint merely being described
 The implementation records availability on closed imported-interface obligations and checks it before reconstructing local application inputs. Producer-source descriptions and lexically shadowed names do not acquire obligations in the consumer. Tests cover bare interfaces, closed applications, self and local class arguments, renamed and re-exported bindings, async boundaries, source effects, cached failures and unaffected controls.
 
 A separate investigation found that an unspecialized generic class such as `E<T> implements Has.<T>` still reads the imported interface during runtime class publication. The existing open-application rule requires a separate demand/deferral audit there. This increment does not mark that late failure correct or close that investigation, structural callable membership, interface-expression timing or the broader audit gates.
+
+[Generic implements demand](generic-implements-demand.md) addresses dependent target publication, lexical openness and specialization context.
