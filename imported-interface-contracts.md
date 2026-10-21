@@ -43,3 +43,5 @@ The checker publishes interface contracts independently of value-type summaries.
 This increment addresses imported generic-interface constructor recognition and declaration verification. It does not close the broader interface, module-cycle, inheritance, inference, resource-accounting or regression audits. The accompanying checking report records tested coverage and remaining concrete failures separately.
 
 The publication and failed-check behavior of imported partial contracts is described in [Imported partial contracts](imported-partial-contracts.md).
+
+[Cyclic imported interface availability](cyclic-interface-availability.md) distinguishes a required binding read from a structural description and from completion of a recursive class application.
