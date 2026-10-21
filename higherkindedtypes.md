@@ -159,3 +159,5 @@ Nor does it add higher-kinded *packs*: a [variadic generic parameter](generics.m
 ## Intrinsic declarations
 
 Intrinsic families may bind an explicitly higher-kinded parameter. For example, `function make<F<_>: type>() { return F.<64>; }` accepts `make.<rational>()`. The receiving arity is checked first; applying the bound declaration then checks its intrinsic domain, so `F.<int32>` with `F = rational` is an error. `complex` in this position supplies the unary declaration, not `complex.<number>`. This introduces neither inference of higher-kinded arguments nor a new public family-value API.
+
+[Interface declaration arguments](interface-higher-kinded-arguments.md) records constructor selection, defaults, identity, and the alternatives considered.
