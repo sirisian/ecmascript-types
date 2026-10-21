@@ -39,3 +39,5 @@ Rust's [use declarations](https://doc.rust-lang.org/reference/items/use-declarat
 The checker publishes interface contracts independently of value-type summaries. Import resolution retains the actual exporting module and original declaration through renamed exports and re-exports. Checking uses that producer contract and, when available at pre-evaluation, its evaluated interface record. Required generic-source computations retain their producer Module Record; the completed-result lookup distinguishes that context.
 
 This increment addresses imported generic-interface constructor recognition and declaration verification. It does not close the broader interface, module-cycle, inheritance, inference, resource-accounting or regression audits. The accompanying checking report records tested coverage and remaining concrete failures separately.
+
+The publication and failed-check behavior of imported partial contracts is described in [Imported partial contracts](imported-partial-contracts.md).
