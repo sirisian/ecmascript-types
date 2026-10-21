@@ -2,6 +2,8 @@
 
 An imported interface retains its declaration, generic parameter list, member contract and declaration context. A renamed import or re-export denotes the same interface. The importer supplies written arguments in its own scope; defaults and constraints belong to the interface's source scope. Importing does not turn a generic interface into an unknown type or move its helper functions into the consumer.
 
+[Runtime interface application contexts](interface-application-contexts.md) applies the same source-context rule to evaluated Type Objects, including omitted defaults, namespace access and expression applications.
+
 ```js
 // dep
 export interface Has<T: type> { get(): T; }
