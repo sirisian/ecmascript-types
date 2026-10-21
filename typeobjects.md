@@ -30,6 +30,8 @@ Reflect.typeOf(new Map.<string, uint8>()); // Map.<string, uint8>
 
 For a metadata-parameterized value it returns the full parameterization, e.g. `float32.<{ m: 1 }>` for a Meter from the [primitive metadata](primitivemetadata.md) extension, which is how reflection obtains constraint information at run time.
 
+A class constructor, including a specialization such as `Box.<string>`, denotes its associated instance type when passed to structural `Reflect.getReflection`, `Reflect.makeType`, `Reflect.isAssignable`, or `Reflect.matchType`. These operations resolve the actual constructor association without executing the class or reading its properties. A parameter, binding or result annotated `type` or `Reflect.TypeObject` admits the same constructor and preserves the original value, including its identity and construction behavior. A bare generic constructor retains its declaration-base meaning; this lookup does not apply defaults. `Reflect.typeOf(C)` still reports the runtime type of the constructor value. The [constructor type-input decision](constructor-type-inputs.md) records the identity, evaluation-order and invalid-input rules and the alternatives considered.
+
 ## The `type` operator and the `type` type
 
 The type literals whose syntax collides with expression grammar cannot be written bare in expression position: a function type reads as an arrow function, an inline object interface as a block, a tuple type as an array literal, and `'a' | 'b'` or `float32 & 1` as bitwise operations. Prefixing a type expression with `type` resolves the collision and yields its type object:
