@@ -130,6 +130,8 @@ Rebinding requires a mutable reference binding: `let ref` and reference paramete
 
 Rebinding keeps the alias's declared type. A `uint8 | string` alias may be redirected to a `uint8` location, but a later string store still fails at that location's runtime boundary. Checking the destination's binding kind does not waive storage checks or the reference-liveness rules.
 
+Module-level reference bindings use the same read-through rule. Imports, re-exports and namespace reads observe the current referent and retain its effects and liveness failures; export visibility does not grant assignment or rebinding permission to an importer. See [module reference bindings](module-reference-bindings.md) for the live-export versus expression-copy distinction and the design alternatives.
+
 A known readonly origin also survives a local reference alias. Borrowing and reading it remain legal, but a store through the alias is an early type error when the origin establishes that the write is forbidden. This covers updates, compound stores, destructuring and iteration targets as well as `=`. Readonly remains shallow: replacing a readonly member differs from changing a writable child of the object it holds.
 
 ```js
