@@ -58,3 +58,5 @@ Declaration evidence must use the actual String or Symbol key produced by ordina
 | Reuse evaluated declaration records | Computed names work with their ordinary effects exactly once | Rust supports the declaration-evidence principle; ECMAScript determines the dynamic key behavior | Store the evaluated key with existing declaration metadata; no instance or inline-cache changes | Preserves Symbol identity, capability and independent liveness | Recommend |
 
 Applicable partial member evaluation occurs while the application constructor is in progress, before final interface admission. It uses the existing specialization context and runs once per attempted application; a failed attempt may retain its ordinary effects, and a successful cache hit does not repeat it.
+
+The [partial registration and admission analysis](local-partial-admission.md) distinguishes source summaries from installed declarations and explains how the checker retains an open `implements` target without treating it as a completed runtime contract.

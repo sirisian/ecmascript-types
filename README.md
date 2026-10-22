@@ -3517,6 +3517,8 @@ A partial class takes no type parameter list of its own. A partial of a generic 
 
 Adding a method or operator the class already has, whether from its primary declaration or another module's partial, is a TypeError at the second declaration - the same rule the operator table uses - so extension is order-independent and two modules cannot silently shadow each other.
 
+Partial registration and interface admission have distinct timing. A later partial cannot repair a nongeneric primary that already fails its `implements` obligation; registered partials can contribute when a generic application is completed. See [partial registration and interface admission](local-partial-admission.md) for the decision and examples.
+
 ### Sealed Classes
 
 A ```sealed``` class restricts ```extends``` to the module that declares it. The set of direct subclasses is therefore fixed and known when the module finishes evaluating, which lets the compiler treat the class as a closed set of cases:
