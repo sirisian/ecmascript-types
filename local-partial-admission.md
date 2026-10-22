@@ -50,23 +50,6 @@ The checker must retain `implements T` as an obligation in the symbolic family c
 
 The implementation repair retains the open target in the checking record. Runtime completion already replaces that record's targets with actual resolved interfaces and verifies required methods, properties, operators and call capability. An unrelated destination remains invalid. `implements T` alone supplies no required member and cannot turn a non-interface argument into an interface.
 
-## Follow-up: closed targets on generic families
+## Closed targets on generic families
 
-A fresh related witness is still rejected before any module body:
-
-```js
-interface Has { get(): string; }
-class E<T: type> implements Has {}
-partial class E { get(): string { return "ok"; } }
-new E.<uint8>();
-```
-
-The target is closed, so its declaration/availability checks remain due at family publication. That does not itself complete a class application. The next implementation task is to distinguish those target checks from member evidence supplied by applicable partials, including conditional contributions. This witness is retained as an unresolved implementation observation, not a passing conformance expectation.
-
-| Direction | Ergonomics | Prior art | Performance | Correctness and liveness | Other / decision |
-| --- | --- | --- | --- | --- | --- |
-| Reject every primary lacking its own complete closed-target implementation | A harmless change from `implements T` to a fixed interface prevents splitting even when installation precedes use. | Rust's complete impl requirement does not imply all members must occur in the type's primary body. | Simple, but rejects valid available declarations. | Ignores applicable partial evidence at application. | Reject as the general rule. |
-| Delay every closed-target check until application | Avoids the false rejection but hides invalid or unavailable targets in unused families. | Rust retains declaration checks independently of monomorphization. | Defers useful reusable checks. | Violates the existing closed-target availability and failure-order commitments. | Reject. |
-| Keep closed-target checks; use established partial evidence and retain unresolved application obligations | Completion reflects available contracts; unavailable or incompatible contributions still fail at the required boundary. | Rust's separate well-formedness and generic obligations support the distinction; dynamic installation remains specific to this proposal. | Summaries plus per-application proof; no new instance layout or inline-cache state. | Can preserve target availability, applicability, member evidence, captured identity and liveness together. | Recommend; implementation and conditional coverage remain the next focused task. |
-
-This recommendation is based on semantics, not on how small the repair is. It does not authorize early execution or relax already decidable errors. The nongeneric witness above remains invalid under every application-evidence repair that preserves the selected timing rule.
+A fixed target retains its declaration and availability checks, while a generic family's missing-member obligation is completed at application using matching registered partials. This also permits a consumer module to supply an exported family's missing method. The [generic member completion analysis](closed-partial-admission.md) records the alternatives, decisive early errors, collision evidence and remaining self-name issue.
