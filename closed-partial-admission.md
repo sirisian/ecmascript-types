@@ -73,23 +73,6 @@ Static and instance namespaces remain distinct. Actual members from the primary,
 
 Required dependency evaluation still precedes the consumer. A dependency failure prevents the consumer's partial registration. Repeated evaluation of the same rejected module does not repeat its body; independent later modules can register a partial and successfully apply the same exported family.
 
-## Separate self-name observation
+## Self names in partial bodies
 
-Explicit recursive self arguments work with this admission rule:
-
-```js
-interface Has<T: type> { get(): T; }
-class E<T: type> implements Has.<E.<T>> {}
-partial class E { get(): E.<T> { return this; } }
-new E.<uint8>();
-```
-
-The analogous bare `E` result annotation in the partial is still treated as an omitted-argument application. This is a separate self-name resolution issue, not evidence that the member-completion rule should change.
-
-| Self-name direction | Ergonomics | Prior art | Performance | Correctness and liveness | Other / decision |
-| --- | --- | --- | --- | --- | --- |
-| Require explicit arguments in every partial | Predictable but moving a method out of the primary requires rewriting its self annotations. Completion must expose the distinction. | Rust has `Self` inside impls; C# partial parts share the type. Neither requires this mismatch. | Simple resolution. | Can be consistent, but is weaker than reopening the same generic class context. | Reject as the preferred design. |
-| Use defaults or an erased family for the bare name | Short spelling can silently denote a different application. | No close supporting analogy. | Cheap resolution with misleading contracts. | Loses actual arguments and may lose activation identity. | Reject. |
-| Resolve the partial's self name to its actual target application with lexical shadowing | Matches moving a method between primary and partial bodies. | Rust's impl `Self` is the closest analogy, with explicit target identity and dynamic captures specific to this proposal. | Retain the target in declaration context; no instance shape or inline-cache change. | Can preserve arguments, captured identity, ordinary binding availability and reference liveness. | Recommend; a separate implementation pass must cover aliases, imports, captures and shadowing. |
-
-The current repair does not change that shorthand. The explicit form above provides recursive-contract coverage while the fresh bare-name observation remains recorded for the next task.
+The bare self-name observation is resolved by [self types in partial class bodies](partial-self-context.md). A partial's bare type name denotes its actual receiving application, preserving aliases, imported names, conditional matches and declaration context. The member-completion rules above remain unchanged.
