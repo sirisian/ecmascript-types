@@ -36,3 +36,5 @@ Rust's `&&` and `||` require Boolean operands, and assignment produces unit; Jav
 ## Implementation boundary
 
 The proof of concept shares aggregate transfer with operand-flow queries, carries nullish fallback state, and keeps a queried aggregate's description separate from its alias identity. Contextual comma and conditional results follow the same ordering. It does not add a general heap analysis, execute call bodies for effect inference, or promote private descriptions to storage contracts. The bounded tests do not close all expression forms, dependent/recursive completion, portable resource accounting or final regressions.
+
+The computed-key and literal-construction follow-up is specified in [Computed keys and aggregate construction follow source order](construction-effect-sequencing.md).
