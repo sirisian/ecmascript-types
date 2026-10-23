@@ -1,6 +1,6 @@
 # Structure of Arrays
 
-Reference reads, writes, decay and value copying retain the original element's liveness checks, including removal followed by regrowth and nested value fields. See [SoA reference use and value copying](soa-reference-liveness.md) for the boundary rules, alternatives and failure-state decisions.
+Reference reads, writes, decay and value copying retain the original element's liveness checks, including removal followed by regrowth and nested value fields. See [SoA reference use and value copying](soa-reference-liveness.md) for the boundary rules, alternatives and failure-state decisions. Derived column views and viewed SoAs retain the source allocation obligation under [derived-view source validity](derived-view-validity.md).
 
 ```[].<T>``` stores its elements interleaved: for a ```T``` with fields ```x```, ```y```, and ```rotation```, memory reads ```x y rotation x y rotation```. That is the right default. It is also the wrong layout for a large class of programs, and the reason is the cache line rather than the language.
 

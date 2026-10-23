@@ -37,3 +37,5 @@ The valid direction must settle regrowth without an intervening read, actual det
 
 - [ECMAScript IsTypedArrayOutOfBounds](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-istypedarrayoutofbounds) and [IsViewOutOfBounds](https://tc39.es/ecma262/multipage/structured-data.html#sec-isviewoutofbounds) compare a buffer witness with a view's extent. They support recovery from temporary out-of-bounds status, not recovery from actual detachment. Their individual API error behaviour is not copied wholesale into Span.
 - [Rust vectors and borrowing](https://doc.rust-lang.org/book/ch08-01-vectors.html) explain why using a reference across conflicting vector mutation is rejected. Rust supplies compile-time borrowing constraints; it does not settle this proposal's collector-backed, alias-permitting byte-view policy.
+
+Derived `subarray`, `window` and reinterpretation views retain their original allocation obligations while using their own byte extents. Source checks, effect ordering and explicit raw-buffer acquisition are specified in [derived-view source validity](derived-view-validity.md).
