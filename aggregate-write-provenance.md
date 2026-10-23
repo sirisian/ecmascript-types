@@ -36,4 +36,4 @@ This performance assessment is design reasoning, not a benchmark. [Rust assignme
 
 ## Audit boundary
 
-The engine change tracks private aggregate origins in inference flow, transfers established own data writes, preserves nested aliases, and snapshots returned descriptions. It conservatively invalidates unsupported transfers. It does not add a general heap analysis, infer nonescaping call effects, or infer a new array storage contract. Those precision questions, expression-form equivalence and the remaining convergence and specification-determinacy audits remain separate work.
+The engine change tracks private aggregate origins in inference flow, transfers established own data writes, preserves nested aliases, and snapshots returned descriptions. It conservatively invalidates unsupported transfers. It does not add a general heap analysis, infer nonescaping call effects, or infer a new array storage contract. The operand-sequencing follow-up is described in [Contributions follow expression evaluation order](expression-effect-sequencing.md). General precision, remaining expression forms, convergence and specification determinacy remain separate audits.
