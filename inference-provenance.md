@@ -1,5 +1,7 @@
 # Return inference, declaration provenance and captured contracts
 
+See [exported constructor value aliases](exported-constructor-aliases.md) for producer-owned constructor proofs across immutable aliases, default expressions and module boundaries.
+
 [Imported method returns](imported-method-returns.md) applies these participation rules across import forms and records the distinction between namespace declaration contracts and runtime namespace values.
 
 The result type of a contribution and its declaration provenance answer different questions. A singleton type may come from an annotation. Conversely, widening a literal to `string` does not create an annotation. Preserve these facts separately, and read captured storage through its declared or inferred binding contract when establishing a published return.
