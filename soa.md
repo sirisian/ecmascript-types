@@ -183,7 +183,7 @@ Three rules, each the one the array views already follow:
 
 - ```byteOffset``` must be a multiple of ```SoA.<T, Length>.alignment```, or it's a TypeError. Columns are placed relative to the base, so a misaligned base misaligns every column and there would be nothing left of the aligned-lane-load guarantee.
 - The buffer must hold ```SoA.<T, Length>.byteLength``` bytes past ```byteOffset```, or it's a TypeError. Both are compile-time constants, so the check costs nothing at run time and the same two constants are what a host sizes its allocation with.
-- Detachment follows the fixed array view: shrinking a resizable buffer below the view's extent detaches it and any access afterward is a TypeError, while growth never invalidates it. A view over a ```SharedArrayBuffer``` can never detach, since shared buffers never shrink.
+- Bounds follow the fixed Span view: access throws TypeError while a resizable buffer is smaller than the view's extent, and regrowth restores access, including through existing references. Actual buffer detachment is permanent. Growth never invalidates the view, and shared buffers never shrink or detach. See [resizable-buffer view lifetime](resizable-view-lifetime.md).
 
 A viewed ```SoA``` is the same object an allocated one is. Both are a base and the column offsets the layout rule computes from it, so ```fields``` is the same constant-folded projection, a ```ref``` binding compiles to the same indexed loads, and everything in the next section applies unchanged. The only difference is where the base came from.
 
