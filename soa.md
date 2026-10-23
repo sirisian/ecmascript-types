@@ -1,5 +1,7 @@
 # Structure of Arrays
 
+Reference reads, writes, decay and value copying retain the original element's liveness checks, including removal followed by regrowth and nested value fields. See [SoA reference use and value copying](soa-reference-liveness.md) for the boundary rules, alternatives and failure-state decisions.
+
 ```[].<T>``` stores its elements interleaved: for a ```T``` with fields ```x```, ```y```, and ```rotation```, memory reads ```x y rotation x y rotation```. That is the right default. It is also the wrong layout for a large class of programs, and the reason is the cache line rather than the language.
 
 A loop that touches two fields of a five-field element drags the other three through cache with them. A loop that touches one field across every element strides over the rest, so a vector unit that could have loaded four consecutive values loads one and skips. A renderer that wants every ```position``` to hand to the GPU has to gather them into a staging buffer first. The fix has one shape everywhere it appears: store one array per field.
