@@ -1,0 +1,43 @@
+# Deciding tests of reference reads
+
+A `ref` binding names a location. A test can establish a fact about the value read from that location, but the fact is neither a permanent value contract nor a liveness proof. Subsequent tests use the facts justified at their own evaluation positions.
+
+This distinction resolves the four diagnostics carried from the module-reference audit:
+
+| Witness | Required result | Reason |
+| --- | --- | --- |
+| Test `r !== 1`, store `x = 2` where `r` aliases `x`, then test `r !== 2` | Accept | The store revokes the earlier fact about the live referent. |
+| Copy a returned reference into `const y: E`, then guard with `!(y instanceof E)` | Reject before the module body | The admitted copy has the stable nominal contract `E`; the guarded test cannot succeed. |
+| Establish a counter fact, read a reference to a getter that writes that counter, then test the counter | Accept | Reading the reference has the getter's ordinary effects. The earlier counter fact no longer applies. |
+| `r !== undefined || typeof r !== "undefined"`, where `r` directly aliases an unchanged ordinary local | Reject before the module body | The right operand is reached only when the same stable referent was found to be `undefined`. That deciding comparison cannot succeed. |
+
+The last verdict depends on the stable location and absence of intervening effects. A reference to an accessor may return different values on successive reads. An untested, unannotated local does not acquire an `undefined` contract merely because its initializer is absent. A stored nominal membership query remains permitted: `const answer = y instanceof E` decides no branch. For a logical expression stored as a value, its left operand still decides whether the right operand runs; its final operand does not acquire a deciding role merely because its answer is constant.
+
+Reference constness fixes rebinding permission, not the referent's current value. A direct store, compound assignment, update, alias store or rebinding must invalidate affected value facts. A chain that refers to another reference binding continues to follow that binding after rebinding. An unrelated local or a same-spelled shadowing declaration is not a write to the referent. An immutable ordinary copy keeps its own contract when the original location changes.
+
+Forming or forwarding a reference does not read its referent. Reading one can invoke an accessor or proxy, throw, or fail a liveness check. Type checking executes none of those operations to discover a type. Retained contracts, current-value facts, selected locations, initialized state and reference liveness remain separate inputs.
+
+## Decision
+
+A valid repair must preserve required constant-test diagnostics, invalidate facts affected by writes or changed origins, account for accessor effects at value reads, preserve unrelated proved facts, distinguish lexical declarations, and keep ordinary evaluation and liveness checks. These requirements apply to scripts, functions, modules and imported bindings.
+
+| Direction | Ergonomics and autocomplete | Prior art and limits | Real-engine performance | Correctness and liveness | Other / disposition |
+| --- | --- | --- | --- | --- | --- |
+| Keep all four rejections | Completion can advertise a value that a later live read no longer holds; correct programs fail | Neither Rust's borrow rules nor TypeScript's assignment flow justifies stale facts | No added analysis cost | Contradicts reference updates and getter effects | Rejected: two witnesses are false positives |
+| Exempt reference tests or assertion-shaped branches | Hides useful mistakes; a wrong guess about a declared nominal type stops being diagnosed | Rust does not generally prohibit constant Boolean conditions, but that is a different language rule; TypeScript does not implement this proposal's whole impossible-test policy | Cheap special case | Removes required decisions, including the stable undefined witness, without repairing stale inputs | Rejected: changes the diagnostic policy to mask invalidation defects |
+| Discard every flow fact at every reference operation or store | Avoids some false positives but loses completion precision for unrelated locals and stable direct cells | Conservative alias analysis is familiar; neither comparison requires erasing facts proved unaffected | Simple transfer, potentially more runtime checks and less optimization; no required shape change | Loses required preserved-fact judgments and confuses formation with reads | Rejected: excessive invalidation is observable in required diagnostics |
+| Snapshot the referent or prohibit aliases to mutable cells/accessors | Simple value reasoning, but explicit `ref` stops following the location; wrong guesses become behavioural changes | Rust restricts competing accesses to borrowed memory; this proposal intentionally permits different aliasing and accessor behaviour | Snapshots can invoke user code and require extra storage; restrictions could aid optimization | Violates established read-through, rebinding, effects and liveness semantics | Rejected: incompatible language redesign |
+| Execute source to discover aliases or getter outcomes | Results depend on effects during checking; completion becomes execution-dependent | Neither Rust's borrow checking nor TypeScript's control-flow analysis executes ordinary source for this purpose | User-code execution dominates checking cost and can change shapes/IC state | Breaks checking phases, TDZ, effects and failure precedence | Rejected: inadmissible checking strategy |
+| Apply origin-aware invalidation and ordinary read effects within the bounded flow analysis | Completion reflects the established current domain; stale tests stop rejecting valid code while stable redundant tests remain errors | TypeScript's distinction between declared and observed types is relevant; Rust separates a reference from its referent and enforces stronger alias restrictions | Compiler-owned declaration/location dependencies and effect summaries; no required runtime wrapper, per-instance field, object-shape or IC-key change | Writes/rebinding revoke affected facts, uncertain origins supply no preservation proof, and every actual read retains ordinary liveness/admission | Recommended independently of implementation effort |
+
+The recommendation requires sufficient origin evidence to preserve a fact, not whole-program points-to analysis or execution of arbitrary callees. A production engine may use sparse dependency sets or versions; a proof-of-concept may recompute bounded judgments. Precision cannot be chosen opportunistically when it changes a required diagnostic. The formal rules determine which proof survives; the representation does not.
+
+Rust's shared references normally prohibit direct mutation of their referents, with interior-mutability exceptions; its mutable references provide exclusive access under its borrow rules. Those guarantees are not available merely because this proposal spells a binding `ref`, and Rust's restrictions do not license returning this proposal's getter value as a snapshot. TypeScript documents flow-sensitive observations while checking assignments against the declared type. It supplies a useful contract/current-value distinction, but its erased types and lack of these reference bindings make it an incomplete analogy.
+
+Sources: [Rust reference types](https://doc.rust-lang.org/reference/types/pointer.html), [TypeScript narrowing and assignments](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#assignments).
+
+## Audit status
+
+The classification is complete. The implementation repair remains open. Fresh probes reproduce missing invalidation for direct writes, updates, rebinding and alias chains, and missing captured effects for reference reads of accessors. They also reproduce the separately carried construction-counter diagnostic: adding a later typed member consumer can make an earlier post-construction guard consume a stale field-counter fact. Unannotated and bare member-read controls are accepted. Both a field consumer and a getter with a written result annotation reproduce the problem, so it is not confined to getter return inference. The counter discrepancy needs its own source-flow repair; it is not evidence that the nominal or stable undefined diagnostics should be weakened.
+
+Permanent regression tests cover the required diagnostics and already conforming controls. The audit artifact separately records the failing witnesses and their required outcomes; these failures are not encoded as accepted conformance behaviour. No compiler repair is claimed by this document.
