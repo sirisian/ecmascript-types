@@ -37,3 +37,5 @@ The performance assessment is architectural reasoning, not a benchmark. Rust's [
 ## Implementation boundary
 
 The proof of concept retains lexical parameter declarations on ordinary formal and local binding contracts, including patterns. Its bounded symbolic completion recognizes the retained declaration in the original scope. Runtime frames retain selected-callee identities for checker-supplied bindings before hoisted closures are created, and preserve them through prebound inference. The existing free-parameter substitution then closes captures while shielding nested own binders. These are private checking/runtime environment records, not additional public type identity fields or heap properties. This bounded repair does not close the broader dependency, resource-accounting or specification-determinacy audits.
+
+For adoption through aliases and function/arrow literals, see [adopted generic contexts](adopted-generic-contexts.md), including the remaining runtime capture and reflection gaps.
