@@ -35,17 +35,17 @@ Primary prior art: Rust [closure expressions](https://doc.rust-lang.org/referenc
 
 ## Follow-up decisions exposed by the audit
 
-Two adjacent implementation questions remain open. Their required outcomes are retained as failing probes rather than relabelled as passing behaviour.
+The audit exposed two adjacent implementation questions. The lexical precedence repair is now described in [adopted generic shadowing](adopted-generic-shadowing.md); complete union-context selection remains open. The decisions below retain the alternatives considered.
 
 ### Lexical alias precedence
 
-An adopted own `U` must shadow an outer `type U = string`; a more local block alias must in turn shadow that own `U` only inside the block. The audit currently fails both directions for functions, arrows and methods.
+An adopted own `U` must shadow an outer `type U = string`; a more local block alias must in turn shadow that own `U` only inside the block. The original audit failed both directions for functions, arrows and methods; the subsequent shadowing repair covers all six probes.
 
 | Direction | Ergonomics | Prior art | Real-engine performance | Correctness and liveness | Other / decision |
 | --- | --- | --- | --- | --- | --- |
 | Always prefer a syntax-resolved alias | An outer alias unexpectedly overrides the signature advertised by completion. | Unlike Rust's lexical scopes; the absence of written syntax is an implementation detail here. | Existing lookup is cheap but chooses the wrong declaration. | Erases adopted own scope. | Reject. |
 | Always prefer any active generic binder | A local alias appears valid in completion but is ignored at runtime. | Unlike ordinary lexical shadowing, including Rust. | A flat map is cheap but lacks scope ordering. | Misbinds local annotations; does not establish any reference permission. | Reject. |
-| Resolve effective declarations by lexical scope and declaration identity | Completion and annotations agree at each source location; an inner alias has a bounded effect. | Rust lexical scopes are the close analogy; Rust nested-item restrictions still differ. | Compiler scope metadata and identity-based lookup need no user-object shape changes or new property IC polymorphism. | Preserves both shadowing directions, captures and independent reference rules. | Recommend. Reconstruct the repair from the next pulled source; compare written-generic controls before assigning all failures to adoption. |
+| Resolve effective declarations by lexical scope and declaration identity | Completion and annotations agree at each source location; an inner alias has a bounded effect. | Rust lexical scopes are the close analogy; Rust nested-item restrictions still differ. | Compiler scope metadata and identity-based lookup need no user-object shape changes or new property IC polymorphism. | Preserves both shadowing directions, captures and independent reference rules. | Chosen and implemented in the subsequent shadowing repair. Written function/method controls confirmed that bypassing inner aliases was also a runtime issue without adoption. |
 
 ### Complete union contexts
 
@@ -62,4 +62,4 @@ For `{ tag: "bad", fn: (value: string) => string } | { tag: "good", fn: <U: type
 
 The checker now includes selected adopted parameters when classifying annotation dependencies and when excluding a nested declaration's own names from enclosing specialization. Arrow checking enters and restores the same effective own scope used by functions and methods. The source AST and runtime value layouts are unchanged.
 
-The independent Module audit improves from 23/88 to 80/88 requirements satisfied. The original six-probe queue is fully satisfied, including both explicit-annotation failures. Permanent coverage includes the 80 conforming cases, their 77 applicable Script versions and three same-realm failure/recovery sequences. The other eight probes remain explicit follow-up evidence: six lexical-alias failures and two union-order failures. Passing a negative case means the required diagnostic, phase and body-entry boundary were observed. This bounded repair does not close the broader generic-context, convergence, phase, resource or specification-determinacy gates.
+The independent Module audit improves from 23/88 to 80/88 requirements satisfied. The original six-probe queue is fully satisfied, including both explicit-annotation failures. Permanent coverage includes the 80 conforming cases, their 77 applicable Script versions and three same-realm failure/recovery sequences. The original eight remaining probes were explicit follow-up evidence: six lexical-alias failures and two union-order failures. The subsequent shadowing repair closes the six lexical-alias probes; the two union-order probes remain open. Passing a negative case means the required diagnostic, phase and body-entry boundary were observed. This bounded repair does not close the broader generic-context, convergence, phase, resource or specification-determinacy gates.
