@@ -35,7 +35,7 @@ Primary prior art: Rust [closure expressions](https://doc.rust-lang.org/referenc
 
 ## Follow-up decisions exposed by the audit
 
-The audit exposed two adjacent implementation questions. The lexical precedence repair is now described in [adopted generic shadowing](adopted-generic-shadowing.md); complete union-context selection remains open. The decisions below retain the alternatives considered.
+The audit exposed two adjacent implementation questions. The lexical precedence repair is now described in [adopted generic shadowing](adopted-generic-shadowing.md); the uniquely compatible union-context repair is described in [contextual union selection](contextual-union-selection.md), with overlapping alternatives retained as follow-up. The decisions below retain the alternatives considered.
 
 ### Lexical alias precedence
 
@@ -62,4 +62,4 @@ For `{ tag: "bad", fn: (value: string) => string } | { tag: "good", fn: <U: type
 
 The checker now includes selected adopted parameters when classifying annotation dependencies and when excluding a nested declaration's own names from enclosing specialization. Arrow checking enters and restores the same effective own scope used by functions and methods. The source AST and runtime value layouts are unchanged.
 
-The independent Module audit improves from 23/88 to 80/88 requirements satisfied. The original six-probe queue is fully satisfied, including both explicit-annotation failures. Permanent coverage includes the 80 conforming cases, their 77 applicable Script versions and three same-realm failure/recovery sequences. The original eight remaining probes were explicit follow-up evidence: six lexical-alias failures and two union-order failures. The subsequent shadowing repair closes the six lexical-alias probes; the two union-order probes remain open. Passing a negative case means the required diagnostic, phase and body-entry boundary were observed. This bounded repair does not close the broader generic-context, convergence, phase, resource or specification-determinacy gates.
+The independent Module audit improves from 23/88 to 80/88 requirements satisfied. The original six-probe queue is fully satisfied, including both explicit-annotation failures. Permanent coverage includes the 80 conforming cases, their 77 applicable Script versions and three same-realm failure/recovery sequences. The original eight remaining probes were explicit follow-up evidence: six lexical-alias failures and two union-order failures. The subsequent shadowing repair closes the six lexical-alias probes; the subsequent [complete-shape contextual selection repair](contextual-union-selection.md) addresses the two union-order probes; overlapping alternatives remain a separate audit. Passing a negative case means the required diagnostic, phase and body-entry boundary were observed. This bounded repair does not close the broader generic-context, convergence, phase, resource or specification-determinacy gates.
