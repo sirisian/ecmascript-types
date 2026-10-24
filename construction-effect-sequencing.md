@@ -36,4 +36,6 @@ The performance assessment is design reasoning, not a benchmark. [ECMAScript exp
 
 ## Implementation boundary
 
+[Captured binding identity](captured-binding-identity.md) covers the generic declaration correspondence that construction and destructuring contributions must retain, including same-named nested method parameters.
+
 The proof of concept uses temporary source-position flow and expression views for computed reads, orders private object/array contribution queries and retains aliases in completed construction descriptions. An ordered effect transfer separately updates following source positions. Unknown spreads still prevent shape or iteration conclusions where the existing rules supply no proof. The change does not implement general heap analysis, infer arbitrary callable effects, or close dependency convergence, resource accounting or full specification determinacy.
