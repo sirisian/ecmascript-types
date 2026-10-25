@@ -43,6 +43,6 @@ Check retained evidence before materialization, after potentially effectful mate
 
 Earlier writes and independently completed boundaries survive refusal. Getter/setter exceptions keep precedence over later stability checks. No new pending contract or field is published after refusal. A later independent attempt is unaffected by stale bookkeeping. Pure membership still neither acquires contracts nor performs this admission completion. Missing owned Array positions retain their separate initialization rules.
 
-This decision concerns **pending admission**. It does not claim that validating a prototype path once establishes an enduring backing contract on every future inherited lookup. Post-publication lookup changes, reference acquisition through inherited properties, and Proxy/accessor or representation-specific storage remain separate audit surfaces.
+This decision concerns **pending admission**. It does not claim that validating a prototype path once establishes an enduring backing contract on every future inherited lookup. Post-publication ordinary lookup changes are covered by [Inherited storage](inherited-storage.md). Reference acquisition through inherited properties and Proxy/accessor or representation-specific storage remain separate audit surfaces.
 
 Sources: [Rust RefCell](https://doc.rust-lang.org/std/cell/struct.RefCell.html), [ECMAScript OrdinaryGet](https://tc39.es/ecma262/#sec-ordinaryget), and the proposal's selected-construction admission, typed-storage and reference-liveness clauses.
