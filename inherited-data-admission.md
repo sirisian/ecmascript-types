@@ -1,0 +1,48 @@
+# Inherited data during structural admission
+
+A structural boundary can read inherited data and then run a sibling getter which changes that data or redirects the lookup. The earlier successful read cannot justify publishing the changed property under its old contract.
+
+```js
+const proto: any = { a: 1 };
+const raw: any = {
+  get z() { proto.a = "bad"; return 1; }
+};
+Object.setPrototypeOf(raw, proto);
+const out: { a: number, readonly z: number } = raw; // TypeError
+```
+
+The same failure is required if `z` replaces `raw`'s prototype. The getter runs once, its change remains, and the failed boundary publishes neither `out` nor its pending property contracts.
+
+## Language decision
+
+A valid solution preserves ordinary identity, width subtyping, once-only successful observations, independent callbacks and completed effects, existing materialization order, backing contracts, and reference authority/liveness. It must identify the property which actually supplied the data without an additional observable lookup. This extends [the reentrant admission decision](field-reentry.md); its rejected retry, overwrite, lock, rollback and whole-object-copy directions remain rejected for the same reasons.
+
+| Direction | Ergonomics | Prior art and limits | Real-engine performance | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Validate the original supplier, intervening lookup path and observed data value | A later callback can invalidate the pending admission. Equal-valued shadowing or retargeting also fails; a new independent attempt can use that new storage. Autocomplete still describes the declared contract, not a promise that an earlier read locks the object. | Rust RefCell rejects conflicting dynamic access; this is only an analogy to detecting invalid evidence, since this proposal allows the nested operation and refuses the suspended boundary. ECMAScript ordinary lookup distinguishes receiver, supplier and prototype path. | Per-admission dependencies can use slot, absence and prototype guards, with call-boundary checks. No public property or shape change is needed for bookkeeping. | Retains the observed storage provenance, selected member and effects. A materialization still writes with the original receiver. Adds no borrow permission. | **Recommend**, independent of implementation effort. |
+| Accept any current ordinary path returning SameValue | Avoids equal-value refusals and need not run a getter if the new path is proved ordinary. | Rust value equality does not make two locations the same borrowed place. ECMAScript allows equal-valued properties on different holders. Neither dictates this proposal's admission policy. | A fresh internal path walk and new guards can prove the current value, but invalidate old lookup assumptions. | Could support a different value-only admission design, but silently retargets this boundary's retained property evidence and changes which storage participates in an ensuing write. Conflicts with keeping independently replaced evidence distinct from this admission's own verified write. | Reject as the language rule, rather than because of implementation cost. |
+| Validate only the original supplier's value | Most stable cases work, but a new shadowing property can escape the check. | ECMAScript lookup stops at the first property, not any earlier supplier. Rust's location discipline supplies no justification for ignoring this change. | A cheap slot check misses absence/prototype dependencies needed by real inline caches. | A different value or accessor can now be read from the receiver while the old supplier remains unchanged. | Reject. |
+| Copy inherited data to the receiver at every admission | Makes the first read look stable but adds own keys, changes lookup and may fail on a nonextensible receiver despite no required conversion. | JavaScript assignment can create an own property; a read does not. Rust copying is explicit in its value/ownership model and has no prototype analogue. | Adds stores and shape transitions to otherwise unchanged admissions. | Violates the no-write rule for unchanged values and ordinary identity/lookup behaviour. Does not settle nested liveness. | Reject. |
+| Reject all inherited structural properties | Simple refusal, surprising for ordinary interface-shaped objects and prototype methods; autocomplete cannot rescue ordinary inherited members. | Rust has no prototype lookup, so excluding it cannot be derived from Rust. JavaScript deliberately supports inherited members. | Removes a lookup path but prevents ordinary engine prototype optimizations from helping valid code. | Narrows existing structural membership and rejects valid unchanged inputs. | Reject. |
+
+A same-value definition at the **same supplier** remains valid, as do attribute changes alone; ordinary write permissions still apply. A different supplier, receiver shadow or changed intervening link invalidates the observation even if its current value is equal. A supplier's own prototype is not consulted once its data property is found. Restoring the original path and value before validation passes these current-state checks; this does not revive a separately invalidated reference or producing-descriptor contribution.
+
+## Evidence implementation decision
+
+| Direction | Ergonomics | Prior art and limits | Real-engine performance | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Prove the original ordinary lookup using internal storage and exact operation/representation checks | No extra getters, traps or public state; same language outcomes as a guarded engine load. | ECMAScript ordinary data lookup supplies a value without calling user code. Rust's borrow checks do not prescribe an object representation. | Inspect only admitted paths; a real engine can reuse load/prototype/absence guards. The interpreter stores a private path per retained observation. | Stop at accessors, proxies or representation-specific reads; compare the actual returned value with the proved data. Revalidate only retained slots and links. No ambient reentry-sensitive capture state. | **Recommend for this implementation.** The specification requires the evidence, not this data structure. |
+| Carry explicit read receipts through every property completion | Can implement the same visible rule if receipts track exactly the original ordinary read. | Rust does not provide an analogue for JavaScript completion transport; ECMAScript's getter calls distinguish data access from arbitrary function results. | Requires receipt transport or specialized observation entry points. An unconditional receipt on unrelated reads would add unnecessary allocation/bookkeeping. An optimized receipt is a valid alternative. | Must block accessor/Proxy forwarding, including an accessor which replaces itself with equal data and returns a nested read. Equality alone cannot validate provenance. | Not selected here: valid if those barriers are met, but direct internal proof isolates this admission's needs and avoids broader completion semantics. |
+| Discover the holder through additional reflective operations | Extra getters/traps or observable prototype/descriptor probes surprise callers. | ECMAScript reflective methods are observable on proxies; Rust borrowing has no such lookup protocol. | Extra calls, IC invalidation and reentry can cost more than the original read. | Can observe a different state and change failure precedence. | Reject. |
+
+The implementation recognizes only an ordinary data path. Base object methods also implement placed fields, Array windows/views and SoA reads; method identity alone is insufficient. Those representations are excluded. The actual returned value must also be SameValue to the internally observed data: a derived or retagged result supplies no matching data witness. Ordinary indexed data in an owned typed Array remains eligible; a bounds check does not turn the supplied data into a different storage representation. No equality-based fallback invents provenance for excluded representations.
+
+## Completion and limits
+
+Check retained evidence before materialization, after potentially effectful materialization, and before publishing the admission's contracts. Ordinary Set retains its existing receiver, order, permissions and exception behaviour. If this admission's conversion successfully creates an own data property, verify that new value and the old inherited dependencies (ignoring only that new receiver property), then advance this admission's evidence to the own location. A later mutation confined to the former supplier does not invalidate the new own observation. Other suspended boundaries do not advance.
+
+Earlier writes and independently completed boundaries survive refusal. Getter/setter exceptions keep precedence over later stability checks. No new pending contract or field is published after refusal. A later independent attempt is unaffected by stale bookkeeping. Pure membership still neither acquires contracts nor performs this admission completion. Missing owned Array positions retain their separate initialization rules.
+
+This decision concerns **pending admission**. It does not claim that validating a prototype path once establishes an enduring backing contract on every future inherited lookup. Post-publication lookup changes, reference acquisition through inherited properties, and Proxy/accessor or representation-specific storage remain separate audit surfaces.
+
+Sources: [Rust RefCell](https://doc.rust-lang.org/std/cell/struct.RefCell.html), [ECMAScript OrdinaryGet](https://tc39.es/ecma262/#sec-ordinaryget), and the proposal's selected-construction admission, typed-storage and reference-liveness clauses.
