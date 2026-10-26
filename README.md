@@ -4676,6 +4676,8 @@ Repeated equal rest types can establish one complete positional domain; see [rep
 
 Concrete array and tuple conversion retains source observations across failed membership; see [sequence-conversion-observations.md](sequence-conversion-observations.md).
 
+Structural member values likewise remain inputs to the same receiving operation after failed membership. Conversion uses those observations, while ordinary data/path validation, live property-domain checks and required post-write observations remain in force; see [failed-membership-observations.md](failed-membership-observations.md).
+
 The general heterogeneous-rest design and implementation gates are recorded in [heterogeneous-rest-storage.md](heterogeneous-rest-storage.md), including correlated backing, conversion selection and invariant reference contracts.
 
 See [Scalar rest storage](scalar-rest-storage.md) for the bounded scalar implementation, including required finite runs, length-sensitive contracts, conversion decisions, and remaining limits. Pure numeric-source planning is covered there; exact class boundaries, correlated ordinary nominal tuple membership, selected simple constructors and source/inbound operators, and remaining object-target obligations are in [Object rest dependencies](object-rest-dependencies.md).

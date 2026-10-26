@@ -43,8 +43,8 @@ This preserves the existing Proxy policy. Its incoming check, a store independen
 
 Owned Array and fixed-tuple element checks can use this continuation, including their ordinary final definition. Scalar-rest planning, different simultaneous backing requirements, arbitrary exotics and backing-specific stores retain their separate observation and publication requirements; this is not permission to bypass them.
 
-## Separate failed-membership question
+## Failed membership before successful admission
 
-The repair concerns forwarding an already successful check. A separate preserved program shows a getter read twice inside one RequireType when structural membership fails and conversion is then attempted. No successful store evidence exists at that point. Reusing the source observation for that conversion needs its own failure/conversion ledger, including conversion selection, reentry and failure ordering; it is not justified by this continuation. The follow-up retains a one-observation requirement and compares directions separately rather than treating two reads as a passing result.
+This continuation forwards an already successful check. Before success, a receiving operation retains its raw structural inputs across failed membership and conversion under [failed-membership-observations.md](failed-membership-observations.md). That separate record preserves values, not admission, backing or reference authority. It also distinguishes operation-owned writes from independent reentry and required post-write observations; it cannot justify skipping the first receiving check here.
 
 Sources: [ECMAScript ordinary Set](https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor), [Rust expression evaluation](https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands), and the proposal's receiving checks, selected construction, inherited storage and reference-liveness rules. Performance recommendations are design judgments.
