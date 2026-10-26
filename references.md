@@ -49,6 +49,8 @@ A known `ref e` has a reference type whose target is the declared location type.
 
 Named argument mapping and rest distribution preserve this distinction: retain the original location, use the receiving parameter's reference or value contract, and keep final binding's liveness checks. [Distributing reference arguments](reference-argument-distribution.md) gives the required ordering and design alternatives, including mixed named calls and reference-run forwarding.
 
+Final admission of a single reference parameter also compares its available declared location contract invariantly, including through an erased callable. The current value cannot narrow or widen established backing. [Invariant reference parameters](reference-parameter-invariance.md) specifies the runtime lookup, both parameter spellings, reference returns, dynamic limits and failure ordering.
+
 ## Reference iteration
 
 Reference iteration requires array or [SoA](soa.md) storage. A statically known String, Set, Map, or generator is an early type error as its source, even though ordinary `for...of` accepts it. A union is rejected only when every member is ineligible; an unknown source is checked at runtime. Array aliases remain eligible, and the rule adds no general reference-iterator protocol.
