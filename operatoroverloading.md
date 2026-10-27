@@ -50,7 +50,7 @@ operator<(v: int32x4): boolean32x4 {}
 
 Two applicable overloads with the same parameter types and no expected return type is an ambiguity TypeError, not a coin flip.
 
-Note that ```static operator``` is a different feature. It defines an operator on the class object itself, so that ```A += 5``` means something, and has nothing to do with the operands of an instance's operators.
+Note that ```static operator``` is a different feature. It defines an operator on the class object itself, so that ```A += 5``` means something, and has nothing to do with the operands of an instance's operators. Its declaration takes one parameter, the right operand, as an instance operator does; the class object is its receiver.
 
 ## Scalars on the Left
 
