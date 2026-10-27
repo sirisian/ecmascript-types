@@ -96,11 +96,12 @@ application or computation.
 
 A separate probe, `type G<T: type> = { f: (G.<[].<T>>) => void }; type X =
 G.<uint8>;`, exposes unmetered recursive obligation propagation in the static
-checker, before type evaluation begins. That path remains a separate resource
-accounting repair; successful metered-builder tests do not certify it. The
-broader portable-limit and inference-completion gates remain open.
+checker, before builder evaluation begins. The same failure occurs with just
+the generic declaration. Static propagation is now included in the accounting
+boundary described below. The broader portable-limit and inference-completion
+gates remain open.
 
-The focused validation run covered 466 tests across 27 files: 463 passed;
+The initial finite-graph repair's validation covered 466 tests across 27 files: 463 passed;
 the two inspector snapshot failures and one generator diagnostic mismatch
 also occur on the unchanged engine. The engine bundle and diagnostic checks
 pass. The fallback TypeScript check and lint report the same baseline issues.
@@ -116,3 +117,70 @@ indirection supports the layout analogy, not unrestricted structural aliases.
 TypeScript supports additional recursive aliases through delayed resolution,
 but does not provide this proposal's runtime enforcement, type evaluation or
 reference-liveness rules.
+
+## Retained specialization obligations
+
+Expanding an alias can erase the parameters that carried its admission,
+default and predicate obligations. Checking must retain those obligations and
+substitute their determining bindings when the existing specialization rules
+require it. A short declaration can generate an unbounded dependency sequence
+without invoking a builder or allocating a Type Object. Moving this work into
+an earlier checking phase cannot move it outside the resource boundary.
+
+The required properties are:
+
+- Meter logical propagation through the existing type-evaluation allowance.
+  Nested dependencies share it; unwinding cannot clear exhaustion.
+- Preserve declaration-bound inputs and captured contexts. An active repeat
+  suppresses only the same obligation, not different specializations or the
+  independent obligations of a recursive type.
+- Reach the configured diagnostic without depending on native recursive
+  delegation. Compiler-owned continuations retain the traversal order and
+  cleanup; they add no program-object shape, IC guard or reference permission.
+- Report exhaustion in the phase that performed this work. It proves neither
+  invalidity nor successful admission and supplies no fallback type.
+- Reject the containing source before its body starts, withdraw its pending
+  checking publications, and leave later checks independent. Ordinary generic
+  deferral rules still determine which expressions require evaluation.
+
+| Direction | Ergonomics | Prior art | Real-engine performance | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Meter only builder/runtime expansion | A declaration can crash tooling before any result or diagnostic exists. | Rust's compile-time limits apply to compiler operations; absence of user-code execution is not a general exemption. | Leaves substitution and dependency growth unbounded; no shape advantage. | Misses required static specialization work. | Reject. |
+| Stop on the declaration name and accept, or use an unknown/any fallback | Autocomplete can lose deeper constraints and display a contract that checking never established. Wrong assumptions survive until use. | Rust goal identity and TypeScript structural recursion do not equate different generic arguments. | Cheap but unsound reuse can corrupt specialized code assumptions. | Drops distinct obligations and can change a successful type with the limit. | Reject. |
+| Declare every argument-changing recursion invalid | Rejects finite cycles that alternate arguments and computations that eventually terminate. | Rust resource limits distinguish capacity from a general proof of semantic invalidity. | Cheap syntax checks cannot establish all relevant outcomes. No runtime shape benefit. | Growth at one step does not prove an invalid type. | Reject. |
+| Defer all recursive obligation checking to later type evaluation | Conceals closed errors inside uncalled code or an alias whose result erases its parameter contract. Editor feedback becomes phase-dependent. | Rust deferred obligations depend on which judgment requires them; deferral is not universal acceptance. | Can avoid duplicate compiler work, but requires preserving every demanded obligation. | Blanket deferral changes required checking phases. Existing explicit generic deferral remains valid. | Reject as a general policy; retain demand-driven evaluation where already specified. |
+| Spend the return-inference allowance instead | Reports a return-inference failure even with explicit result annotations and no inferred result. | Rust has distinct controls for different compiler resources; it does not establish this proposal's diagnostic classification. | Reuses a counter but couples unrelated work. No IC benefit. | Specialization is already type computation; relabeling it obscures the resource and phase. | Reject. |
+| Add only a native-recursion depth guard | Better diagnostics on one measured host, but larger configured limits retain the same failure mode. | Explicit compiler depth limits are legitimate controls, including Rust's. | Low implementation overhead; native frames still scale with the path. | A sole guard does not remove the recursive traversal's host dependence. | Reject as the sole repair; keep logical depth accounting. |
+| Meter retained propagation and drive recursive dependencies through explicit continuations | Editors and hosts receive evaluation-limit exhaustion; a larger allowance can enable completion without inventing a different contract. | Rust's compiler limits and depth-sensitive solver caching support careful resource accounting; their exact semantics differ. | Compiler work records replace nested native frames. Repeated obligations retain exact input checks. Program shapes and ICs are unchanged. | Preserves obligations, phases, sticky failure and cleanup without interpreting native exceptions as language evidence. | Recommend independently of implementation effort. |
+
+The engine uses its existing type-evaluation counters for this propagation,
+including in the initial static pass. It charges a specialization request
+before checking for an active repeat. The continuation stack prevents nested
+alias-obligation traversal from retaining a native call chain. Exhaustion
+stops further propagation and the containing checking passes; failed pending
+inference and binding publications are withdrawn. It is not an inferred result
+and cannot be dismissed by dynamic-function diagnostic recovery.
+
+The implementation has not become a portable total fuel model. Other recursive
+type operations still need their own capacity audits, and configured limits
+must remain within the implementation's capacity. These performance statements
+are cost analysis, not benchmark results.
+
+[Rust's limits](https://doc.rust-lang.org/reference/attributes/limits.html)
+bound compile-time recursion and type-substitution growth; the documented type
+length limit currently requires a nightly enforcement flag.
+[Rust's new trait solver](https://rustc-dev-guide.rust-lang.org/solve/caching.html)
+accounts for remaining depth in cache reuse. Its overflow can produce
+ambiguity, which differs from this proposal's required failure without a
+fallback type. Neither analogy authorizes silently accepting unfinished work.
+
+At engine base `d258023d`, the growing callable example, its unused declaration,
+and nullable and mutual variants escaped with a native stack exception. The
+repair reports `RT_TYPE_EVALUATION_LIMIT` in the static phase at default and
+explicit depths 8, 32, 64 and 256. Step exhaustion, finite alternating inputs,
+a finite chain that succeeds with more fuel, erased constraints, failed-module
+recovery, dynamic Function checking and parsing without an active execution
+context have focused coverage. Across 21 selected files, 667 distinct tests
+pass. The engine build and diagnostic checks pass; TypeScript, lint and the
+strict specification build retain their baseline failures. The full extension
+suite was not run.
