@@ -45,9 +45,9 @@ Controls cover indirect eval, ordinary stored Type Objects, mutable namespace sl
 
 An adjacent old fixture expected budget exhaustion from `type R<T:type> = R.<T>`. The pulled engine already rejects this nonproductive alias because it denotes no type. The fixture now expects that type-evaluation diagnostic and retains its subsequent independent successful evaluation. Finite structural recursion and a growing computation that actually exhausts its budget remain distinct cases.
 
-## Remaining: computed result context before alias publication
+## Computed result context before alias publication
 
-The following reconstructed pair remains unresolved; preparation alone is insufficient:
+The following reconstructed pair was unresolved after preparation alone. The subsequent [computed-result context repair](computed-result-contexts.md) now closes it; the original failure and decision matrix are retained here:
 
 ```js
 // dep
@@ -73,9 +73,9 @@ Before the repair, both routes fail while evaluating the first literal's `U` bef
 | Require explicit own binders for computed results | Consumers must know how an alias was produced; completion can suggest unusable names. | Rust has no matching type-valued JavaScript builder and does not justify a packaging exception. | Low implementation cost. | Weakens uniform contextual-signature behavior. | Reject as the semantic solution; explicit binders remain a workaround. |
 | Use the canonical representative, or split identity by binder spelling | First use chooses accepted names, or structurally equal types become unequal. | Rust item identity does not make these structural signatures nominal. | Canonical-only is cheap but lossy; split identity increases interning and IC diversity. | Breaks contextual identity or alpha-equivalence. | Reject both variants. |
 | Inspect builder syntax or search equal results for a likely declaration | Branches, helpers and repeated activations can select another declaration; wrong guesses cause distant errors. | Rust declaration resolution is not reverse matching from a runtime value. | Whole-body searches or broad caches with inadequate keys. | Cannot prove the selected context; may borrow stale captures. | Reject. |
-| Retain selected declaration context alongside type-evaluation results, separately from public value identity | Selected results supply their binders independently of warm-up; completion and construction agree. | Rust reinforces declaration identity only; ECMAScript public value equality must remain unchanged. | Private compiler/type-evaluation metadata and result-flow tracking; no required public shape or namespace IC change. Optimizations must retain determining context. | Can preserve alpha-equivalence and selected captures without replay, provided success/failure and liveness rules remain intact. | **Recommend**. Implementation and full propagation rules remain open, regardless of effort. |
+| Retain selected declaration context alongside type-evaluation results, separately from public value identity | Selected results supply their binders independently of warm-up; completion and construction agree. | Rust reinforces declaration identity only; ECMAScript public value equality must remain unchanged. | Private compiler/type-evaluation metadata and result-flow tracking; no required public shape or namespace IC change. Optimizations must retain determining context. | Can preserve alpha-equivalence and selected captures without replay, provided success/failure and liveness rules remain intact. | **Recommend**. Subsequently implemented with the boundaries in [computed-result-contexts.md](computed-result-contexts.md). |
 
-The next repair must define context transport through selected returns and helpers, not attach one mutable provenance field to an interned Type Object. Ordinary value copies must not manufacture alias provenance. Include reverse/warm order, multiple activations, failed evaluations, branch selection and alias/value-copy boundaries. Successful required outcomes remain on the queue; relaxed expectations or passing neighboring tests do not close them.
+The subsequent repair defines transport through selected returns and helpers, with context on the evaluation result rather than on the interned Type Object. It covers reverse/warm order, captured inputs, failed evaluations, branch selection and alias/value-copy boundaries. The required named and namespace outcomes now succeed; the remaining eval-parameter and guard cases below stay open.
 
 ## Remaining: an outer generic parameter written in eval
 
