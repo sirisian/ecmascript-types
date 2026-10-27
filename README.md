@@ -514,6 +514,8 @@ type Literal = { value: float64 };
 
 Assignability between recursive structural types is decided coinductively: while checking whether ```A``` is assignable to ```B```, the pair is assumed to hold, and the check succeeds if nothing contradicts the assumption. This is what lets two independently declared but structurally identical trees be assignable.
 
+Generic aliases use the same recursive graph rule. Repeating an application with the same declaration context and completed arguments closes a structural edge; it does not require endless expansion. Callable parameter and result positions do not embed their types' storage inline. Forming `type N<T: type> = { f: (N.<T>) => void }; type X = N.<uint8>;` therefore describes a finite recursive contract. Bare cycles and infinite inline layouts remain errors, and growing computations retain their evaluation budget. See [recursive alias formation](recursive-alias-formation.md) for the identity, publication and resource requirements and the evaluated alternatives.
+
 ### Literal Types
 
 A literal is usable as a type, denoting the single value it names. String, numeric, boolean, and bigint literals all qualify:
