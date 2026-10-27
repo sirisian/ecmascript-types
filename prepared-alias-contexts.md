@@ -75,9 +75,9 @@ Before the repair, both routes fail while evaluating the first literal's `U` bef
 | Inspect builder syntax or search equal results for a likely declaration | Branches, helpers and repeated activations can select another declaration; wrong guesses cause distant errors. | Rust declaration resolution is not reverse matching from a runtime value. | Whole-body searches or broad caches with inadequate keys. | Cannot prove the selected context; may borrow stale captures. | Reject. |
 | Retain selected declaration context alongside type-evaluation results, separately from public value identity | Selected results supply their binders independently of warm-up; completion and construction agree. | Rust reinforces declaration identity only; ECMAScript public value equality must remain unchanged. | Private compiler/type-evaluation metadata and result-flow tracking; no required public shape or namespace IC change. Optimizations must retain determining context. | Can preserve alpha-equivalence and selected captures without replay, provided success/failure and liveness rules remain intact. | **Recommend**. Subsequently implemented with the boundaries in [computed-result-contexts.md](computed-result-contexts.md). |
 
-The subsequent repair defines transport through selected returns and helpers, with context on the evaluation result rather than on the interned Type Object. It covers reverse/warm order, captured inputs, failed evaluations, branch selection and alias/value-copy boundaries. The required named and namespace outcomes now succeed; the remaining eval-parameter and guard cases below stay open.
+The subsequent repair defines transport through selected returns and helpers, with context on the evaluation result rather than on the interned Type Object. It covers reverse/warm order, captured inputs, failed evaluations, branch selection and alias/value-copy boundaries. The required named and namespace outcomes now succeed; the eval-parameter case is closed by the subsequent repair below; the guard case stays open.
 
-## Remaining: an outer generic parameter written in eval
+## An outer generic parameter written in eval
 
 ```js
 function outer<T:type>(outer:T) {
@@ -91,14 +91,14 @@ function outer<T:type>(outer:T) {
 outer.<number>(7)();
 ```
 
-The written `T` in the newly parsed return annotation is not recovered by the checker and produces `RT_ASSIGNABILITY` in eval's static check. Omitting the return annotation, or naming an initialized outer alias `type Captured=T` in it, succeeds, including interleaved number/string activations. These are controls, not replacements for the required successful case.
+Before the [generic-parameter evidence repair](eval-generic-parameters.md), the written `T` in the newly parsed return annotation was not recovered by the checker and produced `RT_ASSIGNABILITY` in eval's static check. That repair now makes the required case succeed. Omitting the return annotation, or naming an initialized outer alias `type Captured=T` in it, succeeds, including interleaved number/string activations. These remain controls rather than substitutes for the now-successful written-annotation case. The subsequent analysis also preserves separate runtime lookup discrepancies for indirect eval, `Function` and an ordinary outer shadow; those are still open.
 
 | Direction | Ergonomics | Prior art including Rust | Real-engine performance | Correctness | Other / decision |
 | --- | --- | --- | --- | --- | --- |
 | Treat an unresolved `T` as `any` | Completion promises a contract that wrong values can evade. | Rust does not erase unresolved generic parameters to a dynamic top type. | Cheap but loses useful specialization facts. | Discards the actual binding's contract. | Reject. |
 | Match any equal Type Object value or cached name | Other activations can silently change acceptance. | Rust lexical scopes do not authorize value/name matching; ECMAScript eval selects actual bindings. | Inadequate cache guards; potential cross-activation retention. | Manufactures provenance and bypasses shadowing. | Reject. |
 | Require an outer alias workaround | The user must rewrite an already in-scope parameter; completion cannot explain the exception. | Rust has no eval but preserves generic scope; ECMAScript direct eval has lexical access. | Low cost, extra declarations. | Makes equivalent lexical access depend on spelling. | Reject as the semantic solution. |
-| Retain explicit generic-parameter binding-instance evidence | Written annotations refer to the parameter the user sees. | Rust motivates declaration scope only; ECMAScript supplies the eval environment. | Private binding metadata, no public shape changes; cache per determining activation. | Preserves selected arguments, shadowing and reference-liveness obligations. | **Recommend**; not implemented here. |
+| Retain explicit generic-parameter binding-instance evidence | Written annotations refer to the parameter the user sees. | Rust motivates declaration scope only; ECMAScript supplies the eval environment. | Private binding metadata, no public shape changes; cache per determining activation. | Preserves selected arguments, shadowing and reference-liveness obligations. | **Recommend**; subsequently implemented for the written-annotation case in [eval-generic-parameters.md](eval-generic-parameters.md). |
 
 ## Remaining: stable imported constructor guards
 
