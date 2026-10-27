@@ -91,7 +91,7 @@ function outer<T:type>(outer:T) {
 outer.<number>(7)();
 ```
 
-Before the [generic-parameter evidence repair](eval-generic-parameters.md), the written `T` in the newly parsed return annotation was not recovered by the checker and produced `RT_ASSIGNABILITY` in eval's static check. That repair now makes the required case succeed. Omitting the return annotation, or naming an initialized outer alias `type Captured=T` in it, succeeds, including interleaved number/string activations. These remain controls rather than substitutes for the now-successful written-annotation case. The subsequent analysis also preserves separate runtime lookup discrepancies for indirect eval, `Function` and an ordinary outer shadow; those are still open.
+Before the [generic-parameter evidence repair](eval-generic-parameters.md), the written `T` in the newly parsed return annotation was not recovered by the checker and produced `RT_ASSIGNABILITY` in eval's static check. That repair now makes the required case succeed. Omitting the return annotation, or naming an initialized outer alias `type Captured=T` in it, succeeds, including interleaved number/string activations. These remain controls rather than substitutes for the now-successful written-annotation case. The separate runtime lookup discrepancies for indirect eval, `Function` and an ordinary outer shadow are subsequently repaired in [runtime-generic-scope.md](runtime-generic-scope.md).
 
 | Direction | Ergonomics | Prior art including Rust | Real-engine performance | Correctness | Other / decision |
 | --- | --- | --- | --- | --- | --- |

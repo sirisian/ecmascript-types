@@ -49,11 +49,11 @@ An additional engine test checks ordinary lexical eval with runtime types disabl
 
 An assignment fixture initializes its typed function binding before assigning again: a bare `let f:G;` correctly requires a default value that this function type does not supply. A generic parameter named `string` also shadows that built-in in explicit call arguments; the successful control uses `boolean` for the function's own argument instead of accidentally requesting the enclosing parameter's numeric type.
 
-This closes the preserved written-outer-parameter annotation case. It does not certify every qualified, higher-kinded, value-pack or generic suspension family. The runtime lookup issues below and the imported-constructor guard/effect audit remain open, along with the broader identity, inference, phase/recovery, resource and conformance gates.
+This closes the preserved written-outer-parameter annotation case. It does not certify every qualified, higher-kinded, value-pack or generic suspension family. The runtime lookup issues below are repaired by the subsequent [runtime scope increment](runtime-generic-scope.md). The imported-constructor guard/effect audit remains open, along with the broader identity, inference, phase/recovery, resource and conformance gates.
 
 ## Newly preserved runtime lookup discrepancies
 
-The baseline and this increment both accept these programs, even though the called source has a global environment and should not acquire the caller's generic parameter:
+The annotation increment and its baseline both accepted these programs, even though the called source has a global environment and should not acquire the caller's generic parameter:
 
 ```js
 function f<T:type>() { return (0,eval)("const x:T=7;x;"); }
@@ -63,7 +63,7 @@ function g<T:type>() { return Function("const x:T=7;return x;")(); }
 g.<number>();
 ```
 
-The baseline and this increment both reject the following with a runtime `TypeError`, although the nearer ordinary binding should select `string`:
+The annotation increment and its baseline both rejected the following with a runtime `TypeError`, although the nearer ordinary binding should select `string`:
 
 ```js
 function f<T:type>() {
@@ -72,14 +72,14 @@ function f<T:type>() {
 f.<number>();
 ```
 
-The new checker lookup supplies no outer-parameter evidence in these cases. The remaining discrepancy is the runtime's name-based generic-frame fallback, which is also used by ordinary value reads and type computations. These are required-outcome reproducers, not passing conformance expectations or a new policy allowing caller-scope access.
+The new checker lookup supplies no outer-parameter evidence in these cases. The discrepancy was the runtime's name-based generic-frame fallback, which is also used by ordinary value reads and type computations. The subsequent [runtime scope repair](runtime-generic-scope.md) removes the source-read fallback and turns these required outcomes into conformance cases; it does not permit caller-scope access.
 
 | Direction | Ergonomics | Prior art including Rust | Real-engine performance | Correctness | Other / decision |
 | --- | --- | --- | --- | --- | --- |
 | Bless dynamic caller lookup | Results depend on who calls the code; autocomplete cannot describe one lexical meaning. | Neither Rust generic scope nor ECMAScript's global environment for indirect eval/`Function` supports this. | Simple stack search, unreliable specialization reuse. | Violates lexical scope and nearer-binding precedence. | Reject. |
 | Special-case only indirect eval and `Function` by clearing frames | Repairs two examples but leaves ordinary shadows and other call forms inconsistent. | ECMAScript defines environments, not a list of spellings to erase. Rust supplies no justification for a partial scope rule. | Small local change; restoration and suspension add state management. | Does not establish which lexical parameter a runtime read denotes; can disrupt needed captured bindings. | Reject as the complete solution. |
 | Guess from Type Object equality or execute an extra read to decide | Equal values or getters can change which declaration wins. | Rust resolves declarations; ECMAScript performs each required read in its specified order. | Extra lookup/effect guards or an inadequate equality cache. | Cannot establish the actual binding and can duplicate effects. | Reject. |
-| Carry actual lexical parameter-resolution evidence into runtime reads and type denotation | Direct eval, ordinary shadows and globally scoped code obey one scope rule. | Rust motivates declaration ownership only; ECMAScript provides the source environments and ordinary read order. | Private reference/environment evidence with lexical guards; no public object-layout change is required. | Can preserve activation identity, availability, ordinary reads and liveness together. Audit specialization captures, metadata parameters, defaults and suspension as well as the three examples. | **Recommend** for the next runtime-scope repair, independently of effort; not implemented by this annotation increment. |
+| Carry actual lexical parameter-resolution evidence into runtime reads and type denotation | Direct eval, ordinary shadows and globally scoped code obey one scope rule. | Rust motivates declaration ownership only; ECMAScript provides the source environments and ordinary read order. | Private reference/environment evidence with lexical guards; no public object-layout change is required. | Can preserve activation identity, availability, ordinary reads and liveness together. Audit specialization captures, metadata parameters, defaults and suspension as well as the three examples. | **Recommend**, independently of effort. Subsequently implemented by the [runtime scope repair](runtime-generic-scope.md). |
 
 The prior [constructor guard/effect reproducers](prepared-alias-contexts.md#remaining-stable-imported-constructor-guards) remain unchanged. Do not equate every imported `instanceof` with the current local answer before checking hook effects and invalidation.
 
