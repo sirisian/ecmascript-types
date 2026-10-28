@@ -853,7 +853,7 @@ primitive float32 {
 }
 ```
 
-Both operators compose for combined types. When the target is `float32.<{ m:1, ..., bounds: 0<.. }>`, the compiler decomposes into Dimensions and NumberBounds slots and invokes both cast operators. `NumberBounds.validate()` runs at the cast boundary (elided for compile-time-provable constant literals).
+Both operators compose for combined types. When the target is `float32.<{ m:1, ..., bounds: 0<.. }>`, the compiler decomposes into Dimensions and NumberBounds slots and invokes both cast operators. `NumberBounds.validate()` runs at the cast boundary (elided for compile-time-provable constant literals). [Composing implicit casts](implicit-cast-composition.md) specifies complete selection before body effects, declaration order, raw-result sequencing, and final boundary validation.
 
 ### Cast Operator Invocation Points
 

@@ -44,7 +44,7 @@ For a selected call, metadata arguments use `MetadataPortion` and its completed 
 
 The portable `implicit-cast-captures.json` corpus covers metadata values and field domains, completed portions, unrelated metadata, changing arguments across calls, component types and widths, receiver-only captures, lexical shadows, direct and indirect eval, closures, imports and declaration helpers, assignment/argument/return/field/default boundaries, failed writes and borrows, and recovery after a throwing body. Width and component mismatches remain negative controls. The delivery's verification record gives exact test and baseline results.
 
-A separate composition defect is preserved with a paired reproducer: when two meta types require separate identity casts, both the pulled baseline and this implementation invoke only the first body. The existing per-meta-type invocation requirement remains authoritative; this change does not treat that short circuit as correct. Repairing composition must retain the argument ownership, raw-result admission and effect rules above.
+The bare-boundary composition defect preserved by this increment is repaired in [Composing implicit casts](implicit-cast-composition.md). That repair selects complete coverage and threads each selected body's admitted raw result while retaining the capture ownership and effect rules above. Conversion between parameterizations remains a separate audit.
 
 The broader implicit-cast applicability/composition audit and the imported-constructor `instanceof`/hook-effect audit remain separate work. Passing these cases does not certify unsupported cast patterns, vector cast dispatch, or all identity, resource and conformance gates.
 
