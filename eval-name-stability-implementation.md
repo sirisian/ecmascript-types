@@ -27,7 +27,7 @@ Each delivery patch is one consolidated diff against its listed base. The design
 
 The final focused run completed **855 tests in 18 files: 854 passed, one existing failure**. All **51 new regression tests passed**. No full extension or test262 run was attempted.
 
-The failure is `generics/checked-class-dependencies.test.mts` ? **foreign family rejection then recovery**. It expects the `A.<uint.<8>>` / `A.<any>` assignability failure, but instead receives a TypeError admitting `[Function accepts]` to `<T: type>(x: T: A.<any>) => string`. The same failure was reproduced by building and testing a separate clean worktree at the pulled engine base above: 27 passed, one failed. This is a different reported failure boundary, not proof that the recovery behavior is correct.
+The failure is `generics/checked-class-dependencies.test.mts` → **foreign family rejection then recovery**. It expects the `A.<uint.<8>>` / `A.<any>` assignability failure, but instead receives a TypeError admitting `[Function accepts]` to `<T: type>(x: T: A.<any>) => string`. The same failure was reproduced by building and testing a separate clean worktree at the pulled engine base above: 27 passed, one failed. This is a different reported failure boundary, not proof that the recovery behavior is correct.
 
 | Check | Result |
 | --- | --- |

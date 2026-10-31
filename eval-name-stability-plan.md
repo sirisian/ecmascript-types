@@ -2,7 +2,7 @@
 
 October 31, 2026. Recommended directions accepted for implementation; implementation proceeds in increments.
 
-The first increment implements the receiving-boundary repair and strictness regressions described in [Eval, ordinary evaluation and nominal ancestry](eval-name-stability.md). The original analysis below retains its recorded baseline and observations. Cross-script declaration denotation, source-ordered origin precision and the broader optimization audit remain pending; they are not implied by this first patch. Validation and patch bases are recorded in the [implementation record](eval-name-stability-implementation.md).
+The first increment implements the receiving-boundary repair and strictness regressions; the second implements declaration type denotation across source texts. Both are described in [Eval, ordinary evaluation and nominal ancestry](eval-name-stability.md). The original analysis below retains its recorded baseline and observations. Source-ordered origin precision and the broader optimization audit remain pending. Validation and patch bases are recorded in the [first implementation record](eval-name-stability-implementation.md) and [declaration-denotation record](class-denotation-implementation.md).
 
 The central defect is a loss of evidence being reported as evidence of incompatibility. The checker can lose the origin of a superclass because an `eval` occurs anywhere in the source, then report that a subclass is not assignable to its base. A stable type contract, the current value of a JavaScript binding, and the evidence that connects a value to that contract need distinct treatment.
 
@@ -135,7 +135,7 @@ Forty-eight focused probes included these eighteen cases and adjacent controls. 
 
 In the inspected engine, `collectMutations` in `type-system/check.mts` sets a whole-source `hasDirectEval` flag. `stableClassOrigin` returns no origin for a same-source identifier when that flag is set; it also screens class declarations using whole-source assigned-name sets. `heritageOriginOf` feeds this result into `instanceTypeOf`, where unavailable origin yields no known base. The final assignability query can then treat that incomplete description as an incompatible nominal type.
 
-That is a more specific diagnosis than ìeval is conservative.î Withdrawing an origin can be correct. Converting the withdrawal into a closed negative nominal judgment is the problem. Other operations in the checker already distinguish unknown ancestry from established absence; the repair should make the evidence discipline consistent rather than special-case the sample text.
+That is a more specific diagnosis than ‚Äúeval is conservative.‚Äù Withdrawing an origin can be correct. Converting the withdrawal into a closed negative nominal judgment is the problem. Other operations in the checker already distinguish unknown ancestry from established absence; the repair should make the evidence discipline consistent rather than special-case the sample text.
 
 ## A model that separates the relevant identities
 
@@ -174,7 +174,7 @@ R9 includes the existing strictness and typed-storage policies when a program op
 
 ## Design decisions
 
-Every question below compares the available directions using the same five criteria. ìOtherî records scope, portability or the reason an alternative loses. Cost of implementing a direction is described where relevant but does not determine the recommendation.
+Every question below compares the available directions using the same five criteria. ‚ÄúOther‚Äù records scope, portability or the reason an alternative loses. Cost of implementing a direction is described where relevant but does not determine the recommendation.
 
 ### Q1 What should annotation neutrality mean
 
@@ -196,7 +196,7 @@ An annotation-induced overload selection is a specified typed operation. Silentl
 | Make every checked unit strict, or only give its eval strict-like declaration scope | Fewer categories, but a range, alias or match can unexpectedly change unrelated runtime behavior; a custom eval mode is harder to explain | Full strictness has ECMAScript precedent; a partial strict-eval mode does not. Rust supplies no runtime-eval precedent | Broader lexical certainty, but still no protection against existing-binding writes | Full strictness is possible; partial strictness leaves mapped arguments and other behaviors inconsistent | Reject: the extra semantic reach does not solve class replacement and exceeds the needed opt-in |
 | Keep annotation-triggered strictness and ordinary eval semantics | Annotations are a documented mode opt-in; checked-sloppy code remains possible and must get honest dynamic completions | Directly uses ECMAScript's scope rules; Rust comparison is limited to stable lexical resolution | Typed strict scopes can use static slots; only genuinely dynamic scopes need dynamic lookup handling | Preserves existing commitments without treating strict eval as effect-free | **Recommend** |
 
-The implicit mode switch has a real ergonomic cost: even `: any` can change `this`, arguments mapping and eval scope. An editor should show ìstrict through annotationî at the unit and explain the trigger when a diagnostic or quick fix depends on it. Hiding that cost is not a language-design solution.
+The implicit mode switch has a real ergonomic cost: even `: any` can change `this`, arguments mapping and eval scope. An editor should show ‚Äústrict through annotation‚Äù at the unit and explain the trigger when a diagnostic or quick fix depends on it. Hiding that cost is not a language-design solution.
 
 ### Q3 What does a class name denote in a type position
 
@@ -459,7 +459,7 @@ The model must also distinguish unfinished evidence from a completed unknown ans
 | Prototype mutation | Relevant ordinary prefixes and other existing property dependencies | Unrelated links or target-outgoing links not used by an acquired obligation |
 | Array relocation/removal or ref rebinding | The appropriate location/liveness and origin facts | An unrelated nominal type's identity |
 
-The global distinction matters: a Script `class V` lives in the declarative part of the global environment. `globalThis.V` is not automatically that binding. A Script-global function/`var` binding may instead be an object property. Indirect dynamic code can nevertheless resolve a global lexical `V` through the realm's global environment. Avoid both ìindirect eval cannot reach lexical globalsî and ìevery global property write changes every same-named lexical binding.î
+The global distinction matters: a Script `class V` lives in the declarative part of the global environment. `globalThis.V` is not automatically that binding. A Script-global function/`var` binding may instead be an object property. Indirect dynamic code can nevertheless resolve a global lexical `V` through the realm's global environment. Avoid both ‚Äúindirect eval cannot reach lexical globals‚Äù and ‚Äúevery global property write changes every same-named lexical binding.‚Äù
 
 ### Real-engine costs and optimization limits
 
@@ -499,6 +499,8 @@ Exit condition: example 1 and unused-eval variants run; known unrelated-class fa
 
 ### Milestone 3 Specify and unify declaration type denotation
 
+Implemented by the second increment; see the [declaration-denotation implementation record](class-denotation-implementation.md) for coverage and validation limits. The original observed cross-script outcome below is historical and is intentionally changed by this increment.
+
 **Design:** adopt the Q3 rule explicitly, with the documented difference between `: V`, `type V`, bare `V` and reflection of an actual constructor. Include the proposed changed outcome for example 6 and ordinary-shadow counterexamples.
 
 **Spec:** extend declaration-instance evidence to later Scripts and follow producer declarations through imports/re-exports. State successful-publication, TDZ, failure recovery and generic-activation rules. Keep aliases immutable and preserve existing type-computation restrictions.
@@ -519,7 +521,7 @@ Exit condition: writes after the relevant observation do not erase an earlier va
 
 ### Milestone 5 Audit runtime enforcement and optimization seams
 
-**Engine and spec:** review callee capture, contextual initializers, shallow callable admission, `new`, `super`, decorators, actual prototype paths and check elision. Preserve existing exact prototype obligations and reference checks. Inspect indirect/global mutations that source-text-only ìno assignmentî reasoning can miss. Test getters and argument-side effects to ensure no duplicate lookup or replay.
+**Engine and spec:** review callee capture, contextual initializers, shallow callable admission, `new`, `super`, decorators, actual prototype paths and check elision. Preserve existing exact prototype obligations and reference checks. Inspect indirect/global mutations that source-text-only ‚Äúno assignment‚Äù reasoning can miss. Test getters and argument-side effects to ensure no duplicate lookup or replay.
 
 Exit condition: an untyped or erased path cannot use stale origin evidence to bypass a declared receiving boundary. A failed runtime guard falls back within the same execution, with the original operands and locations. No change to public type equality, reference permissions or conversion ordering is required.
 
@@ -555,7 +557,7 @@ The design is ready for adoption when each question's chosen direction is accept
 - **48 focused probes** on the recorded engine head, including all eighteen draft cases, explicit strict feature-off controls and adjacent identity/effect/prototype cases. They establish the observations above, not comprehensive conformance.
 - **Three focused suites: 60 tests passed.** `enforcement/typed-strict-mode`, `narrowing/checked-code-eval`, and `declarations/alias-across-scripts`.
 - **Five adjacent suites: 249 tests passed, 1 failed.** `conversions/nominal-prototype-boundaries`, `generics/checked-class-dependencies`, `modules/runtime-generic-scope`, `modules/eval-generic-parameters`, and `functions/lexical-mutations`.
-- The existing failing test is **ìforeign family rejection then recoveryî** in `checked-class-dependencies.test.mts`. It expected an `A.<uint.<8>>` versus `A.<any>` assignability message but received a TypeError admitting `[Function accepts]` to the generic callable contract. This is a different reported failing boundary, not evidence that foreign-family recovery is correct. It remains a baseline issue to investigate before relying on that recovery gate.
+- The existing failing test is **‚Äúforeign family rejection then recovery‚Äù** in `checked-class-dependencies.test.mts`. It expected an `A.<uint.<8>>` versus `A.<any>` assignability message but received a TypeError admitting `[Function accepts]` to the generic callable contract. This is a different reported failing boundary, not evidence that foreign-family recovery is correct. It remains a baseline issue to investigate before relying on that recovery gate.
 - Dependencies and the pinned test262 harness were installed. The full build stopped in `build:dts` because the TypeScript Go compiler could not resolve `/proc/self/exe` in this environment. The engine bundle was subsequently built with Rollup using a 6144 MiB Node heap; the default heap had exhausted memory. Type-declaration generation therefore remains unverified. The build's generated tracked error-message changes were restored; there are no implementation edits in this delivery.
 - No full extension or test262 run was attempted. The targeted results above are the extent of executable validation.
 

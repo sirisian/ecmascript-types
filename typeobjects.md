@@ -16,6 +16,8 @@ Map.<string, uint8> === Map.<string, uint8>;  // true
 
 A bare type name or dotted generic application is already a value, so `uint8`, `[].<uint8>`, and `Map.<string, uint8>` may be written directly where a value is expected. The built-in type names are ordinary shadowable globals, so an existing program that declares its own `uint8` is unaffected, and `typeof uint8 === 'object'` doubles as feature detection for this proposal.
 
+A source class declaration retains its original type denotation after its mutable constructor binding is reassigned. `type C` and `: C` denote that evaluated declaration's class, including in later Scripts and through imports; ordinary `C` reads the current value. Reflection given an ordinary constructor argument uses that actual value. Resolve the nearest binding first: this does not bypass an ordinary shadow to find an outer type. [Eval and declaration denotation](eval-name-stability.md#one-declaration-denotation-across-source-texts) explains publication, availability and generic-family behavior.
+
 `Reflect.typeOf(value)` returns a value's runtime type object:
 
 ```js

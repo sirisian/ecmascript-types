@@ -1,6 +1,6 @@
 # Eval, ordinary evaluation and nominal ancestry
 
-This document adopts the first implementation increment of the [eval and stable names plan](eval-name-stability-plan.md): clarify annotation-triggered strictness and repair negative nominal receiving judgments made from incomplete ancestry. The remaining declaration-denotation and source-order work is recorded separately below.
+This document records the first two implementation increments of the [eval and stable names plan](eval-name-stability-plan.md): clarify annotation-triggered strictness, repair negative nominal receiving judgments made from incomplete ancestry, and retain a source class declaration's type denotation across source texts. Source-ordered origin analysis and the broader audit remain separate work.
 
 ## Annotation-triggered strictness is already observable
 
@@ -63,6 +63,52 @@ Calls likewise keep their ordinary order: capture the callee, evaluate arguments
 
 Successful admission still acquires the existing nominal prototype obligations. A compatible intermediate prototype link remains allowed, while a mutation that removes the admitted `V` relationship is refused. Reference liveness remains independent: eval can remove an array element, and a later access through the old reference must fail even if an unrelated nominal receiving check succeeded.
 
+## One declaration denotation across source texts
+
+```js
+// Script 1
+class V {}
+class W extends V {}
+const Original = V;
+
+// Script 2, same realm
+V = class {};
+
+// Script 3
+const value: V = new W(); // succeeds against the original V
+type Saved = V;          // retains the original declaration
+```
+
+The source class binding has two roles. A type position denotes the class introduced by that evaluated declaration. An ordinary expression reads the binding's current value. The distinction is the same within one source text and across later Scripts, direct/indirect eval, dynamically constructed functions and module imports.
+
+| Spelling after replacement | Denotation or effect |
+| --- | --- |
+| `: V`, `type V`, `type Saved = V` | Original declaration's type |
+| `V`, `new V()`, `class X extends V {}` | Current constructor value and ordinary evaluation |
+| `Reflect.isAssignable(V, type V)` | Compare the actual replacement constructor's associated type with the original declaration's type |
+| Imported `C` in `: C`, or `ns.V` in a type | Producer's original class declaration, following renames/re-exports |
+| Imported `C` or `ns.V` as an ordinary expression | Producer binding's current value |
+
+Only successful class evaluation and binding initialization publish an outer denotation. Decorator or static-initializer failure leaves that outer binding unavailable; a later statement throwing does not undo an earlier successful declaration. A class's inner context remains distinct. Separate local activations, recursion and suspended functions retain their own evaluated identities. Generic references use the original family for arguments, defaults and specialization reuse, including through a module namespace.
+
+Runtime class decorators receive the original created class through `context.type` while the outer binding remains uninitialized. After decoration succeeds, that binding receives the replacement value, if any; its type denotation retains the original declared class contract. This also closes an implementation gap: a failed declaration must not leave a constructor association that could satisfy an escaped forward receiving dependency.
+
+The same evaluation path applies to decorated named and default exports, including an anonymous default class. A partial declaration reopens the established class and does not initialize or republish its original declaration binding.
+
+The publication audit required making the decorator commit point explicit. A valid direction must retain ordinary effects, avoid a usable failed outer declaration, preserve the declared contract and respect reference liveness.
+
+| Direction | Ergonomics | Prior art, including Rust | Production performance | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Initialize and publish before decorators finish | Outer reads work during decoration, but a thrown decorator can leave a usable declaration | Rust supplies no runtime-decorator analogy; this diverges from JavaScript's class initialization boundary | Early roots and contracts require invalidation after failure | Violates successful-publication and failure-recovery requirements | Rejected |
+| Initialize early, defer type publication, then revoke the binding on failure | The name is temporarily usable and later returns to TDZ; escaped observations become surprising | Neither Rust's declaration identity nor ordinary ECMAScript class evaluation motivates this transaction model | Requires additional state and invalidation; user effects cannot be rolled back | Can distinguish some states, but exposes a provisional outer binding and needs new observable rollback semantics | Rejected |
+| Keep the outer binding uninitialized through decoration; initialize once and retain the declaration contract on success | Decorators use their supplied context; a failed declaration remains unavailable | Follows ECMAScript's outer class-binding initialization boundary. Rust supports fixed declaration identity but does not model these runtime callbacks | One successful binding publication; retained constructor is an internal GC root, with no user-instance shape changes | Preserves the contract, failure ordering, activation identities and liveness; effects already performed remain | Recommended independently of implementation effort |
+
+Resolve the nearest ordinary binding first. A nearer `const V = type string` uses that binding's own type value. A nearer uninitialized binding still blocks the outer `V` and keeps the applicable TDZ/type-formation failure. Dynamic lookup likewise cannot bypass a nearer ordinary binding to recover an outer class. This does not introduce independent type and value namespaces or make arbitrary mutable reads valid type computations.
+
+The retained constructor is part of the declaration's reachable contract, including for garbage collection. It is stored in internal binding metadata, with no added user-object property or instance shape transition. Real engines can lower a known type reference to a contract/environment slot; ordinary value loads and their inline caches still track the current value. This is an implementation strategy, not a performance benchmark or a license to omit receiving/prototype/reference checks.
+
+The plan's Q3 and Q9 matrices give the rejected alternatives and their reasons. This increment adopts their declaration-and-binding-instance model rather than a per-source snapshot or a second namespace.
+
 ## Implementation boundary and remaining work
 
 The engine records unresolved heritage separately from a known end of ancestry on its internal nominal checker records. The receiving check consults that evidence only after ordinary assignability fails. Known contracts and generic arguments survive. Runtime admission, conversion execution, prototype enforcement and reference checks continue through their existing paths.
@@ -71,8 +117,7 @@ This is a checking change, not a new property on user instances or constructors.
 
 The recommended later increments remain:
 
-- Retain each evaluated declaration's original type denotation across later Scripts, including publication, shadowing and failure recovery. The current cross-script behavior is not changed here.
 - Replace whole-source eval/assignment screening with binding-aware evidence transferred in execution order, including indirect effects and the constructor operand itself.
 - Audit other ancestry consumers, overload resolution and optimization paths against that evidence model; complete the broader class, module and reference conformance matrix.
 
-The recommendations are selected in the plan independently of implementation cost. Keeping this first patch focused does not discard those directions or claim their acceptance gates have passed.
+The recommendations are selected in the plan independently of implementation cost. These increments do not discard the remaining directions or claim their acceptance gates have passed. The [first implementation record](eval-name-stability-implementation.md) and [declaration-denotation record](class-denotation-implementation.md) identify their separate patch bases and validation.
