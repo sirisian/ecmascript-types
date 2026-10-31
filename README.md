@@ -4577,7 +4577,9 @@ Each sloppy mode behavior this removes is one that conflicts with something type
 - ```delete``` of an unqualified identifier is a SyntaxError. Deleting a typed field or typed array element is a type error per the interfaces and arrays sections, reported before evaluation when statically determined and as a TypeError otherwise.
 - Legacy octal literals and the ```\8``` and ```\9``` escapes are SyntaxErrors, keeping the numeric literal grammar unambiguous alongside separators and type propagation to literals.
 - ```Function.prototype.caller``` and ```arguments.callee``` are absent, so a function's identity cannot be recovered from its frame.
-- A direct ```eval``` gets its own scope and cannot introduce bindings into the enclosing typed scope. The compiler's knowledge of a typed scope is therefore complete, which is what allows a typed function to be compiled without guards against injected bindings.
+- A direct ```eval``` gets its own scope and cannot introduce bindings into the enclosing typed scope. This removes the need for guards against injected declarations. Eval can still assign to reachable mutable bindings, so it does not establish that their values or a callee's identity are unchanged.
+
+An annotation of `any` has this same strictness effect. It does not authorize checking to substitute an initializer result or skip ordinary lookup and execution. [Eval and nominal ancestry](eval-name-stability.md) separates this scope rule from class-origin evidence and explains when a receiving boundary must remain dynamic. The [implementation plan](eval-name-stability-plan.md) records the broader recommended direction and remaining work.
 
 
 ### Checked Code
