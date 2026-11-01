@@ -80,7 +80,7 @@ This repair makes no new reference live, reacquires no reference after failure a
 
 ## Scope and remaining work
 
-This increment covers the recorded rest/iterator cases and the duplicate lookup repair. It does not complete milestone 5. Remaining work includes wider descriptor/prototype mutation paths, builtin callback/reflection combinations, and other consumers of callable or ancestry evidence. Within-pattern joins, unknown keys and call contexts can still be conservative. The normative precision rules must eventually be complete; private graph limits cannot decide observable language behavior arbitrarily.
+This increment covers the recorded rest/iterator cases and the duplicate lookup repair. It does not complete milestone 5. The [ninth increment](descriptor-access-effects.md) adds descriptor conversion and installed-accessor summaries. Remaining work includes wider descriptor/prototype mutation paths, builtin callback/reflection combinations, and other consumers of callable or ancestry evidence. Within-pattern joins, unknown keys and call contexts can still be conservative. The normative precision rules must eventually be complete; private graph limits cannot decide observable language behavior arbitrarily.
 
 The separate deep `operandParticipates` overflow and the recorded test/build failures are unchanged. The integrated milestone 6 gate remains open. No production-engine benchmark or complete extension/test262 result is claimed.
 

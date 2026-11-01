@@ -93,6 +93,8 @@ Final review added a descriptor prototype dependency: a formerly ordinary inheri
 
 ## Remaining work
 
+The [tenth increment](property-key-effects-implementation.md) covers property-key coercion cases and reconciles this delivery with the partially applied upstream design patch. Upstream retained the Windows-1252 version of `implicit-protocol-effects.md`; that increment carries its missing cross-link as a normal text hunk compatible with the existing encoding.
+
 Milestone 5 remains open for arbitrary descriptor/prototype relinking, removal/replacement precision for historical hooks, property-key coercion, replaced reflective methods, callback combinations and other static consumers. Optional-field snapshots and the finite graph do not establish universal absence of effects. Unknown keys, packed argument lists, descriptors supplied through aliases and deferred regions can lose precision.
 
 The normative model must eventually supply complete, testable positive evidence rules; implementation budgets cannot decide observable Early Errors arbitrarily. No production-engine benchmark is claimed.

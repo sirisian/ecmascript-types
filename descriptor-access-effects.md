@@ -74,7 +74,7 @@ No descriptor operation bypasses an existing prototype obligation, converts a ge
 
 ## Scope and remaining work
 
-This increment repairs the recorded descriptor/accessor cases and preserves the passing prototype controls in its probe set. It does **not** claim a complete prototype-mutation or reflective-intrinsic proof. Remaining work includes arbitrary relinking of descriptor prototype chains, precise removal/replacement of old hooks, more implicit operations and key coercion, replaced builtin methods, callback combinations and other static consumers. The selected direction allows more positive summaries when they can be specified and tested; it does not let an engine's analysis budget choose arbitrary observable rejection behavior.
+This increment repairs the recorded descriptor/accessor cases and preserves the passing prototype controls in its probe set. It does **not** claim a complete prototype-mutation or reflective-intrinsic proof. The [tenth increment](property-key-effects.md) covers the recorded ordinary property-key coercion cases. Remaining work includes arbitrary relinking of descriptor prototype chains, precise removal/replacement of old hooks, more implicit operations and key coercion, replaced builtin methods, callback combinations and other static consumers. The selected direction allows more positive summaries when they can be specified and tested; it does not let an engine's analysis budget choose arbitrary observable rejection behavior.
 
 Milestones 5 and 6 remain open. The earlier deep alias-analysis overflow, baseline test failures and build blockers are recorded separately. No production-engine benchmark or complete extension/test262 run is claimed.
 
