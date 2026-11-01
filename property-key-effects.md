@@ -88,7 +88,7 @@ No change makes a reference live, reuses a location after failure, bypasses a no
 
 ## Remaining work
 
-Milestone 5 remains open for replaced reflective methods, broader reflective consumers, primitive-contract precision, arbitrary prototype relinking, callback combinations, overloaded-index effects and other consumers of static evidence. This increment does not prove universal absence of effects through an arbitrary heap. Milestone 6 and the existing test/build blockers remain open; no full extension/test262 run or production-engine benchmark is claimed.
+The [eleventh increment](reflective-method-origins.md) repairs reflective method identity and opaque invocation fallback. Milestone 5 remains open for broader reflective consumers, primitive-contract precision, arbitrary prototype relinking, callback combinations, overloaded-index effects and other consumers of static evidence. This increment does not prove universal absence of effects through an arbitrary heap. Milestone 6 and the existing test/build blockers remain open; no full extension/test262 run or production-engine benchmark is claimed.
 
 ## Primary references
 

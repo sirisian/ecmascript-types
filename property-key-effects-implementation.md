@@ -93,6 +93,8 @@ Two parallel Rollup attempts were killed with exit 137. Default-heap retries als
 
 ## Remaining work
 
+The [eleventh increment](reflective-method-origins-implementation.md) addresses replaced reflective methods and captured original identities.
+
 Milestone 5 remains open for broader primitive-contract precision, other reflective consumers and reference forms, replaced reflective methods, arbitrary prototype relinking, historical-hook removal/replacement precision, callback combinations, overloaded-index effects and other consumers of static evidence. The supported literal-null shortcut is not a complete optional-chain or reachability analysis. A finite effect graph is not a universal proof about arbitrary heap behavior, and resource budgets cannot normatively choose observable Early Errors.
 
 Milestone 6 remains open for integrated conformance. The six baseline failures, recorded build blockers and separate deep `operandParticipates` recursion overflow are unresolved. The deep stress probe was not rerun; bounded alias-flow tests remain in the gate. The next work should target a concrete remaining counterexample or finish an independently specified positive-evidence rule, with the same phase, ordering and receiving-boundary controls.
