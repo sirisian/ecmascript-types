@@ -87,7 +87,7 @@ The full focused set is the 51 file arguments in the [runtime enforcement record
 
 A separate 280-link heap-path stress probe throws host `RangeError: Maximum call stack size exceeded` in the existing `operandParticipates` scan in `check.mts` on both baseline and changed code. It took about 75 seconds inside each new-file run. This is recorded as a pre-existing checker robustness issue, not suppressed or claimed fixed by the new graph's bounds. The committed 16-link case covers nested alias propagation without making the routine focused suite spend over a minute reproducing that separate failure. No end-to-end claim that the entire checker is bounded follows from this increment.
 
-Three source-boundary probes still reproduce false Early Errors. First evaluate one of these setup Scripts in a realm:
+Three source-boundary probes still reproduced false Early Errors at this increment's delivered tree. The [seventh increment](opaque-global-effects-implementation.md) repairs these probes. First evaluate one of these setup Scripts in a realm:
 
 ```js
 const box = new Map([["world", globalThis]]);
@@ -97,7 +97,7 @@ const box = { get world() { return globalThis; } };
 const get = Function("return globalThis");
 ```
 
-Then evaluate a later Script in that realm declaring `function f(): string { return "old"; }`, replacing it through `box.get("world").f`, `box.world.f`, or `get().f`, respectively, and receiving `f()` into Number. Each probe still throws `StaticTypeError` from the old string result. The setup matters: placing the function declaration in the earlier Script or exposing the global capability in the same source can already cause conservative deferral, so those different programs are not evidence that these routes are complete.
+Then evaluate a later Script in that realm declaring `function f(): string { return "old"; }`, replacing it through `box.get("world").f`, `box.world.f`, or `get().f`, respectively, and receiving `f()` into Number. At that tree, each probe threw `StaticTypeError` from the old string result. The setup matters: placing the function declaration in the earlier Script or exposing the global capability in the same source can already cause conservative deferral, so those different programs are not evidence that these routes are complete.
 
 A precision probe also confirms context merging: `id({})` and `id(globalThis)` share the source callable's may-return candidates. A write through the ordinary result can therefore withdraw a global assumption and move an incompatible receiver's error to runtime. The design records this tradeoff explicitly.
 
