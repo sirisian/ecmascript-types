@@ -115,7 +115,7 @@ An empty candidate set initially risked being interpreted as no effects. Deferre
 
 ## Remaining work
 
-Milestone 5 remains open. Audit broader descriptor/prototype changes, builtin callbacks and reflection combinations, and other consumers of callable or class-ancestry evidence. A current own-data descriptor supplies possible values, not a permanent descriptor-stability guarantee. Unknown keys, within-pattern joins, and merged call contexts can still lose precision. Async/delegated summaries do not establish exact scheduling or general purity.
+Milestone 5 remains open. The [ninth increment](descriptor-access-effects-implementation.md) repairs descriptor/accessor effect cases. Audit broader descriptor/prototype changes, builtin callbacks and reflection combinations, and other consumers of callable or class-ancestry evidence. A current own-data descriptor supplies possible values, not a permanent descriptor-stability guarantee. Unknown keys, within-pattern joins, and merged call contexts can still lose precision. Async/delegated summaries do not establish exact scheduling or general purity.
 
 The positive-evidence rules ultimately need complete, testable normative coverage; finite work/depth budgets are prototype implementation limits, not permission for arbitrary observable Early Errors. No production-engine benchmark or universal effect analysis is claimed.
 
