@@ -94,7 +94,7 @@ Capture the method after its ordinary lookup, then evaluate arguments, then invo
 
 All aliases still carry their applicable target, key, descriptor and argument-container effects. Identifying `Object.defineProperty` does not suppress a descriptor getter; identifying `Reflect.set` does not suppress key conversion or a target setter. Independent receiving checks reject wrong replacement results, and reference authority, liveness and prototype obligations are unchanged.
 
-Milestone 5 remains open for broader positive intrinsic summaries, overridden `call`/`apply`/`bind` adapters, cross-source bound-function precision, arbitrary prototype and callback paths, overloaded-index effects and other static consumers. Historical flow joins can conservatively retain both old and new property values. This increment does not provide a complete heap or reachability proof. Milestone 6's integrated conformance gate and recorded baseline test/build blockers remain open.
+The [following invocation-adapter increment](invocation-adapter-origins.md) handles overridden and borrowed `call`/`apply`/`bind` methods, bound captures and adapter-internal operations. Milestone 5 remains open for broader positive intrinsic summaries, cross-source bound-function precision, arbitrary prototype and callback paths, overloaded-index effects and other static consumers. Historical flow joins can conservatively retain both old and new property values. This increment does not provide a complete heap or reachability proof. Milestone 6's integrated conformance gate and recorded baseline test/build blockers remain open.
 
 ## Primary references
 
