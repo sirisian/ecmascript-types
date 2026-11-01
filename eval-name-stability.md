@@ -1,6 +1,6 @@
 # Eval, ordinary evaluation and nominal ancestry
 
-This document records the first two implementation increments of the [eval and stable names plan](eval-name-stability-plan.md): clarify annotation-triggered strictness, repair negative nominal receiving judgments made from incomplete ancestry, and retain a source class declaration's type denotation across source texts. The third increment adds [source-position constructor-origin analysis](class-origin-order.md). The broader consumer and optimization audit remains separate work.
+This document records the first two implementation increments of the [eval and stable names plan](eval-name-stability-plan.md): clarify annotation-triggered strictness, repair negative nominal receiving judgments made from incomplete ancestry, and retain a source class declaration's type denotation across source texts. The third increment adds [source-position constructor-origin analysis](class-origin-order.md). The fourth implements the receiving-boundary portion of the [runtime enforcement audit](runtime-enforcement-audit.md); broader static-contribution work and the integrated gate remain open.
 
 ## Annotation-triggered strictness is already observable
 

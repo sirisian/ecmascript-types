@@ -523,6 +523,8 @@ Exit condition: writes after the relevant observation do not erase an earlier va
 
 ### Milestone 5 Audit runtime enforcement and optimization seams
 
+The fourth increment implements the receiving-boundary portion of this audit. [Runtime enforcement after origin analysis](runtime-enforcement-audit.md) records the positive implementation/result proof, property and tagged-call repairs, rejected blanket contribution change, and remaining global static-evidence work. Milestone 5 is not yet complete; validation is in its [implementation record](runtime-enforcement-audit-implementation.md).
+
 **Engine and spec:** review callee capture, contextual initializers, shallow callable admission, `new`, `super`, decorators, actual prototype paths and check elision. Preserve existing exact prototype obligations and reference checks. Inspect indirect/global mutations that source-text-only “no assignment” reasoning can miss. Test getters and argument-side effects to ensure no duplicate lookup or replay.
 
 Exit condition: an untyped or erased path cannot use stale origin evidence to bypass a declared receiving boundary. A failed runtime guard falls back within the same execution, with the original operands and locations. No change to public type equality, reference permissions or conversion ordering is required.
