@@ -79,6 +79,8 @@ The runtime deletion restrictions on typed fields/elements and required interfac
 
 ## Remaining work and references
 
+The [following relinking increment](prototype-relink-effects.md) separates original helper invocation on proven ordinary targets from the later effects of a changed chain, including bound prototype capture.
+
 This increment covers supported direct, parenthesized, computed and optional deletions and original reflective deletion helpers, including borrowed/bound routes. It is not a complete proof for arbitrary prototype relinking, every descriptor transition, callbacks or overloaded-index effects. Packed argument/key precision and the larger static-consumer audit also remain open. Milestone 6 retains its integrated conformance work and recorded baseline test/build blockers.
 
 [ECMAScript OrdinaryDelete and OrdinaryGet](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinarydelete) establish the distinction between own-property removal and later inherited lookup. [Rust function-item types](https://doc.rust-lang.org/reference/types/function-item.html) motivate keeping an established implementation identity separate from the location through which a value was obtained. These comparisons do not import a Rust object model or a new public effect type into this proposal.
