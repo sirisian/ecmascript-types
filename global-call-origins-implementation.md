@@ -86,7 +86,7 @@ For the full focused set used here, use the 51 file arguments listed in the [pre
 
 ## Confirmed limits and next gate
 
-This remaining heap-alias probe still throws a false `StaticTypeError` before body entry:
+At this increment's baseline, the following heap-alias probe still threw a false `StaticTypeError` before body entry. The subsequent [stored and returned values increment](global-effect-escapes-implementation.md) repairs it and related supported routes:
 
 ```js
 function f(): string { return "old"; }
@@ -95,7 +95,7 @@ box.world.f = () => 1;
 const n: number = f();
 ```
 
-The finite inventory does not yet model arbitrary storage and reloads, returned aliases, accessor effects, callback scheduling, nonliteral `.apply` containers, all intrinsic mutation routes or every imported/generated callable provenance route. It also leaves older independent global-property screens elsewhere in the checker. These gaps are not excused by retained runtime checks: an inappropriate Early Error remains a language-design problem.
+The original finite inventory did not model arbitrary storage and reloads, returned aliases, accessor effects, callback scheduling, nonliteral `.apply` containers, all intrinsic mutation routes or every imported/generated callable provenance route. The subsequent increment documents the expanded domain and remaining source-boundary cases. Older independent global-property screens also remain elsewhere in the checker. These gaps are not excused by retained runtime checks: an inappropriate Early Error remains a language-design problem.
 
 A separate probe confirms the conservative precision cost: an uncalled closure containing a matching global alias write withdraws the later read's result assumption, so an incompatible explicit receiver fails at runtime instead of statically. Conversely, a two-Script probe confirms that indirect eval can replace an earlier mutable global lexical callable and that its subsequent Number result is admitted.
 
