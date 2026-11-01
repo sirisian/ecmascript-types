@@ -85,6 +85,8 @@ No new shallow callable admission, result contract, nominal prototype obligation
 
 ## Remaining work and primary references
 
+The [following deletion increment](prototype-deletion-effects.md) handles possible removal of an own property and the inherited effects of a later dependent lookup, including intermediate prototypes and preserved captures.
+
 The preferred language direction is complete value-based operation reasoning, independent of implementation effort. The current graph is still a finite may-flow approximation. Packed-prefix precision, earlier-source bound-function internals, arbitrary prototype changes, callback consumers, overloaded-index effects and other static-evidence consumers remain work for milestone 5. Milestone 6 still requires integrated conformance and resolution of the recorded baseline failures/build blockers.
 
 [ECMAScript Function prototype methods](https://tc39.es/ecma262/multipage/fundamental-objects.html#sec-function.prototype.apply) define adapter behavior. [BoundFunctionCreate](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-boundfunctioncreate) specifies prototype acquisition. [Rust Fn](https://doc.rust-lang.org/std/ops/trait.Fn.html), [FnMut](https://doc.rust-lang.org/std/ops/trait.FnMut.html) and [FnOnce](https://doc.rust-lang.org/std/ops/trait.FnOnce.html) distinguish call capabilities and receiver use. They do not supply a JS property-identity or effect-freedom guarantee; even a Rust shared receiver is not a general prohibition on ambient effects.
