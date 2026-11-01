@@ -144,3 +144,5 @@ The complete milestone-5 direction remains positive, operation-specific evidence
 - [ECMAScript object initializer evaluation](https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-object-initializer-runtime-semantics-propertydefinitionevaluation): syntax determines the special prototype form.
 - [Rust function item types](https://doc.rust-lang.org/reference/types/function-item.html): an item carries implementation identity; coercion to a function pointer can retain only its signature. This does not make a mutable JavaScript property an immutable item or introduce Rust borrowing rules here.
 - [V8 fast properties](https://v8.dev/blog/fast-properties): background on shapes and property representations. The proposed dependency/guard strategy is a design inference, not a claim that V8 implements this proposal.
+
+The following [legacy prototype-setter increment](legacy-prototype-effects.md) extends the store path, including explicit receivers, typed admission and initial array/rest prototypes. The limits above describe this construction delivery; the newer implementation record identifies the next delivered subset.
