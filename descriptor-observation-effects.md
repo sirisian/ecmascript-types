@@ -1,6 +1,6 @@
 # Descriptor observation, accessor extraction and typed metadata
 
-This is milestone 5 increment 17 of the [eval and stable names plan](eval-name-stability-plan.md), following [legacy prototype setters](legacy-prototype-effects.md). The [implementation record](descriptor-observation-effects-implementation.md) gives exact bases, tests and remaining limits. Milestones 5 and 6 remain open.
+This is milestone 5 increment 17 of the [eval and stable names plan](eval-name-stability-plan.md), following [legacy prototype setters](legacy-prototype-effects.md). The [implementation record](descriptor-observation-effects-implementation.md) gives exact bases, tests and remaining limits. Milestones 5 and 6 remained open at this increment's delivery; the [integrated completion record](milestones-5-6-validation.md) gives their current status.
 
 ## Recommended direction
 

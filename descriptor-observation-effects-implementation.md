@@ -1,6 +1,6 @@
 # Descriptor observation: implementation record
 
-This delivers milestone 5 increment 17 of [the plan](eval-name-stability-plan.md), implementing [descriptor observation, accessor extraction and typed metadata](descriptor-observation-effects.md). Milestones 5 and 6 remain open.
+This delivers milestone 5 increment 17 of [the plan](eval-name-stability-plan.md), implementing [descriptor observation, accessor extraction and typed metadata](descriptor-observation-effects.md). Milestones 5 and 6 remained open at this increment's delivery; the [integrated completion record](milestones-5-6-validation.md) gives their current status.
 
 ## Bases and reconciliation
 

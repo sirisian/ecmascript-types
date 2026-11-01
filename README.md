@@ -4581,7 +4581,7 @@ Each sloppy mode behavior this removes is one that conflicts with something type
 - ```Function.prototype.caller``` and ```arguments.callee``` are absent, so a function's identity cannot be recovered from its frame.
 - A direct ```eval``` gets its own scope and cannot introduce bindings into the enclosing typed scope. This removes the need for guards against injected declarations. Eval can still assign to reachable mutable bindings, so it does not establish that their values or a callee's identity are unchanged.
 
-An annotation of `any` has this same strictness effect. It does not authorize checking to substitute an initializer result or skip ordinary lookup and execution. [Eval and nominal ancestry](eval-name-stability.md) separates this scope rule from class-origin evidence and explains when a receiving boundary must remain dynamic. The [implementation plan](eval-name-stability-plan.md) records the broader recommended direction and remaining work.
+An annotation of `any` has this same strictness effect. It does not authorize checking to substitute an initializer result or skip ordinary lookup and execution. [Eval and nominal ancestry](eval-name-stability.md) separates this scope rule from class-origin evidence and explains when a receiving boundary must remain dynamic. The [implementation plan](eval-name-stability-plan.md) records the recommended direction. The [integrated enforcement and conformance audit](milestones-5-6-completion.md) closes the remaining design decisions; its [validation record](milestones-5-6-validation.md) records milestone status, acceptance coverage and baseline exceptions.
 
 
 ### Checked Code
