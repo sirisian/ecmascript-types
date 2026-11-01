@@ -96,7 +96,7 @@ Implicit-access review exposed a separate ordering requirement: a pattern's look
 
 ## Remaining work
 
-The positive-evidence audit is not complete. The graph still has unsupported rest/iterator protocols, wider builtin callback and reflective combinations, class/prototype paths and other static consumers to audit. Its existing context merging and finite work/depth limits remain prototype precision choices, not a specification permitting arbitrary observable Early Errors across production engines.
+The positive-evidence audit is not complete. The [eighth increment](implicit-protocol-effects-implementation.md) adds rest/iterator summaries and repairs duplicate iterator-method acquisition. Wider builtin callback and reflective combinations, descriptor and class/prototype paths, and other static consumers still require auditing. Its existing context merging and finite work/depth limits remain prototype precision choices, not a specification permitting arbitrary observable Early Errors across production engines.
 
 Known own data seeds possible values; it does not establish permanent descriptor stability. Inherited data is conservatively opaque without a positive prototype-path summary. String/Symbol summaries deliberately cover a narrow operand class and do not purport to summarize all builtins, host functions or effects. More precise rules must be specified and tested, not inferred from an empty graph or a native function label.
 

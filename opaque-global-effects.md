@@ -96,7 +96,7 @@ Autocomplete can show an independently declared callable/storage API while treat
 
 The new tests cover the three recorded cross-source counterexamples, ordinary/native/generated/bound/optional/proxy call routes, inherited and own accessors, ambient lexical effects, implicit projections/copies, coercion, receiving failures, capture order and single evaluation. They do not establish a universal absence-of-effects proof.
 
-Continue milestone 5 with a positive-evidence audit of other static consumers, unsummarized builtin operations and callback paths, class/prototype operations, rest patterns and iterator protocols. Preserve a regression for each newly discovered route rather than silently classifying an unsupported expression as empty. The separate existing deep `operandParticipates` stack overflow remains unresolved. Milestone 6's integrated/full-suite gate is still open.
+The [eighth increment](implicit-protocol-effects.md) implements rest and iterator summaries and repairs duplicate iterator-method acquisition. Continue milestone 5 with a positive-evidence audit of other static consumers, unsummarized builtin operations and callback paths, and descriptor and class/prototype operations. Preserve a regression for each newly discovered route rather than silently classifying an unsupported expression as empty. The separate existing deep `operandParticipates` stack overflow remains unresolved. Milestone 6's integrated/full-suite gate is still open.
 
 ## Sources and limits of the analogy
 
