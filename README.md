@@ -2902,6 +2902,8 @@ descriptors.a.type; // uint8
 
 Note that the ```type``` key in the descriptor is the actual type and not a string.
 
+This is the own property's declared storage type, including an explicitly declared any; it is not inferred from the current value. Reflect.getOwnPropertyDescriptor preserves the same metadata. The returned descriptor is a fresh ordinary object: editing its value or type field does not alter the source property, while referenced field values retain their identity. Passing the descriptor to another definition applies that definition's existing admission and conversion rules. Descriptor observation does not invoke the described getter or grant reference authority. See [descriptor observation and typed metadata](descriptor-observation-effects.md).
+
 The key ```value``` for a property with a numeric type defined in this spec defaults to 0. This modifies the behavior that currently says that ```value``` is defaulted to undefined. It will still be undefined if no ```type``` is set in the descriptor. The SIMD types also default to 0 and string defaults to an empty string.
 
 ### Class: Value Type and Reference Type Behavior
