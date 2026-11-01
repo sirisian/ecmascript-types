@@ -126,4 +126,4 @@ For lint, run `node node_modules/eslint/bin/eslint.js` on `src/type-system/check
 
 ## Remaining work
 
-The design record's alias-mediated global-write counterexample is still an observed false Early Error. The next static-consumer work must distinguish unavailable source-position results from independent published contracts, including their generic activation dependencies. It must cover indirect and reflective mutation without substituting runtime guards for static diagnostic evidence. The broader consumer audit and integrated conformance gate remain unfinished, along with investigation of the eight reproduced baseline failures.
+At this increment's baseline, the design record's alias-mediated global-write counterexample remained an observed false Early Error. The subsequent [global callable origins increment](global-call-origins-implementation.md) repairs that case and related supported effects while preserving independently established contracts. Its design record states the remaining finite-analysis limits. The broader consumer audit and integrated conformance gate remain unfinished, along with investigation of the eight reproduced baseline failures.

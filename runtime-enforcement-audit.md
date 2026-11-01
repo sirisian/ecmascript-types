@@ -71,7 +71,7 @@ world.f = () => 1;
 const x: number = f();
 ```
 
-The alias-mediated write is not yet represented by the static contribution screen and can cause an inappropriate Early Error from the old result signature. The runtime fixes in this increment do not claim to solve this case. The next static-consumer work must represent the unavailable result evidence without globally deleting independent result contracts. It must cover global aliases, reflective writes, indirect dynamic code, imports, deferred bodies and source boundaries, and preserve the regression suites that exposed the blanket approach's losses. The recommendation is to complete that separation, not to accept the false rejection or weaken the tests.
+At this increment's baseline the alias-mediated write was not represented by the static contribution screen and caused an inappropriate Early Error from the old result signature. The subsequent [global callable origins increment](global-call-origins.md) repairs this example with a binding-aware mutation footprint, including supported reflection, indirect dynamic code, deferred regions and prior-source aliases. It preserves the regression suites that exposed the blanket approach's losses. The broader static-consumer conversion and arbitrary heap/callback effects remain unfinished; that document records the finite domain and remaining gate. The recommendation remains to complete the separation, not to accept false rejection or weaken the tests.
 
 ## Decision 3: how does retained admission interact with properties and guards?
 
@@ -97,7 +97,7 @@ An engine may use an actual captured-function identity guard or descriptor/depen
 | `new`, constructor-returned objects, heritage and inherited contracts | Existing constructor-origin and runtime admission machinery retained; adjacent suites verify these boundaries |
 | Prototype obligations, reference location and liveness | Existing machinery retained; no authority comes from the new proof |
 | Overload selection and generic result dependencies | Existing contracts preserved; a check fallback does not retry resolution |
-| Global static contribution and early-negative evidence | Unfinished, with the concrete counterexample above; milestone 5 remains open |
+| Global static contribution and early-negative evidence | The subsequent [global callable origins increment](global-call-origins.md) repairs the counterexample above; the broader audit and milestone 5 remain open |
 | Full integrated effect/mode/recovery and extension gate | Milestone 6 remains open |
 
 ## Sources and limits
