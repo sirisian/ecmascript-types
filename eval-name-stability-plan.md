@@ -2,7 +2,7 @@
 
 October 31, 2026. Recommended directions accepted for implementation; implementation proceeds in increments.
 
-The first increment implements the receiving-boundary repair and strictness regressions; the second implements declaration type denotation across source texts. Both are described in [Eval, ordinary evaluation and nominal ancestry](eval-name-stability.md). The original analysis below retains its recorded baseline and observations. Source-ordered origin precision and the broader optimization audit remain pending. Validation and patch bases are recorded in the [first implementation record](eval-name-stability-implementation.md) and [declaration-denotation record](class-denotation-implementation.md).
+The first increment implements the receiving-boundary repair and strictness regressions; the second implements declaration type denotation across source texts. The third adds the bounded source-position constructor analysis described in [Class constructor origins in execution order](class-origin-order.md). The original analysis below retains its recorded baseline and observations. The broader consumer/optimization audit and integrated conformance gate remain pending. Validation and patch bases are recorded separately for the [first increment](eval-name-stability-implementation.md), [declaration denotation](class-denotation-implementation.md) and [source-position origins](class-origin-order-implementation.md).
 
 The central defect is a loss of evidence being reported as evidence of incompatibility. The checker can lose the origin of a superclass because an `eval` occurs anywhere in the source, then report that a subclass is not assignable to its base. A stable type contract, the current value of a JavaScript binding, and the evidence that connects a value to that contract need distinct treatment.
 
@@ -510,6 +510,8 @@ Implemented by the second increment; see the [declaration-denotation implementat
 Exit condition: splitting equivalent declaration-and-rebinding scenarios across scripts no longer changes the type denotation of the same declaration. Value-position lookup remains ordinary JavaScript. A nearer ordinary binding still blocks fallback.
 
 ### Milestone 4 Improve source-ordered origin precision
+
+The third increment implements the finite class-value transfer/invalidation pass. [Class constructor origins in execution order](class-origin-order.md) records its supported cases, intentional diagnostic changes and conservative limits. It does not replace every independent whole-source screen in the checker; those consumers remain part of milestone 5.
 
 **Engine:** use binding identity and execution-point facts instead of whole-source name sets for the affected proofs. Transfer effects in heritage and ordinary expression order. Cover the constructed class operand as well as its base, including replacement aliases, default parameter environments, callbacks and captured writes.
 

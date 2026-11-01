@@ -16,6 +16,8 @@ const value: Has.<E> = new D(); // valid
 
 The origin proof belongs to the producer. An import is a read-only view of a live binding, so the importer's inability to assign it does not prove that its producer leaves the constructor unchanged. Producer reassignment and unresolved transformations retain the existing unknown-origin rules. A decorator that can replace a class supplies only the existing bounded origin; a proven non-replacing decorator preserves the exact origin. Consumer aliases and lexical shadows obey the ordinary origin rules.
 
+The [source-position constructor analysis](class-origin-order.md) also permits a mutable consumer alias to retain an established producer origin at an unaffected read. `let Alias = E; class D extends Alias { ... }` therefore receives the established inherited checks. An affecting write or call can withdraw that current-value evidence; the import's immutability still supplies no proof about an otherwise unknown producer.
+
 ## Requirements and decision
 
 A valid solution retains original declaration identity and source context, proves constructor stability in the source owning the binding, preserves specialization arguments and inherited obligations, and keeps module evaluation order and reference liveness independent of type knowledge. It must execute no constructor, decorator, getter or dependency body to discover an origin.

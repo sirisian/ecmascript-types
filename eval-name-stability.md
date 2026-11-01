@@ -1,6 +1,6 @@
 # Eval, ordinary evaluation and nominal ancestry
 
-This document records the first two implementation increments of the [eval and stable names plan](eval-name-stability-plan.md): clarify annotation-triggered strictness, repair negative nominal receiving judgments made from incomplete ancestry, and retain a source class declaration's type denotation across source texts. Source-ordered origin analysis and the broader audit remain separate work.
+This document records the first two implementation increments of the [eval and stable names plan](eval-name-stability-plan.md): clarify annotation-triggered strictness, repair negative nominal receiving judgments made from incomplete ancestry, and retain a source class declaration's type denotation across source texts. The third increment adds [source-position constructor-origin analysis](class-origin-order.md). The broader consumer and optimization audit remains separate work.
 
 ## Annotation-triggered strictness is already observable
 
@@ -57,7 +57,7 @@ const value: V = new W(); // runtime TypeError after calls becomes 1
 
 Here the actual heritage expression captures the replacement constructor. The same-source annotation still denotes the original declaration's class contract under the existing rules. The ordinary `new W()` runs exactly once; its result does not satisfy that contract. Its effects are not rolled back when the receiving check fails.
 
-Conversely, rebinding `V` after `class W extends V {}` does not change the base already captured by `W`. This increment allows the resulting store to reach its existing runtime boundary rather than rejecting it from a missing static base record. It does not yet improve the whole-source origin analysis that discarded that record.
+Conversely, rebinding `V` after `class W extends V {}` does not change the base already captured by `W`. The first increment allowed the resulting store to reach its existing runtime boundary rather than rejecting it from a missing static base record. The third now also retains the earlier heritage observation when its source-position proof is established.
 
 Calls likewise keep their ordinary order: capture the callee, evaluate arguments, then call the captured value with its original receiver. Checking neither runs an unused ordinary initializer nor pre-parses an unexecuted eval source. Explicitly permitted type computations remain governed by their own rules.
 
@@ -117,7 +117,7 @@ This is a checking change, not a new property on user instances or constructors.
 
 The recommended later increments remain:
 
-- Replace whole-source eval/assignment screening with binding-aware evidence transferred in execution order, including indirect effects and the constructor operand itself.
-- Audit other ancestry consumers, overload resolution and optimization paths against that evidence model; complete the broader class, module and reference conformance matrix.
+- Audit other ancestry consumers, callable/intrinsic origin judgments, overload resolution and optimization paths against the source-position evidence model. Their independent whole-source screens are not automatically relaxed by the third increment.
+- Complete the broader class, module and reference conformance matrix and the integrated plan's larger regression gate.
 
 The recommendations are selected in the plan independently of implementation cost. These increments do not discard the remaining directions or claim their acceptance gates have passed. The [first implementation record](eval-name-stability-implementation.md) and [declaration-denotation record](class-denotation-implementation.md) identify their separate patch bases and validation.
