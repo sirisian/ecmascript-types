@@ -107,3 +107,5 @@ Primary comparisons: [Rust interior mutability](https://doc.rust-lang.org/refere
 ## Nominal instance-test follow-up
 
 [Nominal `instanceof` origins](nominal-instanceof-origins.md) applies these shared evidence rules to the local/import discrepancy. Constructor identity and selected protocol stability are separate obligations. The audit includes receiving-operation effects, complete dependency initialization, repeated and external invocation contexts, and current descriptors of previously evaluated families. The portable regression gates and remaining precision limits are recorded there.
+
+[Deferred global constructor origins](deferred-global-constructor-origins.md) distinguishes known source invocations from uncalled bodies that may first run in a later Script. It records the rejected no-local-write shortcut, corrects three over-eager negative fixtures, and recovers declared-hook contracts only with actual invocation and effect evidence. Generator creation is not body entry. A separate constructor-signature fallback and seven narrowing failures remain documented follow-ups.
