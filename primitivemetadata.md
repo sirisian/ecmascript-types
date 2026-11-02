@@ -58,13 +58,13 @@ interface MetaProtocol<T: type, Factor: type = rational64> {
 	// Returns only meaningful fields, absence means unconstrained.
 	narrow?(current: T, op: string, value: any): T;
 
-	// Optional: linear conversion between two subtype-compatible parameterizations of this meta type. Returns the factor the value is multiplied by when converting `from` to `to`. Applied at assignment boundaries, including operator parameters (see composition rules).
+	// Optional: linear conversion between two parameterizations admitted by subtype or a missing-owner cast. Returns the factor the value is multiplied by when converting `from` to `to`. Applied at assignment boundaries, including operator parameters (see composition rules).
 	conversionFactor?(from: T, to: T): Factor;
 
 	// Optional: adjust this meta type's constraint when the underlying value is scaled by another meta type's conversion, keeping value-space metadata like bounds consistent. When absent while a conversion occurs, this meta type's portion falls back to `default`.
 	rescale?(constraint: T, factor: number | rational64 | rational.<bigint>): T;
 
-	// Optional: map a value onto the representation this constraint requires, such as rounding a decimal to a fixed scale. Applied at assignment, argument, and return boundaries after `subtype` passes and after any `conversionFactor` scaling, so intermediate results within an expression keep full precision.
+	// Optional: map a value onto the representation this constraint requires, such as rounding a decimal to a fixed scale. Applied at assignment, argument, and return boundaries after subtype/cast admission and any `conversionFactor` scaling, so intermediate results within an expression keep full precision.
 	quantize?(value: any, constraint: T): any;
 
 	// Optional: what two constraints have in common, for `A & B`.
@@ -853,7 +853,7 @@ primitive float32 {
 }
 ```
 
-Both operators compose for combined types. When the target is `float32.<{ m:1, ..., bounds: 0<.. }>`, the compiler decomposes into Dimensions and NumberBounds slots and invokes both cast operators. `NumberBounds.validate()` runs at the cast boundary (elided for compile-time-provable constant literals). [Composing implicit casts](implicit-cast-composition.md) specifies complete selection before body effects, declaration order, raw-result sequencing, and final boundary validation.
+Both operators compose for combined types. When the target is `float32.<{ m:1, ..., bounds: 0<.. }>`, the compiler decomposes into Dimensions and NumberBounds slots and invokes both cast operators. `NumberBounds.validate()` runs at the cast boundary (elided for compile-time-provable constant literals). [Composing implicit casts](implicit-cast-composition.md) specifies complete selection before body effects, declaration order, raw-result sequencing, and final boundary validation. [Casts between numeric parameterizations](parameterized-cast-composition.md) applies the missing-owner cast arm when the value already carries other metadata: subtype-admitted owners need no cast, an incompatible nondefault source portion rejects the crossing, and cast-stage validation precedes scaling, quantization, source-portion transport and final validation. Conversion availability does not imply subtyping, membership or permission to convert a reference location.
 
 ### Cast Operator Invocation Points
 
