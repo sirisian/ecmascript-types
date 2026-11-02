@@ -1,6 +1,6 @@
 # Rest and iterator effects
 
-November 1, 2026. Eighth increment of the [eval and stable names plan](eval-name-stability-plan.md), continuing milestone 5 after [opaque cross-source effects](opaque-global-effects.md). The [implementation record](implicit-protocol-effects-implementation.md) gives patch bases, validation and remaining limits.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Problem and chosen direction
 

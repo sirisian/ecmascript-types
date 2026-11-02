@@ -1,6 +1,6 @@
 # Prototype construction and descriptor effects
 
-This is the fifteenth milestone-5 increment of the [eval and stable names plan](eval-name-stability-plan.md), following [prototype relinking](prototype-relink-effects.md). The [implementation record](prototype-construction-effects-implementation.md) distinguishes the delivered subset from the recommended complete language model. Milestones 5 and 6 remain open.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Recommendation
 

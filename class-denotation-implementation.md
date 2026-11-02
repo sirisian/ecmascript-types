@@ -1,6 +1,6 @@
 # Declaration denotation: second implementation increment
 
-October 31, 2026. Implements milestone 3 of the [eval and stable names plan](eval-name-stability-plan.md). The first increment repaired incomplete nominal receiving judgments. This increment makes the accepted declaration-contract model consistent across source texts. Source-ordered origin precision and the broader enforcement/optimization audit remain separate work.
+Historical implementation record. The results below describe that delivery; the language rules are maintained in [eval and stable names](eval-name-stability.md).
 
 ## Result and design decision
 

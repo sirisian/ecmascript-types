@@ -1,6 +1,6 @@
 # Runtime enforcement after origin analysis
 
-This is the first implementation part of milestone 5 in the [eval and stable names plan](eval-name-stability-plan.md). It closes receiving-boundary bypasses exposed by auditing the remaining elision consumers. The [implementation record](runtime-enforcement-audit-implementation.md) records validation and the unfinished static-contribution work. It does not claim that the complete milestone or integrated conformance gate has passed.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## The observed failure
 
@@ -105,4 +105,4 @@ An engine may use an actual captured-function identity guard or descriptor/depen
 - [ECMAScript EvaluateCall](https://tc39.es/ecma262/#sec-evaluatecall) and [tagged template evaluation](https://tc39.es/ecma262/#sec-tagged-templates-runtime-semantics-evaluation) supply the operand/receiver ordering used here. No new evaluation order is proposed.
 - [Rust function pointers](https://doc.rust-lang.org/reference/types/function-pointer.html) demonstrate a callable type whose exact function identity need not be known at compile time. This is a limited comparison: Rust does not thereby model JavaScript eval, shallow admission or this proposal's runtime reference liveness.
 - [V8 Maps and constant-property dependencies](https://v8.dev/docs/hidden-classes) describe maps, descriptors, ICs and invalidation of optimized constant-property assumptions. Applying related internal guards here is an engineering inference, not a claim that V8 implements this proposal or a benchmark of this patch.
-- The [original plan](eval-name-stability-plan.md#sources-and-limits-of-the-comparisons) supplies the broader declaration, Rust lifetime and prototype comparisons.
+- The [declaration-evidence design](eval-name-stability.md#sources-and-limits-of-the-comparisons) supplies the broader declaration, Rust lifetime and prototype comparisons.

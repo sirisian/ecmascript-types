@@ -1,6 +1,6 @@
 # Legacy prototype setters and ordinary store effects
 
-This is the sixteenth milestone-5 increment of the [eval and stable names plan](eval-name-stability-plan.md), following [prototype construction](prototype-construction-effects.md). Its [implementation record](legacy-prototype-effects-implementation.md) records the delivered subset and validation. Milestones 5 and 6 remain open.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Recommended language direction
 

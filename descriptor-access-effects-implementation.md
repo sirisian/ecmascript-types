@@ -1,6 +1,6 @@
 # Descriptor/accessor effects: implementation record
 
-November 1, 2026. Ninth increment of the [eval and stable names plan](eval-name-stability-plan.md), continuing milestone 5. [Descriptor conversion and later accessor effects](descriptor-access-effects.md) records the alternatives, evaluation criteria, recommendations and remaining limits.
+Historical implementation record for [descriptor-access-effects.md](descriptor-access-effects.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Result and implementation
 

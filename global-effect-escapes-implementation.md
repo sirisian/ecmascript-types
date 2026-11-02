@@ -1,6 +1,6 @@
 # Stored and returned global effects: sixth implementation increment
 
-October 31, 2026. Continues milestone 5 of the [eval and stable names plan](eval-name-stability-plan.md). The [design record](global-effect-escapes.md) compares the available directions against the five requested criteria, including Rust and real-engine shape/IC effects. Milestone 5 and the integrated milestone 6 gate remain open.
+Historical implementation record for [global-effect-escapes.md](global-effect-escapes.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Result and changes
 

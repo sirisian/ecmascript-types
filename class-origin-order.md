@@ -1,6 +1,6 @@
 # Class constructor origins in execution order
 
-This is the third increment of the [eval and stable names plan](eval-name-stability-plan.md), implementing the bounded class-value analysis in milestone 4. The earlier increments separated missing nominal ancestry from incompatibility and retained declaration type denotation across source texts. This increment establishes which constructor an ordinary expression can supply at its evaluation position.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ```js
 class Original {}
@@ -36,7 +36,7 @@ The initializer captures `A` before evaluating its argument. The assignment chan
 
 ## Required evidence and available directions
 
-A valid solution must distinguish lexical bindings, preserve source order and captured values, account for reachable effects, keep declaration and activation identities, preserve existing error boundaries where evidence remains unavailable, and leave prototype obligations and reference liveness intact. Unknown must remain distinct from a proved mismatch. The original plan's Q6 makes the overall choice; the matrix below applies it to this implementation boundary.
+A valid solution must distinguish lexical bindings, preserve source order and captured values, account for reachable effects, keep declaration and activation identities, preserve existing error boundaries where evidence remains unavailable, and leave prototype obligations and reference liveness intact. Unknown must remain distinct from a proved mismatch. The declaration-evidence design's Q6 makes the overall choice; the matrix below applies it to this implementation boundary.
 
 | Direction | Ergonomics | Prior art, including Rust | Production performance | Correctness | Other / decision |
 | --- | --- | --- | --- | --- | --- |
@@ -93,4 +93,4 @@ Explicit erased annotations and reference aliases remain outside this simple con
 
 The evaluator, public type equality, reference machinery and nominal prototype-obligation machinery are unchanged. Existing whole-source screens still serve independent callable, intrinsic and check-elision judgments. This increment does not declare those screens safe to remove. Milestone 5 audits those remaining consumers and optimization paths; milestone 6 remains the integrated conformance gate.
 
-The [implementation record](class-origin-order-implementation.md) gives the pulled bases, focused tests, changed expectations and remaining baseline failures. The [original plan's sources](eval-name-stability-plan.md#sources-and-limits-of-the-comparisons) explain the limits of the ECMAScript, Rust and production-engine comparisons above.
+The [implementation record](class-origin-order-implementation.md) gives the pulled bases, focused tests, changed expectations and remaining baseline failures. The [design comparisons](eval-name-stability.md#sources-and-limits-of-the-comparisons) explain the limits of the ECMAScript, Rust and production-engine comparisons above.

@@ -1,6 +1,6 @@
 # Property deletion and exposed prototype effects
 
-This is the thirteenth milestone-5 increment of the [eval and stable names plan](eval-name-stability-plan.md). It follows [invocation-adapter identity](invocation-adapter-origins.md); the [implementation record](prototype-deletion-effects-implementation.md) gives validation and limits. Milestones 5 and 6 remain open.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Problem and recommendation
 

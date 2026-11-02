@@ -1,6 +1,6 @@
 # Legacy prototype setters: implementation record
 
-This delivers milestone 5 increment 16 of [the plan](eval-name-stability-plan.md), implementing the recommendations in [legacy prototype setters and ordinary stores](legacy-prototype-effects.md). Milestones 5 and 6 remain open. The implementation is bounded private effect analysis, not the complete static-evidence model.
+Historical implementation record for [legacy-prototype-effects.md](legacy-prototype-effects.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Bases and reconciliation
 

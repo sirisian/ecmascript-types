@@ -1,6 +1,6 @@
 # Descriptor conversion and later accessor effects
 
-November 1, 2026. Ninth increment of the [eval and stable names plan](eval-name-stability-plan.md), continuing milestone 5 after [rest and iterator effects](implicit-protocol-effects.md). The [implementation record](descriptor-access-effects-implementation.md) records validation and patch bases.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Problem and recommendation
 

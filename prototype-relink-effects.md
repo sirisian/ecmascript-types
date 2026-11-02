@@ -1,6 +1,6 @@
 # Prototype relinking and the time of inherited effects
 
-This is the fourteenth milestone-5 increment of the [eval and stable names plan](eval-name-stability-plan.md), following [property deletion](prototype-deletion-effects.md). The [implementation record](prototype-relink-effects-implementation.md) records the delivered subset, exact bases and validation. Milestones 5 and 6 remain open.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Recommendation and motivating case
 

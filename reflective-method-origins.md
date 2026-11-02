@@ -1,6 +1,6 @@
 # Reflective method identity and effect summaries
 
-November 1, 2026. Eleventh increment of milestone 5 in the [eval and stable names plan](eval-name-stability-plan.md), following [property-key effects](property-key-effects.md). The [implementation record](reflective-method-origins-implementation.md) gives the pulled bases, regression results and remaining limits.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Problem and recommended rule
 

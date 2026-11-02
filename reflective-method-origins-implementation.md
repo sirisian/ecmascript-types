@@ -1,6 +1,6 @@
 # Reflective method origins: eleventh implementation increment
 
-November 1, 2026. Implements [Reflective method identity and effect summaries](reflective-method-origins.md) as part of milestone 5 in the [eval and stable names plan](eval-name-stability-plan.md). Validation contributes to milestone 6; neither milestone is declared complete.
+Historical implementation record for [reflective-method-origins.md](reflective-method-origins.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Pulled bases and reconciliation
 

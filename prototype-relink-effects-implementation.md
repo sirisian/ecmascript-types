@@ -1,6 +1,6 @@
 # Prototype relinking: fourteenth implementation increment
 
-November 1, 2026. Implements [Prototype relinking and the time of inherited effects](prototype-relink-effects.md) within milestone 5 of the [eval and stable names plan](eval-name-stability-plan.md). Validation contributes to milestone 6. Neither milestone is declared complete.
+Historical implementation record for [prototype-relink-effects.md](prototype-relink-effects.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Pulled bases and reconciliation
 

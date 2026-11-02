@@ -1,6 +1,6 @@
 # Global effects through stored and returned values
 
-October 31, 2026. Sixth implementation increment of the [eval and stable names plan](eval-name-stability-plan.md), continuing milestone 5. This extends [global callable origins](global-call-origins.md) to stored values, source callable returns and exposed containers. The [implementation record](global-effect-escapes-implementation.md) gives validation, patch bases and remaining gaps.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Problem and direction
 

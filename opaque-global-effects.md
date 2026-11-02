@@ -1,6 +1,6 @@
 # Opaque values across source boundaries
 
-November 1, 2026. Seventh increment of the [eval and stable names plan](eval-name-stability-plan.md), continuing milestone 5. This extends [stored and returned effects](global-effect-escapes.md). The [implementation record](opaque-global-effects-implementation.md) identifies the exact patch bases, tests and remaining work.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Problem and recommendation
 

@@ -1,6 +1,6 @@
 # Property-key coercion and stable result evidence
 
-November 1, 2026. Tenth increment of the [eval and stable names plan](eval-name-stability-plan.md), continuing milestone 5 after [descriptor/accessor effects](descriptor-access-effects.md). The [implementation record](property-key-effects-implementation.md) records patch reconciliation, validation and limits.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Problem and recommendation
 

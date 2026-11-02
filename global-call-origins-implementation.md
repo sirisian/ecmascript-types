@@ -1,6 +1,6 @@
 # Global callable origins: fifth implementation increment
 
-October 31, 2026. Continues milestone 5 of the [eval and stable names plan](eval-name-stability-plan.md). The [design and decision record](global-call-origins.md) compares the alternatives against ergonomics, prior art including Rust, real-engine performance, correctness and other constraints. Milestone 5 and the milestone 6 integrated gate remain open.
+Historical implementation record for [global-call-origins.md](global-call-origins.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Result
 

@@ -1,6 +1,6 @@
 # Runtime enforcement audit: fourth implementation increment
 
-October 31, 2026. Implements the receiving-boundary portion of milestone 5 of the [eval and stable names plan](eval-name-stability-plan.md). The [design and decision record](runtime-enforcement-audit.md) describes the reproduced bypasses, alternatives and remaining static-origin issue. Milestone 5 and the milestone 6 integrated gate remain open.
+Historical implementation record for [runtime-enforcement-audit.md](runtime-enforcement-audit.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Changes
 

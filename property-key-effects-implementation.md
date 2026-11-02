@@ -1,6 +1,6 @@
 # Property-key effects: tenth implementation increment
 
-November 1, 2026. Implements the recommendations in [Property-key coercion and stable result evidence](property-key-effects.md), continuing milestone 5 of the [eval and stable names plan](eval-name-stability-plan.md). Milestones 5 and 6 remain open.
+Historical implementation record for [property-key-effects.md](property-key-effects.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Pulled bases and patch reconciliation
 

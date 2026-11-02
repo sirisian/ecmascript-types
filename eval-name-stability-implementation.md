@@ -1,6 +1,6 @@
 # Eval name stability: first implementation increment
 
-October 31, 2026. Implements the first receiving-boundary repair from the [accepted plan](eval-name-stability-plan.md). This is an incremental delivery, not completion of all six milestones.
+Historical implementation record for [eval-name-stability.md](eval-name-stability.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Changes
 

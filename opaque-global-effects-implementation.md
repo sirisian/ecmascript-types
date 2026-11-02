@@ -1,6 +1,6 @@
 # Opaque global effects: seventh implementation increment
 
-November 1, 2026. Continues milestone 5 of the [eval and stable names plan](eval-name-stability-plan.md). The [design record](opaque-global-effects.md) evaluates the alternatives against ergonomics, prior art including Rust, real-engine performance, correctness and other constraints. Milestone 5 and the integrated milestone 6 gate remain open.
+Historical implementation record for [opaque-global-effects.md](opaque-global-effects.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Result and changes
 

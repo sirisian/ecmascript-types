@@ -1,6 +1,6 @@
 # Rest and iterator effects: implementation record
 
-November 1, 2026. Eighth increment of the [eval and stable names plan](eval-name-stability-plan.md), continuing milestone 5. [Rest and iterator effects](implicit-protocol-effects.md) records the alternatives, fixed evaluation criteria, recommendations and limits.
+Historical implementation record for [implicit-protocol-effects.md](implicit-protocol-effects.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Result and changes
 

@@ -1,6 +1,6 @@
 # Global mutations and callable result evidence
 
-October 31, 2026. Fifth implementation increment of the [eval and stable names plan](eval-name-stability-plan.md), continuing milestone 5. This resolves the concrete alias-mediated false Early Error left by the [runtime enforcement audit](runtime-enforcement-audit.md). The [implementation record](global-call-origins-implementation.md) gives patch bases, test results and remaining work. This is a bounded extension of the static contribution screen, not completion of the entire consumer audit.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## The problem and recommendation
 

@@ -1,6 +1,6 @@
 # Class constructor origins: third implementation increment
 
-October 31, 2026. Implements the bounded class-value analysis in milestone 4 of the [eval and stable names plan](eval-name-stability-plan.md). The [design document](class-origin-order.md) gives the alternatives, decision matrix and transfer rules. The broader consumer and optimization audit remains milestone 5; the integrated conformance gate remains milestone 6.
+Historical implementation record for [class-origin-order.md](class-origin-order.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Result
 

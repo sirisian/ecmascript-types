@@ -1,6 +1,6 @@
 # Invocation adapters and callable identity
 
-This is the twelfth milestone-5 increment of the [eval and stable names plan](eval-name-stability-plan.md), following [reflective method identity](reflective-method-origins.md). The [implementation record](invocation-adapter-origins-implementation.md) separates tested behavior from remaining work. Milestones 5 and 6 remain open.
+This design complements [eval and stable names](eval-name-stability.md) and the shared [origin-evidence rules](origin-evidence-audit.md).
 
 ## Problem and recommendation
 

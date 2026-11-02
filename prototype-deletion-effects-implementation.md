@@ -1,6 +1,6 @@
 # Prototype exposure after deletion: thirteenth implementation increment
 
-November 1, 2026. Implements [Property deletion and exposed prototype effects](prototype-deletion-effects.md) as part of milestone 5 in the [eval and stable names plan](eval-name-stability-plan.md). Validation contributes to milestone 6; neither milestone is declared complete.
+Historical implementation record for [prototype-deletion-effects.md](prototype-deletion-effects.md). The results below describe that delivery; the language rules are maintained in the design documents.
 
 ## Pulled bases and reconciliation
 
