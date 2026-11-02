@@ -1,0 +1,57 @@
+# Nominal `instanceof` origins and effects
+
+This increment closes the paired local/imported guard probe in [prepared alias contexts](prepared-alias-contexts.md#remaining-stable-imported-constructor-guards), subject to the precision boundaries below. It applies the existing [origin-evidence rule](origin-evidence-audit.md); it does not change the runtime `instanceof` protocol.
+
+```javascript
+// dep
+export class C {}
+// main
+import { C } from "dep";
+function f(c: C) { if (c instanceof C) {} }
+```
+
+With independently established ordinary instance-test semantics, this is the same impossible test as its local-class counterpart. Import syntax is neither a reason to discard that evidence nor proof that the constructor object is immutable. Conversely, installing a custom `C[Symbol.hasInstance]` before a possible call of `f` makes the guard dynamic in both forms. An annotation on `c` does not decide what that hook returns.
+
+## Available directions
+
+| Direction | Ergonomics, autocomplete and wrong guesses | Prior art, including Rust | Real-engine performance | Correctness and reference liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Trust a direct local class name, but defer imports | Moving a declaration across a module boundary changes diagnostics and branch completions. A local hook replacement can make a rejected branch reachable. | Rust module paths preserve type identity; they do not justify different meanings for local and imported names. JavaScript adds mutable instance-test hooks. | Cheap syntax test, but cannot justify an optimization or IC assumption. | The local bypass ignores effects, while the import rule loses independently available evidence. | **Reject.** This is the pulled implementation's discrepancy. |
+| Trust the nominal annotation or the immutability of an import binding | Appears convenient, but completion promises members after a hook that need not test membership. | Rust `Any::is` tests concrete type identity; it is not a replaceable JavaScript property lookup. | Cheap type comparison with invalid shape/prototype assumptions. | A stable binding does not freeze the object it names; source admission may itself invoke a conversion. | **Reject.** |
+| Execute a hook, conversion or constructor while checking | A wrong guess changes program state or throws before its written operation. | Neither ECMAScript protocol evaluation nor Rust type inspection authorizes arbitrary speculative JavaScript execution. | Requires effect rollback and invalidation; cannot safely populate ordinary ICs from speculative results. | Violates phase, evaluation-count and reference-liveness commitments. | **Reject.** |
+| Defer every nominal guard | Predictable runtime execution, but useful closed diagnostics and branch completions disappear. | Rust retains independently known type identity; its model does not require blanket uncertainty. | Minimal checker cost, unnecessary loss of proved facts. | Safe against this false positive, but weakens existing required closed proofs. | **Reject.** |
+| Establish the constructor and selected protocol separately, with dependency and effect invalidation | Local declarations, immutable aliases, imports and re-exports agree when the evidence agrees. Unknown protocols provide no promised branch members. | Rust motivates declaration-owned identity; ECMAScript's actual protocol determines the additional proof obligations. | Reuses origin and effect dependencies. A real engine can guard descriptor/prototype dependencies and invalidate them without adding public fields, wrappers or per-instance shape changes. | Preserves normal lookup, conversion effects, abrupt completion and reference checks; unknown is not purity. | **Recommend.** Selected for semantics, independently of implementation effort. |
+
+Primary references: ECMAScript's [InstanceofOperator](https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-instanceofoperator) selects `Symbol.hasInstance` before the ordinary fallback. Rust's [`Any::is` and `downcast_ref`](https://doc.rust-lang.org/std/any/trait.Any.html) compare concrete type identity; the latter produces an optional borrowed reference. That supports the distinction between identity and access permission, but Rust has no matching replaceable JavaScript instance-test hook. The engine-performance assessment above is an implementation recommendation, not a claim made by either language specification.
+
+## Evidence required at the test
+
+1. Resolve the actual constructor origin through its lexical declaration and captured bindings. Preserve producer context through imports, namespace aliases and re-exports. A generic family or unknown replacement does not acquire a new ordinary nominal proof in this increment.
+2. Establish the applicable instance-test protocol, including inherited hooks and the constructor's prototype chain. A declared custom hook, accessor, replaced hook, exotic object or unknown chain defeats the ordinary-membership proof. This is independent of the separate declared-hook argument check.
+3. Account for all loaded dependencies, including side-effect imports and the producer's complete initialization. The last producer statement is part of initialization, not an observation before its own effects. Incomplete dependencies and resource exhaustion withdraw evidence.
+4. Retain operation order. Left-operand evaluation precedes protocol selection. A later initialization effect may precede a deferred function's invocation. Project known calls into their bodies; an unused helper does not execute merely because it was declared. Repeated activations, loops and unknown calls retain their possible effects.
+5. Include implicit receiving operations. Typed binding, parameter, return, store and field admission can invoke user code. An annotation constrains the admitted result; it is not a proof that admitting the source was inert. Ordinary calls, accessors, coercion, suspension and decorators keep their effect barriers.
+6. If a constructor has already been evaluated, inspect current retained engine-owned ordinary descriptors as well as source evidence. A different, previously evaluated module graph may have changed the object. This inspection performs no property `Get`, hook call or Proxy operation and is not a persistent proof across future effects.
+7. Do not assume a module's dependency graph contains every future API caller. An exported callable can be invoked after a consumer replaces an exported constructor's hook. Unknown external invocation contexts require deferral unless stronger evidence establishes stability there.
+
+The same evidence gates branch narrowing and impossible-test diagnostics. It supplies no typed backing, write authority or live reference, and cannot replace a receiving or liveness check.
+
+## Admission evidence: alternatives
+
+| Direction | Ergonomics, autocomplete and wrong guesses | Prior art, including Rust | Real-engine performance | Correctness and liveness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Treat every annotated admission as inert | Hidden conversions can invalidate a displayed branch type. | Rust does not run this proposal's arbitrary implicit conversion at every gradual receiving boundary. | Cheap, unsound effect elision. | Confuses destination contract with source behaviour. | **Reject.** |
+| Treat every annotation as an effect when declared | An unused typed helper changes unrelated diagnostics. Even `f(new C())` loses a plainly established identity. | Both languages separate declaration from invocation. | Cheap but defeats useful source-order and identity facts. | Ignores actual receiving-operation placement. | **Reject.** |
+| Require positive admission evidence at the scheduled receiving operation | Simple values retain useful diagnostics; unknown inputs retain runtime behaviour. A wrong nominal guess still fails at its ordinary boundary. | Rust's explicit identity discipline is useful, but this proposal's conversion effects need their own proof. | Reuses the effect graph and lexical identities; no new runtime value tag or object shape. | Primitive literals admitted to established bare intrinsic scalar targets, direct default construction into its exact plain nominal family, and completed receiving results with the same established membership can be transparent. Constructor/field effects remain separate obligations. | **Recommend.** |
+
+The effect graph records one receiving boundary for a parameter and its binding identifier, rather than interpreting those two syntax nodes as successive conversions. Field and implicit-return admissions are represented at their execution boundaries as well. Completed receiving results may flow into later admissions, but all alternatives must be accounted for: an unannotated or typed function with possible fallthrough cannot be summarized from its written returns alone, and async/generator results use different channels. Nominal membership carried across these flows must retain evaluated family identity; equal source declarations across fresh local activations are insufficient. A caller may refine an uncertain admission only with positive source-and-target evidence; the absence of a global write summary is not such evidence.
+
+## Regression gates and remaining precision
+
+Portable module fixtures pair local, imported, namespace-alias and re-exported constructors. They distinguish closed diagnostics with no body entry from ordinary hook execution, count getter/conversion/hook calls, preserve thrown results, and cover producer changes, side-effect dependencies, typed admissions, fields, repeated calls and unused helpers. Successive-graph tests retain a host module cache and check stable, replaced, accessor and inherited protocols without replaying initialization.
+
+The current engine uses conservative source screens. It does not yet prove arbitrary effectful operations harmless to a particular constructor, general constructed-result membership, specialized-family nominal guards, or complete callable escape summaries. In a module exposing exports, deferred guards currently retain runtime behaviour; a more precise caller/escape proof can recover facts without changing the rule. These are precision limits, not permission to infer purity from missing data.
+
+A direct qualified annotation such as `c: ns.C` still completes its nominal evidence at pre-evaluation in the preserved probe, after the producer body, whereas the established immutable namespace alias case diagnoses statically. This phase distinction is recorded explicitly; this increment does not claim to complete all qualified-type preparation.
+
+The neighboring narrowing and declared-hook suites have ten failures on the untouched pulled engine. Keep those baseline failures visible when comparing this increment; do not rewrite their assertions or classify them as new successes. Broader identity, inference, recovery, resource and conformance audits remain open. The preserved range, family-constraint and generator-return design notes are unchanged.

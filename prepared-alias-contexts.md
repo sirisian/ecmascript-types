@@ -102,6 +102,8 @@ Before the [generic-parameter evidence repair](eval-generic-parameters.md), the 
 
 ## Remaining: stable imported constructor guards
 
+The following historical probe is now addressed by [nominal instance-test origin evidence](nominal-instanceof-origins.md), together with the effectful local controls. The heading is retained for existing links.
+
 ```js
 // local control: RT_IMPOSSIBLE_TEST, static, no body entry
 class C {}
@@ -116,4 +118,4 @@ function f(c:C) { if (c instanceof C) {} }
 
 This is an import/local discrepancy, not proof that the local answer is valid for every surrounding effect. Adding `Object.defineProperty(C, Symbol.hasInstance, {value:()=>false})` before the local function declaration still produces the local diagnostic, while the corresponding imported case is accepted. Preserve these controls when auditing how function checking retains protocol facts.
 
-Apply the alternatives and five-criterion recommendation in [imported nominal guards after effects](tuple-construction-contexts.md#regression-fixture-imported-nominal-guards-after-effects): reject nominal-annotation-only reasoning, speculative hook execution and blanket deferral; retain actual constructor/protocol evidence with effect invalidation. The next repair must establish the stable import proof and audit the effect controls together, not force every imported `instanceof` into the local result. This repair and the broader identity, inference, phase/recovery, resource and conformance gates remain open.
+Apply the alternatives and five-criterion recommendation in [imported nominal guards after effects](tuple-construction-contexts.md#regression-fixture-imported-nominal-guards-after-effects): reject nominal-annotation-only reasoning, speculative hook execution and blanket deferral; retain actual constructor/protocol evidence with effect invalidation. The paired repair now establishes stable import evidence and audits the effect controls together. Its documented precision limits and the broader identity, inference, phase/recovery, resource and conformance gates remain open.

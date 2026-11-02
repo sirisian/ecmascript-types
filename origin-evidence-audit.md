@@ -103,3 +103,7 @@ No new public type equality, callable wrapper, conversion priority, class brand 
 
 
 Primary comparisons: [Rust interior mutability](https://doc.rust-lang.org/reference/interior-mutability.html), [Rust generic parameter scopes](https://doc.rust-lang.org/reference/items/generics.html), and [ECMAScript call evaluation](https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-function-calls-runtime-semantics-evaluation). These comparisons motivate the recommendations; the proposal's own normative rules determine its behavior.
+
+## Nominal instance-test follow-up
+
+[Nominal `instanceof` origins](nominal-instanceof-origins.md) applies these shared evidence rules to the local/import discrepancy. Constructor identity and selected protocol stability are separate obligations. The audit includes receiving-operation effects, complete dependency initialization, repeated and external invocation contexts, and current descriptors of previously evaluated families. The portable regression gates and remaining precision limits are recorded there.
