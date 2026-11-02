@@ -158,6 +158,8 @@ A chain that doesn't qualify denotes nothing but itself: a ```!=``` or ordering 
 
 The derived union is used for checking, not as the type's identity. ```Reflect.typeOf``` reports the dependent record type, assignability compares against it, and ```Address``` remains one type object rather than two.
 
+A chain's tests are judged like any other test. A condition the discriminant's type cannot satisfy, such as `this.country == 'MX'` over `'US' | 'CA'`, is an error where it is written, and so is a `where match` clause whose pattern cannot match; the implicit `default: false` of a `where match` spares it only the exhaustiveness check. The last test of a discriminated chain, whose every condition is one equality comparison of the same member, is the one exception when its conditions exhaust the type, since it is certain by construction: `if (this.country == 'US') { ... } else { if (this.country == 'CA') { ... } }` is accepted, while an `else` after that last test is an error.
+
 ### Assignment design choices
 
 In the previous example for ```Payment``` setting either ```creditCard``` or ```billingAddress``` would place an instance into an invalid state. (Both need to be defined).
