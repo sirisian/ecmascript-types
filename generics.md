@@ -549,3 +549,10 @@ WIP, is this necessary? Is it possible? What does it allow? They are non-dynamic
 ### Decorator Generics
 
 Generic decorators work as expected, and the [decorators](decorators.md) extension specifies them in full: decorator factories parameterized by type and value generics, together with the specialized-overload reflection API shown above. See that document for worked examples.
+
+
+### Captures of value refinements
+
+A generic alias whose `where` reads `this` creates a value refinement for each application. Its unary predicate captures the declaration's lexical and private environment and the application's converted type and value arguments. Repeating an application in the same declaration activation reuses the predicate; another activation does not merge its closure with the first.
+
+For example, `type Below<N: uint32> = uint32 where this < N;` compares a candidate `uint32` with the retained `uint32` value of `N`, including after the declaring function returns. A clause that does not read `this` keeps its specialization-predicate meaning. A predicate-bearing builder result follows the same identity rule: caching must not replace a fresh captured closure with an older one.

@@ -183,3 +183,12 @@ A Type Object's conversion call does not imply that it supports `new`. Known con
 ## Generic expression checking
 
 See [generic expression checking](generic-expression-checking.md) for argument admission and failure timing when an interface, alias or class is applied as a value.
+
+
+### Reflection of constructed refinements
+
+A refinement is a `parameterized` node with `base` and `metadata`, including one introduced by source `where`. Its top-level `metadata.where` is the original admitted unary function. Reflection returns that same function value and reconstruction retains it, so an unchanged round trip preserves Type Object identity. The function is not cloned, frozen or exposed as a syntax tree.
+
+Use `value => condition(value)` for a supplied callback. Source `this` is supplied by its declaration's unary bridge; a supplied arrow's lexical `this` is not rebound. Admission rejects invalid callbacks without executing them. An always-false predicate is valid and remains a distinct refinement rather than becoming `never`.
+
+This function exception applies only to the outer string key `where`. Other metadata fields, nested records, lists and range endpoints still reject functions. See [dependent record types](dependentrecordtypes.md#constructing-refinements-with-reflectmaketype).

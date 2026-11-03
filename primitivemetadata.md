@@ -1913,3 +1913,14 @@ Written numeric metadata literals retain their source digits until the owning fi
 `MetaProtocol` defaults its `Factor` parameter to `rational64`. The engine accumulates exact conversion factors without a fixed-width bound. The existing Number presentation branch is unchanged. Otherwise it reduces the exact product, presents it to `rescale` as `rational64` when both signed parts fit 64 bits, and as `rational.<bigint>` when they do not. Accordingly, `rescale` accepts `number | rational64 | rational.<bigint>`. Choosing the presentation tests representability before construction; it does not catch hook failures, invalid factors, or evaluation-budget errors.
 
 Range annotations follow ordinary generic arity rules. A shape permitting all intervals uses `RangeBounds.<T>` (or the existing `any` view where the endpoint domain is intentionally unconstrained); `Range.<T>` permits only two-ended Closed/Open ranges by default. Bare `Range` and `RangeBounds` are incomplete annotations at every origin. A full range default and a written full range both satisfy the same complete `RangeBounds.<T>` shape, under the same declared endpoint-domain normalization (there are no endpoints to convert). This does not make a full range satisfy a two-ended range shape.
+
+
+## The where function exception
+
+Metadata remains a closed value language. Its only function-valued leaf is an admitted unary predicate at the outer type metadata record's actual string key `where`. A nested `{ where: fn }`, list element, range endpoint or `Symbol('where')` receives no exception. Absence is unconstrained; present `undefined` is invalid.
+
+Snapshot the record in own-key order. Read each enumerable property once and complete its admission before the next property. At `where`, admit the function immediately and retain its identity. Do not pre-scan metadata or run the callback. This preserves getter order and the first exception, including when an invalid predicate precedes another getter.
+
+The built-in `Where` owner claims `where`, has `{}` as its default, validates with `ToBoolean(predicate(candidate))`, and admits subtyping when the required portion is empty or retains the same function. It grants no cast or operator permission for other metadata owners. A default crossing validates its `where` portion once: false removes the default and a predicate exception propagates.
+
+Function leaves compare by SameValue and use opaque identity ordinals for canonical ordering. Diagnostic formatting and sorting must not traverse function properties or captured environments. See [dependent record types](dependentrecordtypes.md#constructing-refinements-with-reflectmaketype) for source lowering, construction and boundary behavior.

@@ -1391,3 +1391,14 @@ Measured against the issue #64 table, the builder model plus six additions — `
 What survives as truly irreducible is universally quantified knowledge about a builder's unspecialized output: variance and parametricity live only as contracts re-checked at every instantiation, never as definition-time proofs. That is the one thing §7 could not recommend away, and it is the honest residue of computing types with opaque functions.
 
 The argument is no longer prospective. All twenty-two recommendations are specified, all but the two pieces of tooling and three deliberate deferrals are implemented, and the kit is 313 lines of ordinary JavaScript that an engine loads as an ordinary module. TypeScript's reason for not doing this — never execute user code in the checker — is a good reason that this proposal had already, deliberately, paid to remove: primitive metadata cannot exist without the evaluator. Type builders are the rest of what that purchase buys.
+
+
+## Predicate-bearing builder results
+
+A builder can return `Reflect.makeType({ kind: 'parameterized', base: T, metadata: { where: predicate } })`. The predicate is an admitted unary function retained by identity. A computed refinement may be empty without construction failing: arbitrary callback satisfiability is not a decidable construction requirement. Existing source contradiction diagnostics still apply to directly written clauses.
+
+Memoization must preserve function allocation identity. A builder returning a type containing a newly allocated closure cannot reuse an earlier result merely because its type arguments compare equal. Reuse is valid only when retained callback identity, captured inputs, type-result context and logical budget accounting are preserved. This also applies to predicates nested in objects, tuples, signatures or other parameterizations.
+
+The expansion artifact's current table cannot encode a function identity together with its lexical environment. It omits a predicate-bearing export, records its name and reason, and lets the consumer evaluate it normally. It must not serialize closure source, drop `where`, or substitute the base. A module whose only type export is omitted can still produce an explicit omission record. A nominal entry travels by identity; its private implementation graph is not an additional structural export.
+
+The callback contract and examples are specified with [dependent record types](dependentrecordtypes.md#constructing-refinements-with-reflectmaketype).

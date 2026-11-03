@@ -184,7 +184,7 @@ payment.name = 'Bob'; // Valid: name has no constraints
 
 Fields referenced in a ```where``` clause are dependent: they cannot be validated on independent assignment, so the clause is checked at boundaries instead - construction, function calls, and object assignment. This is the rule the examples in this document assume.
 
-Two more choices the same rule settles. A dependent record type's identity is its declaration's: the predicate is a function value compared by SameValue, so two textually identical ```where``` blocks in two modules are two types, and sharing one means declaring once and importing. And a ```where``` block is one predicate: conjunction is written by nesting one refined type in another, and a multi-assertion block would need a separator the grammar does not have.
+Two more choices the same rule settles. A dependent record type's identity includes its declaration activation and generic arguments: the predicate is a function value compared by SameValue, so two textually identical ```where``` blocks in two modules are two types, and sharing one means declaring once and importing. And a ```where``` block is one predicate: conjunction is written by nesting one refined type in another, and a multi-assertion block would need a separator the grammar does not have.
 
 The spread operator can be used to set a fully valid object:
 ```js
@@ -449,3 +449,38 @@ msg.to = "alice@example.com";
 
 sendEmail(ref msg); // throws
 ```
+
+
+## Constructing refinements with Reflect.makeType
+
+A builder uses the ordinary parameterized node and a unary callback:
+
+```js
+function refine(base, predicate) {
+    return Reflect.makeType({ kind: 'parameterized', base, metadata: { where: predicate } });
+}
+const positive = value => value > 0;
+type Positive = refine(number, positive);
+```
+
+The callback receives the candidate as its only argument. It is called with an `undefined` receiver using its ordinary JavaScript receiver rules, and its result is converted with `ToBoolean`. A supplied arrow must use its argument; its lexical `this` is not rebound. Source `where this > 0` creates a declaration-bound unary callback which supplies the source clause's `this`, retaining lexical scope, private scope, and converted generic arguments. Both forms use the same metadata validation and identity rules. Repeating a source specialization within one declaration activation reuses its predicate; another activation or argument tuple has a distinct predicate.
+
+Admission inspects the callback without running it. It requires one non-rest, non-reference formal parameter on an ordinary synchronous function. Default and destructuring parameters retain their ordinary behavior. Class constructors, async functions, generators, bound functions, proxies and opaque host callbacks are rejected. The body and dependencies must satisfy the compile-time-evaluable fragment: local computation is allowed, while mutable captures, writes through the candidate, unknown callbacks, ambient receivers and nondeterministic calls are refused. Deterministic library calls are admitted by actual intrinsic identity. Capture and call-target guards remain in force across getter and argument effects; re-admitting a function cannot reset the evidence protecting an existing type.
+
+The original function is retained without cloning, freezing or altering it. Two constructions with the same base and callback are one type. Identical source text does not make two closures equal. Reflection returns the same callback, so `Reflect.makeType(Reflect.getReflection(Positive)) === Positive`.
+
+Construction does not assert that a value inhabits the type:
+
+```js
+type Triple = [uint8, uint8, uint8];
+const twoElements = value => value.length === 2;
+type EmptyTriple = refine(Triple, twoElements); // valid construction; no matching value
+```
+
+This computed refinement retains its callback identity and is not rewritten to `never`. Existing source impossible-test diagnostics still apply when a contradiction is written directly. Callback admission is required even for a base of `void` or `never`; an empty base cannot conceal an invalid callback.
+
+At a boundary, the base is admitted or converted first. Nested predicates run from the innermost refinement outward and stop at the first false result. Ordinary candidate getters, conversions, exceptions and reference-liveness checks remain observable. A false result means rejection; a predicate exception propagates. For a default, false means no default and an exception remains an exception. No extra predicate invocation probes default availability. A mutable object's earlier membership result is not a permanent fact about that object.
+
+A refinement changes no representation or object shape. Engines can share base layouts and specialize guards around a retained callback without attaching per-type properties to candidates. `Where` has an empty default and no arithmetic operator block, so fallback arithmetic sheds the predicate instead of promising that its result still satisfies it.
+
+A recursive alias retains the predicate at every recursive occurrence. Refining an alias does not supply a representation for a cycle made only of alias forwarding and refinement bases; such a cycle is still rejected. For generic aliases with multiple clauses, a clause that does not read `this` remains a specialization condition, while candidate-dependent clauses refine the resulting value type.
