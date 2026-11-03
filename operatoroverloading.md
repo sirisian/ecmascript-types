@@ -464,3 +464,5 @@ Two smaller observations from the table. Zig has native vectors and no operator 
 - An approximate reciprocal square root. ```rsqrtps``` and ```frsqrte``` are twelve-bit and eight-bit approximations, an order of magnitude faster than an exact reciprocal square root, and normalizing a vector rarely needs the last bits. Exposing one is the only place in this document where the strict floating point rule is tempting to break, and it should be broken explicitly, with a named intrinsic and a specified error bound, or not at all.
 
 The declared target of a conversion operator is also its checked result contract. See [declared conversion result admission](conversion-result-admission.md) for declaration context, numeric and metadata transport, selected-result failure, and the distinction from primitive raw operator results.
+
+An operator definition may carry ```where``` clauses as a method does: over its operands, its receiver and its result, judged where the operator is declared and checked at each application.
