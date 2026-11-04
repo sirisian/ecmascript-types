@@ -131,19 +131,74 @@ where if (...) {} else {};
 
 ### Narrowing
 
-```js
-const addr: Address = { streetAddress: '123 Main', country: 'CA', postalCode: 'M4W 3R8' };
+A `where` clause validates a value at a boundary. It does not keep a mutable object valid between boundaries. Testing one member therefore cannot, on its own, prove another member's current value:
 
-if (addr.country == 'US') {
-	// Compiler narrows addr.postalCode to USPostalCode
+```js
+type Contact = { kind: string, email: string | null }
+where if (this.kind === 'email') { this.email !== null } else { true };
+
+function edit(c: Contact) {
+    c.email = null; // Temporary invalid states remain permitted.
+    if (c.kind === 'email') {
+        // c.email still has type string | null.
+    }
 }
 ```
+
+An alias can perform that write too. A getter can even pass the predicate and return `null` on its next read, with no intervening assignment. `const` and a structural `readonly` spelling do not establish a stable data property. For an ordinary record, capture and check the value you intend to use:
+
+```js
+function show(c: Contact): string {
+    if (c.kind === 'email') {
+        const email = c.email;
+        if (email !== null) return email;
+    }
+    return 'none';
+}
+```
+
+Automatic cross-field narrowing is available for stable observations through composite data fields:
+
+```js
+type ContactShape = { kind: string, email: string | null };
+type StableContact = Composite.<ContactShape>
+where if (this.kind === 'email') { this.email !== null } else { true };
+
+function showStable(c: StableContact): string {
+    if (c.kind === 'email') {
+        const email: string = c.email;
+        return email;
+    }
+    return 'none';
+}
+```
+
+Each intermediate field on a projected path must itself contain a composite. A composite can hold an ordinary Object through an `any` or nominal leaf; that object's mutable properties do not gain this guarantee. Optional composite fields read `undefined` when absent. A structural assertion projects required members individually, without replacing the receiver's type. A branch conjunction contributes both assertions. Nested conditional predicates and an expression arm of an ordered `where match` can select a branch; an unknown earlier match arm prevents selecting a later one.
+
+Branch selection uses existing flow facts and a finite syntax fragment: literal equality and inequality, nullish comparisons, decided `is` type or literal-pattern tests, Boolean literals, parentheses and built-in `!`, `&&` and `||`. Match selection recognizes literal and wildcard patterns and their `not`, `and` and `or` combinations. Helpers, extractors, block arms and other opaque computations supply no inferred facts. Checking does not execute a predicate to discover its consequences. Asserted type names keep their declaration scope and generic arguments. Ordinary `Reflect.makeType` callbacks remain opaque; private provenance on a source clause's bridge is not a new public type distinction.
+
+These are ordinary flow facts. Joins retain only facts justified on every incoming path, and rebinding, reference effects and applicable call effects invalidate them. Nothing removes predicate evaluation at required boundaries or reference-liveness checks. This qualification also applies to any payload-shape facts inferred from a discriminated `where` chain; closed discriminant coverage alone is not a proof of mutable payload contents.
+
+#### Why this direction
+
+A valid design must preserve temporary invalid states, getter and exception behavior, declaration-scoped type identity, and reference liveness. It must produce no fact about a replacement value, require no arbitrary predicate execution during flow inference, and impose no new object layout or per-read validation protocol.
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Infer from every declared refinement | Attractive autocomplete, but can claim a nullable field is non-null and reject reachable code | Superficially resembles TypeScript discriminant narrowing; an arbitrary mutable predicate is a weaker premise | Cheap checking, but unsafe facts cannot justify optimization | Fails mutation and getter cases | Rejected: an admission is not a permanent invariant |
+| Enforce the predicate after every write | Strong field correlations, but multi-field updates cannot pass through invalid states | Rust enums preserve variant structure; they do not implement arbitrary JavaScript getter predicates | Guards on aliases, setters, descriptors and proxies; adds shape and inline-cache dependencies | Contradicts the chosen boundary-only mutation model | Rejected: changes the meaning of ordinary updates |
+| Reevaluate on every projected read | Appears convenient until a read throws or repeats user effects | Unlike an explicit smart cast or a Rust pattern match | Repeated predicate execution, calls and deoptimization dependencies | Changes getter counts, exception timing and boundary placement | Rejected: observable semantic change |
+| Project through stable composite fields | Precise autocomplete where justified; mutable records use an explicit local test | Kotlin's stable smart-cast requirement is a close analogy; Rust's variant and borrowing guarantees illustrate why stability matters | Static path checks and ordinary flow facts; no additional runtime property protocol | Preserves boundaries, aliases, identity and liveness | **Recommended and implemented** |
+| Track mutable data-only admissions and their dependencies | Useful for a proved local object, but an ordinary parameter can still receive getters or aliases | Kotlin also permits effectively immutable local variables; Rust supplies stronger ownership evidence | Static alias and effect dependencies; no runtime guard is needed when the entire proof is static | Sound only with an established admission, data descriptors and preserved dependencies; the annotation alone supplies none of these | Rejected as a general annotation guarantee; ordinary local flow analysis remains available, and additional descriptor-based proofs can be specified separately |
+| Remove all automatic cross-field narrowing | Uniform but needlessly repeats checks on stable data | Explicit guards remain valid in all three languages | Lowest implementation cost, but forfeits available facts | Correct but unnecessarily restrictive | Rejected: stable observations already justify useful narrowing |
+
+[Rust enums](https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html) associate payloads with variants, while [borrowing](https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html) constrains mutation through aliases. This proposal's ordinary objects have neither guarantee. [Kotlin smart casts](https://kotlinlang.org/docs/typecasts.html) exclude custom getters and mutable properties that cannot be proved stable. [TypeScript's aliased-condition analysis](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-4.html) motivates the usability goal, but its discriminant analysis is not evidence that a boundary-checked JavaScript predicate remains true.
 
 ### Discriminated where-chains
 
 A ```where``` chain that switches on one member against constants is a discriminated union written from the inside, and where the chain qualifies it *denotes* that union. It qualifies in either of the two forms a chain is written in.
 
-The ```if```/```else``` form qualifies when every condition is an equality test between a member of ```this``` and a literal or enumerator constant, every condition tests the same member, that member's declared type is a closed set of those constants - a literal union or an ```enum``` - and the chain is total, meaning it ends in ```else``` or its conditions exhaust the member's type. The ```where match``` form qualifies when its subject is one member of ```this``` of such a type, every clause is unguarded against a constant of it or an ```or``` of constants, no constant is named twice, and the clauses name them all; each clause is a branch, and a clause naming several constants contributes a member for each. Each branch contributes the declared members with the discriminant narrowed to the constant that branch tested, plus whatever shape the branch asserts; a branch predicate that isn't a shape assertion rides along as a refinement of that branch and contributes no members. A branch's predicates narrow within the branch whether or not they contribute members: any narrowing form over a path on ```this``` - ```this is T```, ```this.p is T```, ```this.data !== undefined``` - contributes there what it would contribute over the same path on a value, and a conjunction contributes both sides.
+The ```if```/```else``` form qualifies when every condition is an equality test between a member of ```this``` and a literal or enumerator constant, every condition tests the same member, that member's declared type is a closed set of those constants - a literal union or an ```enum``` - and the chain is total, meaning it ends in ```else``` or its conditions exhaust the member's type. The ```where match``` form qualifies when its subject is one member of ```this``` of such a type, every clause is unguarded against a constant of it or an ```or``` of constants, no constant is named twice, and the clauses name them all; each clause is a branch, and a clause naming several constants contributes a member for each. Each branch contributes the declared members with the discriminant narrowed to the constant that branch tested, plus whatever shape the branch asserts; a branch predicate that isn't a shape assertion rides along as a refinement of that branch and contributes no members. A branch's assertions can narrow a consumer's fields only under the stable-observation requirements above. The declaration's own predicate is checked under the ordinary facts of the tests it actually performs.
 
 ```js
 // Address above qualifies: one member, two literal constants, a final else.
@@ -154,7 +209,7 @@ The ```if```/```else``` form qualifies when every condition is an equality test 
 
 Which is the union printed for reference above, so the equivalence that section asserts is a rule rather than a remark. What it buys is the property an ```enum``` and a sealed class already have and this form did not: [pattern matching](patternmatching.md) checks a ```match``` over an ```Address``` exhaustive from one arm per country with no ```default```, and adding ```'MX'``` to ```country``` becomes a compile-time error at every such ```match``` instead of silently routing through a default clause.
 
-A chain that doesn't qualify denotes nothing but itself: a ```!=``` or ordering condition, conditions over two different members, or a chain with no ```else``` over a member whose type isn't exhausted. Those keep every other behavior described here - the predicates run at boundaries, ```is``` evaluates them, narrowing works off the field correspondences - and only forgo the totality claim, so code matching on them writes a ```default```. Nothing is lost by declining to normalize; the alternative is a checker that reasons about predicates on a budget, and no other rule in this proposal asks for one.
+A chain that doesn't qualify denotes nothing but itself: a ```!=``` or ordering condition, conditions over two different members, or a chain with no ```else``` over a member whose type isn't exhausted. Those keep every other behavior described here - the predicates run at boundaries, ```is``` evaluates them, stable observations can supply field correspondences - and only forgo the totality claim, so code matching on them writes a ```default```. Nothing is lost by declining to normalize; the alternative is a checker that reasons about predicates on a budget, and no other rule in this proposal asks for one.
 
 The derived union is used for checking, not as the type's identity. ```Reflect.typeOf``` reports the dependent record type, assignability compares against it, and ```Address``` remains one type object rather than two.
 
@@ -384,17 +439,21 @@ type NetworkState = {
 
 function renderUI(state: NetworkState) {
 	match (state) {
-		when { status: 'success' }:
-			renderData(state.data); // state.data cannot be undefined
-		when { status: 'error' }: 
-			renderError(state.errorMessage); // state.errorMessage cannot be undefined
+		when { status: 'success' }: {
+			const data = state.data;
+			if (data !== undefined) renderData(data);
+		}
+		when { status: 'error' }: {
+			const message = state.errorMessage;
+			if (message !== undefined) renderError(message);
+		}
 		when { status: 'idle' | 'loading' }:
 			renderSpinner();
 	}
 }
 ```
 
-A ```where match``` on one member against constants is a discriminating chain in the sense above, so ```NetworkState``` denotes the union of its four branches and the ```match``` in ```renderUI``` is checked exhaustive with no ```default```. The branch predicates narrow too: a branch asserting ```this.data !== undefined``` contributes that fact where its branch is taken, which is why ```state.data``` is not optional inside the ```'success'``` arm.
+A ```where match``` on one member against constants is a discriminating chain in the sense above, so ```NetworkState``` denotes the union of its four branches and the ```match``` in ```renderUI``` is checked exhaustive with no ```default```. A branch assertion such as ```this.data !== undefined``` contributes a consumer fact only through stable observations. For a mutable ```NetworkState```, capture and test ```state.data``` explicitly before using it; the tag alone does not prove that its payload remains present.
 
 ### Business Logic
 
