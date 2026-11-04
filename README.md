@@ -3787,7 +3787,7 @@ Enum values can reference previous values:
 enum E { A = 0, B = A + 5 };
 ```
 
-An enumeration whose underlying type is ordered — the integral types and ```string``` — is itself ordered, everywhere ordering applies, including comparison operators and ```where``` clauses. A numeric underlying type orders by its values; a ```string``` underlying type orders by declaration order, the position of each enumerator, because a sequence of named steps like time units or severities is meant to compare in the order it's written, not alphabetically: Comparing such an enumerator with a plain String compares the Strings, as at run time: ```Unit.Hour < 'minute'``` is by code units, while ```Unit.Hour < Unit.Day``` is by position.
+An enumeration whose underlying type is ordered — the integral types and ```string``` — is itself ordered, everywhere ordering applies, including comparison operators and ```where``` clauses. A numeric underlying type orders by its values; a ```string``` underlying type orders by declaration order, the position of each enumerator, because a sequence of named steps like time units or severities is meant to compare in the order it's written, not alphabetically: Comparing such an enumerator with a plain String compares the Strings, as at run time: ```Unit.Hour < 'minute'``` is by code units, while ```Unit.Hour < Unit.Day``` is by position. A comparison narrows an enum to the enumerators that admit it, one by one, so for ```enum Sparse { A = 0, B = 5, C = 10 }``` the clauses ```where s > Sparse.A where s < Sparse.B``` are refused, no enumerator lying between, and ```where s > 2 where s < 5``` likewise, a constant that is no enumerator comparing by value.
 
 ```js
 enum Level: uint8 { Low, Medium, High };
