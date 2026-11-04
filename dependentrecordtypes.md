@@ -217,6 +217,8 @@ A chain's tests are judged like any other test. A condition the discriminant's t
 
 A generic alias may refine its parameter: `type NonEmpty<T: type> = T where this.length > 0;` declares a generic dependent record type, and `NonEmpty.<string>` refines `string` with that predicate. Each application is its own type, identified by the declaration and its arguments, its clause is judged once at the declaration through each parameter's bound, and every boundary enforces it as for a non-generic refinement. Testing a value of the base with `is` against a refinement decides a branch, and a passing test narrows the value to the refinement.
 
+A declaration's `where` clauses read a refined subject through its refinement: with `type Small = uint8 where this < 10;`, `function f(x: Small) where x > 100` can never hold and is refused where it is written, as the same two limits written as clauses on a `uint8` are. A refinement's own clause is never assumed while that clause is being judged.
+
 ### Assignment design choices
 
 In the previous example for ```Payment``` setting either ```creditCard``` or ```billingAddress``` would place an instance into an invalid state. (Both need to be defined).
