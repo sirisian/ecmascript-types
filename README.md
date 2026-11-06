@@ -1063,8 +1063,6 @@ Four things remain implicit, and none of them is a conversion between two typed 
 
 **Literals have no type.** A numeric literal takes the type of its context, and one that doesn't fit is a compile-time TypeError rather than a silent truncation. This is what makes the rule above livable: the arguments and initializers that would want a conversion are usually literals, and a literal never needs one.
 
-**A comparison the checker cannot see answers.** Where the types are known, ```<``` between two numeric types is a type error, as ```+``` is. Where they are not, because the code states no types, a comparison answers by mathematical value, as equality already does and as ```1n < 2``` does today: ```function g(i) { return i > 300; }``` given a ```uint8``` answers ```false``` rather than throwing, and ```g(p, q)``` comparing a ```uint8``` with a ```number``` compares their values. Arithmetic in the same place still throws, since a sum must have a type.
-
 **```Object.is``` reads a literal as ```===``` does.** For a ```uint8``` ```x```, ```Object.is(x, 5)``` is ```true```, as ```x === 5``` is, because the literal takes ```x```'s type; ```Object.is(x, n)``` for a ```number``` ```n``` stays ```false```, values of two numeric types being distinct, and an untyped array's ```includes``` or a ```Set```'s ```has``` finds a typed element only by a value of its type, as a ```[].<uint8>``` finds one by a literal.
 
 **A ```const``` of a numeric constant behaves as if inlined.** ```const K = 3.14``` used where a ```float64``` is wanted is a ```float64```, and where a ```float32``` is wanted a ```float32``` — the same two values the literal ```3.14``` gives in those positions, from one binding. The initializer may compute: ```const TAU = 2 * PI``` qualifies, and so does a chain of such constants. Nothing about the binding changes — ```typeof K``` is ```'number'```, ```K === 3.14``` holds, and with no contextual type it is a ```number```, so untyped code runs unchanged.
@@ -2308,6 +2306,22 @@ This assignment also works with destructuring:
 let { a, b } := { (a: uint8): 1, (b: uint32): 2 }; // a is type uint8 and b is type uint32
 ```
 
+
+### Counters
+
+A ```let``` or ```var``` initialized with a numeric literal in checked code takes the type of the typed values it is compared with, so the most common loop in the language needs no annotation:
+
+```js
+let a: [].<uint8> = [1, 2, 3];
+for (let i = 0; i < a.length; ++i) { } // i is uint64, the type of a.length
+const n: uint32 = 10;
+let j = 0;
+while (j < n) { ++j; } // j is uint32
+```
+
+The counter's type is decided by its tests, ```<```, ```<=```, ```>```, ```>=```, ```===```, ```!==```, ```==``` and ```!=```, against a value of one numeric type, and it is then fixed: ```i = 0.5``` or ```i = someNumber``` is a type error, as for an annotated binding. A test against a ```number```, a ```bigint```, a literal, a constant, a union or a type parameter decides nothing, and tests meeting two types are an error that asks for an annotation. Arithmetic does not decide, so ```let sum = 0; sum += a[i];``` still needs ```let sum: uint32 = 0```: an accumulator's width is a choice the program states. A binding initialized with a typed value is typed by ```:=```, as in ```let len := a.length```; written with ```=```, it stays dynamic.
+
+The counter then has its type's arithmetic: ```i / 2``` truncates and ```i - 1``` below zero wraps, as for every unsigned counter. ```for (let i := a.length - 1; i >= 0; --i)``` is refused because ```i >= 0``` can never fail; counting down is written ```for (let i = a.length; i > 0; --i) { a[i - 1]; }```.
 ### Function Overloading
 
 A reached optional call checks spread eligibility just as a direct call does. For example, `f?.(...x)` is an early error when `f` may be called and `x: uint8`; a definitely nullish callee skips the argument operation. Named object spreads, `any` and uncertain iteration counts follow the existing argument-binding rules.
