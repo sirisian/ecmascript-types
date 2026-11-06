@@ -1,7 +1,7 @@
 # Dependent Record Types
 
 > **This document describes an EXTENSION.** The `where` clause it uses - a
-> predicate over a record's own fields, as `} where this.country == 'US' { … }` -
+> predicate over a record's own fields, as `} where this.country == 'US' { â€¦ }` -
 > is not part of the core specification, which places it with "the dependent
 > record type extension, checked at the boundaries `#table-check-sites`
 > enumerates rather than at specialization" and lists it among "the obligations
