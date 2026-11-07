@@ -1548,7 +1548,7 @@ float32(1) / 0; // Infinity, unchanged. A float has somewhere to put it
 float32(1) % 0; // NaN, unchanged
 ```
 
-```bigint``` keeps its runtime ```RangeError``` for ```1n / 0n```, since that expression is legal today and rejecting it earlier would be a breaking change.
+```bigint``` follows the same rule in checked code, code that uses any of this proposal's syntax, and only there: ```1n / 0n``` in a program without it keeps its runtime ```RangeError```, since that expression is legal today and rejecting it would be a breaking change, while a checked unit reports it where it is written, as it would for ```int64```.
 
 One division overflows. The most negative value of a signed type divided by ```-1``` is its magnitude, which the type cannot hold, so it wraps by the overflow rule above, and the matching remainder is zero.
 
