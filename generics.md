@@ -499,7 +499,7 @@ A valid design leaves no declaration that silently never runs, keeps the owner's
 
 #### Indexed places
 
-A fact is kept about a place: a parameter, ```this```, a path of member names from one of them, or a constant index into a position the type fixes. A tuple's declared position and a fixed array's element are such positions, so clauses over them are judged as clauses over a member are:
+A fact is kept about a place: a parameter, ```this```, a path of member names from one of them, or a constant index into a position the type fixes. A tuple's declared position, a fixed array's element and a vector's lane are such positions, so clauses over them are judged as clauses over a member are:
 
 ```js
 function f(t: [uint8, uint8]) where t[0] > 5 where t[0] < 3 {}       // TypeError: can never succeed
@@ -508,7 +508,10 @@ type P = [uint8, uint8] where this[0] > 5 where this[0] < 3;         // TypeErro
 function f(a: [4].<uint8>) where a[1] > 5 where a[1] < 3 {}          // TypeError: a fixed array's element
 function f(a: [].<uint8>) where a[1] > 5 where a[1] < 3 {}           // not judged: the extent can change
 function f(t: [uint8, ...[].<uint8>]) where t[1] > 5 where t[1] < 3 {} // not judged: a position in the rest
+function f(v: vector.<uint8, 4>) where v[0] > 5 where v.x < 3 {}     // TypeError: a lane is one place by name or by index
 ```
+
+A vector's lane is a place too. Read by a numeric key it has the lane type, and ```v[0]``` and ```v.x``` name the same place, so a fact through either spelling is seen by the other.
 
 A valid design keeps a fact only about something that is the same value at each read, and gives positions that look alike one rule.
 

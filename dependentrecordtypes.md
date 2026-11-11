@@ -321,7 +321,24 @@ const h = (): Small => 20;          // TypeError: an arrow's expression body
 class K { a: Small = 20; }          // TypeError: a field's initializer, static or not
 x = 20;                             // TypeError: an assignment
 20 := Small;                        // TypeError: a conversion
+function f<N: Small = 20>() {}      // TypeError: a generic parameter's default
+function* g(): Generator.<Small> { yield 20; } // TypeError: a yield
+const a: [2].<Small> = [1, 20];     // TypeError: a constant of a fresh array, tuple or object literal
+const o: { a: Small } = { a: 20 };  // TypeError, likewise
 function f(v: uint8): Small { return v := Small; } // checked when it runs: v is not a constant
+function f(): Small { return 1; return 20; }       // not judged: the second return is never reached
+```
+
+A compound assignment is not such a boundary: in ```x += 20``` the result depends on ```x```, which is not a constant.
+
+A refinement of a refinement holds both predicates, and a constant enters it at the innermost base:
+
+```js
+type Low = uint8 where this < 10;
+type Mid = Low where this > 3;
+let m: Mid = 5;   // admitted: 5 is built as a uint8, then satisfies both
+let n: Mid = 20;  // TypeError: fails Low
+let k: Mid = 2;   // TypeError: fails Mid
 ```
 
 The same reading of "constant" decides a function's own clauses at a call and at a return. ```null``` and ```undefined``` are constants as a number is, a fresh array, tuple or object literal of constants is one, and a function that can end without a ```return``` returns the constant ```undefined```:
