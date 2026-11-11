@@ -497,6 +497,28 @@ A valid design leaves no declaration that silently never runs, keeps the owner's
 | The owner's clause filters only the owner's body | Each clause is a filter of its own declaration | Rust's blanket-```impl``` bound and C++ overload constraints work this way | None | Callers holding the owner's value lose the promise, and an attached overload no longer keeps the owner's contract | Rejected: a redesign of owner clauses |
 | No standalone cases: every such list is an error | One rule for every failure | C++ class templates and Rust well-formedness work this way; neither has overloads that specialize | Simplest dispatch | Removes ```read<string>``` beside ```read<T: type extends uint.<_>>```, which runs today | Rejected: removes a feature |
 
+#### Indexed places
+
+A fact is kept about a place: a parameter, ```this```, a path of member names from one of them, or a constant index into a position the type fixes. A tuple's declared position and a fixed array's element are such positions, so clauses over them are judged as clauses over a member are:
+
+```js
+function f(t: [uint8, uint8]) where t[0] > 5 where t[0] < 3 {}       // TypeError: can never succeed
+function f(t: [uint8, uint8]) where t[0] < t[1] where t[1] < t[0] {} // TypeError: the two positions are related
+type P = [uint8, uint8] where this[0] > 5 where this[0] < 3;         // TypeError
+function f(a: [4].<uint8>) where a[1] > 5 where a[1] < 3 {}          // TypeError: a fixed array's element
+function f(a: [].<uint8>) where a[1] > 5 where a[1] < 3 {}           // not judged: the extent can change
+function f(t: [uint8, ...[].<uint8>]) where t[1] > 5 where t[1] < 3 {} // not judged: a position in the rest
+```
+
+A valid design keeps a fact only about something that is the same value at each read, and gives positions that look alike one rule.
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Members and a fixed array's elements only | ```t[0]``` and ```a[0]``` look alike and behave differently, and a refinement over a tuple cannot be checked for contradictions at all | No surveyed language tracks an array's elements and not a tuple's fields | None | A tuple position has a declared type and an extent that cannot change, the two properties the rule relies on | Rejected: the defect this section closes |
+| A constant index into a position the type fixes | One rule a reader can state | Rust's borrow checker and pattern checker treat a tuple field ```t.0``` as its own place and see through fixed-size array patterns; for borrows Rust does not tell ```a[0]``` from ```a[1]```. The analogy is exact for tuples, and for arrays this goes further than Rust | A tuple position is a fixed slot, and the facts last only for the clause sequence | The footing of the fixed array's element: a store through the path or an alias revokes the fact | **Recommended and implemented** |
+| Also a constant index into a dynamic array | Would refuse the dynamic-array line above too | TypeScript narrows ```a[0]``` for a constant index on any array and accepts the unsoundness | None | The extent can change and the element may be absent | Rejected: not a stable place |
+| Also an index that is itself a place, ```a[i]``` | Natural in a loop-shaped clause | None; Rust conflates every index | Needs relations between an index and the extent | Two spellings may or may not name one element | Rejected: a different problem |
+
 ### Variadic Generic Parameters
 
 A generic parameter written with ```...``` collects any number of arguments, exactly as a rest parameter collects any number of values. Its annotation is the *collection* type, the same habit a rest parameter teaches — ```...args: [].<uint32>``` on one line, ```...I: [].<uint32>``` on the next, one idea with one spelling:
@@ -533,6 +555,12 @@ function outer<N: uint8>() where N > 100 {
 class C<N: uint8> where N > 100 {
     m() { function inner() where N < 50 {} } // TypeError: the class's clauses reach every declaration inside it
 }
+interface I<N: uint8> {
+    m(): void where N > 300;            // TypeError: an interface's parameter is read at its domain too
+    n(): void where N > 5 where N < 3;  // TypeError
+    operator+(r: uint8): uint8 where r > 5 where r < 3; // TypeError: an operator's signature is judged like any other
+}
+type O<N: uint8> = { m(): void where N > 5 where N < 3 }; // TypeError, likewise for a generic object type
 ```
 
 This is sound because a generic parameter is immutable: what an enclosing clause says of ```N``` is true whenever the nested declaration runs. Two things are deliberately not carried. A name a nearer declaration binds again is another binding, so ```function inner<N: uint8>() where N < 50``` inside ```outer``` is judged on its own ```N```. And an enclosing contract over a formal, ```function outer(x: uint8) where x > 100```, says nothing to a nested ```where x < 50```: it speaks of the call's entry, the closure may run after ```x``` is assigned, and a closure reads a captured binding's contract rather than a fact about its value. The enclosing clauses are premises for clauses only; an ordinary branch in the body is still not narrowed by order.
