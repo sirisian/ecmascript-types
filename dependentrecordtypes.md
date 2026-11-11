@@ -129,6 +129,27 @@ where if (...) {} else {}
 where if (...) {} else {};
 ```
 
+Each clause is judged under the clauses before it, whichever form they are written in. An ```if``` clause passes on what the conditional expression over the same test and branches would, the join of its branches under their test, so a later clause that no value of either branch satisfies is an error where it is written:
+
+```js
+type Level = uint8
+where if (this > 100) { this > 200 } else { this < 50 }
+where this > 60 where this < 90; // TypeError: no value the first clause admits lies between
+```
+
+A branch written ```false``` forbids its case and so contributes nothing, and a clause with no ```else``` holds wherever its test fails.
+
+#### Why a conditional clause is read as the conditional expression
+
+A valid design gives one predicate one answer however it is spelled, covers branches that read a place the test does not, and adds no second rule beside the flow join.
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| The clause establishes nothing for later clauses | A contradiction is found at the first call, while the ternary spelling of the same clause is refused where it is written | No surveyed language checks one conditional spelling and not the other | None | Contradicts judging each clause under the clauses before it | Rejected: one predicate, two answers |
+| Project one ordered place, as a refinement read through a value is projected | Fixes a clause over one place; a conditional whose branches read a second place is still accepted in silence | The proposal's own projection rule, which is single-place because a refinement is read later through a value that may have changed; a clause sequence is evaluated at one instant | A second walker beside the flow join | Sound, but leaves the ```if``` form weaker than ```?:``` and a disjunction in the same sequence | Rejected: three readers of the form, two rules |
+| Read it as the conditional expression: the join of each branch under its test | ```if``` and ```?:``` always agree, over any number of places | Rust has one conditional, the ```if``` expression, so the split cannot arise there; the analogy is exact on unity and says nothing about value ranges, which Rust derives from neither. JSON Schema's ```if```/```then```/```else```, where this form comes from, validates as (if and then) or (not if and else) | Reuses the existing join; no new state | It is the ordinary join of narrowing facts; an explicit ```false``` branch is an impossible result and contributes no predecessor | **Recommended and implemented** |
+| Remove the form and write the ternary | One spelling fewer | Rust again has only one | Simplest | Loses what is keyed on the form: the discriminated chain, and branches that are predicates themselves, including a ```match``` with its implicit default | Rejected: the form carries meaning the ternary does not |
+
 ### Narrowing
 
 A `where` clause validates a value at a boundary. It does not keep a mutable object valid between boundaries. Testing one member therefore cannot, on its own, prove another member's current value:
@@ -424,6 +445,30 @@ class AddressResponse {
 ### Network Messages
 
 Showing ```where match``` syntax. A ```match``` is an expression, so it is a predicate like any other; in this position it carries an implicit ```default: false;```, since a predicate that matches no clause has answered that the value is not of the type. Its semantics are otherwise [pattern matching](patternmatching.md)'s.
+
+"This position" is the whole predicate, or the whole predicate of an ```if``` branch. A ```match``` anywhere else in a predicate is an ordinary expression: it has no implicit default, so it must be exhaustive as any ```match``` is, and the predicate around it is judged as any test is. A test of one pattern that composes with other operands is written with ```is```:
+
+```js
+type A = { k: 'a' | 'b', n: uint8 } where this.n > 3 && match (this.k) { when 'a': true };                 // TypeError: missing 'b'
+type B = { k: 'a' | 'b', n: uint8 } where this.n > 3 && match (this.k) { when 'a': true; default: false }; // exhaustive
+type C = { k: 'a' | 'b', n: uint8 } where this.n > 3 && this.k is 'a';                                     // the composable test
+type D = { k: 'a' | 'b', n: uint8 } where this.n > 3 where match (this.k) { when 'a': true };              // a second clause keeps the default
+```
+
+A ```match``` clause passes on to the clauses after it the join of its arms, each under its pattern: an arm that answers ```false```, like the implicit default, contributes nothing, and a range arm bounds its subject as the same range in an ```is``` test does. So ```where match (k) { when 'a': true; when 'b': false } where k === 'b'``` and ```where match (x) { when 0..=10: true } where x > 50``` are errors where they are written.
+
+#### Why the implicit default stays with the whole predicate
+
+A valid design never lets a boundary throw where it is specified to answer, gives a missing case a message at the declaration, and adds no second Boolean-test form beside ```is```.
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Whole predicate or whole branch only; a nested ```match``` is ordinary | A missing case is an error naming the case; the fix is ```default: false```, a second ```where```, or ```is``` | Rust requires ```match``` to be exhaustive everywhere and gives the Boolean test its own form, ```matches!```, which expands to a ```match``` ending ```_ => false```. The analogy is close: the whole-predicate position is this proposal's ```matches!``` and ```is``` its composable test. C# splits the same way between ```switch``` expressions and ```is``` | One rule and no context flag on a ```match``` | A nested ```match``` narrows and is checked as in a statement | **Recommended and implemented** |
+| Through ```&&```, ```\|\|```, ```?:``` arms and parentheses, not ```!``` | Reads naturally under ```&&```; a user must learn where the default stops | No surveyed language gives a ```match``` a default by Boolean context | A context flag on each ```match``` | Adds ```false``` to a nested match's type and needs more rules for ```??```, the comma and arguments | Rejected: a hidden rule where an explicit form exists |
+| As above, and through ```!``` | Under ```!```, a value that matches no clause is admitted | None | The same flag | Reverses the reason for the default, that a value no clause matches is not of the type | Rejected |
+| Every ```match``` inside a predicate | ```g(match ...)``` and ```match (...) === 3``` receive a Boolean nobody wrote | None | The same flag | An arm type that is not Boolean gains ```false``` | Rejected |
+| Forbid a nested ```match``` in a predicate | Blocks a legitimate helper argument, and a disjunction with a ```match``` cannot be split into two clauses | None; Rust allows ```match``` in any expression position | Simplest | Consistent but arbitrary: no other expression is barred from a predicate | Rejected: over-restricts ordinary expressions |
+| Leave a nested ```match``` unjudged and without a default | A missing case throws from inside an ```is``` test or a boundary check | C# reaches this for a non-exhaustive ```switch``` expression, with a compile-time warning | A throwing path in every evaluation | A check specified to answer true or false throws instead | Rejected: the defect this section closes |
 
 ```js
 type NetworkState = {
