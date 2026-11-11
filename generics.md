@@ -541,6 +541,17 @@ A clause is also judged where it is written, before any specialization. A clause
 
 A clause reads only its declaration's own inputs. A method's clause may read its receiver through ```this``` and ```super```, judged against the class's instance type, an object literal's type, or the interface that declares the signature, and checked at each call, as Eiffel's preconditions, Dafny's ```requires``` and C++26 contracts may; a function without a receiver may not, and no clause reads ```new.target``` or contains ```await``` or ```yield```. A default its own clause rejects, such as ```function f(i: uint32 = 5) where i > 10```, can never be taken and is an error where it is written. A setter and a constructor declare no result, so neither takes a contract over ```return```. An operator definition takes clauses as a method does, over its operands, its receiver and its result. An operator in a ```primitive``` block reads that primitive as its receiver. Where the program applies a generic declaration, its applications decide its clauses, each reporting what evaluating them finds, and a value generic reads in a clause as the literal its value is. A method's clause over its class's value parameters is judged as a clause of the class, and every clause of a declaration nested in a generic one is judged under the clauses around it, as the next section describes; a default inside a parameter's pattern is checked as a parameter's is; and a function declared ```never```, like one declared ```void```, takes no contract over ```return```. A generic parameter is immutable: assigning one, in a clause or a body, is an error where it is written.
 
+#### A default its clause rejects
+
+A default is judged clause by clause. A clause that reads only parameters with defaults is evaluated at the declaration with those defaults, and one that fails means the default can never be taken:
+
+```js
+function f<M: uint8 = 3>() where M > 5 {}            // TypeError: the default of M can never be taken
+function f<N: uint8, M: uint8 = 3>() where M > 5 {}  // TypeError: N needs no default for this clause to be decided
+class C<N: uint8, M: uint8 = 3> where M > 5 {}       // TypeError, likewise for a class and a type alias
+function f<N: uint8, M: uint8 = 3>() where N < M {}  // left to each application: the clause also reads N
+```
+
 #### Clauses of enclosing declarations
 
 A declaration nested in a generic one is judged under the clauses around it. Its own clauses read an enclosing value parameter at that parameter's domain, and the clauses of every enclosing generic declaration come before them, outermost first, exactly as a class's clauses come before its methods':

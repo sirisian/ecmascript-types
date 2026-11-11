@@ -278,6 +278,78 @@ const invalidPayment: Payment = {
 }; // Compile or runtime error: 'where' clause validation failed at construction. (In this case it would be a compile time error).
 ```
 
+#### Intersecting refinements
+
+An intersection of refinements of one base admits the values every member admits. It stays an intersection: each refinement keeps the identity of its declaration, so a value of ```A & C``` is still a value of ```A``` and of ```C``` by name.
+
+```js
+type A = uint8 where this < 10;
+type B = uint8 where this > 100;
+type C = uint8 where this < 50;
+
+type E = A & B;              // TypeError: no value is of both A and B
+let x: A & C = 5;            // admitted: 5 satisfies both
+let y: A & C = 20;           // TypeError: 20 fails A
+function f(v: A & C) where v > 20 {} // TypeError: v is read through both, and nothing below 10 is above 20
+function g(v: A): void { if (v is B) {} } // not judged: a test in a body writes no intersection
+```
+
+Two refinements written in source are judged together as one sequence of clauses over ```this```. Where they leave some place no value the pair is a contradiction written in source, and is an error where it is written; an intersection a computation constructs is not judged.
+
+A valid design makes the checker and the run time agree on every value, admits the values an intersection has, refuses a contradiction where it is written, keeps a declared refinement's identity, and never lets a type's identity depend on a prover.
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Never compare the two refinements | ```let x: A & C = 5``` is refused though 5 is of both, and ```A & B``` with no values is accepted | None | Two predicate lists reached through an intersection at every check | The checker and the run time disagree on ```A & C``` | Rejected: the defect this section closes, in both directions |
+| Give ```where``` a ```meet``` that answers one refinement holding both predicate lists | ```A & C``` would behave as ```uint8 where this < 10 where this < 50``` | In Rust ```T: A + B``` is the conjunction of two bounds; Liquid Haskell and Ada conjoin predicates when a refinement is refined again | One refinement record in place of two | A declared refinement has its declaration's identity. One merged type is neither ```A``` nor ```C```, so a value of it would stop being accepted where ```A``` is asked for | Rejected: it was the first recommendation, and it does not survive declaration identity |
+| Keep the intersection, read every member wherever a refinement is read, and judge a written pair as one clause sequence | The examples above | The proposal's own rule that a contradiction written in source is refused while a computed empty type is not reduced | An intersection walk in the three static paths that read a refinement: admitting a constant, projecting clauses, and judging the written pair | Identity is untouched; the run time already checks each member | **Implemented** |
+| A ```meet``` that answers no type where the two sets are disjoint | A constructed empty pair silently becomes ```never``` | TypeScript reduces ```string & number``` to ```never```, by structure and not by proof | The interval reasoning would have to run when types are built | Makes a type's identity depend on a prover, and two engines would have to agree on it at run time | Rejected |
+| Forbid intersecting two refinements of one base | The user writes one refinement by hand | None | Simplest | Generic code that intersects two type parameters could not be instantiated with two refinements | Rejected: breaks composition |
+
+#### A constant is decided where it is written
+
+When the value crossing into a refinement is a constant, the predicate is evaluated at the declaration, and a value that fails it is an error at the place it is written, whatever kind of boundary that is:
+
+```js
+type Small = uint8 where this < 10;
+
+let x: Small = 20;                  // TypeError: a binding's initializer
+function g(x: Small) {} g(20);      // TypeError: an argument
+function f(x: Small = 20) {}        // TypeError: a parameter's default
+function f(): Small { return 20; }  // TypeError: a return
+const h = (): Small => 20;          // TypeError: an arrow's expression body
+class K { a: Small = 20; }          // TypeError: a field's initializer, static or not
+x = 20;                             // TypeError: an assignment
+20 := Small;                        // TypeError: a conversion
+function f(v: uint8): Small { return v := Small; } // checked when it runs: v is not a constant
+```
+
+The same reading of "constant" decides a function's own clauses at a call and at a return. ```null``` and ```undefined``` are constants as a number is, a fresh array, tuple or object literal of constants is one, and a function that can end without a ```return``` returns the constant ```undefined```:
+
+```js
+function g(x: uint8 | null) where x !== null {}
+g(null);                            // TypeError at the call
+function g(t: [uint8, uint8]) where t[0] > 10 {}
+g([5, 6]);                          // TypeError: a fresh literal of constants
+const o = { v: 5 };
+function k(x: uint8) where x > 10 {}
+k(o.v);                             // checked when it runs: const fixes the binding, not the object
+function f(): uint8 | null where return !== null { return null; } // TypeError at the return
+function f(): uint8 | undefined where return !== undefined {}     // TypeError: the implicit exit returns undefined
+```
+
+An enumerator is a constant too, but an enum declared by the script being checked cannot be read while it is being checked, so a clause it would decide is evaluated when the call runs.
+
+A valid design reports a wrong constant where it is written, in every position alike, never guesses about a value that is not a constant, and evaluates the predicate exactly as the boundary would.
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Decide a constant only at a binding's initializer and an argument | The same constant is an error in ```let x: Small = 20``` and silent in ```return 20```; a default that can never be taken ships | None | A run-time check is emitted where its outcome is already known | A refinement admits a value only where every predicate holds, and that sentence names no position | Rejected: the defect this section closes |
+| Decide it at every boundary whose source is a constant | A wrong constant is reported where it is written; a right one costs nothing | Rust's ```unconditional_panic``` and ```arithmetic_overflow``` lints are deny by default and fire on a constant in any position, a ```return``` included, and Ada checks a static expression against a static predicate at compile time wherever it appears. Rust's own refinement-like types, such as ```NonZeroU8::new(0).unwrap()```, are decided only in const contexts, so there the analogy is weaker | A decided check is one never emitted | The predicate is evaluated as the boundary would evaluate it; one with an input that cannot be read yet keeps its deferral | **Recommended and implemented** |
+| Decide it at declarations only: defaults and field initializers | Catches what running the code may never reach, and leaves ```return 20``` | None | Fewer sites | An arbitrary line between boundaries the rules treat alike | Rejected |
+| Count only numbers, strings, Booleans and bigints as constants | ```g(5)``` is refused and ```g(null)``` is not, for the same kind of clause; not-null, the commonest contract, is never decided early | Kotlin reports a ```null``` literal passed to a non-null parameter at compile time and C# warns on one; Rust's const evaluation treats ```None``` as any other constant | The check runs at every such call | Narrower than the language's own definition of compile-time evaluable | Rejected |
+| Also count a read through a ```const``` object | ```const o = { v: 5 }; g(o.v)``` would be refused too | TypeScript narrows through ```const``` object members and is unsound once one is written | Needs escape analysis | ```const``` fixes the binding, not the object | Rejected: not a constant |
+
 Dependent fields are checked at boundaries:
 
 ```js
