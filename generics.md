@@ -382,7 +382,7 @@ class B<const M> where M > 200 {} // reachable for 201 to 255
 class B<const M> where M < 50 {}  // TypeError: can never hold under the primary's `where N > 100`
 ```
 
-A clause is decided at the specialization only where every parameter it reads stands in a fixed position, so ```class P<5, const K>``` beside ```class P<N: uint8, M: uint8> where N < M``` is left to each application while ```class P<5, 5>``` is refused. The clause is evaluated as an application of the same arguments would evaluate it, with the same deferral where an input cannot be read yet. A specialization's own clauses read each capture as the primary parameter in its position, which is why ```M < 50``` is judged against ```N > 100```.
+A clause is decided at the specialization where every parameter it reads stands in a fixed position, or where it can hold for no value of a captured one. So beside ```class P<N: uint8, M: uint8> where N < M```, ```class P<5, 5>``` is refused, ```class P<255, const K>``` is refused because no ```uint8``` is above 255, and ```class P<5, const K>``` is left to each application. The clause is evaluated as an application of the same arguments would evaluate it, with the same deferral where an input cannot be read yet. A specialization's own clauses read each capture as the primary parameter in its position, which is why ```M < 50``` is judged against ```N > 100```.
 
 Inside a generic class's body, its bare name in a type position means the class over its own parameters, as `this` does, so a fluent method writes `begin(): PacketWriter { return this; }` whatever the writer's `Size`; outside the body, the bare name means the defaults. A static member's parameters are those of the specialization it is reached through. In a value position the bare name keeps its JavaScript meaning, the class's inner binding, which names the specialization whose body is running: `new Box(v)` inside `Box<T: type>` builds a `Box.<T>` for the running `T` and is checked as one, so a `v` that is not a `T` is an error rather than a request for another specialization, and `new Box.<X>(v)` asks for one explicitly.
 
@@ -424,7 +424,7 @@ w.write.<float32, maximum: 1024, bits: 18>(x); // the three-parameter one, by na
 
 Overload resolution ranks these as it ranks value signatures, a fixed position beating a parameter and a fixed parameter beating a pack. An application that no overload accepts is the ordinary "no declared signature" error, statically wherever the arguments are static. The float32 overloads with three and four positions have different public names, which is why they are separate overloads rather than cases of one generic signature. A capture at the top level of such an overload would observe nothing - it is a parameter in disguise - so it is an error that asks for ```name: domain```.
 
-A same-named signature whose list holds only parameters is an *owner*. An overload whose list holds only fixed arguments and captures attaches to the owner whose list accepts it: each entry lands in one of the owner's parameters by position, and a fixed argument there is of that parameter's kind and admitted by its domain and bound, while a capture or ```_``` takes the parameter's domain. An overload the owner's contract does not admit, ```read<string>``` beside ```read<T: type extends uint.<_>>```, does not attach; it is a standalone case, reached by explicit application and never through the owner, since the owner's generic function value promises only what its bound admits. An attached overload borrows the owner's parameter names, so named and positional calls reach it alike, and where its parameter list is the owner's at those arguments, the same types, optionality, rest, and reference permissions, whatever the parameters are named, it is a *replacement*: it replaces the owner's body for them, keeps the owner's contract, and is reached through the generic function value too. Its return type may narrow the owner's there, and must be a subtype of it; one that is not is an error. An attached overload with another parameter list is *additive*: it borrows the owner's names, and is never reached through the owner's generic function value.
+A same-named signature whose list holds only parameters is an *owner*. An overload whose list holds only fixed arguments and captures attaches to the owner whose list accepts it: each entry lands in one of the owner's parameters by position, and a fixed argument there is of that parameter's kind and admitted by its domain and bound, while a capture or ```_``` takes the parameter's domain, and the owner's ```where``` clauses do not reject the list. An overload the owner's contract does not admit, ```read<string>``` beside ```read<T: type extends uint.<_>>``` or ```f<5>``` beside ```f<N: uint8> where N > 100```, does not attach; it is a standalone case, reached by explicit application and never through the owner, since the owner's generic function value promises only what its bound admits. An attached overload borrows the owner's parameter names, so named and positional calls reach it alike, and where its parameter list is the owner's at those arguments, the same types, optionality, rest, and reference permissions, whatever the parameters are named, it is a *replacement*: it replaces the owner's body for them, keeps the owner's contract, and is reached through the generic function value too. Its return type may narrow the owner's there, and must be a subtype of it; one that is not is an error. An attached overload with another parameter list is *additive*: it borrows the owner's names, and is never reached through the owner's generic function value.
 
 ```js
 function category<T: type>(): string { return "general"; }
@@ -436,7 +436,7 @@ category.<Map.<uint32, uint8>>(); // "general"
 category.<T: uint32>();           // "uint32": the overload borrows the owner's name T
 ```
 
-An owner may be declared without a body, as an abstract method is, and then an application that no attached overload matches is an error rather than a fallback. A bodyless owner needs an attached overload in its own declaration group, since nothing else could implement it; in an abstract class, a bodyless generic method with no attached overload is an abstract member, as any bodyless method there is. A generic body can forward an open argument to it, checked once against the owner's signature and selected per specialization: A bodyless owner may carry ```where``` clauses, which are part of the contract its attached overloads keep: every application is held to them, whichever overload it selects.
+An owner may be declared without a body, as an abstract method is, and then an application that no attached overload matches is an error rather than a fallback. A bodyless owner needs an attached overload in its own declaration group, since nothing else could implement it; in an abstract class, a bodyless generic method with no attached overload is an abstract member, as any bodyless method there is. A generic body can forward an open argument to it, checked once against the owner's signature and selected per specialization: A bodyless owner may carry ```where``` clauses, which are part of the contract its attached overloads keep: every application that selects one of them is held to the clauses, whichever it selects. An overload whose list the clauses reject is not one of them; it is a standalone case, as [an overload its owner's clauses reject](#an-overload-its-owners-clauses-reject) describes.
 
 ```js
 class PacketReader {
@@ -460,6 +460,42 @@ getReflection<Reflect.ClassField, T: type>(name: string | symbol): Reflect.Class
 
 The [binary packet](examples/binarypacket.md) writer and reader are the fuller worked example, with a dozen ```write``` and ```read``` overloads resolved this way.
 
+
+#### An overload its owner's clauses reject
+
+An owner's ```where``` clauses are part of what its list accepts. A callable overload whose list the clauses reject does not attach, exactly as one whose argument the domain or bound rejects does not: it is a standalone case with its own contract, selected by an explicit application of its own arguments.
+
+```js
+function f<N: uint8>(): string where N > 100 { return 'owner'; }
+function f<120>(): string { return 'onetwenty'; } // attached: the clause admits 120
+function f<5>(): string { return 'five'; }        // standalone: the clause rejects 5
+function f<300>(): string { return 'big'; }       // standalone: the domain rejects 300
+
+f.<120>(); // 'onetwenty'
+f.<200>(); // 'owner'
+f.<5>();   // 'five'
+f.<300>(); // 'big'
+
+const g = f;
+g.<5>();   // TypeError: the owner's value promises its clause
+function call<M: uint8>(): string { return f.<M>(); }
+call.<5>(); // TypeError: the owner binds M, so this is an application of the owner
+```
+
+The clauses reject a list in two cases. Where every parameter a clause reads is fixed by the list, the clause is evaluated for those arguments: ```p<5, 5>``` beside ```p<N: uint8, M: uint8> where N < M```, or ```t<string>``` beside ```t<T: type> where Reflect.isAssignable(T, uint8)```. Where a clause reads a captured position, the owner's clauses are judged under the overload's own, each capture at its domain, and they reject the list where no application satisfies both: ```p<255, const K>``` beside that ```p```, or ```f<const M> where M < 50``` beside ```f``` above. A standalone case's top-level capture states its own domain, so those two are written ```p<255, const K: uint8>``` and ```f<const M: uint8> where M < 50```; the unannotated forms are errors that say so. An overload some application reaches stays attached and held to the clause: ```f<const M> where M < 150``` runs for 101 to 149, and ```f.<5>()``` is refused. A clause that cannot be decided at the declaration, such as one reading a constant the script has yet to initialize, rejects nothing, and the overload stays attached.
+
+A class has no standalone case, so the same list on a class specialization is an error where it is written. A bodyless owner whose every overload its clauses reject is left with no attached case, and is refused as any bodyless owner without one is.
+
+A valid design leaves no declaration that silently never runs, keeps the owner's clause a promise for everything reached through the owner, lets a special case outside the clause be written under the same name, and gives a clause, a domain and a bound one answer.
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| The overload attaches and can never be selected | It sits beside the live overloads and never runs; the first sign is an error at some application, pointing at the owner's clause | No surveyed language chooses silence: Rust warns on an unreachable match arm and on dead code, and GHC on inaccessible code | A dead entry in the group's dispatch table | Contradicts the reason a bodyless owner without an attached case is refused, that every application of it would fail | Rejected: silent dead code |
+| Refuse the overload at its declaration | One message at the overload; but a special case outside the clause cannot be written under the owner's name, though one outside the domain or bound can | Rust rejects an ```impl``` header naming a type that fails that type's own where-clause, and C++20 an explicit specialization that fails the primary's constraints; both are analogies to a class family, which has no standalone case | None at run time | Sound, and the rule a class specialization takes; for a callable it gives a clause one answer and a domain or bound another | Rejected: one kind of mismatch, two answers |
+| The overload is a standalone case: the clause joins the attach test | One rule: what the owner's contract does not admit is its own case, reached by explicit application. A mistyped constant is not caught, which is already so for a domain and a bound | In Rust an ```impl``` for a type outside a blanket ```impl```'s bound is an independent ```impl```, not a specialization of it, and a C++ overload with different constraints is an independent function. The analogy is close: outside the general case means separate | The attach test evaluates a constant clause once per overload; selection stays cached by callee and bindings | Uniform with the domain and the bound. The owner's value and a binding the owner takes still reach only the owner, so its promise holds. The verdict is the checker's, shared with the run time, so both build the same group | **Recommended and implemented** |
+| The overload attaches and is exempt from the owner's clause | The special case wins over the clause | C++ partial ordering never lets a specialization escape the primary's constraints | None | A replacement keeps the owner's contract and is reached through the owner's value, whose type promises the clause | Rejected: breaks the promise |
+| The owner's clause filters only the owner's body | Each clause is a filter of its own declaration | Rust's blanket-```impl``` bound and C++ overload constraints work this way | None | Callers holding the owner's value lose the promise, and an attached overload no longer keeps the owner's contract | Rejected: a redesign of owner clauses |
+| No standalone cases: every such list is an error | One rule for every failure | C++ class templates and Rust well-formedness work this way; neither has overloads that specialize | Simplest dispatch | Removes ```read<string>``` beside ```read<T: type extends uint.<_>>```, which runs today | Rejected: removes a feature |
 
 ### Variadic Generic Parameters
 
