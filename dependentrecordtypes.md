@@ -372,7 +372,28 @@ function f(): uint8 | null where return !== null { return null; } // TypeError a
 function f(): uint8 | undefined where return !== undefined {}     // TypeError: the implicit exit returns undefined
 ```
 
-An enumerator is a constant too, but an enum declared by the script being checked cannot be read while it is being checked, so a clause it would decide is evaluated when the call runs.
+An enumerator is a constant too. The enums a source text declares are processed before its clauses are evaluated, as its type aliases and interfaces are, so a clause that names an enumerator, or that an enumerator decides, is judged where the call, the return or the default is written:
+
+```js
+enum Level { low, mid, high }
+function g(e: Level) where e > Level.low {}
+g(Level.low);                                            // TypeError at the call
+function d(e: Level = Level.low) where e > Level.low {}  // TypeError: the default can never be taken
+function r(): Level where return !== Level.low { return Level.low; } // TypeError at the return
+g(Level.mid);                                            // fine
+```
+
+An enum that is decorated, or whose initializer reads a binding other than an earlier enumerator, is not processed ahead of the program, and a clause it would decide is evaluated when the call runs.
+
+A valid design refuses such a call where it is written, evaluates the clause with the enum the program has and not a copy, changes no order of evaluation a program can observe, and decides every clause form.
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Leave an enumerator to run time | ```g(5)``` is refused where it is written and ```g(Level.low)``` is not, though an enum is the commonest closed set a contract names | Rust's enum variants are constants in any const context, and Swift, C# and Java treat theirs the same; TypeScript inlines a ```const enum``` | The check runs at every such call | Consistent, but narrower than the language's own definition of compile-time evaluable | Rejected: the gap this closes |
+| Evaluate the clauses after the enums are processed | The examples above | The enums are items known before the program runs, as in Rust; the analogy is close, since an initializer here must be compile-time evaluable | None at run time: the pass already processed enums, only later than the clauses | The same enum object the program uses; no evaluation moves that a program can observe | **Recommended and implemented** |
+| Evaluate the enum a second time for the clause | Works for comparisons | None | A second enum per check | Two objects for one enum: an ```is``` test in a clause would see a different type | Rejected |
+| Substitute each enumerator's underlying constant | Works for comparisons | TypeScript's ```const enum``` | None | An enumerator is a value of its enum, not its underlying constant | Rejected |
+| Judge the clause without evaluating it, reading the parameter as the enumerator | Decides comparisons and equality; an opaque predicate is left out | Rust's exhaustiveness checking over variants reasons this way | None | Sound, and what an argument of a narrower type will need in any case | Rejected as the answer here: it does not decide every clause form |
 
 A valid design reports a wrong constant where it is written, in every position alike, never guesses about a value that is not a constant, and evaluates the predicate exactly as the boundary would.
 
