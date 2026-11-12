@@ -385,6 +385,14 @@ g(Level.mid);                                            // fine
 
 An enum that is decorated, or whose initializer reads a binding other than an earlier enumerator, is not processed ahead of the program, and a clause it would decide is evaluated when the call runs.
 
+A refinement of an enum admits the enum's values its predicate holds of, and an enumerator decides it like any constant:
+
+```js
+type Raised = Level where this > Level.low;
+let a: Raised = Level.mid;  // admitted, and `Level.mid is Raised` is true
+let b: Raised = Level.low;  // TypeError where it is written
+```
+
 A valid design refuses such a call where it is written, evaluates the clause with the enum the program has and not a copy, changes no order of evaluation a program can observe, and decides every clause form.
 
 | Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
