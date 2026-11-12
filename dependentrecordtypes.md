@@ -325,6 +325,8 @@ function f<N: Small = 20>() {}      // TypeError: a generic parameter's default
 function* g(): Generator.<Small> { yield 20; } // TypeError: a yield
 const a: [2].<Small> = [1, 20];     // TypeError: a constant of a fresh array, tuple or object literal
 const o: { a: Small } = { a: 20 };  // TypeError, likewise
+function h(a: [2].<Small>) {} h([1, 20]); // TypeError: the same at an argument, and at a return
+function k<N: Small>() {} k.<20>(); // TypeError: a type argument for a refined domain
 function f(v: uint8): Small { return v := Small; } // checked when it runs: v is not a constant
 function f(): Small { return 1; return 20; }       // not judged: the second return is never reached
 ```
@@ -339,6 +341,21 @@ type Mid = Low where this > 3;
 let m: Mid = 5;   // admitted: 5 is built as a uint8, then satisfies both
 let n: Mid = 20;  // TypeError: fails Low
 let k: Mid = 2;   // TypeError: fails Mid
+```
+
+#### A refinement's default
+
+A refinement has its base's default where the predicate holds of it, and none otherwise. Over a primitive base that default is a constant, so the question is answered where the type is used without an initializer:
+
+```js
+type Small = uint8 where this < 10;
+type Big = uint8 where this > 5;
+
+let x: Small;                    // 0: the base's default satisfies the predicate
+class K { a: Small; }            // likewise for a field
+let y: Big;                      // TypeError: 0 fails `this > 5`, so Big has no default
+const a = new [2].<Small>();     // two elements of 0
+const b = new [2].<Big>();       // TypeError: there is no default to fill it with
 ```
 
 The same reading of "constant" decides a function's own clauses at a call and at a return. ```null``` and ```undefined``` are constants as a number is, a fresh array, tuple or object literal of constants is one, and a function that can end without a ```return``` returns the constant ```undefined```:
