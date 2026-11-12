@@ -475,6 +475,14 @@ q.<5>(); // 'other'
 function q<const M>(): string where M > 3 { return 'mid'; } // TypeError: overlaps the first, so one application would have two cases
 ```
 
+A class specialization's clauses filter its selection in the same way, so the same split works for a class:
+
+```js
+class B<N: uint8> {}
+class B<const M> where M > 100 {} // selected by B.<120>
+class B<const M> where M < 50 {}  // selected by B.<5>; B.<70> is the primary
+```
+
 | Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
 | --- | --- | --- | --- | --- | --- |
 | Duplicates whatever their clauses | Cases split by range are refused as specializing "for the same applications", though no application satisfies both | None | None | The message is false for disjoint clauses | Rejected: refuses too much |
@@ -605,6 +613,24 @@ interface A { m(x: uint8): void where x > 100; }
 class C implements A { m(x: uint8): void { log(x); } }
 new C().m(20);  // TypeError where it is written
 ```
+
+A member that keeps the contracts of two members accepts what either one's callers may pass, and returns what both expect:
+
+```js
+interface A { m(x: uint8): uint8 where x > 100; }
+interface B { m(x: uint8): uint8 where x < 50; }
+class C implements A, B { m(x: uint8): uint8 { return x; } }
+c.m(120); // fine: A's clause holds
+c.m(20);  // fine: B's clause holds
+c.m(70);  // TypeError: neither holds
+```
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Keep the first base's contract | The contract depends on the order of the ```implements``` list | None | None | A caller through the other base is held to a clause that base never stated | Rejected: arbitrary |
+| The conjunction of every base's parameter clauses | The two bases above leave no call | None for preconditions | None | A call valid through ```A``` is refused because of ```B```, which breaks substitution | Rejected |
+| Disjunction for parameter clauses, conjunction for result clauses | The example above; a base that states no clause admits every call | Eiffel joins inherited preconditions with ```require else``` and postconditions with ```ensure then```, and JML and Spec# do the same. Rust lets no implementation be stricter than its trait and never joins two traits' methods, so it does not meet the question | At a call, bases are tried in order until one holds | The weakest contract both bases imply is their disjunction, which is the existing rule that a member states no clause its signature's clauses do not imply | **Recommended and implemented** |
+| Require the member to state its own clauses when two bases differ | Explicit, at the cost of writing the disjunction by hand | None | None | Sound | Rejected: it asks for what the rule above derives |
 
 #### A default its clause rejects
 
