@@ -278,6 +278,28 @@ const invalidPayment: Payment = {
 }; // Compile or runtime error: 'where' clause validation failed at construction. (In this case it would be a compile time error).
 ```
 
+#### An argument whose type the contract excludes
+
+A call is judged by the types of its arguments as well as by their values. Each parameter of the callee is read at the static type of its argument, and where a clause can then never succeed, no value the argument can hold satisfies the contract:
+
+```js
+type Small = uint8 where this < 10;
+function g(x: uint8) where x > 100 {}
+function h(y: Small) { g(y); }            // TypeError at the call: no Small is above 100
+function k(y: Small) { g(y := uint8); }   // not judged: the conversion drops what the type said
+function n(x: uint8 | null) where x !== null {}
+function m(y: null) { n(y); }             // TypeError at the call
+```
+
+An argument of the parameter's own type says nothing, and the call is checked when it runs. A refinement applied to arguments is read by those arguments, both here and where a clause follows it:
+
+```js
+type Lt<N: uint8> = uint8 where this < N;
+function f(x: Lt.<10>) where x > 100 {}   // TypeError: read as `uint8 where this < 10`
+let v: Lt.<10> = 20;                      // TypeError where it is written
+function open<M: uint8>(x: Lt.<M>) where x > 100 {} // left to each application: M is not known here
+```
+
 #### Intersecting refinements
 
 An intersection of refinements of one base admits the values every member admits. It stays an intersection: each refinement keeps the identity of its declaration, so a value of ```A & C``` is still a value of ```A``` and of ```C``` by name.

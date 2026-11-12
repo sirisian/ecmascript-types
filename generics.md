@@ -461,6 +461,27 @@ getReflection<Reflect.ClassField, T: type>(name: string | symbol): Reflect.Class
 The [binary packet](examples/binarypacket.md) writer and reader are the fuller worked example, with a dozen ```write``` and ```read``` overloads resolved this way.
 
 
+#### Cases split by their clauses
+
+Two overloads of one list are one case declared twice only where some application satisfies the clauses of both. Where their clauses are provably disjoint they are two cases, and an application selects the one whose clauses hold of it:
+
+```js
+function q<N: uint8>(): string { return 'other'; }
+function q<const M>(): string where M > 6 { return 'high'; }
+function q<const M>(): string where M < 3 { return 'low'; }
+q.<9>(); // 'high'
+q.<1>(); // 'low'
+q.<5>(); // 'other'
+function q<const M>(): string where M > 3 { return 'mid'; } // TypeError: overlaps the first, so one application would have two cases
+```
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Duplicates whatever their clauses | Cases split by range are refused as specializing "for the same applications", though no application satisfies both | None | None | The message is false for disjoint clauses | Rejected: refuses too much |
+| Distinct where the clauses are provably disjoint | Split by range and they coexist; overlap and the error names both | Rust's coherence refuses overlapping ```impl```s at their declaration and accepts those it can prove disjoint | Decided once, at the declarations; an application still has one candidate | The judgment is the fixed rule list, so every engine accepts the same pairs | **Recommended and implemented** |
+| Always distinct; an application both admit is ambiguous | Nothing is refused until a call hits the overlap | C++ constrained overloads | Both candidates are evaluated at every application | The error moves from the declaration that caused it to a call that did not | Rejected |
+| Always distinct; the first declared wins | Reads like a ```match``` | Rust's match arms with guards are ordered; cases here are declarations and may sit apart | One candidate, by order | Selection is by specificity everywhere else, never by order | Rejected |
+
 #### An overload its owner's clauses reject
 
 An owner's ```where``` clauses are part of what its list accepts. A callable overload whose list the clauses reject does not attach, exactly as one whose argument the domain or bound rejects does not: it is a standalone case with its own contract, selected by an explicit application of its own arguments.
@@ -521,6 +542,24 @@ A valid design keeps a fact only about something that is the same value at each 
 | A constant index into a position the type fixes | One rule a reader can state | Rust's borrow checker and pattern checker treat a tuple field ```t.0``` as its own place and see through fixed-size array patterns; for borrows Rust does not tell ```a[0]``` from ```a[1]```. The analogy is exact for tuples, and for arrays this goes further than Rust | A tuple position is a fixed slot, and the facts last only for the clause sequence | The footing of the fixed array's element: a store through the path or an alias revokes the fact | **Recommended and implemented** |
 | Also a constant index into a dynamic array | Would refuse the dynamic-array line above too | TypeScript narrows ```a[0]``` for a constant index on any array and accepts the unsoundness | None | The extent can change and the element may be absent | Rejected: not a stable place |
 | Also an index that is itself a place, ```a[i]``` | Natural in a loop-shaped clause | None; Rust conflates every index | Needs relations between an index and the extent | Two spellings may or may not name one element | Rejected: a different problem |
+
+#### Places that may be null
+
+A place whose type is one ordered type or ```null``` is ordered as that type. A comparison reads ```null``` as 0, which every numeric type holds, so a clause sequence over such a place is judged as it would evaluate:
+
+```js
+function f(x: uint8 | null) where x > 5 where x < 3 {}      // TypeError: can never succeed
+function f(x: uint8 | null) where x < 1 where x === null {} // fine: null satisfies both
+function f(x: uint8 | null) where x > 5 where x === null {} // TypeError: null is not above 5
+```
+
+A refinement in such a union projects where its own set holds 0, and says nothing otherwise, since it would claim of ```null``` what is false of it. A place that may be ```undefined```, which a comparison reads as NaN, is not ordered.
+
+| Direction | Ergonomics | Prior art and limits | Real-engine cost | Correctness | Other / decision |
+| --- | --- | --- | --- | --- | --- |
+| Not ordered until ```null``` is excluded | ```where x > 5 where x < 3``` passes for ```uint8 \| null``` | None | None | Sound but inconsistent: ```where x >= 0``` was already refused as never failing, which reads ```null``` as 0 | Rejected: the gap this closes |
+| Read ```null``` as the 0 a comparison converts it to | A sequence is judged as it evaluates | C# lifts comparisons over a nullable and answers false for null, a different conversion; no surveyed language has this one, because it is JavaScript's | None | Matches the comparison's own semantics | **Recommended and implemented** |
+| Refuse an ordered comparison of a nullable place | The reader writes ```x !== null``` first | Rust, Kotlin, Swift and TypeScript under strict null checks | None | It would change every comparison in the language, not only clauses | Rejected here: a language-wide decision |
 
 ### Variadic Generic Parameters
 
