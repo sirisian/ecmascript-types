@@ -544,6 +544,29 @@ A clause is also judged where it is written, before any specialization. A clause
 
 A clause reads only its declaration's own inputs. A method's clause may read its receiver through ```this``` and ```super```, judged against the class's instance type, an object literal's type, or the interface that declares the signature, and checked at each call, as Eiffel's preconditions, Dafny's ```requires``` and C++26 contracts may; a function without a receiver may not, and no clause reads ```new.target``` or contains ```await``` or ```yield```. A default its own clause rejects, such as ```function f(i: uint32 = 5) where i > 10```, can never be taken and is an error where it is written. A setter and a constructor declare no result, so neither takes a contract over ```return```. An operator definition takes clauses as a method does, over its operands, its receiver and its result. An operator in a ```primitive``` block reads that primitive as its receiver. Where the program applies a generic declaration, its applications decide its clauses, each reporting what evaluating them finds, and a value generic reads in a clause as the literal its value is. A method's clause over its class's value parameters is judged as a clause of the class, and every clause of a declaration nested in a generic one is judged under the clauses around it, as the next section describes; a default inside a parameter's pattern is checked as a parameter's is; and a function declared ```never```, like one declared ```void```, takes no contract over ```return```. A generic parameter is immutable: assigning one, in a clause or a body, is an error where it is written.
 
+#### When a contract is checked
+
+A clause over a call's own values is checked after the parameters are bound and before the body, in every function form. A clause that names ```return``` is checked when a result exists, which includes the end of a body that has no ```return```:
+
+```js
+function f(x: uint8) where x > 100 { log(x); }
+f(n);  // for n = 20: TypeError before the body, so log never runs
+
+function g(x: uint8) where x > 100 { x = 5; return x; }
+g(n);  // judged on what was passed, not on what the body stored
+
+function h(x: uint8): uint8 | undefined where return !== undefined || x > 100 { if (x > 200) return x; }
+h(n);  // for n = 20: TypeError at the end of the body, whose result is undefined
+```
+
+A member that states no clause keeps the contract of the member it implements or overrides, so a call of it is held to that contract before its own body, and a constant call is refused where it is written:
+
+```js
+interface A { m(x: uint8): void where x > 100; }
+class C implements A { m(x: uint8): void { log(x); } }
+new C().m(20);  // TypeError where it is written
+```
+
 #### A default its clause rejects
 
 A default is judged clause by clause. A clause that reads only parameters with defaults is evaluated at the declaration with those defaults, and one that fails means the default can never be taken:
