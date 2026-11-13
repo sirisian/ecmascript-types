@@ -614,6 +614,17 @@ class C implements A { m(x: uint8): void { log(x); } }
 new C().m(20);  // TypeError where it is written
 ```
 
+An interface that extends another keeps the contract of each member it inherits, so the clause may be written two interfaces away from the class. A member that replaces an inherited one may weaken the clause and may not strengthen it:
+
+```js
+interface A { m(x: uint8): void where x > 100; }
+interface B extends A { n(): void; }
+class C implements B { m(x: uint8): void {} n(): void {} }
+new C().m(20);                                           // TypeError: the clause is A's
+interface B1 extends A { m(x: uint8): void where x > 50; }   // fine: x > 100 implies x > 50
+interface B2 extends A { m(x: uint8): void where x > 200; }  // TypeError: stricter than the member it replaces
+```
+
 A member that keeps the contracts of two members accepts what either one's callers may pass, and returns what both expect:
 
 ```js

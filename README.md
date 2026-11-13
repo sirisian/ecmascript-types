@@ -2209,6 +2209,79 @@ function f(a: B) {
 }
 ```
 
+An interface has the members of every type it extends, and it is a subtype of each. Where the base is an interface the relation is declared, so a class that implements ```B``` is an ```A``` without naming it:
+
+```js
+interface A { a: string; }
+interface B extends A { b: uint8; }
+class C implements B { a: string = 'x'; b: uint8 = 1; }
+function f(x: A) { return x.a; }
+f(new C());                    // fine: C implements B, and B extends A
+Reflect.isAssignable(B, A);    // true
+Reflect.isAssignable(A, B);    // false
+```
+
+A base is an interface, or any type with a structural form: an object type, an array type, a tuple type or a function type, written directly, through an alias, or as an intersection of these. A function type is a base only for an interface whose members are all call signatures, since call signatures do not mix with named members. An interface that extends an array or tuple type is that type with named members, the same as the intersection spelling:
+
+```js
+type ClassReflection = { name: string | undefined; abstract: boolean; };
+interface Class<T: type> extends ClassReflection { build(): T; }      // an alias of an object type
+interface TemplateStringsArray extends [].<string | undefined> { raw: [].<string>; }
+// the same type as [].<string | undefined> & { raw: [].<string> }
+```
+
+A class, a primitive, an enum, a union, a type parameter and a type with a ```where``` clause are not bases, and each is a TypeError that names what was found. A class has no structural form: it states a construction and an identity as well as a shape.
+
+| What a base may be | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| Interfaces only | The reflection interfaces of [decorators](decorators.md), which extend aliases of object types, and ```TemplateStringsArray``` are refused | Java, C#, Kotlin and Swift let an interface extend only interfaces, and Rust's supertraits are traits. None has a structural type to extend, so they say nothing about this case | None | Sound | Rejected |
+| Interfaces and array types | A reader may extend ```[].<string>``` and not the object type written beside it | None | None | Sound, and no principle separates an array type from an object type | Rejected |
+| Interfaces and any type with a structural form | One rule: a base is something whose members are known where ```extends``` is written | TypeScript lets an interface extend an object type or an intersection of object types with statically known members | A structural base contributes its members once, at the declaration | For a structural base nothing is declared: the interface is a subtype of it by structure, the only relation such a type has | **Chosen** |
+| The same, and classes | The widest | TypeScript allows it | The same | A class has no structural form, so there are no members to take, and a value of the interface was not constructed by the class | Rejected |
+
+A member the interface redeclares must be usable wherever the base's is, by the rules a class member satisfies an interface member: a read-only property may narrow, a writable one keeps its type, a method may take more and return less, and a required member does not become optional.
+
+```js
+interface R { readonly n: uint8 | string; m(x: uint8): uint8 | string; w: uint8; }
+interface R1 extends R { readonly n: uint8; }            // fine
+interface R2 extends R { m(x: uint8 | string): uint8; }  // fine
+interface R3 extends R { w: uint16; }                    // TypeError: a writable member keeps its type
+```
+
+Where two bases supply one member, the interface has the one that satisfies the other, so the order of the bases never matters. Where neither satisfies the other, the interface declares the member itself, satisfying both:
+
+```js
+interface X1 { m(): uint8; }
+interface X3 { m(): string; }
+interface X4 { m(): uint8 | string; }
+interface Y4 extends X1, X4 {}               // m(): uint8, which satisfies X4's
+interface Y2 extends X1, X3 {}               // TypeError: neither m satisfies the other
+interface Y3 extends X1, X3 { m(): never; }  // fine
+
+interface Top { v: uint8; t(): uint8 | string; }
+interface Left extends Top { t(): uint8; }
+interface Right extends Top {}
+interface Bottom extends Left, Right {}      // v arrives twice from one declaration; t is Left's
+```
+
+| Two bases, one member | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| The two must be the same member | The diamond above is refused, and the fix repeats what ```Left``` already says | TypeScript requires identical types, and Eiffel joins two inherited features only where their signatures are identical | One comparison per shared key, at the declaration | Sound | Rejected |
+| The member that satisfies the other is taken | The diamond works; two unrelated members are still refused, and the reader writes the member that reconciles them | Java inherits several override-equivalent methods where one is return-type-substitutable for the rest. Rust does not merge: two supertraits' same-named methods stay apart and a call names one, so there is no analogy to draw | The same | The member taken satisfies both bases by construction, and every member's type is written somewhere a reader can find it | **Chosen** |
+| The first base listed wins | Nothing is refused | None | None | The interface may not be usable as its second base, and its meaning depends on the order written | Rejected |
+| The member is computed as the greatest lower bound | ```m(): uint8``` and ```m(): string``` silently become ```m(): never``` | TypeScript does this for an intersection type and not for an interface | A type is computed per shared key | Sound, and the member's type is written nowhere | Rejected |
+
+A cycle of bases and a base listed twice are TypeErrors. A reference back to the interface from a base's arguments or from one of a base's members is not a cycle, and a base may be declared later than the interface that extends it:
+
+```js
+interface Container<T: type> { items: [].<T>; }
+interface Node extends Container.<Node> { label: string; }   // fine: a recursive edge
+interface A2 extends B2 {}
+interface B2 extends A2 {}                                   // TypeError: A2 and B2 extend each other
+```
+
+Only the primary declaration states what an interface extends. A ```partial interface``` adds members, and a member added to a base reaches every interface that extends it.
+
 ### Implementing Interfaces
 
 Resolve an `implements` target exactly as a type annotation: transparent aliases retain the interface's declaration identity, lexical shadowing matters, and generic arguments use the common binder for names, packs, defaults, constraints and family cases. Retain that resolved identity and its arguments for later nominal checks. An established non-interface target is an error. An unresolved generic obligation waits for specialization.
@@ -2237,7 +2310,7 @@ const a = new C();
 a.a = a.b(5);
 ```
 
-A class satisfies an interface with the members it declares, on itself or on a class it extends. `C` inherits nothing named `a`, so it declares `a` itself; assigning `a.a` after construction would not have made `C` implement `A`.
+A class satisfies an interface with the members it declares, on itself or on a class it extends. Implementing an interface implements each interface it extends, with the members it inherits, and a class is not an array, so it cannot implement an interface that extends an array or tuple type. `C` inherits nothing named `a`, so it declares `a` itself; assigning `a.a` after construction would not have made `C` implement `A`.
 
 Note that since ```b``` isn't overloaded, defining the type of the member function ```b``` in the class ```C``` isn't necessary.
 
