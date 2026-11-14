@@ -625,6 +625,16 @@ interface B1 extends A { m(x: uint8): void where x > 50; }   // fine: x > 100 im
 interface B2 extends A { m(x: uint8): void where x > 200; }  // TypeError: stricter than the member it replaces
 ```
 
+An inherited clause may read the type parameters of the declaration that states it. It reads them at the arguments by which the receiver's class reaches that declaration:
+
+```js
+interface Sized<N: uint8> { take(i: uint8): void where i < N; }
+class Ten implements Sized.<10> { take(i: uint8): void {} }
+class Hundred implements Sized.<100> { take(i: uint8): void {} }
+new Ten().take(20);      // TypeError: checked as i < 10
+new Hundred().take(20);  // fine
+```
+
 A member that keeps the contracts of two members accepts what either one's callers may pass, and returns what both expect:
 
 ```js
