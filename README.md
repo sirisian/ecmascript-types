@@ -3932,6 +3932,8 @@ sql`select * from t where id = ${id}`;
 // sql`select ${{}}`; // TypeError: object is not assignable to uint32 | string
 ```
 
+The strings object is an array that also has ```raw```, so it is an argument for ```TemplateStringsArray``` and for the intersection that spells the same type, ```[].<string | undefined> & { raw: [].<string> }```. An ordinary array has no ```raw``` and is not one. Where a tag is overloaded on ```TemplateStringsArray``` and on a plain array, a template selects the first.
+
 A tag's first argument contains the exact cooked value at each known position: a String for a valid span, or `undefined` for a malformed escape. Its `.raw` entries remain Strings. Call and overload checks use those cooked literals and the actual substitution order; for example, `\x61` supplies the String `"a"`, not its raw spelling. A malformed escape is allowed in a tagged template when the parameter admits `undefined`; invalid untagged templates retain their syntax error. Template objects and `.raw` remain frozen and preserve their ordinary site identity.
 
 Tags overload like other functions, using the cooked positions as well as interpolation types. An untyped tag continues to accept anything.
