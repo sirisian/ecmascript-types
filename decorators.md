@@ -362,6 +362,15 @@ A field written with a `?` below is present and *undefined* where it does not ap
 
 ```js
 namespace Reflect {
+	// An interface declaration: what it extends, its members, and which of them it states itself.
+	// `Reflect.Interface` is a reflection target only; an interface takes no decorator.
+	type InterfaceReflection = {
+		name: string;
+		type: type;
+		extends: [].<type>;                     // the types the declaration extends, in the order written
+		members: TypeReflection;                // the object node of its structural form, inherited members included
+		own: [].<string | symbol>;              // the keys this declaration states, a replaced member included
+	};
 	type ClassReflection = {
 		name: string | undefined;
 		type: Function;
@@ -726,12 +735,12 @@ namespace Reflect {
 ```js
 namespace Reflect {
 	type TypeReflection =
-		| { kind: 'primitive'; type: type; extends?: [].<type>; }          // uint8, string, or a nominal class/enum/interface reference; `extends` is present for a declared interface and lists what it extends, in the order written
+		| { kind: 'primitive'; type: type; }                              // uint8, string, or a nominal class/enum/interface reference
 		| { kind: 'union'; members: [].<type>; }
 		| { kind: 'intersection'; members: [].<type>; }
 		| { kind: 'tuple'; elements: [].<TypeTupleElement>; }
 		| { kind: 'array'; element: type; extent: uint32 | undefined; }   // [].<T> => extent undefined; [N].<T> => N
-		| { kind: 'object'; properties: [].<TypePropertyReflection>; }    // object-literal or interface type
+		| { kind: 'object'; properties: [].<TypePropertyReflection>; }    // object-literal type
 		| { kind: 'function'; signatures: [].<FunctionSignatureReflection>; }
 		| { kind: 'reference'; target: type; };                           // the `ref` borrow type
 
@@ -748,7 +757,29 @@ namespace Reflect {
 }
 ```
 
-An `enum` or `class` type surfaces as a `primitive` node whose `type` is the nominal type; its members are reached through the existing `Reflect.Enum` and `Reflect.Class` contexts, so `Reflect.Type` does not duplicate enum or class member reflection. A `function` node's `signatures` is the same overload list the function reflection carries, so a bare function *type* and a reflected function *declaration* expose their overloads through one shape.
+An `enum`, `class` or `interface` type surfaces as a `primitive` node whose `type` is the nominal type; its members are reached through `Reflect.Enum`, `Reflect.Class` and `Reflect.Interface`, so `Reflect.Type` does not duplicate their member reflection and a nominal type's node exposes nothing of its declaration. A `function` node's `signatures` is the same overload list the function reflection carries, so a bare function *type* and a reflected function *declaration* expose their overloads through one shape.
+
+### Reflecting an interface
+
+An interface is reflected as a class and an enum are: its type is a named leaf, and its declaration is read from a record of its own.
+
+```js
+interface A { a: string; }
+interface B extends A { readonly b?: uint8; m(x: uint8): string; }
+const r = Reflect.getReflection.<Reflect.Interface, B>();
+r.name;                                     // 'B'
+r.extends;                                  // [A]
+r.members.properties.map((p) => p.name);    // ['b', 'm', 'a']
+r.own;                                      // ['b', 'm']
+Reflect.getReflection.<Reflect.Type>(B).kind;   // 'primitive': the type itself is opaque
+```
+
+| How an interface is reflected | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| A named leaf and nothing more | Its members cannot be listed | Rust has no run-time reflection: a type has a ```TypeId``` and no members to ask for. The analogy is weak, since an interface here is a value | None | Members and bases are unreachable | Rejected |
+| An ```object``` node with its properties | Members are reachable by the walk that reads an object type | TypeScript has no run-time reflection to compare | None | The node has no ```type```, so an interface is indistinguishable from an alias of the same shape, and bases have nowhere to go | Rejected |
+| A named leaf for the type, and a ```Reflect.Interface``` record | One pattern for the three nominal kinds | Java and C#: one reflective object answers for a class or an interface, with ```getInterfaces()``` and ```getMethods()``` | Built on request from what the declaration holds | Identity, members and bases are all reachable, and the type's node exposes nothing of its declaration | **Chosen** |
+| A named leaf that itself carries members and bases | One call | None | None | Makes an interface's node unlike a class's | Rejected |
 
 ## `Reflect.getReflection` Signatures
 
@@ -760,6 +791,7 @@ The following `Reflect.getReflection` function is able to reflect any class, fun
 namespace Reflect {
 	// Class-level
 	getReflection<Reflect.Class, T: type>(): Reflect.ClassReflection;
+	getReflection<Reflect.Interface, T: type>(): Reflect.InterfaceReflection;
 
 	// Fields
 	getReflection<Reflect.ClassField, T: type>(): { [name: string | symbol]: Reflect.ClassFieldReflection };

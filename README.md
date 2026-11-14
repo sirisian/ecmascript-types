@@ -2843,6 +2843,8 @@ A bare argument is the element type, as it is for a generator: `Iterator.<uint8>
 
 ```Iterator``` is also a class - the one iterator helpers put ```map```, ```filter```, and ```take``` on - and it declares that it implements ```IterableIterator```. A class that declares an interface is checked once at its declaration and by brand afterwards, so the common path costs a prototype check and only a hand-written object pays a member walk.
 
+A built-in declares its protocols too, and that is what ranks it: called with a ```Set```, an overload on ```Iterable.<T>``` is chosen over one on an interface that merely has the same members. An array, a tuple and a string are not classes; each is an ```Iterable``` of its element by rule, a string's element being a ```string```. A built-in is still compared with a protocol application through its members and not by its arguments, because what its operations return can be more precise than any one application says: a generator's ```next``` also returns the result of running off the end, so a ```Generator.<uint8, string, void>``` is an ```Iterator.<uint8, string | undefined, void>``` and is not an ```Iterator.<uint8, string, void>```.
+
 ```js
 class Cursor implements Iterator.<uint8> {   // checked here, by brand at every use
   next(): IteratorResult.<uint8, void> { … }
@@ -3920,7 +3922,7 @@ A tag function is typed like any other function. The strings parameter is a ```T
 
 ```js
 interface TemplateStringsArray extends [].<string | undefined> {
-  raw: [].<string>;
+  readonly raw: [].<string>;
 }
 
 function sql(strings: TemplateStringsArray, ...values: [].<uint32 | string>): string {
@@ -3932,7 +3934,35 @@ sql`select * from t where id = ${id}`;
 // sql`select ${{}}`; // TypeError: object is not assignable to uint32 | string
 ```
 
-The strings object is an array that also has ```raw```, so it is an argument for ```TemplateStringsArray``` and for the intersection that spells the same type, ```[].<string | undefined> & { raw: [].<string> }```. An ordinary array has no ```raw``` and is not one. Where a tag is overloaded on ```TemplateStringsArray``` and on a plain array, a template selects the first.
+The strings object is an array that also has ```raw```, so it is an argument for ```TemplateStringsArray``` and for the intersection that spells the same type, ```[].<string | undefined> & { readonly raw: [].<string> }```. An ordinary array has no ```raw``` and is not one.
+
+The object is frozen, so ```raw``` is declared ```readonly``` and assigning to it is a TypeError where it is written. A type that declares a writable ```raw``` is not met by a template. The other writes - an element of the strings, an element of ```raw```, ```push```, ```length``` - still type-check and throw when they run, because the language has no read-only array type yet.
+
+| What the declaration says about writing | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| Everything writable | Nothing to learn; five writes type-check and throw | None of the languages below types a frozen sequence as writable | None | The type says less than the object does | Rejected |
+| ```readonly raw``` | One word; refuses ```s.raw = x``` | A subset of TypeScript's declaration | None | Right for ```raw``` itself; the element writes are still unchecked | **Chosen**, as the first step |
+| A read-only array type, used for the base and for ```raw``` | All five writes refused, and a function that only reads says so in its parameter | TypeScript: ```interface TemplateStringsArray extends ReadonlyArray<string> { readonly raw: readonly string[] }```. Rust: a tag would receive ```&[&str]```, a shared slice that cannot be written through. C#'s ```IReadOnlyList<T>``` and Kotlin's ```List``` against ```MutableList``` are the same split | A read-only array may be shared and hoisted | Holds for every write; it needs a spelling, a variance rule, and a relation to ```Composite``` that this section does not decide | **The goal**, as a feature of its own |
+| The checker knows a template object is frozen | All five refused, for templates only | None | None | The type would mean something no declaration says | Rejected |
+
+A template's first argument selects among overloads in one order: a signature that names its cooked literals, then an array with ```raw```, then a plain array. Each describes less of the object than the one before.
+
+```js
+function t(s: ['select ', ''], id: uint32): string { /* this exact text */ }
+function t(s: TemplateStringsArray, ...v: [].<uint32 | string>): string { /* any template */ }
+function t(s: [].<string>, ...v: [].<uint32 | string>): string { /* any array of strings */ }
+t`select ${id}`;         // the first: its literals match
+t`delete ${id}`;         // the second
+const parts: [].<string> = ['delete ', ''];
+t(parts, id);            // the third: a plain array has no raw
+```
+
+| How a template's first argument is ranked | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| In one stated order: its literals, an array with ```raw```, a plain array | A tag can put a signature for particular strings in front of a general one | C#, Java and C++ prefer the signature whose parameter is the more specific type, which gives this order. Rust has no overloading to compare | Three candidates at most | Adding a more descriptive signature never makes an existing call ambiguous | **Chosen** |
+| By the general table alone, with the strings typed as an array with ```raw``` | An array with ```raw``` is an exact match and beats a signature that names the literals | None | The same | Loses the existing rule that cooked literals participate | Rejected |
+| A general tie-break: the signature whose parameter is a subtype wins | The same order, and it changes every overloaded call in the language | C#, Java, C++ | A subtype test at each tie | A question about overloading, not about templates | Not proposed here |
+| Ambiguous whenever two are viable | A tag cannot be overloaded on an array with ```raw``` and a plain array | TypeScript resolves by declaration order instead | None | Refuses a useful overload set | Rejected |
 
 A tag's first argument contains the exact cooked value at each known position: a String for a valid span, or `undefined` for a malformed escape. Its `.raw` entries remain Strings. Call and overload checks use those cooked literals and the actual substitution order; for example, `\x61` supplies the String `"a"`, not its raw spelling. A malformed escape is allowed in a tagged template when the parameter admits `undefined`; invalid untagged templates retain their syntax error. Template objects and `.raw` remain frozen and preserve their ordinary site identity.
 
