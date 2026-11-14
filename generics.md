@@ -635,6 +635,16 @@ new Ten().take(20);      // TypeError: checked as i < 10
 new Hundred().take(20);  // fine
 ```
 
+A constant call is refused where it is written, as for any contract. A member that states its own clause is compared under the same reading, and a generic class may pass its own parameter on:
+
+```js
+class A implements Sized.<10> { take(i: uint8): void where i < 10 {} }   // fine: repeats i < N
+class B implements Sized.<10> { take(i: uint8): void where i < 50 {} }   // fine: weaker
+class C implements Sized.<10> { take(i: uint8): void where i < 5 {} }    // TypeError: stricter
+class T<M: uint8> implements Sized.<M> { take(i: uint8): void {} }
+new T.<10>().take(20);   // TypeError: for this application N is 10
+```
+
 A member that keeps the contracts of two members accepts what either one's callers may pass, and returns what both expect:
 
 ```js
