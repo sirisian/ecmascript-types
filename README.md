@@ -1673,6 +1673,34 @@ const b: bigint = 18446744073709551615n;
 
 A stable lexical alias of a constructor preserves its argument contracts, including names, omission, `ref` and generic arguments. `const K = C; new K("bad")` is checked against the known constructor of `C`. Conditional targets are checked independently, not merged into an overload set. Reassignment, shadowing, explicit `any`, decorators and unknown origins retain their dynamic treatment.
 
+#### A literal at a union
+
+A union offers an object literal one alternative for each of its arms. Where the arms agree about a member, it takes that type. Where they differ, the literal is tried against each arm and must satisfy one complete alternative; which arm is written first decides nothing.
+
+```js
+type U = { m(): int32 } | { m(): string };
+let a: U = { m() { return 1; } };          // the first arm
+let b: U = { m() { return 's'; } };        // the second arm
+// let c: U = { m() { return true; } };    // TypeError: the result of m is not the result any arm declares
+
+type V = { m(x: int32): int32 } | { m(x: string): string };
+let d: V = { m(x) { return x; } };         // x is int32 in one try and string in the other; either fits
+
+type W = { m(): int32, n: int32 } | { m(): string, n: string };
+let e: W = { m() { return this.n; }, n: 1 };   // the first arm: this.n is int32 there
+// let f: W = { m() { return 1; }, n: 's' };   // TypeError: no one arm has both
+```
+
+In a try, a method, an arrow or a function expression takes the arm's signature for what it leaves unannotated, and the result of its body must be that arm's result. A member that annotates its own result is judged by the annotation. The rule is the same for a field, an arrow and a method.
+
+| A literal's method where the arms disagree | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| Refused; the reader writes its signature | Explicit | Rust: a closure with no single expected type needs annotations | One check | Sound, but an arrow in the same position would have to be refused too, or the two follow different rules | Rejected |
+| Typed from its own body, then compared with each arm | No annotation for a method with no parameter | TypeScript: ```{ m() { return 1 } }``` is accepted there, and ```{ m(x) { return x } }``` is refused because ```x``` implicitly has an ```any``` type | One check | A parameter has nothing to take a type from, though an arm would have typed it | Rejected |
+| Tried against each arm that declares the member; the literal satisfies one complete arm | No annotation in either case; a refusal names the member | The specification's own rule for a range in metadata. C++ and Swift choose among overloads by trying each | A body's result is inferred once per arm that declares the member | One rule for a field, an arrow and a method; independent of the order of the arms | **Chosen** |
+| The method adopts no signature and is left unchecked | | | | ```{ m() { return true } }``` passes and is a value of no arm | Rejected |
+
+
 ### Target-Typed Construction
 
 Identically to how types propagate to literals they also propagate to arrays. The array type is propagated to the right side, and each element is a typed position:
