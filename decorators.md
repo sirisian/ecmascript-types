@@ -366,6 +366,7 @@ namespace Reflect {
 		name: string | undefined;
 		type: Function;
 		abstract: boolean;
+		implements: [].<type>;   // the interfaces the class declares, in the order written; empty where it declares none
 		metadata: ClassMetadata;
 	};
 
@@ -725,7 +726,7 @@ namespace Reflect {
 ```js
 namespace Reflect {
 	type TypeReflection =
-		| { kind: 'primitive'; type: type; }                              // uint8, string, or a nominal class/enum reference
+		| { kind: 'primitive'; type: type; extends?: [].<type>; }          // uint8, string, or a nominal class/enum/interface reference; `extends` is present for a declared interface and lists what it extends, in the order written
 		| { kind: 'union'; members: [].<type>; }
 		| { kind: 'intersection'; members: [].<type>; }
 		| { kind: 'tuple'; elements: [].<TypeTupleElement>; }

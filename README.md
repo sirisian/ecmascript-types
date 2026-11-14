@@ -2310,7 +2310,7 @@ const a = new C();
 a.a = a.b(5);
 ```
 
-A class satisfies an interface with the members it declares, on itself or on a class it extends. Implementing an interface implements each interface it extends, with the members it inherits, and a class is not an array, so it cannot implement an interface that extends an array or tuple type. `C` inherits nothing named `a`, so it declares `a` itself; assigning `a.a` after construction would not have made `C` implement `A`.
+A class satisfies an interface with the members it declares, on itself or on a class it extends. The built-in iteration protocols are interfaces like any other, so a class names one in ```implements``` to be passed where it is asked for. Implementing an interface implements each interface it extends, with the members it inherits, and a class is not an array, so it cannot implement an interface that extends an array or tuple type. `C` inherits nothing named `a`, so it declares `a` itself; assigning `a.a` after construction would not have made `C` implement `A`.
 
 Note that since ```b``` isn't overloaded, defining the type of the member function ```b``` in the class ```C``` isn't necessary.
 
@@ -2851,6 +2851,28 @@ function drain(it: Iterator.<uint8>): void {}
 drain(new Cursor());
 drain({ next: () => ({ value: 1, done: false }) });   // also fine: it has the members
 ```
+
+Both are an ```Iterator``` by one rule. ```next``` is declared as a method, and a method member is satisfied by a method or by a function that declares no receiver. A method is only ever reached through an object that has it, so a receiver is always supplied, and a function that declares none does not read it. What stays refused is the other direction: a method taken off its object and called without one.
+
+```js
+function f(it: Iterator.<uint8>) {
+  const n = it.next;
+  n();              // TypeError: next is a method, and no receiver is supplied
+  it.next();        // fine
+}
+interface Bus { on(name: string): void; }
+const a: Bus = { on(name: string): void {} };          // a method
+const b: Bus = { on: (name: string): void => {} };     // a function that declares no receiver: also the member
+const g: (this: Bus) => void = () => {};               // TypeError: an explicit this type is met only by a signature that declares one
+```
+
+| What may be a method member | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| The protocols' members are plain functions, and a class cannot implement a protocol | ```class Cursor implements Iterator.<uint8>``` is refused | None: every language below lets a class implement its iteration protocol | None | Sound only because the class is forbidden | Rejected |
+| The protocols' members are plain functions, and a class method may be one by a rule for protocols alone | Both examples work; an interface the reader declares cannot behave the same | None | None | ```const n = it.next; n()``` type-checks and throws inside a class's method | Rejected |
+| Only a method is a method member | ```{ next: () => … }``` must be written ```{ next() { … } }``` | Rust satisfies a trait method only by an ```impl```, and a closure reaches ```Iterator``` through ```std::iter::from_fn```. Go has ```http.HandlerFunc```. Close, and it shows the cost: an adapter for each protocol | None | Sound | Rejected: it refuses a value that has the member and can be called through it |
+| A method member is a method or a function that declares no receiver | Both examples work, for the protocols and for any interface; the detached call is refused | Java and Kotlin: a lambda implements the one method of a functional interface, and its ```this``` is lexical as an arrow's is. TypeScript accepts a function wherever a method is declared | None at a call | Sound: a receiver is always supplied to a method, and a function that declares none does not read it | **Chosen** |
+| The same, and such a function also meets an explicit ```this``` type | The widest | TypeScript | The same | Sound, and it stops reporting an arrow written where a ```this``` was promised to its body, which is almost always a mistake | Rejected |
 
 ```IteratorResult``` is a discriminated union over a boolean literal, so reading one is an ordinary exhaustive ```match``` and the two ```value``` types are separate:
 
