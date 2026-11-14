@@ -1691,7 +1691,7 @@ let e: W = { m() { return this.n; }, n: 1 };   // the first arm: this.n is int32
 // let f: W = { m() { return 1; }, n: 's' };   // TypeError: no one arm has both
 ```
 
-In a try, a method, an arrow or a function expression takes the arm's signature for what it leaves unannotated, and the result of its body must be that arm's result. A member that annotates its own result is judged by the annotation. The rule is the same for a field, an arrow and a method.
+In a try, a method, an arrow or a function expression takes the arm's signature for what it leaves unannotated, and its body is checked as that function's body: a body that returns what an arm asks and misuses a parameter under that arm does not satisfy it. A member that annotates its own result is judged by the annotation. The rule is the same for a field, an arrow and a method.
 
 | A literal's method where the arms disagree | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
@@ -2870,6 +2870,8 @@ interface IterableIterator<T: type, R: type = void, N: type = void> extends Iter
 A bare argument is the element type, as it is for a generator: `Iterator.<uint8>` is `Iterator.<uint8,void,void>`. Both families default R and N to void. A generator's more precise operation result includes ordinary exhaustion; equal defaults do not imply that every explicit R supplies the same structural result in both families.
 
 ```Iterator``` is also a class - the one iterator helpers put ```map```, ```filter```, and ```take``` on - and it declares that it implements ```IterableIterator```. A class that declares an interface is checked once at its declaration and by brand afterwards, so the common path costs a prototype check and only a hand-written object pays a member walk.
+
+An argument of ```any``` asks nothing of its position, so ```Iterable.<any>``` - which is what the bare name ```Iterable``` means in an annotation - is every iterable, whatever its element.
 
 A built-in declares its protocols too, and that is what ranks it: called with a ```Set```, an overload on ```Iterable.<T>``` is chosen over one on an interface that merely has the same members. An array, a tuple and a string are not classes; each is an ```Iterable``` of its element by rule, a string's element being a ```string```. A built-in is still compared with a protocol application through its members and not by its arguments, because what its operations return can be more precise than any one application says: a generator's ```next``` also returns the result of running off the end, so a ```Generator.<uint8, string, void>``` is an ```Iterator.<uint8, string | undefined, void>``` and is not an ```Iterator.<uint8, string, void>```.
 
