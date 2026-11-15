@@ -803,7 +803,7 @@ w.capacity;                       // not a member: a window owns no allocation
 [...w];                           // a new owned array, explicitly
 ```
 
-A window has the array methods that do not change a length, and iterates. It has no ```push```, ```pop```, ```shift```, ```unshift```, ```splice```, ```capacity```, ```reserve```, or ```shrinkToFit```.
+A window has the array methods that do not change a length, and iterates. It has no ```push```, ```pop```, ```shift```, ```unshift```, ```splice```, ```capacity```, ```reserve```, or ```shrinkToFit```. Because it iterates, it is an ```Iterable``` of its element. A method that copies its elements - ```slice```, ```concat```, ```filter```, ```map```, ```toSorted``` and the rest - returns an owned array, never a window, and in ```concat``` a window joins as the run of elements it is.
 
 An optional second argument fixes the length in the type. ```Span.<T>``` is a window of unknown length and ```Span.<T, N>``` one of exactly N, which is what lets ```window.<N>``` check once and leave the accesses inside unchecked.
 
@@ -3975,13 +3975,13 @@ sql`select * from t where id = ${id}`;
 
 The strings object is an array that also has ```raw```, so it is an argument for ```TemplateStringsArray``` and for the intersection that spells the same type, ```[].<string | undefined> & { readonly raw: [].<string> }```. An ordinary array has no ```raw``` and is not one.
 
-The object is frozen, so ```raw``` is declared ```readonly``` and assigning to it is a TypeError where it is written. A type that declares a writable ```raw``` is not met by a template. The other writes - an element of the strings, an element of ```raw```, ```push```, ```length``` - still type-check and throw when they run, because the language has no read-only array type yet.
+The object is frozen, so ```raw``` is declared ```readonly``` and assigning to it is a TypeError where it is written. A type that declares a writable ```raw``` is not met by a template. The other writes - an element of the strings, an element of ```raw```, ```push```, ```length``` - still type-check and throw when they run. Freezing is not modelled by the type system: it changes an object the checker has already typed, and ```Object.freeze(a)``` must be ```a```.
 
 | What the declaration says about writing | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
 | Everything writable | Nothing to learn; five writes type-check and throw | None of the languages below types a frozen sequence as writable | None | The type says less than the object does | Rejected |
-| ```readonly raw``` | One word; refuses ```s.raw = x``` | A subset of TypeScript's declaration | None | Right for ```raw``` itself; the element writes are still unchecked | **Chosen**, as the first step |
-| A read-only array type, used for the base and for ```raw``` | All five writes refused, and a function that only reads says so in its parameter | TypeScript: ```interface TemplateStringsArray extends ReadonlyArray<string> { readonly raw: readonly string[] }```. Rust: a tag would receive ```&[&str]```, a shared slice that cannot be written through. C#'s ```IReadOnlyList<T>``` and Kotlin's ```List``` against ```MutableList``` are the same split | A read-only array may be shared and hoisted | Holds for every write; it needs a spelling, a variance rule, and a relation to ```Composite``` that this section does not decide | **The goal**, as a feature of its own |
+| ```readonly raw``` | One word; refuses ```s.raw = x``` | A subset of TypeScript's declaration | None | Right for ```raw``` itself; the element writes are still unchecked | **Chosen** |
+| A frozen array type, for the base and for ```raw``` | All five writes refused through that type | The withdrawn Records and Tuples proposal made such values a separate kind. TypeScript's ```ReadonlyArray``` is a different thing: a view with no run-time form, which is unsound where an array carries its element type | None | Sound for a value born frozen. For ```Object.freeze``` it is incomplete, since a binding made before the freeze stays writable; and it adds a third property to array types, beside extent and ownership, for one built-in object and one function | Rejected for now: freezing stays unmodelled |
 | The checker knows a template object is frozen | All five refused, for templates only | None | None | The type would mean something no declaration says | Rejected |
 
 A template's first argument selects among overloads in one order: a signature that names its cooked literals, then an array with ```raw```, then a plain array. Each describes less of the object than the one before.
