@@ -834,6 +834,22 @@ It has every member of ```Span``` that neither stores to an element nor yields a
 
 A store to an element is a TypeError where it is written, and so is a store to a field or position inside an element that is stored inline, a value type class or a tuple, since those are the array's storage. An element that is a reference is different: the window holds the reference, and the object it refers to is as writable as it was.
 
+An inline element stays read-only wherever it is reached without a copy, because it is still the array's storage: as the ```this``` of a method, through a ```ref```, and when a reference to it is held in a plain object. A method that only reads runs; one that stores throws at the store. A copy is the reader's own.
+
+```js
+class Particle { x: float32; step(): void { this.x += 1; } speed(): float32 { return this.x; } }
+function read(ps: ReadonlySpan.<Particle>) {
+  ps[0].speed();           // fine: it only reads
+  // ps[0].step();         // TypeError when it runs: this is the element, and it is read-only
+  const held = { p: ps[0] };
+  // held.p.x = 2;         // TypeError when it runs: held.p is still the element
+  const own = ps[0];       // a copy
+  own.step();              // fine: it is the reader's own
+}
+```
+
+The language does not say which methods store to ```this```, so the call is accepted where it is written and refused when it stores. Marking such methods, as Rust's ```&mut self``` and Swift's ```mutating``` do, would refuse it earlier, and is not part of this.
+
 A read-only window does not freeze the array beneath. An element changed through another reference is seen through it, and growth invalidates it, as for any window. Freezing is not modelled: ```Object.freeze(a)``` is ```a```, and a window is a distinct value.
 
 | How a reader says it only reads | Ergonomics | Prior art | Performance | Correctness | Decision |
