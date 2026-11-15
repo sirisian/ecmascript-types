@@ -809,6 +809,40 @@ An optional second argument fixes the length in the type. ```Span.<T>``` is a wi
 
 Element access is bounds-checked in both directions. A read past the end raises, and so does a WRITE - unlike an owned ```[].<T>```, where a write past the end grows the array, and unlike a ```[N].<T>```, where it is an attempted growth and refused. A window's length is fixed, so a write past it has nowhere to go.
 
+#### Read-only windows
+
+```ReadonlySpan.<T>``` is a window nothing is stored through. It is what a function writes when it will only read.
+
+```js
+function count(xs: ReadonlySpan.<uint8 | string>) { return xs.length; }
+const bytes: [].<uint8> = [1, 2, 3];
+count(bytes);                     // fine: an array, at a wider element
+count([1, 'a']);                  // a tuple too
+
+function first(xs: ReadonlySpan.<uint8>): uint8 {
+  // xs[0] = 1;                   // TypeError: read-only
+  // xs.sort();                   // TypeError: sort stores in place; toSorted returns a copy
+  const sorted = xs.toSorted();   // an owned [].<uint8>
+  return xs[0];
+}
+function lend(xs: Span.<uint8>) { return first(xs); }   // a Span may be lent as read-only
+```
+
+An array of either extent, a tuple and a ```Span``` coerce to it, at their own element type or a wider one, and it coerces back to none of them. The wider element is sound because the coercion makes a window that carries ```T```: a search through it compares at ```T```, and a copy from it is stored at ```T```. On the array itself ```includes('s')``` would be refused by a ```[].<uint8>```.
+
+It has every member of ```Span``` that neither stores to an element nor yields a value through which one can be stored. That leaves out ```sort```, ```reverse```, ```fill```, ```copyWithin```, ```set``` and ```buffer```; ```subarray``` and ```window``` stay and return a read-only window; the array a callback is handed is the read-only window.
+
+A store to an element is a TypeError where it is written, and so is a store to a field or position inside an element that is stored inline, a value type class or a tuple, since those are the array's storage. An element that is a reference is different: the window holds the reference, and the object it refers to is as writable as it was.
+
+A read-only window does not freeze the array beneath. An element changed through another reference is seen through it, and growth invalidates it, as for any window. Freezing is not modelled: ```Object.freeze(a)``` is ```a```, and a window is a distinct value.
+
+| How a reader says it only reads | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| It cannot; it takes ```Span.<T>``` | Cannot take a narrower array, and nothing stops a write | JavaScript | None | A reader's signature says nothing | Rejected |
+| ```readonly [].<T>```, a modifier with no value of its own | Familiar | TypeScript's ```readonly T[]```, sound there because its arrays carry no element type at run time | None | Unsound here: the array beneath refuses a search argument of the wider type, and a copy is typed wider than it is | Rejected |
+| ```ReadonlySpan.<T>```, a second window | One name beside ```Span```, with its rules for length, liveness and copying | C#'s ```Span<T>``` and ```ReadOnlySpan<T>```; Swift's ```MutableSpan``` and ```Span```. C++'s ```std::span<const T>``` and Zig's ```[]const T``` put it on the element. Rust's ```&[T]``` is the same split and stronger: nobody writes while it is held | A window an implementation may elide | Sound: the window carries the type it was taken at. No syntax | **Chosen** |
+| A permission on ```Span```: ```readonly Span.<T>``` | One name | C++, Zig | The same | The same type, with a position for ```readonly``` the language does not have | Rejected |
+
 #### Windows and the arrays beneath them
 
 A window names storage it does not own, so it is a reference in the sense of [references.md](references.md) and follows those rules. Growing the array beneath it invalidates it:
