@@ -2720,6 +2720,15 @@ const it = g();
 it.next(true); // { value, done } with value: int32 until done, then string | undefined
 ```
 
+The shorthand reads an annotation. A generator that writes none and sits where an iteration protocol is asked for takes that protocol's element, completion and input:
+
+```js
+function sum(x: Iterable.<uint8>): uint8 { let t: uint8 = 0; for (const v of x) t += v; return t; }
+sum({ *[Symbol.iterator]() { yield 1; yield 2; } });      // a generator of uint8: 3
+// sum({ *[Symbol.iterator]() { yield 's'; } });          // TypeError: 's' is not a uint8
+function* g(): Iterator.<uint8> { /* ... */ }             // by the shorthand: a generator whose elements are iterators
+```
+
 A generator supplies an iterable element view. Its operation results also include ordinary exhaustion: `Generator.<Y,R,N>` keeps its body R and reads completed values as `IteratorCompletionValue(R) | undefined`. Structural iterator conformance follows those method signatures; a string body completion needs an exhaustion-aware `Iterator<Y,string|undefined,N>` view. See [generator-lifecycle.md](generator-lifecycle.md). Synchronous external return requests admit optional R before resumption and preserve completion provenance through cleanup; see [generator-return-admission.md](generator-return-admission.md). Async requests admit resolved values at native queue/await stages; their raw input also accepts Promises and callable thenables. See [async-generator-return-admission.md](async-generator-return-admission.md).
 
 ```next``` takes the generator's next type and returns an iterator result:

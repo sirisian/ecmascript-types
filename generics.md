@@ -645,6 +645,17 @@ class T<M: uint8> implements Sized.<M> { take(i: uint8): void {} }
 new T.<10>().take(20);   // TypeError: for this application N is 10
 ```
 
+A member of such a class may state its own clause, compared where the class is declared with ```N``` read as ```M```:
+
+```js
+class U<M: uint8> implements Sized.<M> { take(i: uint8): void where i < M {} }    // fine: repeats i < N
+class V<M: uint8> implements Sized.<M> { take(i: uint8): void where i <= M {} }   // fine: weaker
+class W<M: uint8> implements Sized.<M> { take(i: uint8): void where i > 200 {} }  // TypeError: not the signature's contract
+class X<M: uint8> implements Sized.<M> { take(i: uint8): void where i < 10 {} }   // TypeError: stricter than i < M for some M
+```
+
+What cannot be shown to repeat or weaken the signature's clause is refused, as an unproven contract is elsewhere.
+
 A member that keeps the contracts of two members accepts what either one's callers may pass, and returns what both expect:
 
 ```js
