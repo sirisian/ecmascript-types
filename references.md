@@ -136,7 +136,7 @@ Rebinding keeps the alias's declared type. A `uint8 | string` alias may be redir
 
 Module-level reference bindings use the same read-through rule. Imports, re-exports and namespace reads observe the current referent and retain its effects and liveness failures; export visibility does not grant assignment or rebinding permission to an importer. See [module reference bindings](module-reference-bindings.md) for the live-export versus expression-copy distinction and the design alternatives.
 
-A known readonly origin also survives a local reference alias. Borrowing and reading it remain legal, but a store through the alias is an early type error when the origin establishes that the write is forbidden. This covers updates, compound stores, destructuring and iteration targets as well as `=`. Readonly remains shallow: replacing a readonly member differs from changing a writable child of the object it holds.
+A known readonly origin also survives a local reference alias. Borrowing and reading it remain legal, but a store through the alias is an early type error when the origin establishes that the write is forbidden. This covers updates, compound stores, destructuring and iteration targets as well as `=`. Readonly covers the member's own storage: replacing a readonly member differs from changing a writable child of an object it refers to. A child of a value the member holds inline is the member's storage, so a store to it is refused too; through an alias that refusal is made when the store runs.
 
 ```js
 function unused(o: { readonly x: uint8 }) {

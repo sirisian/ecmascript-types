@@ -771,6 +771,47 @@ It is written to have no false instance. A binding is judged only when every use
 | Only a parameter cannot be stored to | Small | Zig | None | Misses the cached field and the loop variable | Rejected |
 | Nothing | Nothing to learn | Go, C++ and D leave it to the programmer | None | A store silently does nothing | Rejected |
 
+A result is a copy too. A function copies what it returns, and a getter is a function, so a store through the result of one is to a copy that nothing names, and nothing can read it afterwards:
+
+```js
+const pick = (i: uint8): Particle => particles[i];
+pick(0).x = 1;                    // TypeError: a call answers a copy, and nothing names this one
+class Body {
+  p: Particle;
+  get center(): Particle { return this.p; }
+}
+const body: Body = new Body();
+body.center.x = 1;                // TypeError: center is a getter, which answers a copy
+body.p.x = 1;                     // fine: the field's own path
+const p = pick(0); p.x = 1; particles[0] = p;   // fine: bound, changed and stored back
+```
+
+The same mistake with a typed ```Map``` cannot be written as a path: ```cache.get(key).x = 9``` is already an error, because the result may be ```undefined```, and so are ```list.at(0).x = 9``` and ```list.find(f).x = 9```. It is written by binding and narrowing, and that binding holds a copy as a binding of the value does:
+
+```js
+const g = cache.get(key);         // Particle | undefined
+if (g !== undefined) g.x = 9;     // TypeError: g is a copy and nothing reads it after this store
+if (g !== undefined) { g.x = 9; cache.set(key, g); }   // fine: stored back
+```
+
+A store to a result is refused where the function that runs is certain to be one the program wrote, returning by value: a function declaration or a ```const``` bound to a function, a static method of a class named at the call, and a method or getter of a value type class on a receiver certain to be of that class. Everything else is left alone, because the store may land:
+
+```js
+function first(a: [].<Particle>): ref Particle { return ref a[0]; }
+first(particles).x = 1;           // lands: a ref result is a location, not a copy
+scores.sort()[0] = 9;             // lands: a built-in may return what it was given
+
+reference class Shape { o: Point; get origin(): Point { return this.o; } }
+reference class Sprite extends Shape { origin: Point; }   // a field where the base had a getter
+function nudge(shape: Shape) { shape.origin.x = 1; }      // lands for a Sprite, is lost for a Shape: not judged
+```
+
+| What a store to a result does | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| An error where the function is certainly the program's and returns by value, and a binding of ```T \| undefined``` is judged as a binding of ```T``` | Nothing to write; the message says to bind, change and store back | C#: "cannot modify the return value because it is not a variable", for a method and a property. Go: a field of a call's result, or of a map element, cannot be assigned. Swift: a call returns an immutable value. C++: a scalar member of a class temporary is not assignable | None | No false instance. A getter or method of a reference class is not judged | Chosen |
+| An error for every declared method and getter | Also catches ```entity.position.x = 1``` on a reference class | C#, where a subclass cannot replace a property with a field | None | Refuses a store that lands when a subclass declares the member a field | Not chosen while a field may replace an inherited accessor |
+| Nothing | Nothing to learn | Rust's compiler accepts a store to a field of a temporary; Clippy reports one to a struct or tuple literal only | None | The store is silently lost | Rejected |
+
 ### Array length Type And Operations
 
 A proved intrinsic `push`, `pop`, `shift`, `unshift` or `splice` on a fixed-extent array is an early error when its established length effect necessarily changes that extent. Compute `splice` effects after index coercion and clamping. Zero-item insertions, removing from an empty array and equal-count replacement do not fail this extent rule. Dynamic extents, unknown counts and replaced methods retain runtime checks. Unchanged length does not waive element, storage or reference-liveness rules.
@@ -779,7 +820,7 @@ Array-method diagnostics require proof that the call selects the intrinsic. A ty
 
 At a proven intrinsic `with` call, the replacement must fit the array element or selected tuple position, including a known negative index. Comparators for `sort` and `toSorted` must accept the two elements; their result retains JavaScript numeric coercion, so returning `"0"` is allowed. Reducers must accept the accumulator, element, index and receiver; the accumulator may have a different type from the element. No callback body is executed or ordering law proved during checking.
 
-A copy made by `slice`, `filter`, `toSorted`, `toReversed`, `with`, `splice` or `concat` has the storage type the operation creates. A homogeneous copy is growable, even when its source has a fixed extent. Knowing the result's initial length does not make that length part of its storage type. Tuple positions are retained only when the operation guarantees them. Mutating `sort` and `reverse` return their receiver. None of these facts removes a reference-liveness check.
+A copy made by `slice`, `filter`, `toSpliced`, `splice` or `concat` has the storage type the operation creates. A homogeneous copy is growable, even when its source has a fixed extent. Knowing the result's initial length does not make that length part of its storage type. `toSorted`, `toReversed` and `with` are the exception, because they cannot change a length: on a fixed-length array each returns an array of that fixed length, as [described below](#fixed-length-copies). Tuple positions are retained only when the operation guarantees them. Mutating `sort` and `reverse` return their receiver. None of these facts removes a reference-liveness check.
 
 An array type takes one type argument, its element. The type of a length - and of an index, a ```capacity```, and a view's length - is the language's *index type*, fixed for every array rather than declared per array.
 
@@ -854,14 +895,28 @@ let a: [5].<uint8> = [0, 1, 2, 3, 4];
 // a.length = 4; TypeError: a is fixed-length
 ```
 
-The change-by-copy methods preserve fixed lengths when the operation cannot change the length. ```toSorted```, ```toReversed```, and ```with``` on a ```[N].<T>``` return a new ```[N].<T>```, while ```toSpliced``` always returns a variable-length ```[].<T>``` since its length may differ. On a ```[].<T>``` each returns ```[].<T>```. The length type generic carries over in both cases.
+<a id="fixed-length-copies"></a>The change-by-copy methods preserve fixed lengths when the operation cannot change the length. ```toSorted```, ```toReversed```, and ```with``` on a ```[N].<T>``` return a new ```[N].<T>```, while ```toSpliced``` always returns a variable-length ```[].<T>``` since its length may differ. On a ```[].<T>``` each returns ```[].<T>```. The length type generic carries over in both cases.
 
 ```js
 const a: [4].<uint8> = [3, 1, 2, 0];
 const b = a.toSorted(); // [4].<uint8> [0, 1, 2, 3]
 const c = a.with(0, 9); // [4].<uint8> [9, 1, 2, 0]
 const d = a.toSpliced(1, 2); // [].<uint8> [3, 0]
+
+let v: [3].<float32> = [3, 1, 2];
+v = v.toSorted();           // a [3].<float32> again, with no spread
+// b.push(1);               // TypeError: a fixed-length array cannot change length
 ```
+
+A fixed-length array is not a growable one, so the result does not bind to a ```[].<T>``` as it is. A growable copy is written with a spread, or with ```slice```, which always returns a ```[].<T>```:
+
+```js
+// const e: [].<uint8> = a.toSorted();   // TypeError: [4].<uint8> is not assignable to [].<uint8>
+const e: [].<uint8> = [...a.toSorted()]; // [0, 1, 2, 3], growable
+const f = a.slice().sort();              // [].<uint8> [0, 1, 2, 3]
+```
+
+On a window the three return an owned ```[].<T>```, whatever length the window's type states. The same window is a ```Span.<T, N>``` and a ```Span.<T>```, and its copy has one type whichever the program wrote.
 
 ### Windows
 
@@ -3337,7 +3392,48 @@ function f(config: IConfig) {
 }
 ```
 
-```readonly``` is shallow, as it is in other languages: the binding is fixed, not the object it refers to. A ```readonly``` field holding an array can't be replaced, but its elements can be written unless the array itself is ```const```. It's an access rule, not a layout rule, so it never affects whether a class qualifies as a value type, and a ```readonly``` field of a value type class still participates in the layout.
+```readonly``` fixes a member's own storage, and no more. What that covers depends on what the member stores.
+
+A member of a reference type stores a reference. The reference is fixed, not the object it refers to: a ```readonly``` field holding a growable array can't be replaced, but its elements can be written and it can be appended to, and a ```readonly``` field holding an object of a reference class leaves that object writable. This is the shallow rule of TypeScript and Java, where every member is a primitive or a reference.
+
+A member of a value type stores the value itself. A value type class instance, a fixed-length array of value types and a tuple of value types are laid out inside what holds them, so there is no object referred to: a field or position of the value is the member's storage, and ```readonly``` covers it.
+
+```js
+class Size { w: uint16; h: uint16; grow(): void { this.w += 1; } }
+reference class Canvas { pixels: [].<uint8> = []; }
+class Window {
+  readonly size: Size;                 // a value: stored in the Window
+  readonly origin: [2].<int32>;        // a value
+  readonly canvas: Canvas = new Canvas();   // a reference
+  readonly tags: [].<string> = [];     // a reference
+  constructor(w: uint16, h: uint16) {
+    this.size.w = w;                   // Legal here only: the constructor builds the value field by field
+    this.size.h = h;
+  }
+}
+const win = new Window(640, 480);
+// win.size = new Size();       // TypeError: size is readonly
+// win.size.w = 800;            // TypeError: size is readonly, and its value is stored in it
+// win.origin[0] = 10;          // TypeError: the same, for a position
+// win.size.grow();             // TypeError when grow stores to this.w
+win.canvas.pixels.push(255);    // fine: canvas fixes which Canvas, not the Canvas
+win.tags.push('main');          // fine: tags fixes which array
+const s = win.size;             // a copy, and the reader's own
+s.w = 800;                      // fine: win is unchanged
+```
+
+The walk from a ```readonly``` member stops at the first reference: ```h.m.r.x = 5``` is allowed where ```m``` is a readonly value and ```r``` inside it is a reference, since the store is to the object ```r``` refers to. A program that wants part of a member writable does not mark the member ```readonly```; one that wants a changed value assigns a changed copy where the member may be assigned.
+
+A store the checker cannot see is refused when it runs. A read of a ```readonly``` value member, anywhere but in the declaring constructor, hands out the value read-only, exactly as a ```ReadonlySpan``` hands out an element: a method that stores to ```this``` throws at the store, and so does a declared compound operator such as ```win.size += 1```, which updates its receiver in place, ```sort``` and ```fill``` on a readonly array member throw, a ```Span``` taken over one refuses a store through it, and so does a store through a plain object that holds the instance. A copy is writable and is the copier's own.
+
+It's an access rule, not a layout rule, so it never affects whether a class qualifies as a value type, and a ```readonly``` field of a value type class still participates in the layout.
+
+| What ```readonly``` covers | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| The member's storage: every part of a value stored inline, and only the reference of a reference | One sentence, and the line a ```ReadonlySpan``` already draws | C# refuses a store to a member of a ```readonly``` field of struct type outside a constructor; Swift the same for a ```let``` property of struct type; a ```const``` member in C++ has ```const``` subobjects. Rust and Zig mark no field: an immutable binding is immutable through what it holds inline and not through a reference | None for a store the checker sees. A read-only handle for a read it did not | A value whose fields are all ```readonly``` does not change after construction, and a frozen value does not change | Chosen |
+| Shallow everywhere | Familiar from TypeScript and Java | TypeScript and Java, where no member holds an aggregate inline, so there is nothing for a deeper rule to cover | None | ```h.p.a = 3``` changes a value whose every field is ```readonly```, so two equal values stop being equal; a frozen value changes | Rejected |
+| Deep everywhere, through references too | Strong, and surprising | D's transitive ```const``` | None | A ```readonly``` list cannot be appended to, and an object shared with a writable name is frozen through one of its names | Rejected |
+| ```readonly``` is not allowed on a member of a mutable value type | Forces a second, all-```readonly``` class for each | None exact | None | The constructor can no longer build the member field by field, and freezing still fixes only the fields | Rejected |
 
 A union permits a write only when every reachable known alternative permits it. One readonly alternative is enough to reject the write; narrow to a writable alternative first. This applies to assignments, updates and destructuring or loop targets, separately from whether the value fits the field's type. It preserves the declaring constructor's existing permission and does not freeze objects shared with writable views.
 
@@ -3352,7 +3448,15 @@ function update(o: Fixed | Mutable) {
 }
 ```
 
-Assignment in a method the constructor calls is a TypeError, not an exception, since only constructor bodies are permitted. ```Object.freeze``` on a typed instance is defined as making every field ```readonly``` at runtime.
+Assignment in a method the constructor calls is a TypeError, not an exception, since only constructor bodies are permitted. ```Object.freeze``` on a typed instance is defined as making every field ```readonly``` at runtime. A field that holds a value type is then read-only in every part, as a ```readonly``` one is, so a frozen value does not change:
+
+```js
+class Box { size: Size; }
+const box = new Box();
+box.size.w = 3;             // fine
+Object.freeze(box);
+// box.size.w = 4;          // TypeError: box is frozen, and size is stored in it
+```
 
 #### Static Members
 
