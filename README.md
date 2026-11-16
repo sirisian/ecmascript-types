@@ -722,6 +722,15 @@ const ref row0 = m[0];                                                   // the 
 for (const ref r of m) r[0] = 9;                                         // writes m
 ```
 
+A binding is where the copy is made, whatever the expression: ```const q = c ? p : r``` copies, and so does a binding from a call. A method that returns the value it was called on, as ```sort```, ```reverse``` and ```fill``` do, returns that value and not a copy, so a chain stays in place, and binding the result copies it:
+
+```js
+a.sort().reverse();               // sorts a, then reverses a
+const s = a.sort();               // sorts a; s is a copy of it
+```
+
+Only a ```new``` and a literal are built directly in the binding, with no copy.
+
 An argument whose parameter is a window is not copied, since a window is over storage the callee does not own. An untyped function is given a copy, as it is of a value type class; hand it a window if it is to work in place.
 
 | What a fixed-length array or tuple of value types is | Ergonomics | Prior art | Performance | Correctness | Decision |
@@ -751,7 +760,7 @@ for (const row of m) row[0] = 9;  // TypeError: row is a copy of the element; it
 function moved(p: Particle): Particle { p.x += 1; return p; }   // fine: the copy is used
 ```
 
-The rule covers a value type class, a fixed-length array and a tuple alike. A binding holds a copy when it is a typed parameter, a binding initialized from a name, a field or an element, or the variable of a ```for...of```, and none of them is declared ```ref```. A store to a field or element of one, by an assignment, a compound assignment or an update, is a TypeError when nothing can read the binding afterwards.
+The rule covers a value type class, a fixed-length array and a tuple alike. A binding holds a copy when it is a typed parameter, a binding initialized from anything but a ```new``` or a literal, or the variable of a ```for...of```, and none of them is declared ```ref```. A store to a field or element of one, by an assignment, a compound assignment or an update, is a TypeError when nothing can read the binding afterwards.
 
 It is written to have no false instance. A binding is judged only when every use of it is such a store or a read of a primitive field or element; one that is passed, returned, called a method on, captured by a function, or taken by ```ref``` or by a window is left alone, since something may read it or hold a second name for it. A binding at the top level of a script or module is not judged, because other code can read it. It applies in checked code only, and to bindings whose type is written or follows from typed storage, so an untyped helper that is handed a copy is not caught.
 
