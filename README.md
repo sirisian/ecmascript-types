@@ -514,6 +514,15 @@ const ss: [Base] = [new Same()];            // Fine
 
 A tuple is otherwise covariant position by position, and a tuple of reference classes still is: a ```[Dog]``` is a ```[Animal]``` when both are reference classes, because the tuple holds pointers and a store through the wider type is checked where it is made. Each of these is refused when it runs too, where the value arrives through ```any``` and the checker could not see it.
 
+The rule has no side door. An array built from a literal or a spread stores each of its elements, so ```[...subs]``` at a ```[].<Base>``` is refused as ```[sub]``` is; and a read-only window, which is otherwise allowed a wider element because nothing is stored through it, is not taken over such an array either, since every element read through it would be a ```Sub```:
+
+```js
+// const bs: [].<Base> = [...subs];          // TypeError: Sub is not assignable to Base
+// const w: ReadonlySpan.<Base> = subs;      // TypeError: [2].<Sub> is not assignable to ReadonlySpan.<Base>
+const sames: [].<Same> = [new Same()];
+const ws: ReadonlySpan.<Base> = sames;       // Fine: Same adds no storage
+```
+
 An optional field of a value type class, ```T | null```, is inline too: a discriminant and the payload, defined in [memory layout](memorylayout.md#optional-values), so ```[10].<A>``` is ten instances and ```[10].<A | null>``` is ten optional instances, both contiguous. Closing a recursive cycle is therefore not a property of the field but of the class: a class that contains itself is declared a ```reference class```, whose instances are held and passed by reference and whose fields alias. ```sealed``` and ```abstract``` classes are reference types already, so a field of one holds any subclass directly and needs no modifier:
 
 ```js
@@ -3474,6 +3483,21 @@ const box = new Box();
 box.size.w = 3;             // fine
 Object.freeze(box);
 // box.size.w = 4;          // TypeError: box is frozen, and size is stored in it
+const mine = box;           // a copy, and a copy is not frozen
+mine.size.w = 4;            // fine: box.size.w is still 3
+Object.isFrozen(mine);      // false
+```
+
+Freezing is an act on one object, not a property of the value: a copy is the copier's own, as it is in Swift and Rust, where immutability belongs to the binding. A field its class declares ```readonly``` is still ```readonly``` in the copy, because that belongs to the class.
+
+```readonly``` belongs to the class in a default as well. A default is built without the constructor or the initializers, so the field holds its zero, and nothing may assign it:
+
+```js
+class Id { readonly n: uint8 = 3; }
+new Id().n;                 // 3
+let d: Id;                  // a default: no initializer ran
+d.n;                        // 0
+// d.n = 1;                 // TypeError
 ```
 
 #### Static Members
@@ -4799,8 +4823,20 @@ const b = new A();
 const c: [10].<A>;
 // new WeakRef(ref c[0]); // TypeError: an element's lifetime is the array's
 
-const d: [10].<uint8>; // A typed array is an object
-new WeakRef(d); // WeakRef.<[10].<uint8>>
+const d: [10].<uint8>;
+// new WeakRef(d); // TypeError: a fixed-length array of a value type is a value type
+
+const e: [].<uint8> = [1]; // A growable typed array is an object
+new WeakRef(e); // WeakRef.<[].<uint8>>
+```
+
+It makes no difference how the value came to exist. A default, a copy taken by a parameter or a return, and an element read through a view onto a buffer are values of the class as much as the result of ```new``` is, and each is refused in the same way where the checker did not see it:
+
+```js
+function keep(x: A) {       // x is a copy
+  const u: any = x;
+  // new WeakRef(u);        // TypeError
+}
 ```
 
 The boundary is the class being typed and therefore sealed, the same point at which it becomes ineligible to be proxied: any class with a typed instance field, not only one whose fields are all value types, and not a ```dynamic``` class, which is not sealed. The nullable union ```A | null``` does not change this. It is inline storage with a discriminant rather than a separate allocation, but a weak reference is checked against the value, and the value is the same sealed instance under either binding type:
