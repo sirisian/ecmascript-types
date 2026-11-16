@@ -496,7 +496,7 @@ A ```type``` alias may refer to itself and to other aliases, including mutually.
 
 The only restriction is a layout restriction: a value type's layout may not contain itself, directly or through other value types, because such a layout has no finite size. A cycle is legal whenever it passes through a *reference position*: a field whose type is a reference type, an array element, a nullable union, an interface member, or a union of value-type classes (which, having more than one possible layout, is stored by reference like any other class union).
 
-A field whose type is a value type class is stored inline by default, so a bare field of such a type embeds a copy. A subclass instance may not be assigned to one at all: the base's storage is its own width and a subclass that adds storage does not fit, so the store is refused rather than silently reduced to the base slice. The same is true of an array element and a tuple position, and of whole arrays and tuples: a ```[N].<Sub>``` is not a ```[N].<Base>``` and a ```[Sub]``` is not a ```[Base]```, since each is laid out as its own element type. A subclass that adds no storage has the base's layout and is accepted everywhere the base is. The subtype relation is untouched — a subclass still satisfies ```is``` and ```instanceof```, and a bound ```T extends Base``` carries the whole value — and ```subclass := Base``` is the explicit widening where the base part is actually wanted.
+A field whose type is a value type class is stored inline by default, so a bare field of such a type embeds a copy. A subclass instance may not be assigned to one at all: the base's storage is its own width and a subclass that adds storage does not fit, so the store is refused rather than silently reduced to the base slice. The same is true of an array element and a tuple position, and of whole arrays and tuples: a ```[N].<Sub>``` is not a ```[N].<Base>``` and a ```[Sub]``` is not a ```[Base]```, since each is laid out as its own element type. A subclass that adds no storage has the base's layout, is a value as its base is, and is accepted at every position of the base. The subtype relation is untouched — a subclass still satisfies ```is``` and ```instanceof```, and a bound ```T extends Base``` carries the whole value — and ```subclass := Base``` is the explicit widening where the base part is actually wanted.
 
 ```js
 class Base { x: uint8; }
@@ -512,7 +512,37 @@ const s: Base = new Same();                 // Fine: the same layout
 const ss: [Base] = [new Same()];            // Fine
 ```
 
-A tuple is otherwise covariant position by position, and a tuple of reference classes still is: a ```[Dog]``` is a ```[Animal]``` when both are reference classes, because the tuple holds pointers and a store through the wider type is checked where it is made. Each of these is refused when it runs too, where the value arrives through ```any``` and the checker could not see it.
+Each of these is refused when it runs too, where the value arrives through ```any``` and the checker could not see it.
+
+A whole tuple of value types follows the same rule one step further: it is stored only where its own tuple type is declared. A tuple type is covariant position by position, and that was written for a tuple two names share, where a store through the wider name is checked. A tuple of value types is a value. It is copied when it is bound, and the copy is laid out as its own positions, so a ```[uint8 | string]``` binding given a ```[uint8]``` would hold a tuple that refuses the string its type allows. Carrying the wider positions on the copy instead would make a copy into a conversion between two layouts, and a conversion between value types is written:
+
+```js
+const a: [uint8] = [3];
+// const w: [uint8 | string] = a;            // TypeError: a tuple of value types is stored as its own positions
+const w: [uint8 | string] = [...a];          // a new tuple, built at the wider type
+const x = a := [uint8 | string];             // the same, as a conversion
+w[0] = "s";                                  // fine, and a[0] is still 3
+const sames: [Same] = [new Same()];
+// const bases: [Base] = sames;              // TypeError, though Same adds no storage: a [Same] is not a [Base]
+const bases: [Base] = [...sames];            // each Same is stored at a position of Base
+```
+
+The type relation is untouched here as well. ```a is [uint8 | string]``` is true, and a bound takes the tuple whole, as it takes a subclass whole:
+
+```js
+function first<T: type extends [uint8 | string]>(t: T): T { return t; }
+const r: [uint8] = first(a);                 // T is [uint8]
+function id<T: type extends Base>(v: T): T { return v; }
+const sub: Sub = id(new Sub());              // T is Sub, though a Sub is not stored where a Base is declared
+```
+
+A tuple with a position of a reference type is not a value: a ```[Dog]``` is an ```[Animal]``` when both are reference classes, because the tuple holds pointers and a store through the wider type is checked where it is made.
+
+| What a tuple of value types does at a wider tuple type | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| Refused; the widening is a spread or ```:=``` | One more token where it is wanted. The message names both spellings | Rust and Zig convert a tuple only explicitly. It is the rule this language already has for a subclass at its base, and for a ```[N].<T>``` at another element type | A copy is always a copy of the layout | A store the checker accepts is never refused for its type. A tuple has one type | **Chosen** |
+| Accepted, and the copy carries the wider positions | Nothing to write | Swift, C# and C++'s ```std::tuple``` convert a tuple element by element | A bind can change layout: two bytes become three for ```[uint8, uint8]``` at ```[uint8 \| null, uint8]``` | Sound, but the result is another type than its source, so it is no longer ```===``` to it, and a fixed array would still not convert | Rejected |
+| Accepted, and the copy keeps its own positions | Nothing to write | None for a value | None | The checker accepts ```w[0] = "s"``` and it throws on a tuple nothing else holds | Rejected: what it did before |
 
 The rule has no side door. An array built from a literal or a spread stores each of its elements, so ```[...subs]``` at a ```[].<Base>``` is refused as ```[sub]``` is; and a read-only window, which is otherwise allowed a wider element because nothing is stored through it, is not taken over such an array either, since every element read through it would be a ```Sub```:
 
@@ -787,9 +817,9 @@ for (const row of m) row[0] = 9;  // TypeError: row is a copy of the element; it
 function moved(p: Particle): Particle { p.x += 1; return p; }   // fine: the copy is used
 ```
 
-The rule covers a value type class, a fixed-length array and a tuple alike. A binding holds a copy when it is a typed parameter, a binding initialized from anything but a ```new``` or a literal, or the variable of a ```for...of```, and none of them is declared ```ref```. A store to a field or element of one, by an assignment, a compound assignment or an update, is a TypeError when nothing can read the binding afterwards.
+The rule covers a value type class, a fixed-length array and a tuple alike. A binding holds a copy when it is a parameter whose type is written or follows from the function type it is passed as, a binding initialized from anything but a ```new``` or a literal, a name an object pattern binds, or the variable of a ```for...of```, and none of them is declared ```ref```. A store to a field or element of one, by an assignment, a compound assignment or an update, is a TypeError when nothing can read the binding afterwards.
 
-It is written to have no false instance. A binding is judged only when every use of it is such a store or a read of a primitive field or element; one that is passed, returned, called a method on, captured by a function, or taken by ```ref``` or by a window is left alone, since something may read it or hold a second name for it. A binding at the top level of a script or module is not judged, because other code can read it. It applies in checked code only, and to bindings whose type is written or follows from typed storage, so an untyped helper that is handed a copy is not caught.
+It is written to have no false instance. A binding is judged only when every use of it is such a store or a read of a primitive field or element; one that is passed, returned, called a method on, captured by a function, or taken by ```ref``` or by a window is left alone, since something may read it or hold a second name for it. A binding at the top level of a script or module is not judged, because other code can read it. It applies in checked code only, and to bindings whose type is written or follows from typed storage, so an untyped helper that is handed a copy is not caught. Two bindings are copies and are not caught because the checker has no type for them: a name an array pattern binds, and the parameter of a callback handed to a built-in such as ```forEach``` where the built-in is not established. An annotation on the callback's parameter gets the error.
 
 | How a lost store is prevented | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
@@ -944,6 +974,14 @@ const f = a.slice().sort();              // [].<uint8> [0, 1, 2, 3]
 ```
 
 On a window the three return an owned ```[].<T>```, whatever length the window's type states. The same window is a ```Span.<T, N>``` and a ```Span.<T>```, and its copy has one type whichever the program wrote.
+
+```map``` builds a new array whose elements the callback chooses, and it carries no type until it is bound, as a literal's does not. So it binds at a fixed-length type as well as a growable one, and is refused only where the lengths are known to differ:
+
+```js
+const doubled: [3].<float32> = v.map((x) => x * 2);   // three elements in, three out
+// const two: [2].<float32> = v.map((x) => x * 2);    // TypeError: the lengths differ
+const list = v.map((x) => x * 2);                     // unbound, a growable array
+```
 
 ### Windows
 
@@ -3489,6 +3527,19 @@ Object.isFrozen(mine);      // false
 ```
 
 Freezing is an act on one object, not a property of the value: a copy is the copier's own, as it is in Swift and Rust, where immutability belongs to the binding. A field its class declares ```readonly``` is still ```readonly``` in the copy, because that belongs to the class.
+
+A typed array and a tuple freeze the same way, since an array's elements are its storage as an instance's fields are. A store to an element of a frozen one is a TypeError in every mode, and an element stored in the array is read-only in every part, while an element that is a reference still refers to a writable object:
+
+```js
+const xs: [2].<Size> = [new Size(), new Size()];
+const before = xs;
+Object.freeze(xs);
+// xs[0] = new Size();      // TypeError
+// xs[0].w = 4;             // TypeError: xs is frozen, and its elements are stored in it
+xs === before;              // true: a frozen value does not change
+const ys = xs;              // a copy, and not frozen
+ys[0].w = 4;                // fine
+```
 
 ```readonly``` belongs to the class in a default as well. A default is built without the constructor or the initializers, so the field holds its zero, and nothing may assign it:
 
