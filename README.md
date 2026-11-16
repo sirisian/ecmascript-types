@@ -496,7 +496,25 @@ A ```type``` alias may refer to itself and to other aliases, including mutually.
 
 The only restriction is a layout restriction: a value type's layout may not contain itself, directly or through other value types, because such a layout has no finite size. A cycle is legal whenever it passes through a *reference position*: a field whose type is a reference type, an array element, a nullable union, an interface member, or a union of value-type classes (which, having more than one possible layout, is stored by reference like any other class union).
 
-A field whose type is a value type class is stored inline by default, so a bare field of such a type embeds a copy. A subclass instance may not be assigned to one at all: the base's storage is its own width and a subclass that adds storage does not fit, so the store is refused rather than silently reduced to the base slice. The subtype relation is untouched — a subclass still satisfies ```is``` and ```instanceof```, and a bound ```T extends Base``` carries the whole value — and ```subclass := Base``` is the explicit widening where the base part is actually wanted. An optional one, ```T | null```, is inline too: a discriminant and the payload, defined in [memory layout](memorylayout.md#optional-values), so ```[10].<A>``` is ten instances and ```[10].<A | null>``` is ten optional instances, both contiguous. Closing a recursive cycle is therefore not a property of the field but of the class: a class that contains itself is declared a ```reference class```, whose instances are held and passed by reference and whose fields alias. ```sealed``` and ```abstract``` classes are reference types already, so a field of one holds any subclass directly and needs no modifier:
+A field whose type is a value type class is stored inline by default, so a bare field of such a type embeds a copy. A subclass instance may not be assigned to one at all: the base's storage is its own width and a subclass that adds storage does not fit, so the store is refused rather than silently reduced to the base slice. The same is true of an array element and a tuple position, and of whole arrays and tuples: a ```[N].<Sub>``` is not a ```[N].<Base>``` and a ```[Sub]``` is not a ```[Base]```, since each is laid out as its own element type. A subclass that adds no storage has the base's layout and is accepted everywhere the base is. The subtype relation is untouched — a subclass still satisfies ```is``` and ```instanceof```, and a bound ```T extends Base``` carries the whole value — and ```subclass := Base``` is the explicit widening where the base part is actually wanted.
+
+```js
+class Base { x: uint8; }
+class Sub extends Base { y: uint8; }                                  // adds storage
+class Same extends Base { get twice(): uint8 { return this.x * 2; } } // adds none
+const subs: [2].<Sub> = [new Sub(), new Sub()];
+// const b: Base = new Sub();               // TypeError: Sub is not assignable to Base
+// const bs: [2].<Base> = subs;             // TypeError: [2].<Sub> is not assignable to [2].<Base>
+// const t: [Base, uint8] = [new Sub(), 1]; // TypeError: Sub is not assignable to Base
+// const pair: [Sub] = [new Sub()];
+// const wide: [Base] = pair;               // TypeError: [Sub] is not assignable to [Base]
+const s: Base = new Same();                 // Fine: the same layout
+const ss: [Base] = [new Same()];            // Fine
+```
+
+A tuple is otherwise covariant position by position, and a tuple of reference classes still is: a ```[Dog]``` is a ```[Animal]``` when both are reference classes, because the tuple holds pointers and a store through the wider type is checked where it is made. Each of these is refused when it runs too, where the value arrives through ```any``` and the checker could not see it.
+
+An optional field of a value type class, ```T | null```, is inline too: a discriminant and the payload, defined in [memory layout](memorylayout.md#optional-values), so ```[10].<A>``` is ten instances and ```[10].<A | null>``` is ten optional instances, both contiguous. Closing a recursive cycle is therefore not a property of the field but of the class: a class that contains itself is declared a ```reference class```, whose instances are held and passed by reference and whose fields alias. ```sealed``` and ```abstract``` classes are reference types already, so a field of one holds any subclass directly and needs no modifier:
 
 ```js
 type Tree = { value: float64, children: [].<Tree> }; // Through an array
@@ -3364,7 +3382,7 @@ class A {
 
 #### Readonly Fields
 
-A field marked ```readonly``` may be assigned only in its own initializer and in the declaring class's constructors. Every other assignment is a TypeError, at compile time where the type is known and at runtime otherwise, including through a subclass, a reference, or reflection.
+A field marked ```readonly``` may be assigned only in its own initializer and in the declaring class's constructors. Every other assignment is a TypeError, at compile time where the type is known and at runtime otherwise, including through a subclass, a reference, or reflection. A ```static readonly``` field belongs to no instance, so no constructor assigns it: its initializer is its only assignment, a static block cannot assign it, and a subclass that inherits it cannot either.
 
 ```js
 class Invoice {
