@@ -63,9 +63,11 @@ for (const ref p of particles) {
   p.velocity += gravity * dt; // Writes into the array
 }
 for (const p of particles) {
-  p.velocity = 0; // Writes into a copy, discarded each iteration
+  p.velocity = 0; // TypeError: p is a copy of the element, and nothing reads it after this store
 }
 ```
+
+Without ```ref``` each iteration binds a copy, and a store to a copy that nothing reads afterwards is an error where it is written, since it can have no effect ([A store to a copy](README.md#a-store-to-a-copy)).
 
 The reference is to the array slot, so writes through other aliases are visible during the loop. Liveness is enforced by two rules that catch different things at different moments.
 

@@ -684,6 +684,84 @@ The same reading gives each parameterized family its top: ```Set.<any>``` is a s
 
 Layout follows the same rule as a class: a tuple of value types is itself a value type laid out contiguously, and a tuple containing a reference position is a reference type. Every tuple is an array, so the array-of-any type ```[].<any>``` doubles as the bound of the tuple family: a type parameter written ```T extends [].<any>``` is satisfied by any tuple or array, which is the bound the [RegExp](regexp.md) and [binary packet](examples/binarypacket.md) documents use to accumulate element types. That bound was spelled ```[]``` in an earlier draft. It moved because the short form was never actually used for it — across this document, the other design documents and the 190-program challenge corpus, ```[]``` in bound position appeared zero times while ```[]``` meaning the *empty tuple* appeared about thirty, and the empty tuple had no spelling at all. The old reading also failed silently: ```[]``` was not an error, it was a different type, so a reader who wrote it expecting TypeScript's meaning got a program that compiled and meant something else.
 
+#### Fixed-length arrays and tuples are values
+
+A fixed-length array of value types, and a tuple of value types, are value types, exactly as a class is whose fields are all value types. They are copied when bound, assigned, stored into a typed field or element, passed and returned, and two of them are equal when their elements are. A dynamic array ```[].<T>``` is not: it owns storage that can grow, and is shared when assigned, as every JavaScript array is. Neither is an array or tuple with an element that is a reference.
+
+```js
+const a: [2].<uint8> = [1, 2];
+const b = a;                      // a copy
+b[0] = 9;
+a[0];                             // 1
+
+const u: [2].<uint8> = [1, 2];
+a === u;                          // true: the same value
+new Set([a]).has(u);              // true: one member, as for a value type class
+
+const m: [2].<[2].<uint8>> = [[1, 2], [3, 4]];
+m[0][1] = 5;                      // in place: a store through a path copies nothing
+m[1] = m[0];                      // copies the row in; the two rows stay two
+const row = m[0];                 // a copy of the row
+
+function cross(p: [3].<float32>, q: [3].<float32>): [3].<float32> { /* ... */ }   // nothing allocated
+
+const grow: [].<uint8> = [1];
+const same = grow;                // the same array: a dynamic array is an object
+```
+
+This is what makes the layout true. ```[2].<[2].<uint8>>``` is four bytes only if no program can tell that the two rows are separate objects, and [memory layout](memorylayout.md#optional-values) names the four ways a program can tell: a store that does not copy, a read that does not copy, equality by identity, and a weak reference. All four are closed for a value type class, and are closed here in the same way, so ```new WeakRef(a)``` is a TypeError and a tuple of value types has a ```byteLength```.
+
+To share one instead of copying it, say so. A callee stores to its caller's array through a ```ref``` parameter or a window; a binding or a loop reaches storage in place with ```ref```; and a large array is passed without a copy as a ```Span``` or a ```ReadonlySpan```, which is what a window is for.
+
+```js
+function scale(ref out: [3].<float32>, k: float32) { out[0] *= k; }      // scale(ref v, 2)
+function scaleAll(out: Span.<float32>, k: float32) {                    // scaleAll(v, 2)
+  for (let i: uint64 = 0; i < out.length; i += 1) out[i] *= k;
+}
+const ref row0 = m[0];                                                   // the row itself
+for (const ref r of m) r[0] = 9;                                         // writes m
+```
+
+An argument whose parameter is a window is not copied, since a window is over storage the callee does not own. An untyped function is given a copy, as it is of a value type class; hand it a window if it is to work in place.
+
+| What a fixed-length array or tuple of value types is | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| A value: copied when bound, assigned, stored, passed and returned; compared by value | One rule for everything that has a layout, and the rule a value type class already follows. Equality and ```Map``` keys work. ```const b = a``` no longer shares a fixed array | Go's ```[N]T```, with the slice as the reference form; Rust's ```[T; N]``` and tuples, ```Copy``` when their elements are, with ```&[T]``` to borrow; Zig; Swift; D; C++'s ```std::array``` and ```std::tuple```; C#'s ```ValueTuple``` | No allocation to make or return one. A real copy of N elements at each bind and pass; a window avoids it | The layout table is true: all four channels are closed | **Chosen** |
+| An object when named, inline when stored | JavaScript habits hold for a named array. ```const r = m[0]``` copies while ```const b = a``` shares, for one type | C, where an array in a struct is storage and a named one decays to a pointer | No copy to bind. An allocation per value and per read out of a slot | One type with two behaviours, and no way for the checker to tell which a store is to | Rejected |
+| Always a reference, never inline | JavaScript's rule | Java, C# arrays, JavaScript | A matrix is an array of pointers | Contradicts the layout this document gives a fixed array | Rejected |
+| A tuple is a value and a fixed array is an object | Tuples gain equality and cheap returns; arrays keep every habit | C# | Mixed | ```[uint8, uint8]``` and ```[2].<uint8>``` are the same bytes and would behave differently, where every tuple is an array | Rejected |
+
+##### A store to a copy
+
+Copying has one failure nobody sees: a store to a copy that was taken for the original. It is an error where it is written.
+
+```js
+function scale(out: [3].<float32>, k: float32) {
+  out[0] *= k;                    // TypeError: out is a copy of the argument and nothing reads it after this store
+}
+class Stack {
+  items: [64].<uint32>; top: uint32;
+  push(x: uint32) {
+    const items = this.items;
+    items[this.top] = x;          // TypeError: items is a copy; write this.items[this.top], or bind with const ref
+    this.top += 1;
+  }
+}
+for (const row of m) row[0] = 9;  // TypeError: row is a copy of the element; iterate with const ref
+function moved(p: Particle): Particle { p.x += 1; return p; }   // fine: the copy is used
+```
+
+The rule covers a value type class, a fixed-length array and a tuple alike. A binding holds a copy when it is a typed parameter, a binding initialized from a name, a field or an element, or the variable of a ```for...of```, and none of them is declared ```ref```. A store to a field or element of one, by an assignment, a compound assignment or an update, is a TypeError when nothing can read the binding afterwards.
+
+It is written to have no false instance. A binding is judged only when every use of it is such a store or a read of a primitive field or element; one that is passed, returned, called a method on, captured by a function, or taken by ```ref``` or by a window is left alone, since something may read it or hold a second name for it. A binding at the top level of a script or module is not judged, because other code can read it. It applies in checked code only, and to bindings whose type is written or follows from typed storage, so an untyped helper that is handed a copy is not caught.
+
+| How a lost store is prevented | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| A store to a copy that nothing reads afterwards is an error | Nothing to write; the message names what was meant. A copy that is used is untouched | Rust warns of a value assigned and never read; Go's linters report a field assignment that is never observed; C# refuses a store to a field of a struct returned by value | None at run time | Catches the out-parameter, the cached field and the loop variable. Cannot see into untyped code | **Chosen** |
+| A parameter or ```const``` binding of a value type cannot be stored to | Certain, and familiar | Rust's bindings without ```mut```; Swift's ```let``` and parameters; Zig's parameters | None | Refuses ```const p = new P(); p.x = 1```, which is how an object is built, and changes what ```const``` means | Rejected |
+| Only a parameter cannot be stored to | Small | Zig | None | Misses the cached field and the loop variable | Rejected |
+| Nothing | Nothing to learn | Go, C++ and D leave it to the programmer | None | A store silently does nothing | Rejected |
+
 ### Array length Type And Operations
 
 A proved intrinsic `push`, `pop`, `shift`, `unshift` or `splice` on a fixed-extent array is an early error when its established length effect necessarily changes that extent. Compute `splice` effects after index coercion and clamping. Zero-item insertions, removing from an empty array and equal-count replacement do not fail this extent rule. Dynamic extents, unknown counts and replaced methods retain runtime checks. Unchanged length does not waive element, storage or reference-liveness rules.
