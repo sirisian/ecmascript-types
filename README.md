@@ -1212,10 +1212,10 @@ Domain-preserving intersection, containment and emptiness are detailed in [range
 Explicit range iterator result contracts are detailed in [range-iterator-results.md](range-iterator-results.md).
 Terminal range helper and callback contracts are detailed in [range-terminal-helpers.md](range-terminal-helpers.md). Lazy mapper inference and filter preservation are detailed in [range-lazy-helpers.md](range-lazy-helpers.md). Native parameter names and omission follow [named-intrinsic-routing.md](named-intrinsic-routing.md). Explicit mapper specialization and lazy output admission follow [intrinsic-generic-map.md](intrinsic-generic-map.md). Concrete callable receiving boundaries are detailed in [concrete-callable-specialization.md](concrete-callable-specialization.md); union, object-property, homogeneous-array and tuple boundaries are detailed in [union-callable-admission.md](union-callable-admission.md), [object-callable-admission.md](object-callable-admission.md), [array-callable-admission.md](array-callable-admission.md) and [tuple-callable-admission.md](tuple-callable-admission.md). Intrinsic mutation plans and failure order are detailed in [tuple-mutation-plans.md](tuple-mutation-plans.md). Required prefix/rest/suffix storage, resizing and static index domains are detailed in [tuple-suffix-storage.md](tuple-suffix-storage.md). Default range iterator and loop-entry contracts are detailed in [range-default-iterator.md](range-default-iterator.md). Flattening eligibility and item contributions are detailed in [range-flatmap.md](range-flatmap.md). Range reduction shares one accumulator contract across initial value, callback recurrence and result; see [range-reduce.md](range-reduce.md).
 
-An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates:
+An example of a user-defined index to access a 4x4 grid with ```(x, y)``` coordinates. A fixed-length array of a value type is a value, so a class over one is a value and is declared ```value class```: a grid is copied where it is bound, compared by its elements, and laid out as its base is. Its elements are the whole of its value, so it declares methods and accessors and no instance field.
 
 ```js
-class GridArray<W: uint32, H: uint32> extends [W * H].<uint8> {
+value class GridArray<W: uint32, H: uint32> extends [W * H].<uint8> {
   get operator[](x: uint32, y: uint32) {
     return ref this[y * W + x];
   }
@@ -1225,7 +1225,7 @@ grid[2, 1] = 10;
 ```
 
 ```js
-class GridArray<W: uint32, H: uint32> extends [W * H].<uint8> {
+value class GridArray<W: uint32, H: uint32> extends [W * H].<uint8> {
   get operator[](i: uint32) {
     return ref this[i];
   }
@@ -1238,7 +1238,7 @@ grid[0] = 10;
 grid[2, 1] = 10;
 ```
 
-For a variable-length array it works as expected. This example indexes into a 4x4x4 grid:
+For a variable-length array it works as expected. A dynamic array is held by reference, so the class is not declared ```value``` and one grid is one object under every name. This example indexes into a 4x4x4 grid:
 
 ```js
 class GridArray extends [].<uint8> {
@@ -3321,6 +3321,24 @@ The key ```value``` for a property with a numeric type defined in this spec defa
 
 Any class where at least one public or private field is typed is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
 
+A store to a member such a class does not declare is an error where it is written, whatever the receiver is. The receiver's static type decides, so a member that only a subclass declares is stored to through a receiver narrowed to that subclass:
+
+```js
+class Counter { count: uint32 = 0; }
+class Tally extends Counter { label: string = ''; }
+
+function reset(c: Counter) {
+  c.count = 0;
+  // c.cnt = 0;        // TypeError: "cnt" is not a member of "Counter"
+  // c.label = 'x';    // TypeError: "label" is not a member of "Counter"
+  if (c is Tally) {
+    c.label = 'x';     // c is a Tally here
+  }
+}
+```
+
+Without the rule the misspelled store reaches a sealed object, which throws in strict code and is silent in sloppy code. Reading a member that is not declared is unaffected: it yields ```undefined```, and a program may be testing for exactly that. The rule is not applied where a member may exist that no declaration names: a ```dynamic``` class, a class over a built-in such as ```Error```, over a call such as a mixin, or over an untyped class with a constructor. The seal refuses those stores when they run.
+
 A class declared ```value``` is a value type class: an instance is copied when it is bound, assigned, stored, passed or returned, and two are ```===``` when their fields are. Every field of one has a type, and the type is a value type. A class that is not declared ```value``` is held by reference, as a class in JavaScript is, whatever its fields hold.
 
 ```js
@@ -3360,11 +3378,15 @@ value class B extends A { // a value class extends nothing or a value class
 // value class D { xs: [].<uint8>; }       // TypeError: a growable array is not a value type
 // class E extends A { }                   // TypeError: a class that extends a value class is written `value class`
 // value class F extends Counter { }       // TypeError: Counter is not a value class
-value class Box<T: type extends value> { v: T; } // a field of a parameter's type needs the parameter bounded by `value`
-// new Box.<Counter>(new Counter());       // TypeError: Counter does not satisfy `value`
+value class Box<T: type> { v: T; }         // T is bounded by `value`, since a field holds one
+// new Box.<Counter>(new Counter());       // TypeError: "Counter" is not assignable to "value", the constraint of "T"
+value class Handle<T: type> { index: uint32; } // T is unbounded: nothing here holds one
+new Handle.<Counter>();
 ```
 
-```value``` is the name of a type, and a name is looked up where it is written. Where a binding named ```value``` is in scope of the class, ```extends value``` names that binding and bounds nothing, which is a TypeError that says so; a parameter of the class's own constructor is not in that scope.
+A type parameter that a field's type mentions, or that the class passes to its base, can only be bound to a value type, so it is bounded by ```value``` without the bound being written. ```value class Box<T: type extends value>``` says the same thing and may be written. A parameter that no field mentions, a phantom one that only names what the value is about, is left unbounded. Writing a bound replaces the implied one, so ```T: type extends any``` keeps unbounded a parameter that a field only passes on to another class.
+
+The implied bound is the type itself. A written ```extends value``` is a name, and a name is looked up where it is written: where a binding named ```value``` is in scope of the class, it names that binding and bounds nothing, which is a TypeError that says so.
 
 If every field also has a layout, the class has one, and its instances can be treated like a value type in arrays and are backed by contiguous memory. When allocated as ```shared``` the backing storage is a SharedArrayBuffer, allowing instances or arrays of them to be shared among web workers. ```shared``` applies to any value type, not only an aggregate: a ```shared uint32``` or ```shared float64``` binding or field is placed in shared storage directly, which is what lets ```Atomics``` operate on it by reference.
 
@@ -3487,7 +3509,7 @@ value class Header {
   c: HeaderSection;
 }
 const buffer: [100].<uint8>; // Pretend this has data
-const ref header = Span.<Header>(buffer)[0]; // A window over the bytes, and a ref into iterence to the first element
+const ref header = Span.<Header>(buffer)[0]; // A window over the bytes, and a reference to the first element
 header.c.a = 10;
 buffer[3]; // 10, since c starts at byte 3
 ```
@@ -3511,12 +3533,17 @@ a[0] = new A();
 class R { x: uint8; }
 const b: [10].<R|null>; // [null, ...], 10 references
 
-value class Container<T: type extends value> {
+value class Container<T: type> {
   a: [10].<T>;
 }
 new Container.<A>(); // a is 10 inline instances
 new Container.<A|null>(); // a is 10 inline optional instances
-new Container.<R|null>(); // a is 10 references
+// new Container.<R|null>(); // TypeError: a value class holds values, and R|null is a reference
+
+class Holder<T: type> {
+  a: [10].<T>;
+}
+new Holder.<R|null>(); // a is 10 references, in a class that is held by reference itself
 ```
 
 To change a class to be unsealed when its fields are typed use the ```dynamic``` keyword. This stops the class from being used for sequential data as well, so it cannot become a value type in typed arrays.

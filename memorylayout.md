@@ -60,9 +60,9 @@ const header: [Header.byteLength].<uint8>;
 | Enums | Yes, their underlying type's |
 | Value type classes every field of which has a layout | Yes |
 | A value type class, `[N].<T>` or tuple holding a `string`, a `bigint` or a union of value types | No. It is a value type all the same: copied and compared by its fields |
-| `[N].<T>` and `SoA.<T, N>` | Yes |
+| `[N].<T>` and `SoA.<T, N>` | Yes, where `T` has a layout. An array of references has none: `[2].<Node \| null>` for a `Node` held by reference reports no `byteLength`, since a reference has none to report wherever it is held |
 | `bigint`, `string`, `any` | No. Their size is a property of the value, not the type. A string reaches a laid-out record as bytes; see [strings at a binary boundary](serialization.md#strings-at-a-binary-boundary), and [fixed-length strings](examples/fixedstring.md) for the record case |
-| `T \| null` where `T` is a value type class | Yes, the optional layout below. A reference only where a cycle forces one |
+| `T \| null` where `T` is a value type with a layout, such as a value class or `uint8` | Yes, the optional layout below |
 | Reference types, and a nullable union of one | No. A reference's width is the engine's business |
 | `[].<T>` without a length | No as a type. Its instances have a `byteLength` |
 | A class not declared `value`, typed or not | No. It is a reference type |
@@ -70,7 +70,7 @@ const header: [Header.byteLength].<uint8>;
 
 Reading `byteLength`, `bitLength`, or `alignment` from a type in the second group is a TypeError, which is the point: a program that asks for the size of a `string` has made a mistake a returned number would hide.
 
-A class has a layout because it is declared `value`, not because its fields happen to be sized. `class Counter { n: uint32 = 0; }` is one object held by reference, and nothing here applies to it: `Counter.byteLength` throws, a field of it has no placement to reflect, a placement `new` of it is a TypeError, since it would put an object that has an identity onto a buffer, and a narrow field of it is an ordinary location rather than a bit-field. A layout decorator on such a class places nothing.
+A class has a layout because it is declared `value`, not because its fields happen to be sized. `class Counter { n: uint32 = 0; }` is one object held by reference, and nothing here applies to it: `Counter.byteLength` throws, a field of it has no placement to reflect, a placement `new` of it is a TypeError, since it would put an object that has an identity onto a buffer, and a narrow field of it is an ordinary location rather than a bit-field. A layout decorator on such a class has nothing to place, and is an error where it is written.
 
 ```js
 value class Vec2 { x: float32 = 0; y: float32 = 0; }
@@ -316,7 +316,36 @@ value class A {
 }
 ```
 
-`@align` and `@offset` apply only when every property in the class is typed and the complete prototype chain is as well; a class with an untyped field has no fixed layout to place fields within.
+A layout decorator is written where it has something to place. `@packed`, `@alignAll` and `@size` apply to a value class, and `@align`, `@offset`, `@offsetBit` and `@endian` to an instance field of one. Anywhere else the decorator is an error: on a class that is not declared `value`, on a method or a static field, on a function, or on a value class that has no layout because one of its fields has none.
+
+```js
+@packed value class Header { tag: uint8; length: uint16; }   // 3 bytes
+
+// @packed class Header { tag: uint8; length: uint16; }
+// TypeError: "Header" is not a value class and has no layout, so "@packed" places nothing; declare it `value class`
+
+// @packed value class Named { name: string; id: uint32; }
+// TypeError: "Named" has no layout, since its field "name" has the type "string", which has none, so "@packed" places nothing
+```
+
+The names are reserved and are not evaluated, so without the rule a decorator on the wrong thing did nothing and said nothing, which is how a class whose `value` was forgotten kept its `@packed` and its padding.
+
+An object that wants some of its fields placed is not thereby a value. A queue that threads share has an identity, so it stays a class, and it holds what needs placing in a value class, whose layout is where the decorator is written:
+
+```js
+value class Padded<T: type> { @align(64) value: T; }   // byteLength 64, alignment 64
+
+class Queue {
+	#head: shared Padded.<uint32>;   // its own cache line
+	#tail: shared Padded.<uint32>;   // and another
+}
+
+// class Queue { @align(64) #head: shared uint32 = 0; }
+// TypeError: "Queue" is not a value class and has no layout, so "@align" places nothing;
+// declare it `value class`, or hold the field in a value class that places it
+```
+
+The alignment is the type's and the size rounds up to it, so two such cells cannot share a 64-byte line once each is stored at its alignment. Shared storage is, having the size and alignment of what it stores, and an engine is expected to do the same for a value it keeps in an unshared field, as it already must for a vector type that wants an aligned move. The same cell pads a binding, `let hits: shared Padded.<uint64>`, and each element of `[N].<Padded.<uint64>>`, which a decorator on the field of an object could not. This is the shape of Rust's `CachePadded<T>`; C++ and Java align the member of the object instead, with `alignas` and `@Contended`.
 
 ## Endianness
 
