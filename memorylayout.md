@@ -6,7 +6,7 @@ The default layout is the C, C++, and Rust rule, so a typed class is layout-comp
 
 ## Layout properties
 
-Every value type and value type class exposes its layout as three static properties. `byteLength` is the laid-out size in bytes, including any trailing padding required by the type's alignment; `alignment` is the byte alignment of the type; and `bitLength` is the size in bits, which is what an arbitrary-width integer needs to describe itself. A type's alignment is its byte length rounded up to a power of two, so `uint.<4>` sits at alignment one, `uint.<24>` at four, and `uint.<128>` at sixteen. There is no cap. This is the C and Rust rule — Rust aligns each scalar to its own size, and `u128` is sixteen-byte aligned to match C — and raising an alignment beyond it is what `@align` is for, as `#[repr(align(N))]` is there. A SIMD vector needs no separate rule: `float32x4` is sixteen bytes and so aligns to sixteen, which is how the register it occupies is addressed. A typed array's instance `byteLength` is its length times its element's `byteLength`.
+Every value type and value type class that has a layout exposes it as three static properties. `byteLength` is the laid-out size in bytes, including any trailing padding required by the type's alignment; `alignment` is the byte alignment of the type; and `bitLength` is the size in bits, which is what an arbitrary-width integer needs to describe itself. A type's alignment is its byte length rounded up to a power of two, so `uint.<4>` sits at alignment one, `uint.<24>` at four, and `uint.<128>` at sixteen. There is no cap. This is the C and Rust rule — Rust aligns each scalar to its own size, and `u128` is sixteen-byte aligned to match C — and raising an alignment beyond it is what `@align` is for, as `#[repr(align(N))]` is there. A SIMD vector needs no separate rule: `float32x4` is sixteen bytes and so aligns to sixteen, which is how the register it occupies is addressed. A typed array's instance `byteLength` is its length times its element's `byteLength`.
 
 ```js
 uint8.byteLength;    // 1
@@ -58,7 +58,8 @@ const header: [Header.byteLength].<uint8>;
 | --- | --- |
 | Numeric types, `boolean`, SIMD vectors | Yes |
 | Enums | Yes, their underlying type's |
-| Value type classes | Yes |
+| Value type classes every field of which has a layout | Yes |
+| A value type class, `[N].<T>` or tuple holding a `string`, a `bigint` or a union of value types | No. It is a value type all the same: copied and compared by its fields |
 | `[N].<T>` and `SoA.<T, N>` | Yes |
 | `bigint`, `string`, `any` | No. Their size is a property of the value, not the type. A string reaches a laid-out record as bytes; see [strings at a binary boundary](serialization.md#strings-at-a-binary-boundary), and [fixed-length strings](examples/fixedstring.md) for the record case |
 | `T \| null` where `T` is a value type class | Yes, the optional layout below. A reference only where a cycle forces one |

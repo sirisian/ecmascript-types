@@ -6,6 +6,17 @@ This document fills the gap between the two: how to get at an individual lane, h
 
 Every ```vector.<T, N>``` is a value type. It copies on assignment, it has no identity, and ```typeof``` reports ```"object"```, so it has a prototype and the accessors described below live there.
 
+Having no identity, two vectors are ```===``` when they are of one type and every pair of lanes is equal, and an equal vector is the same key of a ```Map``` and the same member of a ```Set```. A ```NaN``` lane is equal to nothing under ```===```, as a ```NaN``` is, and is the same value to ```Object.is```. This is not ```==```, which compares lane by lane and yields a mask.
+
+```js
+const a = vector.<float32, 4>(1, 2, 3, 4);
+const b = vector.<float32, 4>(1, 2, 3, 4);
+a === b;                       // true: the same lanes
+new Set([a, b]).size;          // 1
+new Map([[a, 'x']]).get(b);    // 'x'
+// a === vector.<int32, 4>(1, 2, 3, 4); // TypeError: another type, so never equal
+```
+
 ## Lanes
 
 Two forms, and the difference between them is the difference between one instruction and several.

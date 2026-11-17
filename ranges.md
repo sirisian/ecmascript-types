@@ -124,7 +124,7 @@ A present endpoint with a participating static type restricted to `symbol`, `nul
 
 Applicable declared and derived operators dispatch first: a class can deliberately define `operator<(r: Range.<uint8>)`. Equality, `contains` and other interval operations remain valid. A union is rejected only when every possible dispatch path establishes the forbidden built-in operation; unknown operands retain runtime checks. The rule uses the resolved built-in identity, so a user class named `Range` does not acquire this restriction. This exclusion does not impose a numeric-only whitelist on all endpoint types or change reference liveness.
 
-A range is a value type class, so ```0..<10``` allocates nothing and copies by value. The endpoint kinds are distinct types, because an omitted endpoint is a different shape, not a missing value:
+A range is a value type class, so ```0..<10``` allocates nothing and copies by value, and two ranges of one shape with equal endpoints are the same value: for ```const a = 0..<3, b = 0..<3```, ```a === b``` is ```true```, an equal range is the same key of a ```Map```, and a range cannot be held weakly. The endpoint kinds are distinct types, because an omitted endpoint is a different shape, not a missing value:
 
 ```js
 enum Bound: uint8 { Closed, Open }; // Exposed as Range.Bound

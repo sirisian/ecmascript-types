@@ -1,6 +1,6 @@
 # Fixed-length strings
 
-A ```string``` has no layout — its size is a property of the value, not of the type ([memory layout](../memorylayout.md)) — so a record with a name in it is not a value type, and an array of a thousand such records is a thousand heap objects rather than one buffer.
+A ```string``` has no layout — its size is a property of the value, not of the type ([memory layout](../memorylayout.md)) — so a record with a name in it has no layout either. It is still a value, copied and compared by its fields, but an array of a thousand such records is a thousand values rather than one buffer.
 
 This is the type that closes that gap. It is a **worked example rather than a language feature**: it needs no engine support beyond the [UTF-8 codec](../serialization.md#strings-at-a-binary-boundary), and a program whose format does not match its padding convention writes its own class over the same ```[N].<uint8>``` and keeps the codec. Rust reaches the same shape the same way — ```arrayvec::ArrayString``` and ```heapless::String``` are libraries, not language.
 
@@ -44,7 +44,7 @@ class FixedString<N: uint32> {
 
 ## What it buys
 
-A record with a name is a value type again, and a table of them is one allocation:
+A record with a name has a layout again, and a table of them is one allocation:
 
 <!-- run -->
 ```js

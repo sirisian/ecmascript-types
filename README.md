@@ -792,7 +792,7 @@ An argument whose parameter is a window is not copied, since a window is over st
 
 | What a fixed-length array or tuple of value types is | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
-| A value: copied when bound, assigned, stored, passed and returned; compared by value | One rule for everything that has a layout, and the rule a value type class already follows. Equality and ```Map``` keys work. ```const b = a``` no longer shares a fixed array | Go's ```[N]T```, with the slice as the reference form; Rust's ```[T; N]``` and tuples, ```Copy``` when their elements are, with ```&[T]``` to borrow; Zig; Swift; D; C++'s ```std::array``` and ```std::tuple```; C#'s ```ValueTuple``` | No allocation to make or return one. A real copy of N elements at each bind and pass; a window avoids it | The layout table is true: all four channels are closed | **Chosen** |
+| A value: copied when bound, assigned, stored, passed and returned; compared by value | One rule for every aggregate of value types, and the rule a value type class already follows. Equality and ```Map``` keys work. ```const b = a``` no longer shares a fixed array | Go's ```[N]T```, with the slice as the reference form; Rust's ```[T; N]``` and tuples, ```Copy``` when their elements are, with ```&[T]``` to borrow; Zig; Swift; D; C++'s ```std::array``` and ```std::tuple```; C#'s ```ValueTuple``` | No allocation to make or return one. A real copy of N elements at each bind and pass; a window avoids it | The layout table is true: all four channels are closed | **Chosen** |
 | An object when named, inline when stored | JavaScript habits hold for a named array. ```const r = m[0]``` copies while ```const b = a``` shares, for one type | C, where an array in a struct is storage and a named one decays to a pointer | No copy to bind. An allocation per value and per read out of a slot | One type with two behaviours, and no way for the checker to tell which a store is to | Rejected |
 | Always a reference, never inline | JavaScript's rule | Java, C# arrays, JavaScript | A matrix is an array of pointers | Contradicts the layout this document gives a fixed array | Rejected |
 | A tuple is a value and a fixed array is an object | Tuples gain equality and cheap returns; arrays keep every habit | C# | Mixed | ```[uint8, uint8]``` and ```[2].<uint8>``` are the same bytes and would behave differently, where every tuple is an array | Rejected |
@@ -3321,7 +3321,7 @@ The key ```value``` for a property with a numeric type defined in this spec defa
 
 Any class where at least one public or private field is typed is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
 
-If every field is typed with a value type then instances can be treated like a value type in arrays and are backed by contiguous memory. When allocated as ```shared``` the backing storage is a SharedArrayBuffer, allowing instances or arrays of them to be shared among web workers. ```shared``` applies to any value type, not only an aggregate: a ```shared uint32``` or ```shared float64``` binding or field is placed in shared storage directly, which is what lets ```Atomics``` operate on it by reference.
+If every field is typed with a value type then the class is a value type class: an instance is copied when it is bound, assigned, stored, passed or returned, and two are ```===``` when their fields are. If every field also has a layout, the class has one, and its instances can be treated like a value type in arrays and are backed by contiguous memory. When allocated as ```shared``` the backing storage is a SharedArrayBuffer, allowing instances or arrays of them to be shared among web workers. ```shared``` applies to any value type, not only an aggregate: a ```shared uint32``` or ```shared float64``` binding or field is placed in shared storage directly, which is what lets ```Atomics``` operate on it by reference.
 
 ```js
 class A { // can be treated like a value type
@@ -3359,6 +3359,38 @@ e === new ProtocolError('not found', 404); // false: two errors
 | A value type class, copied by its typed fields | None: the copy is not the object | None. Rust, Swift, C#, Go and C++ have no value type that extends a reference type; a C# ```struct``` cannot inherit a class, and a Swift ```struct``` inherits nothing | A copy at every bind | A copied error has no ```message```, a copied ```Map``` subclass no entries, and two errors with different messages are equal | Rejected |
 | A type error to declare | Certain, but refuses ```class E extends Error { status: uint16; }```, the commonest typed subclass there is | None | None | Sound | Rejected |
 | A reference type, typed and sealed | An error is an error and a custom element is an element. A class meant as a value does not extend an untyped class | C# and Swift: a ```class``` that inherits is a reference type. TypeScript: every class | None | The object is whole under every name | **Chosen** |
+
+A layout is not part of the condition. A ```string```, a ```bigint```, a symbol, a literal type and a union of value types are value types whose size belongs to the value, so they have no layout, and a class holding one has none either. It is a value type class all the same:
+
+```js
+class Person {
+  name: string;
+  age: uint8;
+}
+
+const a = new Person();
+a.name = 'Ada';
+let b = a;                  // a copy, as for a class of numbers
+b.name = 'Grace';
+a.name;                     // 'Ada'
+b.name = 'Ada';
+a === b;                    // true: the same fields
+new Map([[a, 1]]).get(b);   // 1: one key
+Person.hasLayout;           // false
+// Person.byteLength;       // TypeError: a string has no layout, so Person has none
+const people: [100].<Person>;   // a hundred values, each its own, and not one buffer
+```
+
+What such a class lacks is what a layout gives: ```byteLength```, a place in a buffer, a view, an ```SoA```, and ```shared``` storage. A copy of it copies each field, and a ```string``` field's text is shared between the copies, which cannot be observed since a string never changes. A record that must sit in a buffer holds its text as bytes, as the [fixed-length string](examples/fixedstring.md) example does.
+
+Whether a type's size is fixed is a fact about storage. Whether ```b = a``` copies is something a program observes. So the second does not hang on the first: a generic ```class Box<T: type> { v: T; }``` is one kind of class at every argument, and ```[string, uint8]```, ```[2].<string>``` and a class with those two fields are copied and compared alike.
+
+| What a class with a field of no layout is | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| A value, copied and compared by its fields | One rule: a class is a value unless it holds a reference or says ```reference```. A key made of a name and an id is one ```Map``` key. A store to a copy that someone took for the original is lost, as it is for a class of numbers, and is an early error where it is certain | Rust, Swift, C#, Go and Java's value objects: an aggregate holding a string stays the kind it was. C#'s ```struct``` and ```unmanaged``` constraints are ```value``` and ```plain``` | One slot copied for each field; the text is shared. No inline storage, so a copy that cannot be elided is an allocation. ```===``` reads the strings | ```value``` admits only what is copied, a generic class is one kind, and a weak reference is refused for the reason given | **Chosen** |
+| The same, with a pointer-wide slot for the string, so the class has a layout | ```byteLength``` answers | C# and Go lay such a struct out so | ```[N].<K>``` has a stride | ```byteLength``` becomes the engine's pointer width and says nothing of the text; a serializer that trusts it writes a pointer | Rejected |
+| A value only where it has a layout; shared otherwise | A class with a name in it behaves as a JavaScript object. Which classes those are is read off representation: a literal union, a string enum and a ```bigint``` each change how the class is held | None found | None: a reference is passed | ```Box.<T>``` is two kinds of class, ```value``` admits a class that is not copied, and a tuple and a class of the same fields disagree | Rejected |
+| A type error unless declared ```reference``` | Nothing is silent, and every record with a name must carry the word | None found | None | ```Box.<string>``` cannot be written | Rejected |
 
 The value type behavior is used when creating sequential data in typed arrays.
 
@@ -3431,7 +3463,7 @@ const a: [10].<A>; // [A, ...]
 const b: [10].<A|null>; // [null, ...]
 ```
 
-**Copy cost and construction.** Assigning, passing, or returning a value type copies its ```byteLength``` bytes; there is no move that would leave the source invalid, so a large value type - a class with an inline ```[1024].<float64>``` field, say - is expensive to pass by value. Pass such a type by ```ref```, which is the borrow: a storage location and an index, with no copy and no allocation. Construction, on the other hand, never copies through a temporary. A constructor call, an object-literal ```:=``` conversion, and a value type ```return``` build their result directly in the destination - a binding, a field, an array element, or the caller's receiving slot - so ```return { ... } := Matrix4``` writes the caller's ```Matrix4``` in place rather than constructing one and copying it. This is the guaranteed copy elision C++17 specifies for prvalues, made part of the semantics here rather than left to the optimizer.
+**Copy cost and construction.** Assigning, passing, or returning a value type copies its ```byteLength``` bytes, or one field at a time where it has no layout; there is no move that would leave the source invalid, so a large value type - a class with an inline ```[1024].<float64>``` field, say - is expensive to pass by value. Pass such a type by ```ref```, which is the borrow: a storage location and an index, with no copy and no allocation. Construction, on the other hand, never copies through a temporary. A constructor call, an object-literal ```:=``` conversion, and a value type ```return``` build their result directly in the destination - a binding, a field, an array element, or the caller's receiving slot - so ```return { ... } := Matrix4``` writes the caller's ```Matrix4``` in place rather than constructing one and copying it. This is the guaranteed copy elision C++17 specifies for prvalues, made part of the semantics here rather than left to the optimizer.
 
 ### Class Members
 
@@ -3449,6 +3481,43 @@ class A {
   d: [4].<uint8>; // [0, 0, 0, 0]
 }
 ```
+
+A field whose type has no default has nothing to hold until it is assigned: a reference class, an object or function type, an interface. The constructor of the class that declares the field assigns it, and that is all it needs. No initializer, and no ```| null``` that every later read would have to narrow.
+
+```js
+reference class Connection { id: uint8 = 1; }
+
+class Session {
+  connection: Connection;                 // no default: the constructor assigns it
+  onClose: () => void;
+  constructor(connection: Connection, onClose: () => void) {
+    this.connection = connection;
+    this.onClose = onClose;
+  }
+}
+new Session(new Connection(), () => {}).connection.id; // 1
+
+class Late {
+  connection: Connection;
+  constructor(c: Connection | null) {
+    // this.connection.id;                // TypeError: read before the constructor has assigned it
+    if (c) { this.connection = c; }
+  }
+}
+new Late(new Connection());               // fine
+// new Late(null);                        // TypeError: the constructor returned without assigning connection
+
+// class Never { connection: Connection; } // TypeError, early: no constructor can assign it
+```
+
+Until the constructor's first store the field is uninitialized. It is not yet a property of the instance, and a read of it throws, so it never answers a value that is not of its type. The constructor returning with the field still unassigned throws too, and the check is made of the class that declares the field: a subclass's constructor runs afterwards and is too late, as it is for a ```readonly``` field. A class with such a field has no default of its own, so no instance of it exists that a constructor did not build. A ```static``` field has no constructor, and still needs an initializer.
+
+| A field whose type has no default, with no initializer | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| A type error at the declaration | A class can keep nothing its constructor is given unless that thing has a zero. The ways out are a nullable type narrowed at every read, or an object built only to be replaced | None found | None | Sound | Rejected |
+| Assigned by its constructor; a read before that throws, and so does the constructor returning without it | What a class with a constructor already looks like | Swift, Kotlin and Dart require a non-nullable property to be initialized by the time its initializer returns. TypeScript's ```strictPropertyInitialization``` checks a constructor's direct assignments. JavaScript's own ```let``` throws when read before its declaration | A check on a read while the instance is being built, and one when the constructor returns | The field never holds a value outside its type, whatever path the constructor took | **Chosen** |
+| The field holds ```undefined``` until assigned | JavaScript as it is | TypeScript without the strict flag; Java's ```null``` | None | A field of type ```Connection``` holds something that is not one | Rejected |
+| A marker on the field, ```late``` or ```!``` | One more word on every such field | Dart's ```late```, Kotlin's ```lateinit```, TypeScript's ```!``` | As the chosen row | As the chosen row where written, and the first row where not | Rejected: the chosen row needs no word |
 
 #### Readonly Fields
 
@@ -4913,7 +4982,29 @@ function keep(x: A) {       // x is a copy
 }
 ```
 
-The boundary is the class being typed and therefore sealed, the same point at which it becomes ineligible to be proxied: any class with a typed instance field, not only one whose fields are all value types, and not a ```dynamic``` class, which is not sealed. The nullable union ```A | null``` does not change this. It is inline storage with a discriminant rather than a separate allocation, but a weak reference is checked against the value, and the value is the same sealed instance under either binding type:
+The boundary is the class being a value type class, since that is what has no identity. A typed class that is not one is held by reference and is held weakly like any object: a class with a field of a reference type, a class whose base is not a typed class, and a class declared ```reference```, ```sealed``` or ```abstract```.
+
+```js
+class Failure extends Error { status: uint16 = 500; } // its base is not a typed class
+const reported = new WeakSet();
+reported.add(new Failure('down'));                    // an error already reported
+
+class Cache { entries: [].<uint8> = []; }             // holds a reference
+new WeakRef(new Cache());
+
+class Person { name: string; age: uint8; }            // a value type class
+// new WeakRef(new Person());                         // TypeError: Person is a value type
+```
+
+Being proxied has a different boundary: the class being typed and therefore sealed. That one is about storage and not identity, so a ```Cache``` is held weakly and cannot be the target of a ```Proxy```.
+
+| Which typed classes can be held weakly | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| None but those declared ```reference```, ```sealed``` or ```abstract``` | An error with a typed field cannot go in a ```WeakSet```, nor a cache in a ```WeakMap```, though each is one object under every name | None found | None | The refusal's reason, that a value type has no identity, is not true of what it refuses | Rejected |
+| Every typed class that is not a value type class | A class is held weakly exactly when it is held by reference. One fact to know, and it is the one that already decides copying and ```===``` | Java's value objects are the ones its weak references do not take. C#, Swift and Rust offer a weak reference only to a reference type | None | The refusal and its reason agree | **Chosen** |
+| Every typed class, value type classes too | Nothing is refused | None | None | A weak reference to a copy observes nothing | Rejected |
+
+The nullable union ```A | null``` does not change this. It is inline storage with a discriminant rather than a separate allocation, but a weak reference is checked against the value, and the value is the same instance under either binding type:
 
 ```js
 let e: A | null = new A();
