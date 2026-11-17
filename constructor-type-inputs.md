@@ -4,7 +4,7 @@ A class constructor denotes its associated instance type at a type-input reflect
 
 ```js
 interface Has<T: type> { get(): T; }
-class Box<T: type> implements Has.<T> {
+value class Box<T: type extends value> implements Has.<T> {
   value: T;
   constructor(value: T) { this.value = value; }
   get(): T { return this.value; }

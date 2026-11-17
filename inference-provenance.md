@@ -526,7 +526,7 @@ Prior-art sources: [TypeScript 4.4: aliased conditions, transitivity and cutoff]
 A class method's inferred result uses the declaring receiver and type environment. Effective member contracts must be available before result consumers are finalized. A forward sibling is a dependency; its unfinished result is not completed `any`. Instance and static views stay separate. A mutable field contributes its storage contract, subject to justified flow at the read, rather than the value of its initializer on every invocation.
 
 ```js
-class C {
+value class C {
   result() { return this.value(); }
   value() { return this.text; }
   text: string = "s";
@@ -776,7 +776,7 @@ A published result is a contract wherever a callable is used. It is not enough t
 
 ```js
 interface I { m(): number; }
-class C implements I {
+value class C implements I {
   text: string = "s";
   m() { return this.text; }
 }

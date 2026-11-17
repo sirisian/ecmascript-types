@@ -130,7 +130,7 @@ Checking a composite that *already exists* writes nothing to it. An optional mem
 **Value class instances convert in both directions.** ```Composite(v)``` on a value type class instance reads its public fields - own, enumerable, typed - and interns a composite of them. For the way back, this document extends the ```:=``` literal rule to composite sources: ```composite := Vector2``` fills the class layout directly and runs no constructor, the treatment [serialization](serialization.md) already gives parsed runtime data, and a frozen canonical composite is as good a source as the literal that made it. The bridge is two spellings, both explicit:
 
 ```js
-class Vector2 { x: float32; y: float32; }
+value class Vector2 { x: float32; y: float32; }
 const v = new Vector2();
 const key = Composite(v);            // Composite.<{ x: float32; y: float32 }>
 const w = key := Vector2;            // a fresh Vector2 copy of those fields
@@ -223,7 +223,7 @@ Each of these has a better tool in this proposal, and naming them is half the va
 The overlap is real, so start with it. For a shape of pure value-typed fields, a composite and a value type class instance have **the same observable equality**: ```===``` compares contents (fieldwise for the class, by interned identity for the composite), ```Map``` and ```Set``` key structurally, ```==``` agrees where defined, and both are refused in weak positions. This program can't tell which it's holding without asking:
 
 ```js
-class V2 { x: float32; y: float32; }
+value class V2 { x: float32; y: float32; }
 interface P2 { x: float32; y: float32; }
 
 const a = new V2(); a.x = 1; a.y = 4;

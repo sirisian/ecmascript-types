@@ -4,7 +4,7 @@ A selected value keeps its applicable nominal dependency when a value-preserving
 
 ```javascript
 function make(tag: string) {
-  class P { tag: string = tag; constructor(v: string) {} }
+  value class P { tag: string = tag; constructor(v: string) {} }
   return (v: any) => { const p: P = v; return p; };
 }
 const a = make("a");

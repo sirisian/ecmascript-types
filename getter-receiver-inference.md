@@ -3,7 +3,7 @@
 A class getter uses the same declaration-owned receiver judgment as a class method. Its participating inferred result is the property's read contract. Describing that contract does not execute the getter.
 
 ```js
-class Entry {
+value class Entry {
   get value() { return this.text; }
   text: string = "ok";
 }
@@ -23,7 +23,7 @@ The effective getter supplies the read contract, while the effective setter supp
 A result derived from a class parameter retains that parameter's declaration. A method's same-spelled parameter cannot capture it:
 
 ```js
-class Box<T: type> {
+value class Box<T: type extends value> {
   text: T;
   constructor(text: T) { this.text = text; }
   get value() { return this.text; }

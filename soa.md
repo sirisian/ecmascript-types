@@ -9,7 +9,7 @@ A loop that touches two fields of a five-field element drags the other three thr
 ```SoA.<T>``` is that layout, as a type. Elements are stored as parallel per-field arrays, while indexing, assignment, ```ref``` bindings, iteration, and ```push``` behave exactly as they do on ```[].<T>```. The layout changes; the code does not.
 
 ```js
-class Transform {
+value class Transform {
 	x: float32;
 	y: float32;
 	rotation: float32;
@@ -74,11 +74,11 @@ class SoA<T: type, Length: uint32 = 0> {
 An ```SoA.<T>``` stores one array per **immediate field** of ```T```. A field that is itself a value type stays one column, interleaved within itself:
 
 ```js
-class Vec2 {
+value class Vec2 {
 	x: float32;
 	y: float32;
 }
-class Projectile {
+value class Projectile {
 	origin: Vec2;
 	direction: Vec2;
 	speed: float32;
@@ -132,7 +132,7 @@ A reference into an ```SoA``` pins the container as well as the element: a ```pu
 ```fields``` projects each of ```T```'s immediate fields as a ```Span.<F>``` over that field's column. A projection is a window in the ordinary sense - it is live, so writes through it are visible through the element API and the reverse, and it follows the same rules any window does. A growth that reallocates invalidates it, exactly as it invalidates a reference into the same ```SoA```, and that is one rule rather than a second copy of it.
 
 ```js
-class Vertex {
+value class Vertex {
 	position: vec3;
 	uv: vec2;
 	color: uint32;

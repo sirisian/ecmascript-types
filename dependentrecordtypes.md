@@ -340,7 +340,7 @@ function g(x: Small) {} g(20);      // TypeError: an argument
 function f(x: Small = 20) {}        // TypeError: a parameter's default
 function f(): Small { return 20; }  // TypeError: a return
 const h = (): Small => 20;          // TypeError: an arrow's expression body
-class K { a: Small = 20; }          // TypeError: a field's initializer, static or not
+value class K { a: Small = 20; }          // TypeError: a field's initializer, static or not
 x = 20;                             // TypeError: an assignment
 20 := Small;                        // TypeError: a conversion
 function f<N: Small = 20>() {}      // TypeError: a generic parameter's default
@@ -374,7 +374,7 @@ type Small = uint8 where this < 10;
 type Big = uint8 where this > 5;
 
 let x: Small;                    // 0: the base's default satisfies the predicate
-class K { a: Small; }            // likewise for a field
+value class K { a: Small; }            // likewise for a field
 let y: Big;                      // TypeError: 0 fails `this > 5`, so Big has no default
 const a = new [2].<Small>();     // two elements of 0
 const b = new [2].<Big>();       // TypeError: there is no default to fill it with
@@ -550,7 +550,7 @@ function deserialize<T: type>(cls: { new(): T }, data: { [key: string]: any }): 
 	return instance;
 }
 
-class AddressResponse {
+value class AddressResponse {
 	@field('street_address')
 	streetAddress: string;
 
@@ -570,7 +570,7 @@ class AddressResponse {
 This does raise a question though about decorators usage in dependent record types. In the above usage all decorator usage with ```postalCode``` are identical. I mention this to say this isn't allowed:
 
 ```js
-class AddressResponse {
+value class AddressResponse {
 	@field('street_address')
 	streetAddress: string;
 

@@ -4,7 +4,7 @@ A default or an overload group does not make a constructor applicable to every v
 
 ```js
 let calls = "";
-class Point {
+value class Point {
   x: uint8 = 1;
   constructor(value: boolean = true) { calls += "b"; }
   constructor(value: string) { calls += "t"; }

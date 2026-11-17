@@ -4,7 +4,7 @@ An ordinary component extraction keeps the admitted nominal dependency of the co
 
 ```javascript
 function make(tag: string) {
-  class P { tag: string = tag; constructor(v: string) {} }
+  value class P { tag: string = tag; constructor(v: string) {} }
   return (v: any) => { const p: P = v; return p; };
 }
 const a = make("a"), b = make("b");

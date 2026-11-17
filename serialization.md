@@ -53,7 +53,7 @@ a.balance; // 0.1 as an exact decimal, never rounded through a double
 A `[].<T>` field over a typed class or value type parses element by element into the array's contiguous storage. There is no intermediate array of boxed objects to build and discard; a million-vertex mesh is one allocation and one pass.
 
 ```js
-class Vertex {
+value class Vertex {
 	x: float32;
 	y: float32;
 	z: float32;

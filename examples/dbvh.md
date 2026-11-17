@@ -17,7 +17,7 @@ The box comes first. Four ```float32``` fields make it a sixteen-byte value type
 
 ```js
 // dbvh.js
-export class AABB {
+export value class AABB {
 	minX: float32;
 	minY: float32;
 	maxX: float32;
@@ -56,7 +56,7 @@ Nodes live in one growable array and refer to each other by index. ```NULL_NODE`
 // dbvh.js
 export const NULL_NODE: uint32 = 0xffffffff;
 
-class Node {
+value class Node {
 	aabb: AABB;
 	parent: uint32 = NULL_NODE; // Doubles as the free list's next pointer while the node is free
 	left: uint32 = NULL_NODE;
@@ -101,7 +101,7 @@ Two insertion strategies, selected per tree: greedy descent for the dynamic tree
 
 ```js
 // dbvh.js
-class SAHEntry {
+value class SAHEntry {
 	node: uint32;
 	inherited: float32;
 }
@@ -109,7 +109,7 @@ class SAHEntry {
 const stack: [4096].<uint32>;      // Shared traversal stack for queries
 const sahStack: [4096].<SAHEntry>; // Insertion search stack
 
-export class DBVH {
+export value class DBVH {
 	root: uint32 = NULL_NODE;
 	count: uint32 = 0;
 	#useGreedy: boolean;

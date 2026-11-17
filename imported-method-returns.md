@@ -6,7 +6,7 @@ Participation remains separate from knowing a body's contributions. `class E { g
 
 ```js
 // dep
-export class E {
+export value class E {
   text: string = "ok";
   get() { return this.text; }
 }

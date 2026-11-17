@@ -4,7 +4,7 @@ A factory's local generic class belongs to that factory activation. Returning a 
 
 ```js
 function make(tag: string) {
-  class P<T: type> {
+  value class P<T: type> {
     tag: string = tag;
     constructor(value: string) {}
   }

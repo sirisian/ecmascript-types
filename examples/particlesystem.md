@@ -18,7 +18,7 @@ type Position = vec3.<{ m: 1 }>;
 type Velocity3 = vec3.<{ m: 1, s: -1 }>;
 type Acceleration3 = vec3.<{ m: 1, s: -2 }>;
 
-class Particle { // Every field is a value type, so Particle is one
+value class Particle { // A value class: every field is a value type with a layout
 	position: Position;
 	velocity: Velocity3;
 	lifetime: Second;

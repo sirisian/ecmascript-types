@@ -885,7 +885,7 @@ meta Dimensions {
 // With the cast declared, a unit type has a zero.
 primitive float32 { operator float32.<Dimensions>() { return this; } }
 let d: Meter;                  // 0 m
-class Vector3 { x: Meter; y: Meter; z: Meter; }
+value class Vector3 { x: Meter; y: Meter; z: Meter; }
 let field: [10].<Vector3>;     // ten zero-filled vectors
 
 // Without it, nothing crosses from an unconstrained value, so there is no zero.
@@ -1148,7 +1148,7 @@ A common use case for decorators is validation. Consider the example below where
 
 ```js
 // Decorator approach
-class User {
+value class User {
 	@Min(0) @Max(150)
 	age: number;
 
@@ -1159,7 +1159,7 @@ class User {
 
 ```js
 // Metadata approach
-class User {
+value class User {
 	age: number.<{ bounds: 0..=150 }>;
 	email: string.<{ pattern: /^[^@]+@[^@]+$/ }>;
 }
@@ -1234,7 +1234,7 @@ function validateInstance<T: type>(instance: T): boolean {
 	return true;
 }
 
-class User {
+value class User {
 	@validate
 	age: number.<{ bounds: 0..=150 }>;
 	@validate
@@ -1299,7 +1299,7 @@ function deserialize<T: type>(cls: { new(): T }, data: { [key: string]: any }): 
 	return instance;
 }
 
-class UserResponse {
+value class UserResponse {
 	@field
 	id: uint64;
 	@field('user_name')
@@ -1373,7 +1373,7 @@ class EventController {
 	}
 }
 
-class EventCreate {
+value class EventCreate {
 	title: string.<{ minLength: 1, maxLength: 200 }>;
 	date: string.<{ pattern: /^\\d{4}-\\d{2}-\\d{2}$/ }>;
 	capacity: uint32.<{ bounds: 1..=10000 }>;
@@ -1416,7 +1416,7 @@ function column<T: type, TClass: type>(
 }
 
 @table('sensors')
-class SensorReading {
+value class SensorReading {
 	@column
 	id: uint64;
 	@column('sensor_id')

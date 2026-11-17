@@ -4,7 +4,7 @@ An established, unapplied class constructor keeps its declaration origin when an
 
 ```js
 // dep
-class E {
+value class E {
   text: string = "ok";
   get() { return this.text; }
 }
@@ -43,7 +43,7 @@ Rust's [use declarations](https://doc.rust-lang.org/reference/items/use-declarat
 An unapplied alias receives explicit, contextual, inferred and defaulted arguments at the construction site under the ordinary rules. Even a discarded construction must satisfy those rules. A constructor already applied in its producer is a different dependency:
 
 ```js
-class E<T: type> { value: T; get() { return this.value; } }
+value class E<T: type extends value> { value: T; get() { return this.value; } }
 const Selected = E.<string>;
 export { Selected };
 ```

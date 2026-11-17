@@ -17,7 +17,7 @@ function f(x: string, context: Reflect.ClassField) {
 	// x is 'a'
 }
 
-class A {
+value class A {
 	@f
 	@f(0)
 	@f('a')
@@ -47,7 +47,7 @@ A source class declaration's outer binding remains uninitialized until class eva
 function tag(name) { return (context) => log.push(name); }
 
 @tag('class')
-class A {
+value class A {
 	@tag('field-outer')
 	@tag('field-inner')
 	a: uint8;
@@ -132,7 +132,7 @@ function f<TClass: type>(context: Reflect.ClassField.<any, TClass>) {
 	console.log('decorator on another type');
 }
 
-class A {
+value class A {
 	@f // decorator on uint32
 	a: uint32
 
@@ -140,7 +140,7 @@ class A {
 	b: string
 }
 
-class B {
+value class B {
 	@f // decorator on another type
 	a: string
 }
@@ -153,7 +153,7 @@ function f(...x, context: Reflect.ClassField) {
 	// [], [0, 1, 2], ['a', 'b', 'c']
 }
 
-class A {
+value class A {
 	@f
 	a: boolean
 
@@ -168,7 +168,7 @@ class A {
 An example featuring all of them:
 ```js
 @f // Reflect.Class
-class A {
+value class A {
 	@f // Reflect.ClassField, initial: 5
 	a: uint32 = 5;
 	@f // Reflect.ClassAccessor, initial: 5
@@ -1096,7 +1096,7 @@ function f<T: type, TClass: type>({ metadata }: Reflect.ClassField.<T, TClass>) 
 	metadata[myMetadata] = 'f';
 }
 
-class A {
+value class A {
 	@f
 	a: uint8;
 }
@@ -1107,24 +1107,24 @@ metadata[myMetadata]; // 'f'
 
 ### Metadata Inheritance
 
-Consider `class B extends A {}`.
+Consider `value class B extends A {}`.
 
 Reflection includes inherited members by default. `Reflect.getReflection.<Reflect.ClassField, B>()` returns all fields on B, including those inherited from its superclasses. The same applies to methods, getters, setters, and operators.
 
 Each member's metadata is inherited through the prototype chain. If A declares a field with metadata, and B extends A without redeclaring that field, B inherits A's metadata as-is. Symbol key lookups fall through the prototype. If B redeclares the field and applies its own decorators, B gets a new metadata object (prototypically inheriting from A's) where B's decorators write their values, shadowing A's without mutating them.
 
 ```js
-class A {
+value class A {
 	@tag('base')
 	id: uint64 = 0;
 }
 
-class B extends A {
+value class B extends A {
 	@tag('override')
 	id: uint64 = 0; // Redeclares and redecorates
 }
 
-class C extends A {
+value class C extends A {
 	// Does not redeclare id
 }
 ```
@@ -1220,7 +1220,7 @@ function singleton<T: type>({ metadata }: Reflect.Class.<T>): T {
 }
 
 @singleton
-class AppConfig {
+value class AppConfig {
 	debug: boolean = false;
 	version: string = '1.0.0';
 }
@@ -1343,7 +1343,7 @@ s.sum;  // 15
 Note: Accessor is required so that all decorators see the same context. Consider:
 
 ```js
-class A {
+value class A {
 	@validate
 	@signal
 	accessor a: int32 = 1;
@@ -1416,7 +1416,7 @@ function logged<T: type, TClass: type>(
 	};
 }
 
-class Theme {
+value class Theme {
 	#primary: string = '#000';
 
 	@logged
@@ -1456,7 +1456,7 @@ function clamp<T: type extends number, TClass: type>(
 	// Access class metadata via setterContext.classContext.metadata
 }
 
-class Sensor {
+value class Sensor {
 	#temperature: float32 = 0;
 
 	set temperature(@clamp(-273.15, 1000) value: float32) {
@@ -2248,7 +2248,7 @@ function binarySerialize<T: type>(packet: Packet, item: T) {
 	}
 }
 
-class Room {
+value class Room {
 	@data
 	id: uint64 = 0;
 	@data
@@ -2391,7 +2391,7 @@ function mountRoutes<T: type>(controller: T, router: Router) {
 	}
 }
 
-class Room {
+value class Room {
 	id: uint64;
 	name: string.<{ minLength: 1, maxLength: 80 }>; // See primitive metadata
 }
@@ -2712,7 +2712,7 @@ function generateDocs<T: type>(): ClassDoc {
 }
 
 @doc('Represents a sensor device with readings and calibration.')
-class Sensor {
+value class Sensor {
 	#offset: float32 = 0;
 
 	@doc('Unique identifier for the sensor.')

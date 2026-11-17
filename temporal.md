@@ -151,7 +151,7 @@ Because the ratio rides along, mixing scales stays correct without the programme
 
 ```bigint``` remains the type of the public accessor, for compatibility with Temporal as specified, while the ```int128``` field in the signatures listing above is the storage that makes ```Instant``` a value type.
 
-```Temporal.Duration```, by contrast, has only fixed-width integer fields, so it satisfies the value type class rule in the main proposal: an array of durations is contiguous memory with no boxing, which is what a scheduler or an animation timeline wants.
+```Temporal.Duration```, by contrast, has only fixed-width integer fields, so it is declared a value class with a layout, per the main proposal: an array of durations is contiguous memory with no boxing, which is what a scheduler or an animation timeline wants.
 
 ```total``` in seconds returns a ```float64```, whose 53-bit mantissa represents nanosecond totals exactly for durations up to about 104 days. Beyond that, or when exactness is required regardless, use ```decimal128``` or work in ```epochNanoseconds```:
 

@@ -177,7 +177,7 @@ One producer thread, one consumer thread, a million samples through a 1024-slot 
 // main.js
 import { SPSCQueue } from './ringbuffer.js';
 
-class Sample {
+value class Sample {
 	sequence: uint32;
 	channel: uint32;
 	reading: float64;

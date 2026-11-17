@@ -9,7 +9,7 @@ A specialization is written after the expression it specializes, ```f.<uint8>(x)
 The big picture of this section is to write out a near complete generics section to ensure types aren't implemented in a way that makes this awkward. It should be near seamless to introduce these as the main proposal relies on them in a few language feature areas.
 
 ```js
-class A<T: type = uint8> {
+value class A<T: type extends value = uint8> {
   a: T;
   constructor(a: T) {
     this.a = a;
@@ -270,7 +270,7 @@ function fall(): Acceleration3 {
   return vec3(0, -9.81, 0); // D inferred from the return type
 }
 
-class Box<T: type> { v: T; constructor(v: T) { this.v = v; } }
+value class Box<T: type extends value> { v: T; constructor(v: T) { this.v = v; } }
 const b: Box.<uint8> = new Box(1);  // T bound to uint8 from the annotation; the 1 is read at uint8
 const c: Box.<uint8> = new Box("s"); // TypeError at the argument, as new Box.<uint8>("s") would be
 ```
@@ -313,7 +313,7 @@ A ```Registry.<any>``` the program never named is an unchecked specialization th
 
 #### A parameter is opaque within its declaration
 
-Inside the declaration that binds it, ```T``` is a subtype of itself and of its constraint and nothing else relates to it: a body is checked once, over its parameters, not per instantiation. So ```function f<T: type>(x: T) { let v: T = 5; }``` is a type error — a Number is not known to be a ```T```, which may be instantiated at ```string``` — and a field is the same position: ```class A<T: type> { value: T = 0; }``` and ```value: T = null``` are refused, and the value arrives through the constructor (```value: T; constructor(v: T) { this.value = v; }```) or is written at a type (```value: T | null = null```). This is Rust's rule, where an unconstrained ```T``` cannot be built from a literal at all, and TypeScript's. Checking the initializer at each instantiation instead (C++'s model) would move the error from the declaration to whichever ```new A.<string>()``` first cannot convert it.
+Inside the declaration that binds it, ```T``` is a subtype of itself and of its constraint and nothing else relates to it: a body is checked once, over its parameters, not per instantiation. So ```function f<T: type>(x: T) { let v: T = 5; }``` is a type error — a Number is not known to be a ```T```, which may be instantiated at ```string``` — and a field is the same position: ```value class A<T: type extends value> { value: T = 0; }``` and ```value: T = null``` are refused, and the value arrives through the constructor (```value: T; constructor(v: T) { this.value = v; }```) or is written at a type (```value: T | null = null```). This is Rust's rule, where an unconstrained ```T``` cannot be built from a literal at all, and TypeScript's. Checking the initializer at each instantiation instead (C++'s model) would move the error from the declaration to whichever ```new A.<string>()``` first cannot convert it.
 
 The same body rule applies to ordinary, static and object-literal methods: the method's own generic parameters remain in scope for its parameters, return annotation and body, while its computed name is evaluated in the enclosing scope.
 
@@ -323,7 +323,7 @@ Declared variance composes through the declaration that a nested application act
 
 The intrinsic families follow the same defaults rule. See [family constraints](familyconstraints.md) for required arguments, anonymous bounds, matching, and reflection.
 
-A generic declaration's bare name in a type position — an annotation, a parameter or return type, a heritage clause, ```is```, a ```when``` pattern — names the application at its defaults, ```Box.<>```, and is a type error naming the parameter where one has no default. ```A```, ```A.<>``` and ```A.<uint8>``` are one type for a ```class A<T: type = uint8>```; ```let b: Box``` for a ```class Box<T: type>``` is refused; ```class S extends Box {}``` is refused, and ```class S<U: type> extends Box.<U>``` or ```extends Box.<uint8>``` is how it is written. There is no bare instantiation for a bare name to denote, since every construction yields a specialization, and a name that meant the family would make a default meaningless in a type position.
+A generic declaration's bare name in a type position — an annotation, a parameter or return type, a heritage clause, ```is```, a ```when``` pattern — names the application at its defaults, ```Box.<>```, and is a type error naming the parameter where one has no default. ```A```, ```A.<>``` and ```A.<uint8>``` are one type for a ```class A<T: type = uint8>```; ```let b: Box``` for a ```class Box<T: type>``` is refused; ```value class S extends Box {}``` is refused, and ```class S<U: type> extends Box.<U>``` or ```extends Box.<uint8>``` is how it is written. There is no bare instantiation for a bare name to denote, since every construction yields a specialization, and a name that meant the family would make a default meaningless in a type position.
 
 On a declaration with no type parameters the brackets hold [metadata](primitivemetadata.md) instead of arguments, so ```P.<{ brand: 'B' }>``` brands a class ```P```, ```P.<uint8>``` is an error because a type is not a metadata value, and ```P.<>``` is an error rather than ```P```, since it supplies neither.
 

@@ -21,7 +21,7 @@ A handle is eight bytes that name a slot at a moment in time. The type parameter
 // store.js
 export const NULL_SLOT: uint32 = 0xffffffff;
 
-export class Handle<T: type> { // T is phantom: no field uses it; it exists to make the type nominal per store
+export value class Handle<T: type> { // T is phantom: no field uses it; it exists to make the type nominal per store
 	readonly slot: uint32;
 	readonly generation: uint32;
 }
@@ -165,13 +165,13 @@ Two stores, so the point about handle types has something to be a point about. T
 // main.js
 import { Store, Commands, Handle } from './store.js';
 
-class Enemy {
+value class Enemy {
 	x: float32; y: float32;
 	vx: float32; vy: float32;
 	health: float32;
 }
 
-class Texture {
+value class Texture {
 	id: uint32;
 	width: uint32;
 	height: uint32;

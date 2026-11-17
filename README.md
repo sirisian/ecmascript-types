@@ -388,8 +388,8 @@ What this costs is that a type-level list cannot be a tuple type when one of its
 **Two unrelated classes have no common value.** Single inheritance is why: a value is an instance of one class, so no value is an instance of two neither of which extends the other, and such an intersection is reported where it is written.
 
 ```js
-class A { x: uint8 = 1; }
-class B { y: uint8 = 1; }
+value class A { x: uint8 = 1; }
+value class B { y: uint8 = 1; }
 // type T = A & B;   // TypeError: no value is an instance of both A and B
 
 abstract class Shape { }
@@ -397,7 +397,7 @@ class Circle extends Shape { }
 class Rect extends Shape { }
 // type Both = Circle & Rect;   // the same, and the mistake this actually catches
 
-class D extends A { }
+value class D extends A { }
 type Fine = A & D;               // a base and its subclass share the subclass's values
 ```
 
@@ -407,7 +407,7 @@ The rule is about *classes* and nothing else. An interface and an enum are nomin
 interface I { x: uint8; }
 interface J { y: uint8; }
 let v: I & J = { x: 1, y: 1 };   // fine
-class M extends A implements J { y: uint8 = 1; }
+value class M extends A implements J { y: uint8 = 1; }
 let w: A & J = new M();          // fine
 type X = A & { y: uint8 };       // fine
 ```
@@ -499,9 +499,9 @@ The only restriction is a layout restriction: a value type's layout may not cont
 A field whose type is a value type class is stored inline by default, so a bare field of such a type embeds a copy. A subclass instance may not be assigned to one at all: the base's storage is its own width and a subclass that adds storage does not fit, so the store is refused rather than silently reduced to the base slice. The same is true of an array element and a tuple position, and of whole arrays and tuples: a ```[N].<Sub>``` is not a ```[N].<Base>``` and a ```[Sub]``` is not a ```[Base]```, since each is laid out as its own element type. A subclass that adds no storage has the base's layout, is a value as its base is, and is accepted at every position of the base. The subtype relation is untouched — a subclass still satisfies ```is``` and ```instanceof```, and a bound ```T extends Base``` carries the whole value — and ```subclass := Base``` is the explicit widening where the base part is actually wanted.
 
 ```js
-class Base { x: uint8; }
-class Sub extends Base { y: uint8; }                                  // adds storage
-class Same extends Base { get twice(): uint8 { return this.x * 2; } } // adds none
+value class Base { x: uint8; }
+value class Sub extends Base { y: uint8; }                                  // adds storage
+value class Same extends Base { get twice(): uint8 { return this.x * 2; } } // adds none
 const subs: [2].<Sub> = [new Sub(), new Sub()];
 // const b: Base = new Sub();               // TypeError: Sub is not assignable to Base
 // const bs: [2].<Base> = subs;             // TypeError: [2].<Sub> is not assignable to [2].<Base>
@@ -536,7 +536,7 @@ function id<T: type extends Base>(v: T): T { return v; }
 const sub: Sub = id(new Sub());              // T is Sub, though a Sub is not stored where a Base is declared
 ```
 
-A tuple with a position of a reference type is not a value: a ```[Dog]``` is an ```[Animal]``` when both are reference classes, because the tuple holds pointers and a store through the wider type is checked where it is made.
+A tuple with a position of a reference type is not a value: a ```[Dog]``` is an ```[Animal]``` when both are classes held by reference, because the tuple holds pointers and a store through the wider type is checked where it is made.
 
 | What a tuple of value types does at a wider tuple type | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
@@ -553,7 +553,7 @@ const sames: [].<Same> = [new Same()];
 const ws: ReadonlySpan.<Base> = sames;       // Fine: Same adds no storage
 ```
 
-An optional field of a value type class, ```T | null```, is inline too: a discriminant and the payload, defined in [memory layout](memorylayout.md#optional-values), so ```[10].<A>``` is ten instances and ```[10].<A | null>``` is ten optional instances, both contiguous. Closing a recursive cycle is therefore not a property of the field but of the class: a class that contains itself is declared a ```reference class```, whose instances are held and passed by reference and whose fields alias. ```sealed``` and ```abstract``` classes are reference types already, so a field of one holds any subclass directly and needs no modifier:
+An optional field of a value type class, ```T | null```, is inline too: a discriminant and the payload, defined in [memory layout](memorylayout.md#optional-values), so ```[10].<A>``` is ten instances and ```[10].<A | null>``` is ten optional instances, both contiguous. Closing a recursive cycle is therefore not a property of the field but of the class: a class that contains itself is not declared ```value```, so that its instances are held and passed by reference and its fields alias. ```sealed``` and ```abstract``` classes are reference types too, so a field of one holds any subclass directly and needs no modifier:
 
 ```js
 type Tree = { value: float64, children: [].<Tree> }; // Through an array
@@ -561,9 +561,9 @@ type List = { value: uint32, next: List | null }; // Structural types are refere
 type Node = NumberNode | UnaryNode | BinaryNode; // A class union has many layouts, so it's a reference
 
 // type Bad = { next: Bad }; // TypeError: Bad has an infinite layout
-// class C { c: C; } // TypeError: a value type class cannot contain itself
-// class D { d: D | null; } // TypeError: an optional is inline, so this is still infinite
-reference class D { d: D | null; } // Fine, D is now a reference type
+// value class C { c: C; } // TypeError: a value type class cannot contain itself
+// value class D { d: D | null; } // TypeError: an optional is inline, so this is still infinite
+class D { d: D | null; } // Fine: D is not a value class, so the field is a reference
 
 type Expression = { op: string, operands: [].<Expression> } | Literal; // Mutually recursive
 type Literal = { value: float64 };
@@ -743,7 +743,7 @@ Layout follows the same rule as a class: a tuple of value types is itself a valu
 
 #### Fixed-length arrays and tuples are values
 
-A fixed-length array of value types, and a tuple of value types, are value types, exactly as a class is whose fields are all value types. They are copied when bound, assigned, stored into a typed field or element, passed and returned, and two of them are equal when their elements are. A dynamic array ```[].<T>``` is not: it owns storage that can grow, and is shared when assigned, as every JavaScript array is. Neither is an array or tuple with an element that is a reference.
+A fixed-length array of value types, and a tuple of value types, are value types, as a value class is. They have no declaration to carry the word ```value```, so they are values exactly when their elements are. They are copied when bound, assigned, stored into a typed field or element, passed and returned, and two of them are equal when their elements are. A dynamic array ```[].<T>``` is not: it owns storage that can grow, and is shared when assigned, as every JavaScript array is. Neither is an array or tuple with an element that is a reference.
 
 ```js
 const a: [2].<uint8> = [1, 2];
@@ -805,7 +805,7 @@ Copying has one failure nobody sees: a store to a copy that was taken for the or
 function scale(out: [3].<float32>, k: float32) {
   out[0] *= k;                    // TypeError: out is a copy of the argument and nothing reads it after this store
 }
-class Stack {
+value class Stack {
   items: [64].<uint32>; top: uint32;
   push(x: uint32) {
     const items = this.items;
@@ -833,7 +833,7 @@ A result is a copy too. A function copies what it returns, and a getter is a fun
 ```js
 const pick = (i: uint8): Particle => particles[i];
 pick(0).x = 1;                    // TypeError: a call answers a copy, and nothing names this one
-class Body {
+value class Body {
   p: Particle;
   get center(): Particle { return this.p; }
 }
@@ -858,15 +858,15 @@ function first(a: [].<Particle>): ref Particle { return ref a[0]; }
 first(particles).x = 1;           // lands: a ref result is a location, not a copy
 scores.sort()[0] = 9;             // lands: a built-in may return what it was given
 
-reference class Shape { o: Point; get origin(): Point { return this.o; } }
-reference class Sprite extends Shape { origin: Point; }   // a field where the base had a getter
+class Shape { o: Point; get origin(): Point { return this.o; } }
+class Sprite extends Shape { origin: Point; }   // a field where the base had a getter
 function nudge(shape: Shape) { shape.origin.x = 1; }      // lands for a Sprite, is lost for a Shape: not judged
 ```
 
 | What a store to a result does | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
 | An error where the function is certainly the program's and returns by value, and a binding of ```T \| undefined``` is judged as a binding of ```T``` | Nothing to write; the message says to bind, change and store back | C#: "cannot modify the return value because it is not a variable", for a method and a property. Go: a field of a call's result, or of a map element, cannot be assigned. Swift: a call returns an immutable value. C++: a scalar member of a class temporary is not assignable | None | No false instance. A getter or method of a reference class is not judged | Chosen |
-| An error for every declared method and getter | Also catches ```entity.position.x = 1``` on a reference class | C#, where a subclass cannot replace a property with a field | None | Refuses a store that lands when a subclass declares the member a field | Not chosen while a field may replace an inherited accessor |
+| An error for every declared method and getter | Also catches ```entity.position.x = 1``` on a class held by reference | C#, where a subclass cannot replace a property with a field | None | Refuses a store that lands when a subclass declares the member a field | Not chosen while a field may replace an inherited accessor |
 | Nothing | Nothing to learn | Rust's compiler accepts a store to a field of a temporary; Clippy reports one to a struct or tuple literal only | None | The store is silently lost | Rejected |
 
 ### Array length Type And Operations
@@ -1044,7 +1044,7 @@ A store to an element is a TypeError where it is written, and so is a store to a
 An inline element stays read-only wherever it is reached without a copy, because it is still the array's storage: as the ```this``` of a method, through a ```ref```, and when a reference to it is held in a plain object. A method that only reads runs; one that stores throws at the store. A copy is the reader's own.
 
 ```js
-class Particle { x: float32; step(): void { this.x += 1; } speed(): float32 { return this.x; } }
+value class Particle { x: float32; step(): void { this.x += 1; } speed(): float32 { return this.x; } }
 function read(ps: ReadonlySpan.<Particle>) {
   ps[0].speed();           // fine: it only reads
   // ps[0].step();         // TypeError when it runs: this is the element, and it is read-only
@@ -1097,7 +1097,7 @@ let b = Span.<uint32>(buffer, 0, 8); // 8 ELEMENTS, as `new Uint32Array(buffer, 
 The third argument is the ```count```, as it is for ```TypedArray``` and ```DataView```: give one and the view is FIXED at that many elements, omit it and the view tracks its buffer. The fourth, ```byteElementLength```, is the stride and defaults to the size of the element type. So ```Span.<uint32>(...)``` reads 4 bytes per element. The ```byteElementLength``` can be less than or greater than the actual size of the type. For example (refer to the Class section):
 
 ```js
-class A {
+value class A {
   a:uint8;
   b:uint16;
   constructor(value) {
@@ -1376,7 +1376,7 @@ f(uint32(1)); // uint32 called, because the argument is typed
 It's also possible to use operator overloading to define implicit casts. The following casts to a heterogeneous tuple:
 
 ```js
-class A {
+value class A {
     x: number;
     y: number;
     z: string;
@@ -2499,7 +2499,7 @@ An interface has the members of every type it extends, and it is a subtype of ea
 ```js
 interface A { a: string; }
 interface B extends A { b: uint8; }
-class C implements B { a: string = 'x'; b: uint8 = 1; }
+value class C implements B { a: string = 'x'; b: uint8 = 1; }
 function f(x: A) { return x.a; }
 f(new C());                    // fine: C implements B, and B extends A
 Reflect.isAssignable(B, A);    // true
@@ -3321,23 +3321,89 @@ The key ```value``` for a property with a numeric type defined in this spec defa
 
 Any class where at least one public or private field is typed is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
 
-If every field is typed with a value type then the class is a value type class: an instance is copied when it is bound, assigned, stored, passed or returned, and two are ```===``` when their fields are. If every field also has a layout, the class has one, and its instances can be treated like a value type in arrays and are backed by contiguous memory. When allocated as ```shared``` the backing storage is a SharedArrayBuffer, allowing instances or arrays of them to be shared among web workers. ```shared``` applies to any value type, not only an aggregate: a ```shared uint32``` or ```shared float64``` binding or field is placed in shared storage directly, which is what lets ```Atomics``` operate on it by reference.
+A class declared ```value``` is a value type class: an instance is copied when it is bound, assigned, stored, passed or returned, and two are ```===``` when their fields are. Every field of one has a type, and the type is a value type. A class that is not declared ```value``` is held by reference, as a class in JavaScript is, whatever its fields hold.
 
 ```js
-class A { // can be treated like a value type
+value class Point { // a value: copied, and compared by its fields
+  x: float32;
+  y: float32;
+}
+class Counter { // typed and sealed, and one object under every name
+  count: uint32 = 0;
+  increment() { this.count += 1; }
+}
+
+const p = new Point();
+let q = p;       // a copy
+q.x = 1;
+p.x;             // 0
+p === new Point(); // true: the same fields
+
+const c = new Counter();
+const d = c;     // the same counter
+d.increment();
+c.count;         // 1
+c === new Counter(); // false: two counters
+```
+
+The declaration decides, and it is checked against what it promises. A field of a value class with no type, or with a type that is not a value type, is a TypeError; so is a base that is not a value class; and a class that extends a value class is one and is written ```value class```, so the head of a class says what kind it is. ```value``` does not combine with ```sealed```, ```abstract``` or ```dynamic```, each of which is held by reference.
+
+```js
+value class A {
   a: uint8;
   #b: uint8;
 }
-class B extends A { // can be treated like a value type
+value class B extends A { // a value class extends nothing or a value class
   b: uint16;
 }
-class C { // cannot be treated like a value type
-  a: uint8;
-  b;
-}
+// value class C { a: uint8; b; }          // TypeError: the field b has no type
+// value class D { xs: [].<uint8>; }       // TypeError: a growable array is not a value type
+// class E extends A { }                   // TypeError: a class that extends a value class is written `value class`
+// value class F extends Counter { }       // TypeError: Counter is not a value class
+value class Box<T: type extends value> { v: T; } // a field of a parameter's type needs the parameter bounded by `value`
+// new Box.<Counter>(new Counter());       // TypeError: Counter does not satisfy `value`
 ```
 
-A typed class whose base is not a typed class is not a value type class either, whatever fields it declares. The base may be an untyped class, a ```dynamic``` class, a function, or a built-in such as ```Error```, ```Map``` or ```HTMLElement```, and the rule is inherited down the chain. An instance holds what that base's constructor made, which no field declares, and a copy runs no constructor, so a copy could carry only the typed fields. Such a class is an ordinary reference type: held and compared by reference, with no layout and no default. It is still typed, so it is sealed and its fields are checked.
+```value``` is the name of a type, and a name is looked up where it is written. Where a binding named ```value``` is in scope of the class, ```extends value``` names that binding and bounds nothing, which is a TypeError that says so; a parameter of the class's own constructor is not in that scope.
+
+If every field also has a layout, the class has one, and its instances can be treated like a value type in arrays and are backed by contiguous memory. When allocated as ```shared``` the backing storage is a SharedArrayBuffer, allowing instances or arrays of them to be shared among web workers. ```shared``` applies to any value type, not only an aggregate: a ```shared uint32``` or ```shared float64``` binding or field is placed in shared storage directly, which is what lets ```Atomics``` operate on it by reference.
+
+Whether ```const b = a; b.x = 1``` changes ```a``` is part of what a program means, so it is written at the class. It was derived from the fields: a typed class every field of which had a value type was a value type class. Then the last annotation added to a class changed what every use of it meant, and so did a field added later, a base, and a type argument, each without a diagnostic. These all ran, and each gives the other answer now:
+
+```js
+class User { id: number = 0; name: string = ''; }
+function rename(u, n) { u.name = n; }     // an untyped function
+const u = new User();
+rename(u, 'Ada');
+u.name;                                   // 'Ada'. It was '' once both fields were typed: rename was handed a copy
+
+class Model { count: number = 0; }
+class View { model: Model; constructor(m: Model) { this.model = m; } }
+const m = new Model();
+const v = new View(m);
+m.count = 3;
+v.model.count;                            // 3. It was 0: the view held a copy
+
+class Lock { held: boolean = false; }
+new Set([new Lock(), new Lock()]).size;   // 2. It was 1: two locks were one member
+
+class Node { value: uint32; next: Node | null; } // a list node. It was a TypeError: a value cannot contain itself
+```
+
+| How a class becomes a value | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| Inferred: every field has a value type | Nothing to write. The kind changes with an annotation, a field, a base or a type argument, and a reader needs all of them | None found for a property that changes what code means. Rust infers ```Copy``` for an array and a tuple, which have no declaration | Inline storage unasked, and a copy nobody chose: a class of thirty strings is copied at every call | The kind can be unknown until the program runs, as for ```class K extends pick(c)```, and a generic class is two kinds | Rejected |
+| Inferred, with ```value class``` as an assertion | Protects the author who writes the word. A class without it is as above | Swift asks for an explicit ```Sendable``` on a public type for this reason | As above | As above for every class without the word | Rejected |
+| Inferred, and a class of value-typed fields must say ```value``` or ```reference``` | No silent change, but ```class Counter { count: number = 0; }``` no longer compiles | Swift, C# and Kotlin have no unmarked form; there the word was never an existing keyword | The copy is chosen | Sound | Rejected: it taxes the ordinary class of the base language |
+| Declared: ```value class```, fields restricted to value types | One word on a class meant as a value and none on any other. JavaScript keeps its meaning as types are added | Java and Kotlin ```value class```, C# and Swift ```struct```, Rust ```derive(Copy)```, Julia ```struct``` | The author chooses the copy. A forgotten word is an error at a default or at ```byteLength```, and otherwise JavaScript's behaviour | The kind is in the head: known for a generic class and under a computed base | **Chosen** |
+| Declared, and conditional on type arguments | One line of a generic function stores to the caller's object or to a copy, by its argument | Rust's ```derive(Copy)``` on a generic struct, where using a moved value is a compile error | None | Here both run | Rejected |
+| Declared, and a value class may hold references | A generic class needs no bound, and a store through a copy's array reaches the original | Swift, C#, Go and Java | None | A copy shares what it refers to | Not now: it can be allowed later without breaking a program |
+| Declared by immutability: a class of ```readonly``` fields is the value | No store to a copy can be lost | Java, Kotlin, Julia; C#'s "do not define mutable value types" | An engine may share where it would copy | Sound, but ```particles[i].x += 1``` is the store memory layout exists for | Rejected |
+| Declared at each use, ```T``` beside ```ref T``` | The kind shows at every use | Go, C++, Rust | None | A collector owns lifetime, so there is one kind of reference and the question is the class's | Rejected |
+
+The word is ```value``` and not ```struct```: the ECMAScript structs proposal gives ```struct``` to a sealed object that has identity. A fixed-length array and a tuple have no declaration to carry a word, and are values where their elements are, as below.
+
+A class whose base is not a value class cannot be declared one. The base may be a class that is not declared ```value```, a ```dynamic``` class, a function, or a built-in such as ```Error```, ```Map``` or ```HTMLElement```. An instance holds what that base's constructor made, which no field declares, and a copy runs no constructor, so a copy could carry only the typed fields. A class over such a base is an ordinary reference type: held and compared by reference, with no layout and no default. It is still typed, so it is sealed and its fields are checked.
 
 ```js
 class ProtocolError extends Error {
@@ -3357,13 +3423,13 @@ e === new ProtocolError('not found', 404); // false: two errors
 | What a typed class over an untyped base is | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
 | A value type class, copied by its typed fields | None: the copy is not the object | None. Rust, Swift, C#, Go and C++ have no value type that extends a reference type; a C# ```struct``` cannot inherit a class, and a Swift ```struct``` inherits nothing | A copy at every bind | A copied error has no ```message```, a copied ```Map``` subclass no entries, and two errors with different messages are equal | Rejected |
-| A type error to declare | Certain, but refuses ```class E extends Error { status: uint16; }```, the commonest typed subclass there is | None | None | Sound | Rejected |
-| A reference type, typed and sealed | An error is an error and a custom element is an element. A class meant as a value does not extend an untyped class | C# and Swift: a ```class``` that inherits is a reference type. TypeScript: every class | None | The object is whole under every name | **Chosen** |
+| A type error to declare at all | Certain, but refuses ```class E extends Error { status: uint16; }```, the commonest typed subclass there is | None | None | Sound | Rejected |
+| A reference type, typed and sealed, and a type error to declare ```value``` | An error is an error and a custom element is an element. A class meant as a value does not extend an untyped class | C# and Swift: a ```class``` that inherits is a reference type. TypeScript: every class | None | The object is whole under every name | **Chosen** |
 
-A layout is not part of the condition. A ```string```, a ```bigint```, a symbol, a literal type and a union of value types are value types whose size belongs to the value, so they have no layout, and a class holding one has none either. It is a value type class all the same:
+A layout is not part of the condition. A ```string```, a ```bigint```, a symbol, a literal type and a union of value types are value types whose size belongs to the value, so they have no layout, and a class holding one has none either. It may be declared a value class all the same:
 
 ```js
-class Person {
+value class Person {
   name: string;
   age: uint8;
 }
@@ -3383,14 +3449,14 @@ const people: [100].<Person>;   // a hundred values, each its own, and not one b
 
 What such a class lacks is what a layout gives: ```byteLength```, a place in a buffer, a view, an ```SoA```, and ```shared``` storage. A copy of it copies each field, and a ```string``` field's text is shared between the copies, which cannot be observed since a string never changes. A record that must sit in a buffer holds its text as bytes, as the [fixed-length string](examples/fixedstring.md) example does.
 
-Whether a type's size is fixed is a fact about storage. Whether ```b = a``` copies is something a program observes. So the second does not hang on the first: a generic ```class Box<T: type> { v: T; }``` is one kind of class at every argument, and ```[string, uint8]```, ```[2].<string>``` and a class with those two fields are copied and compared alike.
+Whether a type's size is fixed is a fact about storage. Whether ```b = a``` copies is something a program observes. So the second does not hang on the first: a generic ```value class Box<T: type extends value> { v: T; }``` is one kind of class at every argument, and ```[string, uint8]```, ```[2].<string>``` and a class with those two fields are copied and compared alike.
 
 | What a class with a field of no layout is | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
-| A value, copied and compared by its fields | One rule: a class is a value unless it holds a reference or says ```reference```. A key made of a name and an id is one ```Map``` key. A store to a copy that someone took for the original is lost, as it is for a class of numbers, and is an early error where it is certain | Rust, Swift, C#, Go and Java's value objects: an aggregate holding a string stays the kind it was. C#'s ```struct``` and ```unmanaged``` constraints are ```value``` and ```plain``` | One slot copied for each field; the text is shared. No inline storage, so a copy that cannot be elided is an allocation. ```===``` reads the strings | ```value``` admits only what is copied, a generic class is one kind, and a weak reference is refused for the reason given | **Chosen** |
+| A value, copied and compared by its fields | One rule: a value class is copied and compared by its fields, whatever value types they have. A key made of a name and an id is one ```Map``` key. A store to a copy that someone took for the original is lost, as it is for a class of numbers, and is an early error where it is certain | Rust, Swift, C#, Go and Java's value objects: an aggregate holding a string stays the kind it was. C#'s ```struct``` and ```unmanaged``` constraints are ```value``` and ```plain``` | One slot copied for each field; the text is shared. No inline storage, so a copy that cannot be elided is an allocation. ```===``` reads the strings | ```value``` admits only what is copied, a generic class is one kind, and a weak reference is refused for the reason given | **Chosen** |
 | The same, with a pointer-wide slot for the string, so the class has a layout | ```byteLength``` answers | C# and Go lay such a struct out so | ```[N].<K>``` has a stride | ```byteLength``` becomes the engine's pointer width and says nothing of the text; a serializer that trusts it writes a pointer | Rejected |
 | A value only where it has a layout; shared otherwise | A class with a name in it behaves as a JavaScript object. Which classes those are is read off representation: a literal union, a string enum and a ```bigint``` each change how the class is held | None found | None: a reference is passed | ```Box.<T>``` is two kinds of class, ```value``` admits a class that is not copied, and a tuple and a class of the same fields disagree | Rejected |
-| A type error unless declared ```reference``` | Nothing is silent, and every record with a name must carry the word | None found | None | ```Box.<string>``` cannot be written | Rejected |
+| A type error to declare ```value``` | Nothing is silent, and no record with a name is a value | None found | None | ```Box.<string>``` cannot be written | Rejected |
 
 The value type behavior is used when creating sequential data in typed arrays.
 
@@ -3410,12 +3476,12 @@ An array view can be created over this sequential memory to view as something el
 ```js
 // A wire header is packed, so its members sit at the byte offsets the format specifies rather than the ones natural alignment would choose.
 @packed
-class HeaderSection {
+value class HeaderSection {
   a: uint8;
   b: uint32;
 }
 @packed
-class Header {
+value class Header {
   a: uint8;
   b: uint16;
   c: HeaderSection;
@@ -3436,16 +3502,16 @@ header.c.a = 10;
 buffer[3]; // 0
 ```
 
-To create an array whose elements may be absent, union with null. A nullable union of a value type class is inline - a discriminant and the payload, per [memory layout](memorylayout.md#optional-values) - so the array stays contiguous and no element is separately allocated. An array of *references* is an array of a ```reference class```, which is the form that allocates. The same spelling works through a generic parameter.
+To create an array whose elements may be absent, union with null. A nullable union of a value type class is inline - a discriminant and the payload, per [memory layout](memorylayout.md#optional-values) - so the array stays contiguous and no element is separately allocated. An array of *references* is an array of a class that is not a value class, which is the form that allocates. The same spelling works through a generic parameter.
 
 ```js
 const a: [10].<A|null>; // [null, ...], contiguous, 10 * (A.byteLength + 1) rounded to A's alignment
 a[0] = new A();
 
-reference class R { x: uint8; }
+class R { x: uint8; }
 const b: [10].<R|null>; // [null, ...], 10 references
 
-class Container<T: type> {
+value class Container<T: type extends value> {
   a: [10].<T>;
 }
 new Container.<A>(); // a is 10 inline instances
@@ -3474,7 +3540,7 @@ Repeated own field definitions share one storage contract per property key and p
 A field declared without an initializer takes its type's default value rather than ```undefined```, following the variable declaration section. A typed slot never holds ```undefined``` unless its type says so.
 
 ```js
-class A {
+value class A {
   a: uint8; // 0
   b: string; // ''
   c: uint8 | null; // null
@@ -3482,10 +3548,10 @@ class A {
 }
 ```
 
-A field whose type has no default has nothing to hold until it is assigned: a reference class, an object or function type, an interface. The constructor of the class that declares the field assigns it, and that is all it needs. No initializer, and no ```| null``` that every later read would have to narrow.
+A field whose type has no default has nothing to hold until it is assigned: a class that is not a value class, an object or function type, an interface. The constructor of the class that declares the field assigns it, and that is all it needs. No initializer, and no ```| null``` that every later read would have to narrow.
 
 ```js
-reference class Connection { id: uint8 = 1; }
+class Connection { id: uint8 = 1; }
 
 class Session {
   connection: Connection;                 // no default: the constructor assigns it
@@ -3551,13 +3617,13 @@ function f(config: IConfig) {
 
 ```readonly``` fixes a member's own storage, and no more. What that covers depends on what the member stores.
 
-A member of a reference type stores a reference. The reference is fixed, not the object it refers to: a ```readonly``` field holding a growable array can't be replaced, but its elements can be written and it can be appended to, and a ```readonly``` field holding an object of a reference class leaves that object writable. This is the shallow rule of TypeScript and Java, where every member is a primitive or a reference.
+A member of a reference type stores a reference. The reference is fixed, not the object it refers to: a ```readonly``` field holding a growable array can't be replaced, but its elements can be written and it can be appended to, and a ```readonly``` field holding an object of a class held by reference leaves that object writable. This is the shallow rule of TypeScript and Java, where every member is a primitive or a reference.
 
 A member of a value type stores the value itself. A value type class instance, a fixed-length array of value types and a tuple of value types are laid out inside what holds them, so there is no object referred to: a field or position of the value is the member's storage, and ```readonly``` covers it.
 
 ```js
-class Size { w: uint16; h: uint16; grow(): void { this.w += 1; } }
-reference class Canvas { pixels: [].<uint8> = []; }
+value class Size { w: uint16; h: uint16; grow(): void { this.w += 1; } }
+class Canvas { pixels: [].<uint8> = []; }
 class Window {
   readonly size: Size;                 // a value: stored in the Window
   readonly origin: [2].<int32>;        // a value
@@ -3597,8 +3663,8 @@ A union permits a write only when every reachable known alternative permits it. 
 Each reachable known destination must also accept the stored value. This applies to array and tuple elements and to computed properties whose key is a known finite set, such as `k: 'x' | 'y'`. A read may produce `uint8 | string`, but a write selecting between a `uint8` slot and a `string` slot must satisfy both slots independently, with fresh literals contextualized for each. A single slot declared `uint8 | string` still accepts either admitted value. A missing member of a closed typed class rejects the write even through a union; this does not close an ordinary structural object. Narrowing can reduce the alternatives. Unknown keys and `any` retain runtime checks, and key expressions are never executed by static checking.
 
 ```js
-class Fixed { readonly x: uint8 = 1; }
-class Mutable { x: uint8 = 2; }
+value class Fixed { readonly x: uint8 = 1; }
+value class Mutable { x: uint8 = 2; }
 function update(o: Fixed | Mutable) {
   // o.x = 3; // Early type error: Fixed does not permit this write
   if (o is Mutable) o.x = 3;
@@ -3608,7 +3674,7 @@ function update(o: Fixed | Mutable) {
 Assignment in a method the constructor calls is a TypeError, not an exception, since only constructor bodies are permitted. ```Object.freeze``` on a typed instance is defined as making every field ```readonly``` at runtime. A field that holds a value type is then read-only in every part, as a ```readonly``` one is, so a frozen value does not change:
 
 ```js
-class Box { size: Size; }
+value class Box { size: Size; }
 const box = new Box();
 box.size.w = 3;             // fine
 Object.freeze(box);
@@ -3636,7 +3702,7 @@ ys[0].w = 4;                // fine
 ```readonly``` belongs to the class in a default as well. A default is built without the constructor or the initializers, so the field holds its zero, and nothing may assign it:
 
 ```js
-class Id { readonly n: uint8 = 3; }
+value class Id { readonly n: uint8 = 3; }
 new Id().n;                 // 3
 let d: Id;                  // a default: no initializer ran
 d.n;                        // 0
@@ -3648,10 +3714,10 @@ d.n;                        // 0
 Static fields are typed like instance fields and live on the constructor, where they become typed properties of that object. They are not part of an instance's memory layout, so they never affect whether a class qualifies as a value type.
 
 ```js
-class A {
+value class A {
   static count: uint32 = 0; // A.count is a typed property of the constructor
   static #instances: uint32 = 0; // Private static
-  a: uint8; // A is still a value type class
+  a: uint8; // the only field of an instance: a static field is no part of the value
 }
 ```
 
@@ -3676,7 +3742,7 @@ Private fields participate in the memory layout exactly as public fields do, whi
 A selected private member access is an early type error when its participating receiver is proved non-Object, including reads, stores, updates and method calls. Optional access first removes its nullish alternatives: `o: null; o?.#x` skips access, while `o: uint8 | null; o?.#x` has an impossible selected receiver. A possible Object remains eligible even when its static type does not name the declaring class; private brands can be stamped onto other Objects. This rule does not prove a brand, admit private borrowing, or change public primitive property access. Unknown and `any` receivers retain runtime brand checks.
 
 ```js
-class A {
+value class A {
   #a: uint8;
   #scale(value: uint8): uint16 {
     return value * 2;
@@ -3687,7 +3753,7 @@ class A {
 The brand check ```#a in value``` narrows the static type of ```value``` to the class in the true branch, joining ```instanceof``` and the structural ```is``` operator as a narrowing form. These forms narrow in any boolean-tested position, not only an ```if```: the condition of a conditional expression narrows its two branches, and the right operand of ```&&``` or ```||``` is narrowed by the left. Facts also flow where control joins: after ```if (a === null || b === null) return;``` both ```a``` and ```b``` are present, after ```while (x !== null) { x = next(); }``` ```x``` is ```null```, and after a ```switch``` whose cases all return, the discriminant has the values no case named. A test those facts settle can never succeed or never fail and is a compile-time TypeError, as is a range pattern whose interval holds no value of its subject, such as ```x is 300..<400``` for a ```uint8```. A comparison the types already settle is a compile-time TypeError where it decides a branch: ```x < 0``` or ```x >= 0``` for an unsigned ```x```, ```x === NaN```, ```x === x``` for a type with no NaN, ```Number.isNaN(x)``` for an integer, and ```if ([])```. So are ```Array.isArray(s)``` for a ```string```, ```t.length === 3``` or ```2 in t``` for a pair, ```'x' in c``` for a typed field, ```p < 1``` for an enum whose least value is 1, ```typeof x === typeof y``` for a ```string``` and a ```uint8```, and a template literal with text such as ```if (`x${a}`)```. Patterns and lengths are judged the same way: a ```when /a/``` clause over a ```uint8```, an impossible sub-pattern at a Composite member, and a ```default``` after a clause that covers a lone Composite are refused, as are ```t.length < 2``` or ```if (t.length)``` for a pair and ```s < ''``` for a ```string```. A test is judged by its value whatever its form, so ```if (typeof x)``` and ```while (void x)``` are refused, as are ```x < y``` for a ```uint8``` and a ```y: 0```, ```p < P.Low``` for an enum, ```a === b``` for two values of one literal type, and ```if (x)``` after ```if (x === 0) return;```. So are ```a === []``` and ```o !== {}```, a repeated ```else if (a < b)```, ```x !== x``` after ```Number.isNaN(x)``` has failed, ```s.length === 0``` for ```s: 'abc'```, and ```for (const i of 0..<0)```. Inside narrowing ```boolean``` is read as ```true``` or ```false```, so after ```if (b === true) return;``` the binding is ```false```, and a ```switch``` over ```boolean``` with both cases has a dead ```default```. In a generic body a test is judged against the parameter's bound: ```x === null``` for a ```T``` bounded by ```uint8``` is refused, while ```x is string``` for a ```T``` bounded by ```uint8 | string``` is not. A call whose return type is ```void``` has no value to test or compute with, so ```if (log())``` and ```log() + 1``` are compile-time TypeErrors, while ```log();``` and ```return log();``` from a ```void``` function are fine. On a sealed typed class the check is a tag test:
 
 ```js
-class A {
+value class A {
   #a: uint8 = 0;
   static isA(value: any): boolean {
     if (#a in value) {
@@ -3740,7 +3806,7 @@ The setter parameter is bound in the setter body just like an ordinary parameter
 Setter presence is independent of its annotation and of the order of a getter/setter pair. The early check follows the effective member through inheritance and specialization, including static, private and symbol-named getters. It covers stores made by updates, compound assignments, destructuring and iteration targets. The field-initialization exception does not give a getter-only property a setter inside a constructor. A dynamic receiver keeps its runtime checks.
 
 ```js
-class Celsius {
+value class Celsius {
   #value: float32 = 0;
   get value(): float32 {
     return this.#value;
@@ -3760,7 +3826,7 @@ c.value = '10'; // The setter's union type accepts a string, which it parses
 An ```accessor``` field declares a typed field together with a getter and setter over it. It desugars to a private typed field and the matching pair, so the backing field participates in the memory layout, and an undecorated accessor is inlined to a direct field access. This is the form the [decorators](decorators.md) extension operates on.
 
 ```js
-class A {
+value class A {
   accessor a: uint32 = 5;
   static accessor count: uint32 = 0;
 }
@@ -3824,13 +3890,13 @@ The reason is that return type overloads resolve against the call site's expecte
 Fields do not overload. A field is declared once along a class chain, so a subclass redeclaring a typed field it inherits is a TypeError, whether or not the redeclaration changes the type. A typed field has one declared type, which subtyping, ```readonly``` and the typed store all read, and a value type class's layout would otherwise place the field twice. A different value for an inherited field is assigned in the constructor:
 
 ```js
-class A {
+value class A {
   x: uint8 = 1;
 }
-class B extends A {
+value class B extends A {
   x: uint8 = 5; // TypeError: B redeclares x, a typed field it inherits from A
 }
-class C extends A {
+value class C extends A {
   constructor() {
     super();
     this.x = 5;
@@ -3902,7 +3968,7 @@ Override return compatibility uses the declared return where present and the pub
 Constructor declaration ambiguity includes different formal parameter counts when defaults, optional parameters or rests admit a common argument list. Use ordinary specificity: sharing an argument count alone is not ambiguity. A proved conflict is reported at the class even without a construction.
 
 ```js
-class MyType {
+value class MyType {
   x: float32; // Able to define members outside of the constructor
   constructor(x: float32) {
     this.x = x;
@@ -4004,7 +4070,7 @@ class A {
 The strict equality operators ```===``` and ```!==``` are not overloadable and always retain their identity semantics. What identity means follows from the type. A reference type's identity is the reference, so two distinct objects are never ```===```. A value type's identity is its value, as it already is for ```uint8``` and ```string```, so two value type class instances are ```===``` exactly when their fields are, compared field by field as the keyed collections section describes.
 
 ```js
-class Vector2 { // A value type
+value class Vector2 { // A value type
   x: float32;
   y: float32;
 }
@@ -4026,7 +4092,7 @@ Compound assignment operators (```+=``` and the rest of the assignment forms) ar
 Examples:
 
 ```js
-class Vector2 {
+value class Vector2 {
   x: float32;
   y: float32;
   constructor(x: float32 = 0, y: float32 = 0) {
@@ -4119,7 +4185,7 @@ class BinaryNode extends Node { op: TokenType; left: Node; right: Node; }
 // class Extra extends Node {} // TypeError: Node is sealed
 ```
 
-A sealed class is a reference type: its instances are held and passed by reference, which is what lets a ```Node```-typed field, parameter, or return hold any subclass and a ```switch``` dispatch over them. So the child fields are plainly ```Node```, closing the recursive cycle without a modifier or a sigil — where a non-sealed value type class would instead be declared a ```reference class```, per the type aliases and recursion section, since its optional form ```T | null``` is inline and so still infinite.
+A sealed class is a reference type: its instances are held and passed by reference, which is what lets a ```Node```-typed field, parameter, or return hold any subclass and a ```switch``` dispatch over them. So the child fields are plainly ```Node```, closing the recursive cycle without a modifier or a sigil — as any class that is not a value class closes it. A value class cannot hold itself, per the type aliases and recursion section, since its optional form ```T | null``` is inline and so still infinite.
 
 Only subclassing is restricted. The class extension syntax above, which appends methods to an existing class, remains available on a sealed class from any module, since it adds no cases. Applying a mixin to a sealed class from outside its module creates a subclass and is therefore a TypeError.
 
@@ -4162,22 +4228,26 @@ An abstract class is a reference type. Its purpose is polymorphic dispatch throu
 
 A direct construction is an early type error when its target is proved to be an abstract class, including through a stable constructor alias or a specialization whose declaration is known. For example, `const K = Shape; new K()` has the same restriction as `new Shape()`. This is separate from construction capability: an abstract base remains a valid `extends` target and its constructor may run through `super()` with a concrete `NewTarget`. Reassignment, shadowing, `any`, decorators and other unknown transformations withdraw an origin proof; a factory result is not identified by its return type alone. No constructor or reference is evaluated to establish the identity.
 
-The class modifiers ```abstract```, ```sealed```, ```reference```, and ```dynamic``` may be written in any order. Repeating a modifier is an error, and ```sealed``` together with ```dynamic``` is an error: the closed hierarchy exists to be matched and laid out by shape, which is exactly what ```dynamic``` opts out of. ```reference``` with ```abstract```, ```sealed```, or ```dynamic``` is redundant rather than an error, each of those being a reference type already.
+The class modifiers ```abstract```, ```sealed``` and ```dynamic``` may be written in any order. Repeating a modifier is an error, and ```sealed``` together with ```dynamic``` is an error: the closed hierarchy exists to be matched and laid out by shape, which is exactly what ```dynamic``` opts out of. ```value``` combines with none of them, each being a reference type, and a modifier and the word after it are written on one line.
 
-### Reference Classes
+### Reference Types
 
-A ```reference class``` is held and passed by reference. Its instances alias, ```===``` on two of them compares references rather than fields, ```[10].<T>``` is ten references, and a bare field of its type is a non-null reference to any subclass.
+A typed class that is not declared ```value``` is held and passed by reference. Its instances alias, ```===``` on two of them compares references rather than fields, ```[10].<T>``` is ten references, and a bare field of its type is a non-null reference to any subclass.
 
 ```js
-reference class Node {
+class Node {
   value: uint32;
   next: Node | null; // One pointer, and it aliases
 }
 ```
 
-It is the third class kind beside the value type class and the ```dynamic``` class, and the distinction is the one C# and Swift draw between ```struct``` and ```class```: made once at the declaration rather than at each use. Two things need it. A class that contains itself has no finite inline layout, since ```T | null``` is inline storage per [memory layout](memorylayout.md#optional-values), so a recursive class must be a reference type — and ```reference``` is how one says so without also sealing itself. And a typed class meant to be subclassed by other modules is a value type class, whose fields have no room for a subclass — so such a class needs to be a reference type, and ```reference``` is how one says so. The assignment that would have lost the subclass part is refused rather than performed, but a hierarchy meant to be held polymorphically wants a reference type from the start.
+It is an object, so it has none of what belongs to a value. It has no default, so ```let n: Node;``` is an error where it is written. It has no layout, whatever its fields are: ```Node.byteLength``` throws, a placement ```new``` of it is a TypeError, a field of it has no offset to reflect, and neither ```shared Node``` nor ```SoA.<Node>``` is a type. [Memory layout](memorylayout.md#which-types-have-a-layout) has the list.
 
-Unlike ```dynamic```, a ```reference``` class stays sealed in the ```Object.seal``` sense and keeps its fixed field layout. What it gives up is inline storage, not typing: the fields are still typed, still laid out, and still checked. What it gains is identity, which is what makes aliasing meaningful and what a value type deliberately has none of.
+The distinction is the one C# and Swift draw between ```struct``` and ```class```: made once at the declaration rather than at each use, and the [class section](#class-value-type-and-reference-type-behavior) gives the reasons it is written and not derived. Two things a value cannot be are ordinary classes for that reason. A class that contains itself has no finite inline layout, since ```T | null``` is inline storage per [memory layout](memorylayout.md#optional-values), so a recursive class is not a value class. And a typed class meant to be subclassed and held polymorphically is not one either: a field of a value class's type has no room for a subclass.
+
+There was a modifier for this, ```reference```, when a class of value-typed fields was a value unless it said otherwise. A class now says when it is a value, so the modifier restated the default and is gone.
+
+Unlike a ```dynamic``` class, such a class stays sealed in the ```Object.seal``` sense. What it has and a value class has not is identity, which is what makes aliasing meaningful; what it gives up is inline storage and a layout, not typing: the fields are still typed and still checked.
 
 
 ```abstract``` composes with ```sealed```. A ```sealed abstract class``` can be neither instantiated nor extended outside its module, so its concrete subclasses are a fixed, known set with no base case among them — the algebraic data type in full: a closed union whose members are the subclasses, matched exhaustively by the ```switch``` the control structures section describes.
@@ -4201,7 +4271,7 @@ Static members and static blocks use the enclosing class's constructor-side type
 A class expression takes the same annotations and type parameters as a declaration. Generic parameters are declared with ```<...>``` and applied with ```.<...>``` as everywhere else:
 
 ```js
-const Box = class <T: type> {
+const Box = value class <T: type extends value> {
   value: T;
   constructor(value: T) {
     this.value = value;
@@ -4216,22 +4286,22 @@ A mixin is a function taking a constructor and returning a class expression that
 type Constructor<T: type = object> = { new(...args: [].<any>): T };
 
 function Serializable<TBase: type extends Constructor>(Base: TBase) {
-  return class extends Base {
+  return value class extends Base {
     serialize(): string {
       return JSON.stringify(this);
     }
   };
 }
 
-class Point {
+value class Point {
   x: float32;
   y: float32;
 }
-class SerializablePoint extends Serializable(Point) {}
+value class SerializablePoint extends Serializable(Point) {}
 new SerializablePoint().serialize();
 ```
 
-The layout of a mixin's class is determined when the mixin is applied, not where it's declared, because the base is a parameter. Applying a mixin that adds only value type fields to a value type base produces a value type class; applying one to a dynamic or untyped base produces an ordinary reference type. A mixin whose base is ```Constructor``` without further constraint cannot assume any field of the base.
+The layout of a mixin's class is determined when the mixin is applied, not where it's declared, because the base is a parameter. Its kind is written where it is declared, as any class's is: ```value class extends Base``` is a mixin over value classes, and applying it to a base that is not one is a TypeError when the class is created, while ```class extends Base``` makes a class held by reference and takes any base that is not a value class. A mixin whose base is ```Constructor``` without further constraint cannot assume any field of the base.
 
 ### SIMD Operators
 
@@ -4466,7 +4536,7 @@ inline function dot(a: float32x4, b: float32x4): float32 {
   return (a * b).sum();
 }
 
-class Vector4 {
+value class Vector4 {
   v: float32x4;
   inline operator+(rhs: Vector4): Vector4 {
     return { v: this.v + rhs.v } := Vector4;
@@ -4807,13 +4877,13 @@ A ```Proxy``` synthesizes an object's shape from traps that may return anything.
 Instances of typed classes and typed arrays are backed by memory layouts rather than property tables. A field read is an offset load the engine performs without consulting a handler, and there is no correct point at which to run a trap. Constructing a proxy over one is a TypeError:
 
 ```js
-class A { a: uint8; }
+value class A { a: uint8; }
 // new Proxy(new A(), {}); // TypeError: A is a typed class
 // new Proxy(Span.<uint8>(new ArrayBuffer(1)), {}); // TypeError: a typed array is layout-backed
 new Proxy({ a: 0 }, {}); // Unchanged, an untyped object
 ```
 
-At a proved intrinsic `new Proxy` or `Proxy.revocable` operation, a target whose every possible type carries forbidden typed-array or sealed class storage is rejected early. Sealing contributed by a base survives a `dynamic` subclass; `reference` identity permits weak holding but does not make sealed fields interceptable. A structural view does not establish physical layout. Ordinary objects and native ECMAScript TypedArray objects remain eligible under this rule. An unknown or ordinary-compatible alternative prevents rejection. The origin proof must account for lexical shadowing, aliases, eval, mutable globals/properties and unknown effects; a name spelling or a runtime IC guard alone is insufficient. No getter or trap runs to establish it.
+At a proved intrinsic `new Proxy` or `Proxy.revocable` operation, a target whose every possible type carries forbidden typed-array or sealed class storage is rejected early. Sealing contributed by a base survives a `dynamic` subclass; the identity of a class that is not a value class permits weak holding but does not make sealed fields interceptable. A structural view does not establish physical layout. Ordinary objects and native ECMAScript TypedArray objects remain eligible under this rule. An unknown or ordinary-compatible alternative prevents rejection. The origin proof must account for lexical shadowing, aliases, eval, mutable globals/properties and unknown effects; a name spelling or a runtime IC guard alone is insufficient. No getter or trap runs to establish it.
 
 An ordinary object may carry typed own properties from the object typing section. Proxying one is allowed, and every trap result for a typed property is checked against that property's declared type. This extends the existing proxy invariants, which already force a trap to tell the truth about non-configurable, non-writable data properties:
 
@@ -4883,7 +4953,7 @@ Everything in this section is about a collection that HAS type arguments. **A ``
 Comparison and hashing are defined over a type's fields, never its byte image, because alignment padding is not observable. Each field compares by its own kind: a value type field recursively and structurally, a fixed-length array field element by element, since it's inline storage, and a reference field by identity. That last distinction is the same one that decides whether the containing class is a value type at all.
 
 ```js
-class BitSet {
+value class BitSet {
   readonly words: [4].<uint32>; // Inline storage, so BitSet is a value type
 }
 const a: BitSet;
@@ -4910,10 +4980,10 @@ This is worth stating because it's the failure mode of struct keys in other lang
 Type objects are interned, so they're ordinary reference keys and identity does the right thing. A registry keyed on types replaces the string keys and casts the same code needs elsewhere, and scalar entries take a wrapper class so their type is distinct:
 
 ```js
-class FixedDeltaTime {
+value class FixedDeltaTime {
   value: float32;
 }
-class Gravity {
+value class Gravity {
   value: [2].<float32>;
 }
 
@@ -4959,7 +5029,7 @@ A value type has no identity to weakly hold. It is copied on assignment, and whe
 let a: uint8 = 0;
 // new WeakRef(a); // TypeError: uint8 is a value type
 
-class A { a: uint8; } // A value type class
+value class A { a: uint8; } // A value type class
 const b = new A();
 // new WeakRef(b); // TypeError: A is a value type
 
@@ -4982,17 +5052,17 @@ function keep(x: A) {       // x is a copy
 }
 ```
 
-The boundary is the class being a value type class, since that is what has no identity. A typed class that is not one is held by reference and is held weakly like any object: a class with a field of a reference type, a class whose base is not a typed class, and a class declared ```reference```, ```sealed``` or ```abstract```.
+The boundary is the class being a value type class, since that is what has no identity. A typed class that is not one is held by reference and is held weakly like any object, and that is every typed class not declared ```value```.
 
 ```js
-class Failure extends Error { status: uint16 = 500; } // its base is not a typed class
+class Failure extends Error { status: uint16 = 500; } // typed, and not a value class
 const reported = new WeakSet();
 reported.add(new Failure('down'));                    // an error already reported
 
-class Cache { entries: [].<uint8> = []; }             // holds a reference
+class Cache { entries: [].<uint8> = []; }             // typed, and not a value class
 new WeakRef(new Cache());
 
-class Person { name: string; age: uint8; }            // a value type class
+value class Person { name: string; age: uint8; }            // a value type class
 // new WeakRef(new Person());                         // TypeError: Person is a value type
 ```
 
@@ -5000,7 +5070,7 @@ Being proxied has a different boundary: the class being typed and therefore seal
 
 | Which typed classes can be held weakly | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
-| None but those declared ```reference```, ```sealed``` or ```abstract``` | An error with a typed field cannot go in a ```WeakSet```, nor a cache in a ```WeakMap```, though each is one object under every name | None found | None | The refusal's reason, that a value type has no identity, is not true of what it refuses | Rejected |
+| None but those declared ```sealed``` or ```abstract``` | An error with a typed field cannot go in a ```WeakSet```, nor a cache in a ```WeakMap```, though each is one object under every name | None found | None | The refusal's reason, that a value type has no identity, is not true of what it refuses | Rejected |
 | Every typed class that is not a value type class | A class is held weakly exactly when it is held by reference. One fact to know, and it is the one that already decides copying and ```===``` | Java's value objects are the ones its weak references do not take. C#, Swift and Rust offer a weak reference only to a reference type | None | The refusal and its reason agree | **Chosen** |
 | Every typed class, value type classes too | Nothing is refused | None | None | A weak reference to a copy observes nothing | Rejected |
 

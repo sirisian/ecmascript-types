@@ -61,53 +61,53 @@ An entity is a `Handle.<Entity>` from the [generational store](generationalstore
 Component data are value type classes wherever the data is plain, which is what makes a column of them contiguous memory. String vocabularies from the original (`type: "box" | "circle"`, `state: string`) became enums, both for the exhaustive switches and because an enum field keeps a class a value type where a `string` field would not:
 
 ```js
-class Vec2 {
+value class Vec2 {
 	x: float32;
 	y: float32;
 }
-class Transform {
+value class Transform {
 	x: float32;
 	y: float32;
 	rotation: float32;
 }
-class Velocity {
+value class Velocity {
 	vx: float32;
 	vy: float32;
 	angularVel: float32;
 }
 enum ColliderType: uint8 { Box, Circle };
-class Collider {
+value class Collider {
 	type: ColliderType;
 	width: float32;
 	height: float32;
 	radius: float32; // Unused for Box; value types have no optional fields
 }
-class RigidBody {
+value class RigidBody {
 	mass: float32.<{ exclusiveMinimum: 0 }>;
 	friction: float32;
 	restitution: float32;
 }
-class Health {
+value class Health {
 	current: float32;
 	max: float32;
 } where this.current <= this.max;
-class Armor {
+value class Armor {
 	defense: float32;
 }
-class Damage {
+value class Damage {
 	amount: float32;
 }
-class SpatialCell {
+value class SpatialCell {
 	cellId: uint32;
 }
-class Projectile {
+value class Projectile {
 	origin: Vec2;
 	direction: Vec2;
 	speed: float32;
 	maxRange: float32;
 }
 enum AIState: uint8 { Idle, Patrolling, Chasing };
-class AIController {
+value class AIController {
 	state: AIState;
 }
 class Patrol {
@@ -147,7 +147,7 @@ function componentType(c: Component): type {
 A mask over the component bits, MSB-first so `Math.clz32` walks set bits. The one field is a *fixed* array of `uint32`, which is inline storage, so `BitSet` is a **value type**: assignment copies it, and the original's pool (`acquireBitSet`/`releaseBitSet`) and `copyFrom` method are deleted outright. Being a value type also makes it a structural `Map` key, which deletes the original's `toKey()` string hashing. On `uint32`, `>>` is already a logical shift, so the original's `>>>` is gone too.
 
 ```js
-class BitSet {
+value class BitSet {
 	readonly words: [Words].<uint32>; // Zero-filled
 
 	add(bit: uint8) {
@@ -659,7 +659,7 @@ Dirty tracking, the transition log, and resources. The original hand-rolled the 
 ```js
 enum TransitionType: uint8 { Add, Remove, Enable, Disable, Destroy };
 
-class Transition { // Value type: a handle and three small fields
+value class Transition { // Value type: a handle and three small fields
 	entity: Handle.<Entity>;
 	type: TransitionType;
 	component: Component;
@@ -743,7 +743,7 @@ Overriding `addComponentAny` rather than the typed `addComponent` is deliberate:
 A `Session` is a component holding a connection and the interest state for one client. The event bus is keyed by event type, the same pattern as resources, replacing the original's string channels and `read<T>` casts. Events carry handles, so an event that outlives its entity - read a phase after a destroy flushed - resolves to a miss at the world rather than to whichever entity recycled the slot:
 
 ```js
-class CollisionEvent { // Value type: handles are value types too
+value class CollisionEvent { // Value type: handles are value types too
 	entityA: Handle.<Entity>;
 	entityB: Handle.<Entity>;
 	normal: Vec2;
@@ -811,17 +811,17 @@ class Session {
 	}
 }
 
-class ReplicationEntry {
+value class ReplicationEntry {
 	readonly versions: [TotalComponents].<uint32>; // Last tick each component changed
 	archetypeVersion: uint32;
 	componentMask: BitSet;
 }
-class AckedState {
+value class AckedState {
 	readonly versions: [TotalComponents].<uint32>;
 	archetypeVersion: uint32;
 }
 
-class ReplicationState {
+value class ReplicationState {
 	// Flat, indexed by slot: a direct offset, no hashing. The generation check
 	// lives at the world's accessors; destroy clears the slot's entry.
 	readonly entries: [MaxEntities].<ReplicationEntry | null>;
@@ -890,9 +890,9 @@ class SystemRunner {
 Scalar resources get wrapper classes so type-keyed lookup stays unambiguous:
 
 ```js
-class FixedDeltaTime { value: float32.<{ exclusiveMinimum: 0 }>; }
-class Gravity { value: Vec2; }
-class InterpolationAlpha { value: float32.<{ minimum: 0, maximum: 1 }>; }
+value class FixedDeltaTime { value: float32.<{ exclusiveMinimum: 0 }>; }
+value class Gravity { value: Vec2; }
+value class InterpolationAlpha { value: float32.<{ minimum: 0, maximum: 1 }>; }
 ```
 
 The movement pair shows the `each` API - `ref` parameters bind the column slots, so the bodies write storage directly:
@@ -1002,7 +1002,7 @@ Three properties of this loop come from the layout rather than from the code. ``
 Collision events flow through the typed bus, and the health system shows disabled variants doing their job - a dead entity keeps its data but leaves the physics queries. The disables go through the command buffer, because the direct call inside ```each``` migrates the entity out of the very archetype the callback holds references into - the compile-time TypeError the liveness rule promises. The broadphase's pair key became a two-handle value class, retiring the ```* 65536``` packing along with its coupling to ```MaxEntities```:
 
 ```js
-class EntityPair { // A value type key: the unordered pair, ordered by slot
+value class EntityPair { // A value type key: the unordered pair, ordered by slot
 	a: Handle.<Entity>;
 	b: Handle.<Entity>;
 }

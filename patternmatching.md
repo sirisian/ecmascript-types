@@ -266,7 +266,7 @@ A known extractor hook must be callable, not merely present under `Symbol.custom
 ```Expr(p1, p2, ...)``` evaluates ```Expr``` and matches through its ```[Symbol.customMatcher]```. The typed protocol is a method, usually static, from the subject to a tuple or ```null```:
 
 ```js
-class Some<T: type> {
+value class Some<T: type extends value> {
   value: T;
   static [Symbol.customMatcher]<T: type>(subject: Option.<T>): [T] | null {
     return subject instanceof Some.<T> ? [subject.value] : null;

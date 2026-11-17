@@ -233,7 +233,7 @@ For each method the state is exactly what that algorithm's reference implementat
 Restoring validates. An all-zero ```xoshiro256**``` state is a fixed point that emits zeros forever, and an even ```pcg32``` increment collapses the generator's period, so both are ```RangeError``` rather than a generator that silently misbehaves. These are ordinary type constraints:
 
 ```js
-class Pcg32State {
+value class Pcg32State {
 	state: uint64;
 	inc: uint64;
 } where this.inc % 2 == 1;

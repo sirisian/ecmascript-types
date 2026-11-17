@@ -25,9 +25,9 @@ import { Handle } from './store.js'; // The generational store example's handle
 
 class Entity {} // The phantom parameter: Handle.<Entity> is nominal, so no bare uint32 becomes one
 
-class Transform { x: float32; y: float32; rotation: float32; }
-class Velocity { vx: float32; vy: float32; angularVel: float32; }
-class Health { current: uint32; max: uint32; armorType: uint8; }
+value class Transform { x: float32; y: float32; rotation: float32; }
+value class Velocity { vx: float32; vy: float32; angularVel: float32; }
+value class Health { current: uint32; max: uint32; armorType: uint8; }
 ```
 
 An entity is a ```Handle.<Entity>``` - a slot and the generation it was minted at - which is what a script names an entity by when it talks back to the host. Its ```slot``` is the row, so a handle indexes the columns directly and a stale one is detectable rather than silently pointing at whoever recycled the row.
@@ -92,7 +92,7 @@ Editing a component on either side without the other now fails at startup with a
 Counts and cursors live inside the buffer too, in a header struct at offset zero, so the host never pushes state and the script never polls an op. A ```ref``` into a fixed view names the storage itself, and fixed views never move, so the binding is taken once:
 
 ```js
-class WorldHeader {
+value class WorldHeader {
 	entityCount: uint32;
 	commandHead: uint32; commandTail: uint32; // Script writes tail, host consumes head
 	eventHead: uint32; eventTail: uint32;     // Host writes tail, script consumes head
@@ -165,7 +165,7 @@ AI is the other loop shape: a branch per entity, state machines, early exits. Th
 ```js
 enum AIState: uint8 { Idle, Seek, Flee, Attack }
 
-class Brain {
+value class Brain {
 	state: AIState;
 	target: Handle.<Entity>; // Who the brain is tracking; .slot is that entity's row
 	aggroRange: float32;
@@ -223,7 +223,7 @@ Scripts must not spawn or despawn by poking memory: a structural change moves st
 ```js
 enum Cmd: uint8 { Spawn, Despawn, DealDamage }
 
-class Command {
+value class Command {
 	kind: Cmd;
 	entity: Handle.<Entity>; // Ignored by Spawn
 	x: float32;              // Spawn position, or damage amount in x
@@ -253,7 +253,7 @@ Events run the same ring the other direction. Physics contacts, damage resolutio
 ```js
 enum EventKind: uint8 { Damage, Collision, Pickup }
 
-class GameEvent {
+value class GameEvent {
 	kind: EventKind;
 	a: Handle.<Entity>;
 	b: Handle.<Entity>; // Damage source, collision partner, or the item
@@ -292,7 +292,7 @@ Note what did not happen: no event object was allocated, no JSON crossed the bou
 Nothing above is about games. Replace the world with a data grid - a Rust analytics tool, a report engine, a spreadsheet - and the same binding gives user formulas that are compact, typed, and allocation-free. The host owns the columns, including the output column the formula fills:
 
 ```js
-class Ledger { revenue: float64; cost: float64; margin: float64; }
+value class Ledger { revenue: float64; cost: float64; margin: float64; }
 check.<Ledger>(schema.Ledger);
 const rows = SoA.<Ledger, MaxEntities>(buffer, schema.Ledger.offset);
 

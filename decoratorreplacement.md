@@ -226,7 +226,7 @@ the exact identifier its import introduced:
 ```javascript
 import { derive, logged } from './expand.js' with { preprocessor: true };
 
-@derive class Point { x: float64 = 0; y: float64 = 0; }
+@derive value class Point { x: float64 = 0; y: float64 = 0; }
 ```
 
 **A bare side-effect import will not do.** An earlier draft wrote
@@ -1055,7 +1055,7 @@ The case that motivates the worry:
 type Celsius = float64;
 type Name = string;
 
-@derive class Reading {
+@derive value class Reading {
 	label: Name = "";
 	temp: Celsius = 0;
 }
@@ -1105,7 +1105,7 @@ function ser(x: float64) { return "num:" + x; }
 function ser(x: string)  { return "str:" + x; }
 
 type Celsius = float64;
-class R { temp: Celsius = 20; }
+value class R { temp: Celsius = 20; }
 
 ser(new R().temp);        // "num:20" — the alias resolved, the overload picked
 ```

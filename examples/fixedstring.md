@@ -8,7 +8,7 @@ This is the type that closes that gap. It is a **worked example rather than a la
 
 <!-- run: setup -->
 ```js
-class FixedString<N: uint32> {
+value class FixedString<N: uint32> {
   #bytes: [N].<uint8>;
 
   constructor(value: string = '') {
@@ -48,7 +48,7 @@ A record with a name has a layout again, and a table of them is one allocation:
 
 <!-- run -->
 ```js
-class Employee {
+value class Employee {
   name: FixedString.<32>;
   id: uint32;
   salary: float64;

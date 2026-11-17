@@ -188,7 +188,7 @@ partial interface RangeBounds<const T extends Arithmetic.<T>> {
 	operator/(other: RangeBounds.<T>): RangeBounds.<T>;
 }
 
-class Range<T: type extends Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bound.Open> implements RangeBounds.<T> {
+value class Range<T: type extends Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bound.Open> implements RangeBounds.<T> {
 	readonly start: T;
 	readonly end: T;
 	get length(): bigint { /* … */ return 0n; }
@@ -217,11 +217,11 @@ class Range<T: type extends Ordered.<T>, S: Bound = Bound.Closed, E: Bound = Bou
 	static of<T: type extends Ordered.<T>, S: Bound, E: Bound>(start: T, end: T): Range.<T, S, E>;
 }
 
-class RangeFrom<T: type extends Ordered.<T>, S: Bound = Bound.Closed> implements RangeBounds.<T> {
+value class RangeFrom<T: type extends Ordered.<T>, S: Bound = Bound.Closed> implements RangeBounds.<T> {
 	readonly start: T; // `end` and `endBound` are undefined
 }
 
-class RangeTo<T: type extends Ordered.<T>, E: Bound = Bound.Open> implements RangeBounds.<T> {
+value class RangeTo<T: type extends Ordered.<T>, E: Bound = Bound.Open> implements RangeBounds.<T> {
 	readonly end: T; // `start` and `startBound` are undefined
 }
 

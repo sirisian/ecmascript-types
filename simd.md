@@ -224,7 +224,7 @@ A math library has to decide whether its ```Vector4``` is a class holding a ```f
 
 ```js
 type Vector4 = vector.<float32, 4>; // Swizzles. Operators from the primitive vector block
-class Vector4 { v: float32x4; } // A Vector4 instance does not swizzle; its float32x4 field does
+value class Vector4 { v: float32x4; } // A Vector4 instance does not swizzle; its float32x4 field does
 ```
 
 A class does not inherit its field's prototype, so a wrapper has no ```.xyz``` unless it declares one, and declaring 680 of them is not a plan. This pushes a library toward the alias for its vector types, where operators come from the ```primitive vector<...>``` block in [primitive metadata](primitivemetadata.md) rather than from class members.
@@ -238,7 +238,7 @@ type Vector2 = vector.<float32, 2>;
 type Vector3 = vector.<float32, 3>;
 type Vector4 = vector.<float32, 4>;
 
-class Quaternion {
+value class Quaternion {
 	v: float32x4;
 	get x(): float32 { return this.v.x; }
 	get y(): float32 { return this.v.y; }

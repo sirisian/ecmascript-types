@@ -13,7 +13,7 @@ There are three places an operator can be declared, and they differ in which ope
 **On a class**, where the receiver is the left operand:
 
 ```js
-class Vector4 {
+value class Vector4 {
 	v: float32x4;
 
 	operator*(rhs: float32): Vector4 {} // Vector4 * float32
@@ -93,42 +93,42 @@ A ```primitive``` block adds to a global operator table, which is the same expos
 The library is **column-major**, matching GLSL, WGSL, GLM, and therefore WebGL and WebGPU. ```Matrix4``` stores four columns, ```m * v``` transforms a column vector, and a matrix uploaded to the GPU needs no transpose. Nothing about this is forced by the language, and a row-major library would work as well, but the convention has to be stated once and loudly because getting it wrong produces code that is correct for square symmetric matrices and wrong for everything else.
 
 ```js
-class Vector2 {
+value class Vector2 {
 	x: float32;
 	y: float32;
 }
 
 // Three floats, twelve bytes, tight in a vertex buffer.
-class Vector3 {
+value class Vector3 {
 	x: float32;
 	y: float32;
 	z: float32;
 }
 
 // Four lanes, sixteen bytes, w unused. Use this for math, Vector3 for storage.
-class Vector3A {
+value class Vector3A {
 	v: float32x4;
 }
 
-class Vector4 {
+value class Vector4 {
 	v: float32x4;
 }
 
-class Quaternion {
+value class Quaternion {
 	v: float32x4; // x, y, z, w
 }
 
-class Matrix2 {
+value class Matrix2 {
 	c: float32x4; // [m00, m10, m01, m11], two columns packed in one register
 }
 
-class Matrix3 {
+value class Matrix3 {
 	c0: float32x4;
 	c1: float32x4;
 	c2: float32x4; // Fourth lane of each column is unused
 }
 
-class Matrix4 {
+value class Matrix4 {
 	c0: float32x4;
 	c1: float32x4;
 	c2: float32x4;
@@ -178,7 +178,7 @@ The cost of the rule is exactly one instruction per multiply-add that the progra
 ## Vector4
 
 ```js
-class Vector4 {
+value class Vector4 {
 	v: float32x4;
 
 	constructor(x: float32, y: float32, z: float32, w: float32) {
@@ -231,7 +231,7 @@ function normalize(a: Vector4): Vector4 {
 The column-major transform is a linear combination of the matrix's columns, weighted by the vector's components. Each weight is a broadcast of one lane, and each accumulation is a fused multiply-add.
 
 ```js
-class Matrix4 {
+value class Matrix4 {
 	c0: float32x4;
 	c1: float32x4;
 	c2: float32x4;
@@ -332,7 +332,7 @@ class Matrix4 {
 ## Quaternion
 
 ```js
-class Quaternion {
+value class Quaternion {
 	v: float32x4; // x, y, z, w
 
 	// Hamilton product. Each component of a scales a permuted, sign-flipped b,

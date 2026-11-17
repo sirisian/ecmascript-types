@@ -12,11 +12,11 @@ Features exercised:
 
 ## The Color Type
 
-Four channels, gamma-encoded sRGB, packed. Every field is a value type, so ```Color``` is one: four bytes, alignment 1, no per-object header. The cast from a hex string is declared here too, so a string literal becomes a color wherever one is expected.
+Four channels, gamma-encoded sRGB, packed. ```Color``` is a value class whose every field has a layout: four bytes, alignment 1, no per-object header. The cast from a hex string is declared here too, so a string literal becomes a color wherever one is expected.
 
 <!-- run -->
 ```js
-class Color {
+value class Color {
 	r: uint8;
 	g: uint8;
 	b: uint8;
@@ -105,7 +105,7 @@ function linearToSrgb(c: float32): float32 {
 	return Math.pow(c, 1 / 2.2);
 }
 
-class LinearColor {
+value class LinearColor {
 	rgba: float32x4; // (r, g, b, a), premultiplied, linear
 
 	// src over dst, premultiplied: result = src + dst * (1 - src.a).

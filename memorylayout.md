@@ -18,7 +18,7 @@ float64.alignment;   // 8
 float32x4.byteLength; // 16
 float32x4.alignment;  // 16
 
-class Vertex {
+value class Vertex {
   x: float32;
   y: float32;
   z: float32;
@@ -65,10 +65,23 @@ const header: [Header.byteLength].<uint8>;
 | `T \| null` where `T` is a value type class | Yes, the optional layout below. A reference only where a cycle forces one |
 | Reference types, and a nullable union of one | No. A reference's width is the engine's business |
 | `[].<T>` without a length | No as a type. Its instances have a `byteLength` |
-| A class with an untyped field | No |
+| A class not declared `value`, typed or not | No. It is a reference type |
 | A union of value types | No. It has no single layout |
 
 Reading `byteLength`, `bitLength`, or `alignment` from a type in the second group is a TypeError, which is the point: a program that asks for the size of a `string` has made a mistake a returned number would hide.
+
+A class has a layout because it is declared `value`, not because its fields happen to be sized. `class Counter { n: uint32 = 0; }` is one object held by reference, and nothing here applies to it: `Counter.byteLength` throws, a field of it has no placement to reflect, a placement `new` of it is a TypeError, since it would put an object that has an identity onto a buffer, and a narrow field of it is an ordinary location rather than a bit-field. A layout decorator on such a class places nothing.
+
+```js
+value class Vec2 { x: float32 = 0; y: float32 = 0; }
+class Counter { n: uint32 = 0; }
+
+Vec2.hasLayout;                          // true
+Counter.hasLayout;                       // false
+new(buffer, 0) Vec2();                   // An instance over the buffer's bytes
+// new(buffer, 0) Counter();             // TypeError: a placement allocation needs a type with a layout
+// Reflect.getReflection.<Reflect.ClassFieldLayout, Counter>('n'); // TypeError: this type has no layout
+```
 
 Asking WHETHER a type has a layout is a different act from asserting that it does, and `hasLayout` answers it:
 
@@ -110,7 +123,7 @@ Layout reflection and declaration reflection are deliberately separate, and they
 
 ## Optional values
 
-A field of type `T | null` where `T` is a value type class is laid out INLINE: a discriminant followed by `T`'s layout, in the containing class's memory, with no allocation and no indirection. `class B { a: A | null }` over a one-byte `A` is two bytes, and `[1000].<B>` is two kilobytes in one allocation rather than eight kilobytes of pointers addressing a thousand separate objects.
+A field of type `T | null` where `T` is a value type class is laid out INLINE: a discriminant followed by `T`'s layout, in the containing class's memory, with no allocation and no indirection. `value class B { a: A | null }` over a one-byte `A` is two bytes, and `[1000].<B>` is two kilobytes in one allocation rather than eight kilobytes of pointers addressing a thousand separate objects.
 
 This is what `Option<T>` is in Rust and Swift, `std::optional<T>` in C++, and `Nullable<T>` in C#. All four inline the payload; all four reserve a separate spelling for the case where the payload is reached through a pointer. This document reaches the same place from the semantics the proposal already has, which turn out to leave no room for anything else.
 
@@ -119,8 +132,8 @@ This is what `Option<T>` is in Rust and Swift, `std::optional<T>` in C++, and `N
 The representation was a reference, and the reason the change is safe rather than delicate is that **the box was never observable**. A value type class in a `T | null` slot already behaves as a value in every channel a program can reach:
 
 ```js
-class A { x: uint8 = 1; }
-class B { a: A | null = null; }
+value class A { x: uint8 = 1; }
+value class B { a: A | null = null; }
 
 const src = new A();
 const b = new B();
@@ -152,13 +165,13 @@ This is the sense in which `T | null` was never `Option<&T>`. It is `Option<T>`,
 The discriminant is one byte. It precedes the payload and is placed so the payload lands at `T`'s alignment, which means it occupies trailing padding the containing class already has wherever one exists. The optional's alignment is `T`'s, and its `byteLength` is `T`'s byte length plus the discriminant, rounded up to that alignment.
 
 ```js
-class A { x: uint8; }
-class B { a: A | null; }
+value class A { x: uint8; }
+value class B { a: A | null; }
 B.byteLength;        // 2
 B.alignment;         // 1
 
-class V { x: float32; y: float32; }
-class C { v: V | null; }
+value class V { x: float32; y: float32; }
+value class C { v: V | null; }
 C.byteLength;        // 12 — 1 discriminant, 3 pad, 8 payload
 C.alignment;         // 4
 
@@ -174,14 +187,14 @@ What is taken is the DECLARED niche, and it needs no new spelling because the ty
 
 ```js
 type NodeIndex = uint32.<{ bounds: 0..=0xFFFFFFFE }>;
-class Node { left: NodeIndex | null; right: NodeIndex | null; }
+value class Node { left: NodeIndex | null; right: NodeIndex | null; }
 Node.byteLength;     // 8 — 0xFFFFFFFF is the niche, so neither optional pays a discriminant
 
-class Plain { left: uint32 | null; }
+value class Plain { left: uint32 | null; }
 Plain.byteLength;    // 8 — 1 discriminant, 3 pad, 4 payload
 ```
 
-A field whose type is a REFERENCE (a `reference` class, or a `sealed` or `abstract` one) has the same property for free, `null` being a pattern it cannot hold, so a nullable reference is one pointer rather than a pointer and a tag.
+A field whose type is a REFERENCE (a class that is not a value class) has the same property for free, `null` being a pattern it cannot hold, so a nullable reference is one pointer rather than a pointer and a tag.
 
 The rule is one rule: a `T | null` costs a discriminant unless `T`'s declaration excludes a pattern, in which case that pattern is the discriminant. It is local, because the exclusion is written in the type; it is stable, because it changes only when someone edits that declaration; and it is enforced, because the boundary check that already refuses an out-of-bounds value is what makes the pattern unreachable. This is Rust's `NonZeroU32` rather than Rust's inference — the declared half, which is also the half Rust guarantees.
 
@@ -189,27 +202,27 @@ The convergence with the index pools of the [bounding volume hierarchy](examples
 
 ### Where a reference is still required, and how it is spelled
 
-A cycle has no finite inline layout, so a class that contains itself must be a REFERENCE TYPE, declared with the `reference` modifier:
+A cycle has no finite inline layout, so a class that contains itself must be a REFERENCE TYPE, which a class not declared `value` is:
 
 ```js
-reference class Node {
+class Node {
   value: uint32;
   next: Node | null;     // A nullable reference: one pointer, and it aliases
 }
 
-class Bad {
+value class Bad {
   value: uint32;
   // next: Bad | null;   // TypeError: Bad contains itself through field "next".
-                         // Declare Bad a `reference class`, or break the cycle
+                         // Declare Bad without `value`, or break the cycle
                          // through an array or a pool index.
 }
 ```
 
-A `reference` class is held and passed by reference. Its fields alias, `===` on two of its instances compares references, `[10].<Node>` is ten references, and a bare `Node` field is a non-null one. It is the third class kind beside the value type class and the `dynamic` class, and it is what `struct` versus `class` is in C# and Swift: a decision made once at the declaration rather than at each use.
+A class that is not declared `value` is held and passed by reference. Its fields alias, `===` on two of its instances compares references, `[10].<Node>` is ten references, and a bare `Node` field is a non-null one. It is what `struct` versus `class` is in C# and Swift: a decision made once at the declaration rather than at each use, and `value` is the word that is written.
 
 **Reference-ness is declared on the class, not on the field, and that is the load-bearing choice here.** The alternative is a type constructor applied per field — Rust's `Box<T>`, `&T` and `Rc<T>` are all of this shape — and it does not survive contact with this proposal's two commitments. An owned box would have to COPY on store, since there is no move that leaves a source invalid; a linked list built from copying boxes copies its whole tail at every link, which is O(n) for an operation that must be O(1) and produces a tree of copies rather than a list. A box that instead ALIASES has acquired an identity, and it would be handing one to a value whose `===` the language has defined as structural, so two holders of "the same" payload would compare equal to two holders of equal copies while behaving differently. Neither is available. Rust can offer the use-site choice precisely because it has no collector and ownership must therefore be written down; a language whose collector owns lifetime has exactly one kind of reference, so the only question left is whether a given class is reached through one, which is a property of the class.
 
-`sealed` and `abstract` classes are reference types already, for their own reasons, so they close a cycle without the modifier — which is what lets the [expression parser](examples/expressionparser.md) hold its children as plain `Node`. `reference` is what an OPEN, non-abstract class needs, and the gap is real independently of recursion: a typed class meant to be subclassed by consumers is a value type class today, so a field declared with its type embeds only the base slice and a subclass instance assigned to one silently loses everything the subclass added. Such a class has always needed to be a reference type and has had no way to say so except by sealing itself, which refuses the extension it exists to offer.
+`sealed` and `abstract` classes are reference types as well, so they close a cycle too — which is what lets the [expression parser](examples/expressionparser.md) hold its children as plain `Node`. An open, non-abstract class that is meant to be subclassed and held polymorphically is an ordinary class for the same reason: a field of a value class's type embeds only the base, and has no room for what a subclass adds.
 
 ### What this settles elsewhere
 
@@ -238,7 +251,7 @@ A `reference` class is held and passed by reference. Its fields alias, `===` on 
 Members are naturally aligned. Each member is placed at the next offset that is a multiple of its own alignment, a class's alignment is the largest alignment among its members, and its `byteLength` is rounded up to that alignment so that every element of an array of the class is aligned too.
 
 ```js
-class A {
+value class A {
   a: uint8;  // Offset 0
   b: uint16; // Offset 2, not 1: uint16 is 2-byte aligned
 }
@@ -254,14 +267,14 @@ Because layout follows declaration order, field order is a performance decision:
 By default the layout of a typed class — one where every property is typed — appends to the memory of the extended class:
 
 ```js
-class A {
+value class A {
   a: uint8;
 }
-class B extends A {
+value class B extends A {
   b: uint8;
 }
 // The layout is the same as:
-class AB {
+value class AB {
   a: uint8;
   b: uint8;
 }
@@ -275,7 +288,7 @@ A `@packed` class decorator removes the padding, placing each member immediately
 
 ```js
 @packed
-class A {
+value class A {
   a: uint8;  // Offset 0
   b: uint16; // Offset 1
 }
@@ -295,7 +308,7 @@ Two object-level reserved descriptor keys, `alignAll` and `size`, control the wh
 ```js
 @alignAll(16) // The instance is 16-byte aligned
 @size(32)     // The instance is 32 bytes, zero-padded
-class A {
+value class A {
   @offset(2)
   x: float32;   // At byte 2, within a 16-byte-aligned instance
   @align(4)
@@ -311,7 +324,7 @@ A third reserved decorator, `@endian('little')` / `@endian('big')` with the desc
 
 ```js
 @packed
-class PacketHeader {
+value class PacketHeader {
   @endian('big') length: uint32; // Network byte order
   @endian('big') checksum: uint16;
   flags: uint8;                  // Platform order
@@ -323,15 +336,15 @@ class PacketHeader {
 Because `@offset` places a member explicitly, two members can be given the same offset, which maps them to the same memory — a union. A negative offset reaches into a base class's memory to overlap it:
 
 ```js
-class A {
+value class A {
   a: uint8;
 }
-class B extends A {
+value class B extends A {
   @offset(-1)
   b: uint8;
 }
 // The layout is the same as:
-class AB { // 1 byte
+value class AB { // 1 byte
   a: uint8;
   @offset(0)
   b: uint8;
@@ -349,7 +362,7 @@ Integer members narrower than a byte — `uint.<N>` or `int.<N>` with `N` under 
 
 ```js
 @packed
-class RGB565 {
+value class RGB565 {
   r: uint.<5>; // Bits 0..<5
   g: uint.<6>; // Bits 5..<11
   b: uint.<5>; // Bits 11..<16
@@ -358,14 +371,14 @@ RGB565.byteLength; // 2
 RGB565.bitLength;  // 16
 ```
 
-`bitLength` reports the packed bit size, and `byteLength` rounds it up to the enclosing byte. Bit-fields are distinct from the SIMD bit-vector types (`boolean8` and its family): those are lane masks with one bit per lane, defined in the [SIMD](simd.md) extension, whereas a bit-field is a sub-byte integer member of a class. Reading or writing a bit-field is a shift and mask the compiler emits; taking a reference to one is a TypeError, since it is not a byte-addressable location.
+`bitLength` reports the packed bit size, and `byteLength` rounds it up to the enclosing byte. Bit-fields are distinct from the SIMD bit-vector types (`boolean8` and its family): those are lane masks with one bit per lane, defined in the [SIMD](simd.md) extension, whereas a bit-field is a sub-byte integer member of a class. Reading or writing a bit-field is a shift and mask the compiler emits; taking a reference to one is a TypeError, since it is not a byte-addressable location. A bit-field is a member of a class that has a layout: a `uint.<4>` field of a class not declared `value` is packed into nothing, and `ref` to it is a reference to a field like any other.
 
 ## Adding fields at run time
 
 The descriptor features apply only to fully-typed classes with a typed prototype chain. A `dynamic` class, being unsealed, can gain a field later through `Object.defineProperty` with a `type` key, but that field is not part of any fixed layout, and reflecting a layout property on a `dynamic` class is a TypeError. On a non-`dynamic` class, `Object.defineProperty` adding a typed field is itself a TypeError, since the layout is closed at declaration.
 
 ```js
-class A {
+value class A {
   a: uint8;
   constructor(a: uint8) {
     this.a = a;

@@ -3,7 +3,7 @@
 A class's field description is used by type relations; it is not a recipe for turning an unrelated object into an instance. When a value does not already belong to the receiving class, select the class's declared conversion on the original value. Do not first read or convert the source's properties as though it were the target's structural shape.
 
 ```js
-class Point { x: uint8 = 1; }
+value class Point { x: uint8 = 1; }
 const saved: any = new Point();
 class Source {
   operator Point() { return saved; }

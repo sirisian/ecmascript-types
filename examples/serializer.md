@@ -329,7 +329,7 @@ import { Writer, Reader, deriveClass, deriveEnum, deriveArray, deriveNullable, c
 
 enum Kind { Civilian, Guard, Merchant }
 
-class Vec2 {
+value class Vec2 {
 	x: float32;
 	y: float32;
 }

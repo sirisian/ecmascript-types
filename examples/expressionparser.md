@@ -15,7 +15,7 @@ Features exercised:
 ```js
 enum TokenType: uint8 { Number, Plus, Minus, Star, Slash, LeftParen, RightParen, End };
 
-class Token { // Value type: enum + float64 + one uint32
+value class Token { // Value type: enum + float64 + one uint32
 	type: TokenType;
 	value: float64; // Meaningful when type is Number
 	position: uint32;
@@ -102,7 +102,7 @@ class BinaryNode extends Node {
 }
 ```
 
-```NumberNode``` is a value type; ```Node``` is ```sealed```, which the main proposal's sealed-class rule makes a reference type, so ```UnaryNode``` and ```BinaryNode``` hold their children as plain ```Node``` references - a non-sealed value type class would need the ```reference``` modifier for the same, its ```T | null``` being inline - and the nodes of a tree are ordinary heap objects, which is what a tree wants.
+```NumberNode``` is a value type; ```Node``` is ```sealed```, which the main proposal's sealed-class rule makes a reference type, so ```UnaryNode``` and ```BinaryNode``` hold their children as plain ```Node``` references - an open class that is not a value class would hold them the same way, where a value class could not, its ```T | null``` being inline - and the nodes of a tree are ordinary heap objects, which is what a tree wants.
 
 ## Parser
 
