@@ -3337,6 +3337,29 @@ class C { // cannot be treated like a value type
 }
 ```
 
+A typed class whose base is not a typed class is not a value type class either, whatever fields it declares. The base may be an untyped class, a ```dynamic``` class, a function, or a built-in such as ```Error```, ```Map``` or ```HTMLElement```, and the rule is inherited down the chain. An instance holds what that base's constructor made, which no field declares, and a copy runs no constructor, so a copy could carry only the typed fields. Such a class is an ordinary reference type: held and compared by reference, with no layout and no default. It is still typed, so it is sealed and its fields are checked.
+
+```js
+class ProtocolError extends Error {
+  status: uint16;
+  constructor(message: string, status: uint16) { super(message); this.status = status; }
+}
+function describe(e: ProtocolError): string { return `${e.status}: ${e.message}`; }
+
+const e = new ProtocolError('not found', 404);
+const same = e;                 // the same error, not a copy
+describe(e);                    // '404: not found' - the message Error made is still there
+e === new ProtocolError('not found', 404); // false: two errors
+// ProtocolError.byteLength;    // TypeError: no layout
+// let p: ProtocolError;        // TypeError: no default, so a declaration needs an initializer
+```
+
+| What a typed class over an untyped base is | Ergonomics | Prior art | Performance | Correctness | Decision |
+| --- | --- | --- | --- | --- | --- |
+| A value type class, copied by its typed fields | None: the copy is not the object | None. Rust, Swift, C#, Go and C++ have no value type that extends a reference type; a C# ```struct``` cannot inherit a class, and a Swift ```struct``` inherits nothing | A copy at every bind | A copied error has no ```message```, a copied ```Map``` subclass no entries, and two errors with different messages are equal | Rejected |
+| A type error to declare | Certain, but refuses ```class E extends Error { status: uint16; }```, the commonest typed subclass there is | None | None | Sound | Rejected |
+| A reference type, typed and sealed | An error is an error and a custom element is an element. A class meant as a value does not extend an untyped class | C# and Swift: a ```class``` that inherits is a reference type. TypeScript: every class | None | The object is whole under every name | **Chosen** |
+
 The value type behavior is used when creating sequential data in typed arrays.
 
 A subclass appends its own fields after the base layout; re-declaring an inherited typed field is a TypeError, since two slots of the same name would have no defined offset and would break the array views and ```byteLength``` that depend on the layout.
