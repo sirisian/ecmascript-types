@@ -1393,6 +1393,36 @@ function scaled(z: uint32) { return z * (7 / 2); }        // z * 3: beside an in
 // function call(z: uint32) { return z * Math.pow(4, 2); } // TypeError: a number and a uint32 do not mix
 ```
 
+**A constant means one thing beside one type.** Beside an integer, ```7 / 2``` is 3 in every operator that reads it: ```z * (7 / 2)```, ```z < 7 / 2```, ```z === 7 / 2```, a ```case 7 / 2:``` and ```Object.is(z, 7 / 2)``` are all over the integer 3, because the operand's type is the constant's context in each. A constant the type cannot hold is refused where the literal is: ```z < 200 + 100``` beside a ```uint8``` is a TypeError before the program runs, as ```z < 300``` is, and in an equality it is equal to nothing. An operand that picks one of its operands hands the context to each of them, so ```z * (c ? 16 : 2)``` and ```z * (scale ?? 1)``` are over a ```uint32``` 16, 2 or 1.
+
+With no annotation in sight there is no context to give. In ```function f(x) { return x * (7 / 2); }``` the constant is the ```number``` 3.5 it has always been. Passed a ```uint8```, that value is asked to take the type when the line runs, and 3.5 is not a ```uint8```: a RangeError, not a quiet 3. A constant written exactly is exact there too, so ```x === 2 ** 53 + 1``` compares a ```uint64``` with 9007199254740993.
+
+**Masks and flags are constants.** The bitwise operators and the shifts over constants, ```1 << 4```, ```0xF0 | 0x0F``` and ```~0xFF```, are constant expressions, and a typed context computes them in its type. An integer has no bits until it has a type, so these are the type's own operators: ```~0``` is 255 at a ```uint8``` and -1 at an ```int8```, ```1 << 31``` is 2147483648 at a ```uint32``` and the sign bit at an ```int32```, and ```1 << 40``` at a ```uint64``` is 2**40, where 32-bit ```number``` arithmetic gives 256. One ```const MASK = ~0xFF``` is the right mask beside a ```uint32```, a ```uint64``` and an ```int32```. A shift distance the type refuses of a value it refuses of a constant, and the arithmetic around these operators stays exact, so ```~0 + 1``` at a ```uint8``` is a TypeError. With no type in sight they are the ```number``` operators they have always been.
+
+```js
+function flags(z: uint32) {
+  return [z & (1 << 4), z & ~0xFF, z === 1 << 4];   // each constant is a uint32
+}
+const MASK = ~0xFF;                                  // on its own, the number -256
+function low(a: uint32, b: uint64) { return [a & MASK, b & MASK]; } // the low byte cleared, at each width
+const top: uint32 = 1 << 31;                         // 2147483648
+const wide: uint64 = 1 << 40;                        // 1099511627776
+const ones: uint8 = ~0;                              // 255
+enum Access: uint32 { Read = 1 << 0, Write = 1 << 1, All = Read | Write, Owner = 1 << 31 }
+function below(z: uint32) { return z < 7 / 2; }      // z < 3
+// const over: uint8 = 1 << 8;                       // TypeError: a shift distance of 8 shifts every bit out of uint8
+// function f(z: uint8) { return z < 200 + 100; }    // TypeError: 300 is not in the range of uint8
+```
+
+**A decimal divides as a decimal.** In a decimal or a ```float128``` position the literals of a constant expression take the type and the type's own operators compute it; nothing is computed as a ```number``` and converted. So ```let third: decimal128 = 1 / 3``` is 0.3333333333333333333333333333333333, the decimal division, and ```let q: float128 = 0.1 + 0.2``` is the sum of two ```float128``` values. Beside an operand it is the same expression: ```d * (7 / 2)``` and ```d === 7 / 2``` are over the decimal 3.5.
+
+```js
+const third: decimal128 = 1 / 3;                     // 0.3333333333333333333333333333333333
+const cents: decimal64 = 1.10 / 1;                   // 1.10, the digits written kept
+function price(d: decimal64) { return d * (7 / 2); } // d * 3.5
+function same(d: decimal64) { return d === 7 / 2; }  // true for a d that is 3.5
+```
+
 ```js
 function f(a: uint8) {}
 f(1); // The literal is a uint8
