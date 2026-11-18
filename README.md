@@ -2733,7 +2733,7 @@ let a := new MyType(); // a is type MyType
 // a = 5; // Equivalent to using implicit casting: a = MyType(5);
 ```
 
-```expression := Type``` is also an expression. It evaluates its left side and converts it to ```Type``` by the same rules a typed binding uses, validating metadata and any ```where``` clauses. When the left side is an *object literal* whose shape matches the target class, the conversion fills the class's layout directly - every field supplied or defaulted - and runs no constructor, the same rule [serialization](serialization.md) uses when it reconstructs an instance from parsed data. A source that isn't a matching literal converts as a typed binding would, through any user-defined cast. It's usable in any expression position, which is what makes constructing and returning a typed value in one step read well:
+```expression := Type``` is also an expression. It evaluates its left side and converts it to ```Type``` by the same rules a typed binding uses, validating metadata and any ```where``` clauses. When the left side is an *object literal* and no class in the target class's chain declares a field a literal cannot name - a private, a ```protected``` or an ```accessor``` one - the conversion fills the class's layout directly: each field the literal names takes its value, converted to the field's type as each member of a structural target is, and every other field is initialized as ```new``` initializes it, by its initializer or its type's default. Where no class in the chain declares a constructor, the literal makes the instance ```new``` would make, with the fields it names holding its values and their initializers not run. A ```value class``` is filled whether or not it declares a constructor, and none runs: its default and each copy are already made without one, so its constructor is not what every instance was made by. Such a literal names only fields any code may write, not a ```readonly``` one whose class declares a constructor, which is that constructor's to write, and it names each field that has no initializer and whose type has no default. The literal names fields and only fields: a misspelled name, a spread or a method in it is a TypeError, before the program runs where the class is known. A source that isn't such a literal converts as a typed binding would, through any user-defined cast. It's usable in any expression position, which is what makes constructing and returning a typed value in one step read well:
 
 ```js
 function makeNode(op: TokenType, left: Node, right: Node): BinaryNode {
@@ -2743,7 +2743,7 @@ f({ x: 0, y: 0 } := Vertex);
 const a = [1, 2, 3] := [3].<uint8>;
 ```
 
-For a class with no constructor this matches the cast call form ```BinaryNode({ ... })```; for one that defines a constructor the two differ, since the call runs the constructor while ```:=``` from a literal fills the layout - which is what lets an allocation-free operator or a deserializer bypass constructor side effects. Both forms are kept, since ```:=``` reads better trailing a large literal. As an operator it binds looser than ```|``` and tighter than ```,```.
+For a class with no constructor this matches the cast call form ```BinaryNode({ ... })```. A class held by reference that defines a constructor is not filled from a literal: each of its instances is made by that constructor, and a literal that went around it would go around whatever it checks, the hazard Java's deserialization is known for. Such a class is built by ```new``` or by a conversion it declares, as a C++ class with a user-provided constructor is no aggregate; rebuilding an instance from parsed data is [serialization](serialization.md)'s ```JSON.parse.<T>```. A value class's constructor makes no such promise, so a literal fills one as C# sets a struct's settable members beside its constructors: the [operator overloading](operatoroverloading.md) extension's ```Vector4``` declares ```constructor(x, y, z, w)``` and its operators return ```{ v: this.v + rhs.v } := Vector4```. An annotation does not convert: ```let v: Vertex = { x: 0, y: 0 };``` is a TypeError whose message says to write ```{ x: 0, y: 0 } := Vertex```. A conversion the class declares from an object is the exception, as any declared conversion is: with ```operator Vertex(o: { x: float32, y: float32 })```, the same line runs it. Both forms are kept, since ```:=``` reads better trailing a large literal. As an operator it binds as ```is``` does and as TypeScript's ```as``` does, at the precedence of ```<```: ```a + b := uint8``` converts the sum, and ```a == b := boolean``` converts ```b```, so a comparison or a bitwise expression to be converted whole is parenthesized.
 
 This new form of assignment is useful with both ```var``` and ```let``` declarations. With ```const``` it has no uses:
 
@@ -2880,17 +2880,17 @@ __mmask8 _mm_cmpeq_epi32_mask (__m128i a, __m128i b)
 Notice Intel differentiates signatures by adding ```_mask```. When translated to real types with operators they are identical however:
 
 ```js
-//const something = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2); // TypeError: Ambiguous return type. Requires explicit cast to int32x4 or boolean8
+//const something = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2); // TypeError: Ambiguous return type. Requires explicit cast to int32x4 or vector.<boolean1, 4>
 ```
 With overloaded return types we can support both signatures:
 ```js
 const a: int32x4 = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
-const b: boolean8 = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
+const b: vector.<boolean1, 4> = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
 ```
 For reference, the operators look like:
 ```js
 operator<(v: int32x4): int32x4 {}
-operator<(v: int32x4): boolean8 {}
+operator<(v: int32x4): vector.<boolean1, 4> {}
 ```
 These are two of the forms a comparison overloads to; the wide ```boolean32x4``` mask is a third, treated as the default in the [SIMD](simd.md) extension.
 
@@ -4719,7 +4719,9 @@ let a = new(buffer, byteOffset, byteElementLength) [10].<Type>();
 
 By default ```byteElementLength``` is the size of the type. Using a larger value than the size of the type acts as a stride adding padding between allocations in the buffer. Using a smaller length is unusual as it causes allocations to overlap.
 
-```new (``` also begins an ordinary construction whose constructor is a parenthesized expression. Source that continues with a member expression after the closing parenthesis is the placement form; today such source has no parse as a single expression, so the placement reading changes the meaning of no existing program.
+```new (``` also begins an ordinary construction whose constructor is a parenthesized expression. Source that continues with a name, ```this```, ```new``` or ```super``` after the closing parenthesis is the placement form; today such source has no parse as a single expression, so the placement reading changes the meaning of no existing program. A bracket is different, since JavaScript reads ```new (a)[0]()``` as constructing ```a[0]```. It begins the array form only where it holds one expression and ```.<``` follows it, which no JavaScript program contains, so ```new(buffer) [10].<Type>()``` places an array and ```new (a)[0]()``` keeps its meaning. A generic class held in an array is constructed as ```new (a[0]).<T>()```.
+
+The array form constructs the array, as ```new [10].<Type>()``` would, and stores its elements at their positions; the result is an array of that type whose elements are the buffer's bytes, as a view's are. A value class over a fixed-length array is placed the same way, and so is a fixed-length array inside something placed: a field of a placed instance, or an element of a view whose element type is a fixed-length array, is an array over its own bytes.
 
 Every placement argument, including nested bodies, participates in the ordinary expression checking pass in its lexical scope. For example, `new (n()) C()` is rejected early when `n` is a known non-callable typed value, just as `n()` is elsewhere. This does not add a static buffer, offset, layout or extent requirement. Argument evaluation remains exactly once in its ordinary order, with runtime placement bounds, detachment and reference-liveness checks.
 
