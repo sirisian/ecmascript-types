@@ -625,6 +625,20 @@ let e: [].<uint8 | null>|null; // null // Not sequential memory
 
 ```new [].<T>()``` constructs the same empty variable-length array as the ```[]``` literal at that type, and is the form to reach for where no literal is convenient - assigning a fresh column inside a generic method, for instance.
 
+The constructor of an array type takes one argument, the source of the elements. Anything iterable is a source, and the array is a copy of it, never a view:
+
+```js
+const a = new [].<uint8>(new Set([3, 1, 2])); // [3, 1, 2]
+const b = new [4].<uint8>([1, 2, 3, 4]);      // exactly four, for a fixed length
+const c = new [].<uint8>(a);                  // a copy: c !== a
+// new [4].<uint8>([1, 2, 3]);  TypeError: the type has 4 elements
+// new [].<uint8>(8);           TypeError: 8 is not iterable
+```
+
+```new A(source)``` is the array that ```const t: A = [...source];``` binds, so each item is checked as a store to an element is. With no argument a fixed-length array holds the default of its element type at every index, each element its own, and a variable-length one is empty; where the element type has no default, a fixed-length array needs its source. This is how ```Set``` and ```Map``` read their one argument, and a nullish source is no source, as it is for them.
+
+A number is refused, not read as a count and not read as a value to fill with. The count is the length in the type, or [```withCapacity```](#array-length-type-and-operations) for an array that grows, and a fill is ```new [4].<uint8>().fill(7)```. A view of existing storage is a [```Span```](#array-views), which a construction never is.
+
 The index operator doesn't perform casting just to be clear so array objects even when typed still behave like objects.
 
 ```js
@@ -1251,11 +1265,27 @@ grid.push(...);
 grid[1, 2, 3] = 10;
 ```
 
-Views also work as expected allowing one to apply custom indexing to existing arrays:
+A class over an array type that declares no constructor has its base's, so a grid is made from existing elements, and it is a copy of them:
 
 ```js
-const grid = new [100].<uint8>();
-const gridView = new GridArray(grid);
+const cells = new [64].<uint8>();
+const grid = new GridArray(cells); // the 64 elements of cells, copied
+```
+
+A construction never aliases its argument. Custom indexing over existing storage, with no copy, is a class that holds a ```Span``` of it:
+
+```js
+class GridView {
+  cells: Span.<uint8>;
+  constructor(cells: Span.<uint8>) {
+    this.cells = cells;
+  }
+  get operator[](x: uint32, y: uint32, z: uint32) {
+    return ref this.cells[z * 16 + y * 4 + x];
+  }
+}
+const view = new GridView(cells.window(0, 64));
+view[1, 2, 3] = 10; // cells[57] is 10
 ```
 
 ### Conversions
@@ -3339,6 +3369,35 @@ function reset(c: Counter) {
 
 Without the rule the misspelled store reaches a sealed object, which throws in strict code and is silent in sloppy code. Reading a member that is not declared is unaffected: it yields ```undefined```, and a program may be testing for exactly that. The rule is not applied where a member may exist that no declaration names: a ```dynamic``` class, a class over a built-in such as ```Error```, over a call such as a mixin, or over an untyped class with a constructor. The seal refuses those stores when they run.
 
+A call is judged as a store is. The read of a member that is not declared yields ```undefined```, and a call of that cannot succeed, so the misspelled method is an error where it is written and not a TypeError when the line runs:
+
+```js
+abstract class Shape {
+  name: string = '';
+  abstract area(): float64;      // declared here, given a body by each subclass
+  describe() {
+    return this.name + ' ' + this.area();
+    // return this.aera();       // TypeError: "aera" is not a member of "Shape", so it cannot be called
+  }
+}
+class Circle extends Shape {
+  r: float64 = 1;
+  area(): float64 { return Math.PI * this.r * this.r; }
+  grow() { this.r *= 2; }
+}
+
+function use(s: Shape) {
+  s.describe();
+  // s.grow();                   // TypeError: "grow" is not a member of "Shape", so it cannot be called
+  if (s is Circle) {
+    s.grow();                    // s is a Circle here
+  }
+  s.dispose?.();                 // the read with its test: nothing is called where there is no such member
+}
+```
+
+A method that a subclass supplies is declared in the base, as an abstract method where the base has no body for it. A member that every object has, such as ```toString``` and ```hasOwnProperty```, is a member of every class. ```new s.Thing()``` and a tagged template ```s.tag`...` ``` are calls in the same sense.
+
 A class declared ```value``` is a value type class: an instance is copied when it is bound, assigned, stored, passed or returned, and two are ```===``` when their fields are. Every field of one has a type, and the type is a value type. A class that is not declared ```value``` is held by reference, as a class in JavaScript is, whatever its fields hold.
 
 ```js
@@ -4012,9 +4071,9 @@ let t: MyType = 1; // float32 constructor call, by the literal ranking
 let u: MyType = uint32(1); // uint32 constructor called
 ```
 
-Constructing arrays all of the same type:
+Constructing an array whose elements are all the same value. The argument of an array type's constructor is the source of its elements, so a single value is given with ```fill```, and the literal converts through the constructor as it does at any other store:
 ```js
-let t = new [5].<MyType>(1);
+let t = new [5].<MyType>().fill(1); // five of MyType(1)
 ```
 
 ### Implicit SIMD Constructors
@@ -4188,7 +4247,27 @@ partial class Vector2 {
 }
 ```
 
-A partial class adds no fields and does not re-open the constructor, so a class's layout is fixed by its primary declaration and array views over it stay well-defined; a field, a static block, or a ```constructor``` in a partial class body is a TypeError, not a member silently left out. The metadata shapes the [decorators](decorators.md) extension appends to are extended with ```partial interface```, which may contribute members because an interface declares a shape and adds no instance state.
+A partial class adds no fields and does not re-open the constructor, so a class's layout is fixed by its primary declaration and array views over it stay well-defined; a field, a static block, or a ```constructor``` in a partial class body is a TypeError, not a member silently left out.
+
+A part may use the private members of its class where it is written in the file that declares the class. The names are the class's own, so a part reads a private field and makes a brand check exactly as the class body would. A part in any other file has no access to them, as no other code has: whoever can edit the declaring file could have written the member into the class body, and nobody else can reach what the class keeps private.
+
+```js
+// queue.js
+class Queue {
+  #items: [].<string> = [];
+  push(item: string) { this.#items.push(item); }
+}
+partial class Queue {
+  get length() { return this.#items.length; }   // the same #items
+  static isQueue(o) { return #items in o; }     // the same brand
+}
+
+// elsewhere.js
+// partial class Queue { peek() { return this.#items[0]; } }
+// TypeError: a partial class names the private member "#items" of "Queue",
+// which it may do only in the source text that declares the class
+```
+ The metadata shapes the [decorators](decorators.md) extension appends to are extended with ```partial interface```, which may contribute members because an interface declares a shape and adds no instance state.
 
 A partial class takes no type parameter list of its own. A partial of a generic class sees the class's parameters and names them as the class body does, and ```partial class Box<T: type>``` is a SyntaxError.
 
@@ -4543,7 +4622,7 @@ let a = new(buffer, byteOffset) Type(0);
 Array of instances syntax:
 ```js
 // new(buffer [, byteOffset [, byteElementLength]]) [n].<Type>()
-let a = new(buffer, byteOffset, byteElementLength) [10].<Type>(0);
+let a = new(buffer, byteOffset, byteElementLength) [10].<Type>();
 ```
 
 By default ```byteElementLength``` is the size of the type. Using a larger value than the size of the type acts as a stride adding padding between allocations in the buffer. Using a smaller length is unusual as it causes allocations to overlap.
