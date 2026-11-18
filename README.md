@@ -1367,6 +1367,32 @@ K * r;    // a "let" holds a "number" rather than taking this position's "float6
 
 Narrowing a constant's ```float64``` value to a narrower float **is** the correctly rounded result, not a double rounding: an intermediate carrying at least ```2p + 2``` bits rounds equivalently to rounding once, and ```float64```'s 53 cover ```float32```'s 50 and ```float16```'s 24.
 
+One takes part wherever a ```const``` of a numeric constant does: alone, under a sign, and inside a constant expression, so ```const TAU = 2 * Math.PI``` is such a constant and ```deg * (Math.PI / 180)``` is read as one. Where a binary float is wanted it is the literal of its value. An integer position refuses it as it refuses any fraction, and a decimal or a rational, whose values a ```number``` does not denote exactly, takes it by a conversion the program writes. With no type wanted it is the ```number``` it has always been.
+
+```js
+const TAU = 2 * Math.PI;
+function turn(r: float32): float32 { return r * TAU; }
+function rad(deg: float32): float32 { return deg * (Math.PI / 180); }
+let k: float32 = Math.PI;             // the float32 nearest pi
+let m: float32 = -Math.PI;
+// let n: uint32 = Math.PI;           // TypeError: 3.141592653589793 is not assignable to uint32
+// let d: decimal128 = Math.PI;       // TypeError: a number is not a decimal128; write Math.PI := decimal128
+```
+
+**The expression written in place is the same constant.** Arithmetic on literals and on such constants, ```4 ** 2``` or ```(K * 2)```, beside a typed operand is read as the constant it is, at that operand's type. So ```z * 4 ** 2``` for a ```uint32``` ```z``` is ```z * 16``` with a ```uint32``` 16, which is what ```const K = 4 ** 2; z * K``` is. It holds in each position where a literal takes the other operand's type: arithmetic, a comparison, an equality, a ```case``` label and ```Object.is```. The value is computed first and then takes the type, so a value the type cannot hold is a TypeError before the program runs, as the literal is, and ```300 - 100``` beside a ```uint8``` is 200. A call, a ```let``` or a ```number``` binding anywhere in the expression makes it a value of its own type, which takes none.
+
+```js
+function at(x: uint32, y: uint32, z: uint32): uint32 {
+  return x + y * 4 + z * 4 ** 2;      // 4 ** 2 is the uint32 16
+}
+const K = 4 ** 2;
+function same(z: uint32) { return z * K === z * 4 ** 2; } // true
+function three(z: uint8) { return z === 2 + 1; }          // true for a z that is 3
+function scaled(z: uint32) { return z * (7 / 2); }        // z * 3: beside an integer, / is the integer's
+// function over(z: uint8) { return z + (200 + 100); }    // TypeError: 300 is not in the range of uint8
+// function call(z: uint32) { return z * Math.pow(4, 2); } // TypeError: a number and a uint32 do not mix
+```
+
 ```js
 function f(a: uint8) {}
 f(1); // The literal is a uint8
@@ -2597,6 +2623,20 @@ interface B2 extends A2 {}                                   // TypeError: A2 an
 
 Only the primary declaration states what an interface extends. A ```partial interface``` adds members, and a member added to a base reaches every interface that extends it.
 
+A member may apply its own interface to an argument that never comes round again. Each such application is a type, a declaration and its arguments, so the interface is formed without opening them all:
+
+```js
+interface Query<T: type> {
+  first(): T | undefined;
+  chunk(size: uint32): Query.<[].<T>>;   // then Query.<[].<[].<T>>>, and so on
+}
+function f(q: Query.<uint8>) {
+  return q.chunk(2).chunk(3).first();    // [].<[].<uint8>> | undefined
+}
+```
+
+Formation opens the applications of one declaration four deep, so a member that is not a type for the deeper argument is still reported, and one further in is checked where a program writes that application. Two interfaces that grow alike are not shown to be one another by comparing members, which would never finish; ```interface B<T: type> extends A.<T>``` says it. A type alias that grows this way is expanded, being structural, and stays the evaluation-limit TypeError it was. A generic class may grow the same way: ```class Q<T: type> { chunk(): Q.<[].<T>> { ... } }``` is built for ```uint8``` with the four applications its bodies name, and a deeper one is built when the program constructs it.
+
 ### Implementing Interfaces
 
 Resolve an `implements` target exactly as a type annotation: transparent aliases retain the interface's declaration identity, lexical shadowing matters, and generic arguments use the common binder for names, packs, defaults, constraints and family cases. Retain that resolved identity and its arguments for later nominal checks. An established non-interface target is an error. An unresolved generic obligation waits for specialization.
@@ -3396,7 +3436,29 @@ function use(s: Shape) {
 }
 ```
 
-A method that a subclass supplies is declared in the base, as an abstract method where the base has no body for it. A member that every object has, such as ```toString``` and ```hasOwnProperty```, is a member of every class. ```new s.Thing()``` and a tagged template ```s.tag`...` ``` are calls in the same sense.
+A method that a subclass supplies is declared in the base, as an abstract method where the base has no body for it. A member that every object has, such as ```toString``` and ```hasOwnProperty```, is a member of every class. ```new s.Thing()``` and a tagged template ```s.tag`...` ``` are calls in the same sense, and so is ```super.name()``` in an instance member, judged against the class the body extends.
+
+A typed class that declares no constructor takes no arguments. The constructor the language supplies for it accepts anything and uses nothing, so the arguments of ```new Point(1, 2)``` were dropped and the point was the default one. They are refused where the construction is written, by ```new```, by ```new.(...)``` and by ```super(...)```:
+
+```js
+value class Point {
+  x: float32 = 0;
+  y: float32 = 0;
+}
+const origin = new Point();
+// const p = new Point(1, 2);    // TypeError: "Point" declares no constructor, so it takes no arguments, and "2" were supplied
+
+value class Placed {
+  x: float32 = 0;
+  y: float32 = 0;
+  constructor(x: float32, y: float32) { this.x = x; this.y = y; }
+}
+const q = new Placed(1, 2);      // a constructor is how a class takes values
+value class Labelled extends Placed { label: string = ''; }
+const r = new Labelled(3, 4);    // no constructor of its own, so its base's
+```
+
+A constructor the class writes is judged as it is written: with no annotation it is an untyped function, which takes any arguments and may read ```arguments```. A base that is a built-in, a function or a mixin call has a constructor that is not read, and a construction over one is left alone, as is one of a ```dynamic``` class, one whose arguments hold a spread, and one whose class is reached through ```any```.
 
 A class declared ```value``` is a value type class: an instance is copied when it is bound, assigned, stored, passed or returned, and two are ```===``` when their fields are. Every field of one has a type, and the type is a value type. A class that is not declared ```value``` is held by reference, as a class in JavaScript is, whatever its fields hold.
 
