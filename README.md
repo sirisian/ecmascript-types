@@ -1479,7 +1479,7 @@ const [x, y, z] = a;
 
 ### Explicit Casting
 
-A cast is a call on the type, and ```:=``` is the same conversion written after the value, which reads better trailing a large literal or object. A typed class is cast the same way, as C++'s ```T(x)``` converts through a constructor: ```Vertex({ x: 0, y: 0 })``` is ```{ x: 0, y: 0 } := Vertex``` and ```MyType(5)``` is ```5 := MyType```. A call on a class with no argument or several is a TypeError, a class being constructed with ```new```, and a class that isn't typed keeps JavaScript's TypeError for any call. The same operator is also a typed-assignment expression usable in any expression position, covered in the typed assignment section.
+A cast is a call on the type, and ```:=``` is the same conversion written after the value, which reads better trailing a large literal or object. A typed class is cast the same way, as C++'s ```T(x)``` converts through a constructor: ```Vertex({ x: 0, y: 0 })``` is ```{ x: 0, y: 0 } := Vertex``` and ```MyType(5)``` is ```5 := MyType```. Every spelling of the class casts as its name does, as every spelling of ```uint8``` does: an alias, ```type W = Vertex; W({ x: 0, y: 0 })```, an application of a generic class, ```Box.<uint8>({ v: 1 })```, and an optional call, ```Vertex?.({ x: 0, y: 0 })```; and ```new W()``` constructs a ```Vertex```. A call on a class with no argument or several is a TypeError, a class being constructed with ```new```, and a class that isn't typed keeps JavaScript's TypeError for any call. The constructor itself is unchanged, so ```[o].map(Vertex)``` throws as before; a callback is written ```[o].map((x) => Vertex(x))```. The same operator is also a typed-assignment expression usable in any expression position, covered in the typed assignment section.
 
 ```js
 let a := uint8(65535); // 255, the lowest 8 bits. The typed assignment infers uint8
@@ -1737,7 +1737,7 @@ Callable conformance preserves the declared narrowing guarantee, including throu
 
 An explicit `ThisType` is checked against the receiver supplied at a call, with runtime entry enforcement when its type is unresolved. The receiver keeps its identity. The self marker on ordinary methods continues to mean the receiver through which the method is reached, not the declaring class.
 
-A function signature describes its arguments and result independently of whether the actual value supports construction. A statically identified typed arrow, generator, async function or async generator cannot be used with `new`. A statically identified typed class constructor cannot be called without `new`, including through optional calls and tagged templates, except with one argument, which the call converts to the class (see Explicit Casting). Ordinary functions can still be constructors.
+A function signature describes its arguments and result independently of whether the actual value supports construction. A statically identified typed arrow, generator, async function or async generator cannot be used with `new`. A statically identified typed class constructor cannot be called without `new`, including through tagged templates, except with one argument, in a call or an optional call, which converts it to the class (see Explicit Casting). Ordinary functions can still be constructors.
 
 The checker follows direct expressions and reliable lexical origins, including immutable aliases. It withdraws a mutable origin when replacement is possible, including captured writes, assignment patterns and direct `eval`; shadowing is resolved in the binding's own scope. A function-type annotation alone does not establish construction capability, and an open property or replacing decorator does not provide a stable origin. These facts do not add public function-type syntax or change signature identity.
 
@@ -2014,6 +2014,14 @@ BigInt literals keep the ```n``` suffix and stay ```bigint```. An unsuffixed lit
 ```js
 const a: uint64 = 18446744073709551615; // propagated, exact
 const b: bigint = 18446744073709551615n;
+```
+
+An unsuffixed literal beside a ```bigint``` operand takes ```bigint``` in a comparison as in arithmetic, as it takes any other numeric type, so ```b === 3``` compares with ```3n``` and ```b < 7 / 2``` with ```3n```, as ```b * (7 / 2)``` is ```b * 3n```. A literal that is no integer keeps JavaScript's comparison of a BigInt with a Number, and code that names no type keeps all of JavaScript's answers:
+
+```js
+function f(b: bigint) { return [b === 3, b < 7 / 2, b < 3.5]; }
+f(3n); // [true, false, true]
+3n === 3; // false: neither operand names a type
 ```
 
 A stable lexical alias of a constructor preserves its argument contracts, including names, omission, `ref` and generic arguments. `const K = C; new K("bad")` is checked against the known constructor of `C`. Conditional targets are checked independently, not merged into an overload set. Reassignment, shadowing, explicit `any`, decorators and unknown origins retain their dynamic treatment.
@@ -2745,7 +2753,7 @@ f({ x: 0, y: 0 } := Vertex);
 const a = [1, 2, 3] := [3].<uint8>;
 ```
 
-The cast call form ```BinaryNode({ ... })``` is the same conversion, as ```uint8(v)``` is ```v := uint8```. A class held by reference that defines a constructor is not filled from a literal: each of its instances is made by that constructor, and a literal that went around it would go around whatever it checks, the hazard Java's deserialization is known for. Such a class is built by ```new``` or by a conversion it declares, as a C++ class with a user-provided constructor is no aggregate; rebuilding an instance from parsed data is [serialization](serialization.md)'s ```JSON.parse.<T>```. A value class's constructor makes no such promise, so a literal fills one as C# sets a struct's settable members beside its constructors: the [operator overloading](operatoroverloading.md) extension's ```Vector4``` declares ```constructor(x, y, z, w)``` and its operators return ```{ v: this.v + rhs.v } := Vector4```. An annotation does not convert: ```let v: Vertex = { x: 0, y: 0 };``` is a TypeError whose message says to write ```{ x: 0, y: 0 } := Vertex```. A conversion the class declares from an object is the exception, as any declared conversion is: with ```operator Vertex(o: { x: float32, y: float32 })```, the same line runs it. Both forms are kept, since ```:=``` reads better trailing a large literal. As an operator it binds as ```is``` does and as TypeScript's ```as``` does, at the precedence of ```<``` and from the left: ```a + b := uint8``` converts the sum, and for two ```float32x4``` vectors ```a < b := boolean32x4``` converts the comparison while ```a == b := boolean32x4``` converts ```b```, so an equality, bitwise or logical expression to be converted whole is parenthesized.
+The cast call form ```BinaryNode({ ... })``` is the same conversion, as ```uint8(v)``` is ```v := uint8```. A literal passes to its target's element at every depth, as Go elides an element's type in a composite literal: ```[{ x: 0, y: 0 }, { x: 1, y: 1 }] := [].<Vertex>``` makes two ```Vertex``` instances, so does a field ```points: [].<Vertex>``` written ```{ points: [{ x: 0, y: 0 }] }```, and the one class of a union with ```null``` fills, so ```{ x: 0, y: 0 } := (Vertex | null)``` is a ```Vertex```. A union of two classes names no one class a literal fills and is a TypeError; the literal names its class with ```:=```. A class held by reference that defines a constructor is not filled from a literal: each of its instances is made by that constructor, and a literal that went around it would go around whatever it checks, the hazard Java's deserialization is known for. Such a class is built by ```new``` or by a conversion it declares, as a C++ class with a user-provided constructor is no aggregate; rebuilding an instance from parsed data is [serialization](serialization.md)'s ```JSON.parse.<T>```. A value class's constructor makes no such promise, so a literal fills one as C# sets a struct's settable members beside its constructors: the [operator overloading](operatoroverloading.md) extension's ```Vector4``` declares ```constructor(x, y, z, w)``` and its operators return ```{ v: this.v + rhs.v } := Vector4```. An annotation does not convert: ```let v: Vertex = { x: 0, y: 0 };``` is a TypeError whose message says to write ```{ x: 0, y: 0 } := Vertex```. A conversion the class declares from an object is the exception, as any declared conversion is: with ```operator Vertex(o: { x: float32, y: float32 })```, the same line runs it. Both forms are kept, since ```:=``` reads better trailing a large literal. As an operator it binds as ```is``` does and as TypeScript's ```as``` does, at the precedence of ```<``` and from the left: ```a + b := uint8``` converts the sum, and for two ```float32x4``` vectors ```a < b := boolean32x4``` converts the comparison while ```a == b := boolean32x4``` converts ```b```, so an equality, bitwise or logical expression to be converted whole is parenthesized.
 
 This new form of assignment is useful with both ```var``` and ```let``` declarations. With ```const``` it has no uses:
 
@@ -3421,7 +3429,7 @@ The key ```value``` for a property with a numeric type defined in this spec defa
 
 ### Class: Value Type and Reference Type Behavior
 
-Any class where at least one public or private field is typed is automatically sealed. (As if Object.seal was called on it). A frozen Object prototype is used as well preventing any modification except writing to fields.
+Any class where at least one public or private field is typed is automatically sealed. (As if Object.seal was called on it, so ```Object.isSealed``` of an instance is true and no field can be deleted or redefined, though each can be written.) A frozen Object prototype is used as well preventing any modification except writing to fields.
 
 A store to a member such a class does not declare is an error where it is written, whatever the receiver is. The receiver's static type decides, so a member that only a subclass declares is stored to through a receiver narrowed to that subclass:
 

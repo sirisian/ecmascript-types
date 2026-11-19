@@ -67,7 +67,25 @@ const mesh = JSON.parse.<Mesh>(text);
 
 ### Classes as targets
 
-A class whose fields are all typed has a sealed, fixed layout, and `JSON.parse.<T>` allocates that layout and fills it directly. The constructor does not run, matching the existing precedent of `structuredClone`; absent optional fields take their declared defaults; class `where` clauses run once the instance is filled, as the construction boundary. A class that requires constructor logic to establish invariants should express those invariants as `where` clauses or metadata so they hold under deserialization too.
+`JSON.parse.<T>` builds a class by the rule an object literal converted to it follows, so the two ways to make an instance from named fields agree. A class with no constructor in its chain, and a value class, is filled from the parsed object: each key names a field and its value converts at the field's type, a field the text omits takes its initializer or its type's default, as a literal's does, and a key no field has is a TypeError. Nested classes, arrays of them and the one class of a union with `null` fill the same way, and the instance is sealed as a constructed one is. Class `where` clauses run once the instance is filled, as the construction boundary.
+
+```js
+class Vertex { x: float32 = 0; y: float32 = 0; z: float32 = 0; }
+const v = JSON.parse.<Vertex>('{ "x": 1, "y": 2 }'); // z is 0
+JSON.parse.<Vertex>('{ "x": 1, "w": 2 }'); // TypeError: unknown key "w"
+```
+
+A class held by reference that declares a constructor says how it is made, and text from outside the program does not go around it: it is built only by a conversion it declares from the parsed object, and is otherwise refused, before running where the type argument names it. This is Java's deserialization hazard avoided as Kotlin's serialization avoids it, by running code the class wrote; Rust's serde likewise builds only a type that opts in.
+
+```js
+class Account {
+	readonly id: uint64;
+	balance: decimal64;
+	constructor(id: uint64, balance: decimal64) { /* validates */ this.id = id; this.balance = balance; }
+	operator Account(o: { id: uint64, balance: decimal64 }) { return new Account(o.id, o.balance); }
+}
+const a = JSON.parse.<Account>('{ "id": 1, "balance": 2.5 }'); // through the declared conversion, so the constructor runs
+```
 
 ### Enums
 

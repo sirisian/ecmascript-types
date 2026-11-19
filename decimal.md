@@ -52,6 +52,8 @@ Two kinds of result are not exact, and they are handled differently. A non-termi
 
 Mixing follows the no-implicit-widening rule: a literal propagates and takes the other operand's type, but a value of another type does not convert on its own — `d + n` for a `decimal128` `d` and an `int32` `n` is a `TypeError`, written `d + decimal128(n)` — and the three decimal widths do not mix with each other without an explicit cast, just as the integer and float widths don't.
 
+A constant beside a decimal is computed in the decimal's own arithmetic, and the decimal has neither bitwise operators nor a power with a fractional exponent. A bitwise or shift constant over integers is the integer JavaScript computes for it, which a decimal holds exactly, so `d * (6 | 1)` is `d * 7`. A fractional power has no exact value, and the double's digits would enter the decimal unnoticed, so `d * 2 ** 0.5` and `let e: decimal128 = 2 ** 0.5` are type errors; the conversion is written, `(2 ** 0.5) := decimal128`, as C# writes `(decimal)Math.Pow(2, 0.5)`.
+
 ## Significance and equality
 
 IEEE decimal preserves trailing zeros: `1.0`, `1.00`, and `1.000` are distinct representations of one value, and they display with the places they were given, which is exactly what a printed price wants. `==` compares numerical value, so `1.0 == 1.00` is `true`, and as a `Map` or `Set` key a decimal compares by value under SameValueZero, so `1.0` and `1.00` are one key rather than two. Operations carry significance forward by the IEEE rules, and `.round(scale, rounding)` sets it explicitly.
