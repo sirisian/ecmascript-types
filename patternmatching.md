@@ -182,7 +182,7 @@ match (result) {
 
 ### Type patterns
 
-A pattern that is a type - a predefined name, a class, an interface, a parameterized type, ```Composite.<T>```, a union written inline - matches when the subject is of the type, by the same ```IsOfType``` test the ```is``` operator and every boundary perform, and narrows the position to it. A dependent record type runs its ```where``` clauses here, because membership in such a type is defined by them. A union of literal types is the or-pattern for constants with no combinator spelled: ```when 'GET' | 'HEAD':``` is one type pattern whose test is two SameValue comparisons and whose narrowing is the union of the two literal types.
+A pattern that is a type - a predefined name, a class, an interface, a parameterized type, ```Composite.<T>```, a union written inline - matches when the subject is of the type, by the same ```IsOfType``` test the ```is``` operator and every boundary perform, and narrows the position to it. A dependent record type runs its ```where``` clauses here, because membership in such a type is defined by them. A union of literal types is the or-pattern for constants with no combinator spelled: ```when 'GET' | 'HEAD':``` is one type pattern whose test is two SameValue comparisons and whose narrowing is the union of the two literal types. A numeric literal type inside a type pattern takes its position type as a literal pattern does, a member's type in an object type and an element's in a tuple type: ```when { a: 1 }``` over a ```{ a: uint8 }``` and ```when [1, 2]``` over a ```[uint8, uint8]``` match ```uint8``` values, and ```o is { a: 1 }``` asks for a ```uint8``` 1. A literal type written in a type alias is not in a pattern, and keeps the ```number``` it has there.
 
 ```js
 match (value) {

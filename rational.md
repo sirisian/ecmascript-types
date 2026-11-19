@@ -51,7 +51,7 @@ rational64.parse('0.1');   // 1/10 - any literal of the type, as 0.1 in a ration
 // rational64.parse('1/0'); // RangeError: zero denominator, as the constructor's
 ```
 
-The two-argument constructor takes `int.<N>` numerator and denominator; literals propagate into them, and a value of another integer type is converted explicitly, as everywhere else.
+The two-argument constructor takes `int.<N>` numerator and denominator; literals propagate into them, and a value of another integer type is converted explicitly, as everywhere else. A third argument doesn't compile. Because the second argument is the denominator, `values.map(rational64)` passes each element's index as one, as `map(parseInt)` passes it as a radix: `[1, 2, 3].map(rational64)` throws for the first element's zero denominator. Write `values.map((v) => rational64(v))`.
 
 ## Operators
 
@@ -62,7 +62,7 @@ The language defines the operators directly, the way it does for `int32`, not th
 - `+`, `-`, `*`, `/` are exact rational arithmetic.
 - unary `-` negates the numerator.
 - `<`, `<=`, `>`, `>=`, `==`, `!=` are the exact total order on rationals — the cross-multiplication is the implementation's, never the caller's.
-- `**` with an integer exponent is the exact power `(a/b)**n`, with a negative exponent inverting.
+- `**` with an integer exponent is the exact power `(a/b)**n`, with a negative exponent inverting. An exponent that holds no integer is a `RangeError` when it runs, and a type error where it is known before running, `q ** 0.5`.
 
 ```js
 let a: rational64 = 1 / 6;
