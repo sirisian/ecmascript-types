@@ -160,9 +160,9 @@ function Object.fromEntries<V: type>(entries: Iterable.<[string, V]>): { [key: s
 function structuredClone<T: type>(value: T): T;
 ```
 
-The clone has the type of what was cloned. This is the one signature in this document whose result depends on nothing but its argument, and it is stated because the alternative — leaving it ```any``` — loses a type across a call that is defined to preserve the value.
+The clone has the type of what was cloned, where the clone is one. A typed class instance clones to an instance of its class: its fields are cloned, its private fields are copied, no constructor runs, and it is sealed as a constructed instance is, so the type survives the crossing, which is what the signature is for. A typed class over a built-in clones its built-in part as HTML clones that built-in, and fails where HTML does, for a ```Promise``` or a ```WeakMap```.
 
-**Not yet implementable, and stated anyway.** ```structuredClone``` is a HTML specification function rather than an ECMAScript one, and the reference engine does not provide it: ```typeof structuredClone``` is ```'undefined'``` there. A signature is a claim that the function EXISTS, so this one must not be given to an engine that lacks it — a program written against it would type-check and then fail on the call. It is recorded because the design question is settled and only the host is missing; an implementation adds the row when the function is present, and not before.
+Everything else follows HTML. A ```Date```, a ```RegExp```, an ```Error```, an ```ArrayBuffer``` and its views, and the Boolean, Number, String and BigInt objects clone as themselves, and an instance of a class that is not typed comes back a plain object. Where the argument's type holds such a class, so the clone is not a ```T```, the call's type is ```any```: ```const w = structuredClone(new U())``` for ```class U { x = 1; }``` keeps JavaScript's answer rather than failing the ```U``` the signature would claim. TypeScript declares the same signature and makes the same claim, which nothing checks there.
 
 ## Grouping
 

@@ -33,6 +33,7 @@ No new syntax is needed. A numeric literal takes the type of its context, and `/
 let third: rational64 = 1 / 3;    // exactly 1/3
 let half: rational64 = 6 / 12;    // reduced to 1/2
 let whole: rational64 = 5;        // 5/1
+let inverse: rational64 = 3 ** -1; // exactly 1/3: the power is the rational one
 ```
 
 This is worth reading twice, because the same tokens mean different things in different contexts, exactly as the conversions section already requires. In `let third: rational64 = 1 / 3` the context is `rational64`, so `1` and `3` are rational literals and `/` is rational division, giving `1/3`. With an `int32` context the same `1 / 3` is integer division and gives `0`; in an untyped context it is `Number` division and gives `0.333…`. The literal never converts a typed value — it just adopts the type the context asks for.
