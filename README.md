@@ -64,6 +64,8 @@ The decimal types follow IEEE 754-2008 decimal arithmetic, so ```decimal128``` c
     
 ```js
 type boolean1 = uint.<1>;
+type boolean2 = vector.<boolean1, 2>; // the compact masks of two- and four-lane comparisons
+type boolean4 = vector.<boolean1, 4>;
 type boolean8 = vector.<boolean1, 8>;
 type boolean16 = vector.<boolean1, 16>;
 type boolean32 = vector.<boolean1, 32>;
@@ -2880,17 +2882,17 @@ __mmask8 _mm_cmpeq_epi32_mask (__m128i a, __m128i b)
 Notice Intel differentiates signatures by adding ```_mask```. When translated to real types with operators they are identical however:
 
 ```js
-//const something = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2); // TypeError: Ambiguous return type. Requires explicit cast to int32x4 or vector.<boolean1, 4>
+//const something = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2); // TypeError: Ambiguous return type. Requires explicit cast to int32x4 or boolean4
 ```
 With overloaded return types we can support both signatures:
 ```js
 const a: int32x4 = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
-const b: vector.<boolean1, 4> = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
+const b: boolean4 = int32x4(0, 1, 2, 3) == int32x4(0, 1, 3, 2);
 ```
 For reference, the operators look like:
 ```js
 operator<(v: int32x4): int32x4 {}
-operator<(v: int32x4): vector.<boolean1, 4> {}
+operator<(v: int32x4): boolean4 {}
 ```
 These are two of the forms a comparison overloads to; the wide ```boolean32x4``` mask is a third, treated as the default in the [SIMD](simd.md) extension.
 
