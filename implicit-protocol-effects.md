@@ -20,7 +20,7 @@ const [] = box;
 const n: number = f();
 ```
 
-An empty array pattern still acquires and closes an iterator. The preceding implementation could reject the Number receiver using the old string result because no indexed element projection occurred. Object rest, spread arguments and `for…of` had related gaps. Thirteen initial probes reproduced false Early Errors; several other probes already passed through conservative rules and remain useful controls.
+An empty array pattern still acquires and closes an iterator. The preceding implementation could reject the Number receiver using the old string result because no indexed element projection occurred. Object rest, spread arguments and `for...of` had related gaps. Thirteen initial probes reproduced false Early Errors; several other probes already passed through conservative rules and remain useful controls.
 
 **Recommendation:** represent implicit protocol operations in the effect judgment, while preserving the distinct identities of their inputs, produced values and fresh result containers. Use a positive intrinsic proof for the supported dense-array case and an opaque effect otherwise. Preserve actual evaluation positions. At runtime, retain the iterator method already obtained when deciding whether to fall back to a tuple conversion.
 
@@ -59,7 +59,7 @@ This is a may-flow model, not a claim to reconstruct exact runtime keys or arity
 
 The prototype's positive case checks the array iterator and iterator-next intrinsic identities, absence of a `return` hook along the ordinary iterator prototype path, and the existing source-effect screen. Sparse literals do not qualify: an indexed hole can reach an inherited getter. Async iteration and delegated yield do not use this array shortcut. The existing positive proof for a current-source second resume of fresh local generators is retained separately; it establishes the applicable resumed-input boundary, not general purity of generator execution. A blanket opaque-delegation experiment discarded that boundary and failed an existing regression, so that direction was rejected. Captured intrinsic identities do not justify assuming future stability after an affecting source operation.
 
-The opaque summary covers possible effects of the protocol, rather than executing a speculative sequence. For `for…of`, the binding receives possible yielded values; the same summary accounts for acquisition and closing around the loop. For async iteration and delegation it includes possible re-entry conservatively, without claiming an exact schedule or a precise summary of each awaited value.
+The opaque summary covers possible effects of the protocol, rather than executing a speculative sequence. For `for...of`, the binding receives possible yielded values; the same summary accounts for acquisition and closing around the loop. For async iteration and delegation it includes possible re-entry conservatively, without claiming an exact schedule or a precise summary of each awaited value.
 
 Autocomplete can retain an independently declared element or callable contract, but a replaceable implementation cannot promise the old global result merely because the loop or pattern looks harmless. A wrong runtime value still meets its explicit receiving boundary. No new public `opaque` type or borrowing rule is proposed.
 

@@ -312,10 +312,10 @@ value class Matrix4 {
 
 An object literal cast with ```:=``` fills the class's layout directly rather than calling its constructor, the typed-assignment rule from the main proposal and the same one [serialization](serialization.md) uses for parsing. That is what makes these operators allocation-free: the result is four registers, never an object.
 
-An affine inverse, the common case, is a transposed rotation and a negated translation, and needs no general cofactor expansion:
+An affine inverse, the common case, is a transposed rotation and a negated translation, and needs no general cofactor expansion. It is added to the class above with ```partial```, since declaring ```Matrix4``` a second time is a TypeError:
 
 ```js
-class Matrix4 {
+partial class Matrix4 {
 	// Valid when the matrix is a rotation and a translation with no scale.
 	inverseAffine(): Matrix4 {
 		const r = { c0: this.c0, c1: this.c1, c2: this.c2, c3: float32x4(0, 0, 0, 1) } := Matrix4;

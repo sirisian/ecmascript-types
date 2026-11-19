@@ -4,8 +4,8 @@ A concrete application orders positional and named arguments, fills omitted argu
 
 | Declaration | Required arguments | Defaults |
 | --- | --- | --- |
-| `int`, `uint` | `N`, width 1–65536 | None |
-| `rational` | `N`, width 1–65536 or `bigint` | None |
+| `int`, `uint` | `N`, width 1-65536 | None |
+| `rational` | `N`, width 1-65536 or `bigint` | None |
 | `complex` | None | `T = number` |
 | `vector` | Valid lane `T`, positive count `N` | None |
 | `Range` | Element `T` | `S = Closed`, `E = Open` |

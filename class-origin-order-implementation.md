@@ -56,14 +56,14 @@ Every failure in the final run was reproduced in a separate clean worktree at th
 
 | Baseline failure | Observation |
 | --- | --- |
-| `generics/checked-class-dependencies` — `foreign family rejection then recovery` | Callable-admission `TypeError` instead of the expected `A.<uint.<8>>` / `A.<any>` assignability diagnostic |
-| `generics/family-defaults` — `computed dependent defaults are evaluated forward after the candidate binds a hole` | `ReferenceError`: `T` cannot be used before initialization |
-| `generics/family-defaults` — `computed default viability precedes ranking and errors never become fallback` | Same `T` initialization failure |
-| `generics/family-defaults` — `computed defaults nested inside a type retain their declaration context` | Same `T` initialization failure |
-| `generics/family-defaults` — `a dependent default resolves builders in the class declaration scope` | Same `T` initialization failure |
-| `modules/imported-partial-contracts` — `primary arguments remain available without a partial list` | Producer evaluation rejects before the consumer body enters |
+| `generics/checked-class-dependencies` - `foreign family rejection then recovery` | Callable-admission `TypeError` instead of the expected `A.<uint.<8>>` / `A.<any>` assignability diagnostic |
+| `generics/family-defaults` - `computed dependent defaults are evaluated forward after the candidate binds a hole` | `ReferenceError`: `T` cannot be used before initialization |
+| `generics/family-defaults` - `computed default viability precedes ranking and errors never become fallback` | Same `T` initialization failure |
+| `generics/family-defaults` - `computed defaults nested inside a type retain their declaration context` | Same `T` initialization failure |
+| `generics/family-defaults` - `a dependent default resolves builders in the class declaration scope` | Same `T` initialization failure |
+| `modules/imported-partial-contracts` - `primary arguments remain available without a partial list` | Producer evaluation rejects before the consumer body enters |
 
-These remain bugs to investigate. The existing expected-failure case is `decorators/replacement-values` — `a value returned from a context that admits no replacement is a TypeError`.
+These remain bugs to investigate. The existing expected-failure case is `decorators/replacement-values` - `a value returned from a context that admits no replacement is a TypeError`.
 
 | Check | Result |
 | --- | --- |

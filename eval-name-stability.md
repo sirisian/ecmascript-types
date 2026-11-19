@@ -154,7 +154,7 @@ R9 includes the existing strictness and typed-storage policies when a program op
 
 ## Design decisions
 
-Every question below compares the available directions using the same five criteria. “Other” records scope, portability or the reason an alternative loses. Cost of implementing a direction is described where relevant but does not determine the recommendation.
+Every question below compares the available directions using the same five criteria. "Other" records scope, portability or the reason an alternative loses. Cost of implementing a direction is described where relevant but does not determine the recommendation.
 
 ### What should annotation neutrality mean
 
@@ -176,7 +176,7 @@ An annotation-induced overload selection is a specified typed operation. Silentl
 | Make every checked unit strict, or only give its eval strict-like declaration scope | Fewer categories, but a range, alias or match can unexpectedly change unrelated runtime behavior; a custom eval mode is harder to explain | Full strictness has ECMAScript precedent; a partial strict-eval mode does not. Rust supplies no runtime-eval precedent | Broader lexical certainty, but still no protection against existing-binding writes | Full strictness is possible; partial strictness leaves mapped arguments and other behaviors inconsistent | Reject: the extra semantic reach does not solve class replacement and exceeds the needed opt-in |
 | Keep annotation-triggered strictness and ordinary eval semantics | Annotations are a documented mode opt-in; checked-sloppy code remains possible and must get honest dynamic completions | Directly uses ECMAScript's scope rules; Rust comparison is limited to stable lexical resolution | Typed strict scopes can use static slots; only genuinely dynamic scopes need dynamic lookup handling | Preserves existing commitments without treating strict eval as effect-free | **Recommend** |
 
-The implicit mode switch has a real ergonomic cost: even `: any` can change `this`, arguments mapping and eval scope. An editor should show “strict through annotation” at the unit and explain the trigger when a diagnostic or quick fix depends on it. Hiding that cost is not a language-design solution.
+The implicit mode switch has a real ergonomic cost: even `: any` can change `this`, arguments mapping and eval scope. An editor should show "strict through annotation" at the unit and explain the trigger when a diagnostic or quick fix depends on it. Hiding that cost is not a language-design solution.
 
 ### What does a class name denote in a type position
 

@@ -52,7 +52,7 @@ Some algorithms evaluate declaration work before a function activation exists. A
 
 The portable `runtime-generic-scope.json` corpus covers the original three reproducers, missing value reads and `typeof` through indirect eval, dynamic functions and unrelated helpers, ordinary global and block shadows, the TDZ, escaped closures and repeated activations, recursive calls, eval-created closures, type/value/pack views, defaults, alias computations, class methods, imports, suspension and failure recovery. Adjacent suites exercise contextual generic annotations, selection, inference and metadata behavior. The delivery's verification record gives exact counts, baseline comparisons and any bounded runs that did not complete.
 
-The implicit-cast body capture gap preserved by this increment is repaired in [Capture bindings in implicit-cast bodies](implicit-cast-captures.md), which supplies the selected body’s declaration-owned source/destination arguments and retains the paired baseline evidence.
+The implicit-cast body capture gap preserved by this increment is repaired in [Capture bindings in implicit-cast bodies](implicit-cast-captures.md), which supplies the selected body's declaration-owned source/destination arguments and retains the paired baseline evidence.
 
 The imported-constructor `instanceof` and hook-effect audit remains open. This change does not certify every identity, inference, resource, phase/recovery or conformance gate, and does not settle the unverified recursive-builder memo/fixpoint families.
 

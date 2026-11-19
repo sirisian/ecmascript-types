@@ -1519,7 +1519,7 @@ When the effective exotic hook is proved nullish, the checker can follow ordinar
 
 A successful primitive conversion also retains its result contract for the particular consuming operation. A hook returning only Symbol cannot feed implicit text or numeric conversion, and a hook returning only BigInt cannot feed unary plus. Those are early errors on a participating, selected built-in path. Symbol results remain valid property keys, BigInt results can be negated or interpolated, and an applicable declared operator can bypass conversion. The result summary is local to the conversion; the original expression and binding keep their Object type. Actual hints and viable overload/union/fallback alternatives determine whether a negative proof is possible.
 
-Known primitive conversions feed the selected operator's numeric-family rule. On a built-in numeric path, Boolean, `null` and `undefined` become Number; that does not make them operands of a matching sized numeric family. Reject a participating operation when every converted path fails, including a comparison whose own family rule fails. Preserve ordinary Number coercions, supported String coercions, contextual literal adoption, declared operators and unresolved or `any` alternatives.
+Known primitive conversions feed the selected operator's numeric-family rule. On a built-in numeric path, Boolean, `null`, `undefined` and String become Number; that does not make them operands of a matching sized numeric family, so `n * s` for `n: uint8` and `s: string` is refused as `n * m` is for `m: number`, and so are `n << s` and `n < s`. Reject a participating operation when every converted path fails, including a comparison whose own family rule fails. Preserve ordinary Number coercions, String concatenation with `+`, contextual literal adoption, declared operators and unresolved or `any` alternatives. At runtime the same values reach the operator as the Number ToNumeric makes of them, an object as the primitive it converts to, so `uint8(3) < "4"` throws as `uint8(3) < 4` does for a Number value, while a Number holding an integer is still a shift distance or an exponent: `uint8(3) << true` is `uint8(3) << 1`.
 
 
 ```js
@@ -1894,6 +1894,8 @@ float32(1) % 0; // NaN, unchanged
 ```
 
 ```bigint``` follows the same rule in checked code, code that uses any of this proposal's syntax, and only there: ```1n / 0n``` in a program without it keeps its runtime ```RangeError```, since that expression is legal today and rejecting it would be a breaking change, while a checked unit reports it where it is written, as it would for ```int64```.
+
+A power is an operation like the others: ```uint8(3) ** 300``` computes 3**300 exactly and wraps it, giving 113. Its exponent is a count, as a shift distance is, rather than a quantity of the left operand's type, so it may be of any integer type and a literal exponent is taken as written: ```x ** k``` for ```x: uint8``` and ```k: int8``` is a ```uint8```. A negative exponent throws a ```RangeError```, as ```2n ** -1n``` does, since the reciprocal it names is no integer, and a known negative exponent doesn't compile.
 
 One division overflows. The most negative value of a signed type divided by ```-1``` is its magnitude, which the type cannot hold, so it wraps by the overflow rule above, and the matching remainder is zero.
 
@@ -3447,7 +3449,13 @@ function reset(c: Counter) {
 }
 ```
 
-Without the rule the misspelled store reaches a sealed object, which throws in strict code and is silent in sloppy code. Reading a member that is not declared is unaffected: it yields ```undefined```, and a program may be testing for exactly that. The rule is not applied where a member may exist that no declaration names: a ```dynamic``` class, a class over a built-in such as ```Error```, over a call such as a mixin, or over an untyped class with a constructor. The seal refuses those stores when they run.
+Without the rule the misspelled store reaches a sealed object, which refuses it. Reading a member that is not declared is unaffected: it yields ```undefined```, and a program may be testing for exactly that. The rule is not applied where a member may exist that no declaration names: a ```dynamic``` class, a class over a built-in such as ```Error```, over a call such as a mixin, or over an untyped class with a constructor. The seal refuses those stores when they run, with a TypeError in every mode, as a store to a frozen typed instance is refused, so a store from untyped sloppy code is not lost silently:
+
+```js
+class Counter { count: uint32 = 0; }
+function tag(o) { o.extra = 1; } // sloppy, untyped
+tag(new Counter());              // TypeError: Cannot set property "extra" on [object Object]
+```
 
 A call is judged as a store is. The read of a member that is not declared yields ```undefined```, and a call of that cannot succeed, so the misspelled method is an error where it is written and not a TypeError when the line runs:
 
