@@ -155,7 +155,7 @@ v.lane.<0>(); // Extract a lane as float32. SSE4.1: extractps
 
 Lane-index arguments must be in range for the vector's width, which the compiler checks, since they are constants.
 
-**Selection.** ```mask.select(a, b)``` chooses lanes from ```a``` where the mask is set and from ```b``` where it isn't. SSE4.1 ```blendvps```, NEON ```vbslq_f32```. With the comparison operators returning masks, this is how branchless code is written. ```mask.all()``` and ```mask.any()``` reduce a mask to a ```boolean```.
+**Selection.** ```mask.select(a, b)``` chooses lanes from ```a``` where the mask is set and from ```b``` where it isn't. SSE4.1 ```blendvps```, NEON ```vbslq_f32```. With the comparison operators returning masks, this is how branchless code is written. ```mask.all()``` and ```mask.any()``` reduce a mask to a ```boolean```, and a comparison reduced in place needs no annotation: ```(a == b).all()``` is the wide mask, which every form of the comparison answers alike.
 
 **Fused multiply-add.** ```Math.fma(a, b, c)``` computes ```a * b + c``` with a single rounding. It is overloaded for the scalar and vector types.
 

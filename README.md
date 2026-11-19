@@ -1479,7 +1479,7 @@ const [x, y, z] = a;
 
 ### Explicit Casting
 
-A cast is a call on the type, and ```:=``` is the same conversion written after the value, which reads better trailing a large literal or object. The same operator is also a typed-assignment expression usable in any expression position, covered in the typed assignment section.
+A cast is a call on the type, and ```:=``` is the same conversion written after the value, which reads better trailing a large literal or object. A typed class is cast the same way, as C++'s ```T(x)``` converts through a constructor: ```Vertex({ x: 0, y: 0 })``` is ```{ x: 0, y: 0 } := Vertex``` and ```MyType(5)``` is ```5 := MyType```. A call on a class with no argument or several is a TypeError, a class being constructed with ```new```, and a class that isn't typed keeps JavaScript's TypeError for any call. The same operator is also a typed-assignment expression usable in any expression position, covered in the typed assignment section.
 
 ```js
 let a := uint8(65535); // 255, the lowest 8 bits. The typed assignment infers uint8
@@ -1737,7 +1737,7 @@ Callable conformance preserves the declared narrowing guarantee, including throu
 
 An explicit `ThisType` is checked against the receiver supplied at a call, with runtime entry enforcement when its type is unresolved. The receiver keeps its identity. The self marker on ordinary methods continues to mean the receiver through which the method is reached, not the declaring class.
 
-A function signature describes its arguments and result independently of whether the actual value supports construction. A statically identified typed arrow, generator, async function or async generator cannot be used with `new`. A statically identified typed class constructor cannot be called without `new`, including through optional calls and tagged templates. Ordinary functions can still be constructors.
+A function signature describes its arguments and result independently of whether the actual value supports construction. A statically identified typed arrow, generator, async function or async generator cannot be used with `new`. A statically identified typed class constructor cannot be called without `new`, including through optional calls and tagged templates, except with one argument, which the call converts to the class (see Explicit Casting). Ordinary functions can still be constructors.
 
 The checker follows direct expressions and reliable lexical origins, including immutable aliases. It withdraws a mutable origin when replacement is possible, including captured writes, assignment patterns and direct `eval`; shadowing is resolved in the binding's own scope. A function-type annotation alone does not establish construction capability, and an open property or replacing decorator does not provide a stable origin. These facts do not add public function-type syntax or change signature identity.
 
@@ -2745,7 +2745,7 @@ f({ x: 0, y: 0 } := Vertex);
 const a = [1, 2, 3] := [3].<uint8>;
 ```
 
-For a class with no constructor this matches the cast call form ```BinaryNode({ ... })```. A class held by reference that defines a constructor is not filled from a literal: each of its instances is made by that constructor, and a literal that went around it would go around whatever it checks, the hazard Java's deserialization is known for. Such a class is built by ```new``` or by a conversion it declares, as a C++ class with a user-provided constructor is no aggregate; rebuilding an instance from parsed data is [serialization](serialization.md)'s ```JSON.parse.<T>```. A value class's constructor makes no such promise, so a literal fills one as C# sets a struct's settable members beside its constructors: the [operator overloading](operatoroverloading.md) extension's ```Vector4``` declares ```constructor(x, y, z, w)``` and its operators return ```{ v: this.v + rhs.v } := Vector4```. An annotation does not convert: ```let v: Vertex = { x: 0, y: 0 };``` is a TypeError whose message says to write ```{ x: 0, y: 0 } := Vertex```. A conversion the class declares from an object is the exception, as any declared conversion is: with ```operator Vertex(o: { x: float32, y: float32 })```, the same line runs it. Both forms are kept, since ```:=``` reads better trailing a large literal. As an operator it binds as ```is``` does and as TypeScript's ```as``` does, at the precedence of ```<``` and from the left: ```a + b := uint8``` converts the sum, and for two ```float32x4``` vectors ```a < b := boolean32x4``` converts the comparison while ```a == b := boolean32x4``` converts ```b```, so an equality, bitwise or logical expression to be converted whole is parenthesized.
+The cast call form ```BinaryNode({ ... })``` is the same conversion, as ```uint8(v)``` is ```v := uint8```. A class held by reference that defines a constructor is not filled from a literal: each of its instances is made by that constructor, and a literal that went around it would go around whatever it checks, the hazard Java's deserialization is known for. Such a class is built by ```new``` or by a conversion it declares, as a C++ class with a user-provided constructor is no aggregate; rebuilding an instance from parsed data is [serialization](serialization.md)'s ```JSON.parse.<T>```. A value class's constructor makes no such promise, so a literal fills one as C# sets a struct's settable members beside its constructors: the [operator overloading](operatoroverloading.md) extension's ```Vector4``` declares ```constructor(x, y, z, w)``` and its operators return ```{ v: this.v + rhs.v } := Vector4```. An annotation does not convert: ```let v: Vertex = { x: 0, y: 0 };``` is a TypeError whose message says to write ```{ x: 0, y: 0 } := Vertex```. A conversion the class declares from an object is the exception, as any declared conversion is: with ```operator Vertex(o: { x: float32, y: float32 })```, the same line runs it. Both forms are kept, since ```:=``` reads better trailing a large literal. As an operator it binds as ```is``` does and as TypeScript's ```as``` does, at the precedence of ```<``` and from the left: ```a + b := uint8``` converts the sum, and for two ```float32x4``` vectors ```a < b := boolean32x4``` converts the comparison while ```a == b := boolean32x4``` converts ```b```, so an equality, bitwise or logical expression to be converted whole is parenthesized.
 
 This new form of assignment is useful with both ```var``` and ```let``` declarations. With ```const``` it has no uses:
 
@@ -2894,7 +2894,7 @@ For reference, the operators look like:
 operator<(v: int32x4): int32x4 {}
 operator<(v: int32x4): boolean4 {}
 ```
-These are two of the forms a comparison overloads to; the wide ```boolean32x4``` mask is a third, treated as the default in the [SIMD](simd.md) extension.
+These are two of the forms a comparison overloads to; the wide ```boolean32x4``` mask is a third, and the one a reduction takes: ```(a == b).all()``` needs no type written, since every form answers it alike (see the [SIMD](simd.md) extension).
 
 ### Named Parameters
 
