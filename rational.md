@@ -63,6 +63,7 @@ The language defines the operators directly, the way it does for `int32`, not th
 - unary `-` negates the numerator.
 - `<`, `<=`, `>`, `>=`, `==`, `!=` are the exact total order on rationals — the cross-multiplication is the implementation's, never the caller's.
 - `**` with an integer exponent is the exact power `(a/b)**n`, with a negative exponent inverting. An exponent that holds no integer is a `RangeError` when it runs, and a type error where it is known before running, `q ** 0.5`.
+- There is no `%` and no bitwise operator. A constant at a rational type is computed by the operators above, so `let q: rational64 = 7 % 4` is a type error, as `q % 4` is; a bitwise operator or a shift in one is JavaScript's, its integer taken exactly, so `(6 | 1) / 2` there is 7/2.
 
 ```js
 let a: rational64 = 1 / 6;

@@ -2055,6 +2055,8 @@ In a try, a method, an arrow or a function expression takes the arm's signature 
 | Tried against each arm that declares the member; the literal satisfies one complete arm | No annotation in either case; a refusal names the member | The specification's own rule for a range in metadata. C++ and Swift choose among overloads by trying each | A body's result is inferred once per arm that declares the member | One rule for a field, an arrow and a method; independent of the order of the arms | **Chosen** |
 | The method adopts no signature and is left unchecked | | | | ```{ m() { return true } }``` passes and is a value of no arm | Rejected |
 
+A numeric literal at a union takes the member it fits, read from its digits as it is at that member alone, so ```let d: decimal64 | null = 0.1``` holds the decimal one tenth, ```let n: uint64 | null = 9007199254740993``` that integer, and ```let q: rational64 | null = 0.1``` one tenth. A member that holds the value exactly comes first, an integer one for an integer, then the narrower, and a literal no member takes doesn't compile: ```let r: rational64 | string = 1e30``` is a TypeError rather than the string "1e+30". The member is the type's, whichever order the union is written in.
+
 
 ### Target-Typed Construction
 

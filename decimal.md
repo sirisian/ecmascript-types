@@ -26,6 +26,8 @@ let price: decimal128 = 19.99;    // exactly 19.99
 let big: decimal128 = 9.999999999999999999999999999999999;  // 34 nines, exact
 ```
 
+A literal is exact or it is refused: one with more significant digits than the type carries, `let x: decimal32 = 12345679`, doesn't compile, signed or not, and beside a `decimal32` known only when the program runs it throws a `RangeError`, as `300` does beside a `uint8`. An equality finds it equal to nothing. A constant's value is the type's in any form the type writes it, so `9999999 + 1` at a `decimal32` is its 1.000000E+7.
+
 This is the whole point, and it is the same context propagation the rest of the proposal uses: in a decimal context the literal `0.1` is the decimal one tenth, where in a `float64` context the same `0.1` is the nearest binary float. The distinction bites only when a `float64` *value* is involved — `decimal128(f)` carries whatever `f` already holds, so a binary `0.1` stays slightly off — which is why an exact decimal comes from a literal or a string, never from a round trip through binary:
 
 ```js
@@ -54,7 +56,7 @@ Two kinds of result are not exact, and they are handled differently. A non-termi
 
 Mixing follows the no-implicit-widening rule: a literal propagates and takes the other operand's type, but a value of another type does not convert on its own — `d + n` for a `decimal128` `d` and an `int32` `n` is a `TypeError`, written `d + decimal128(n)` — and the three decimal widths do not mix with each other without an explicit cast, just as the integer and float widths don't.
 
-A constant beside a decimal is computed in the decimal's own arithmetic, so `let e: decimal128 = 3 ** -1` is the decimal third and `d * 2 ** -1` is `d * 0.5`, and the decimal has neither bitwise operators nor a power with a fractional exponent. A bitwise or shift constant over integers is the integer JavaScript computes for it, which a decimal holds exactly, so `d * (6 | 1)` is `d * 7`. A fractional power has no exact value, and the double's digits would enter the decimal unnoticed, so `d * 2 ** 0.5` and `let e: decimal128 = 2 ** 0.5` are type errors; the conversion is written, `(2 ** 0.5) := decimal128`, as C# writes `(decimal)Math.Pow(2, 0.5)`.
+A constant beside a decimal is computed in the decimal's own arithmetic, so `let e: decimal128 = 3 ** -1` is the decimal third and `d * 2 ** -1` is `d * 0.5`, and the decimal has neither bitwise operators nor a power with a fractional exponent. A bitwise operator or a shift in a constant is computed as JavaScript computes it, and its integer takes the decimal type as a literal does, the arithmetic around it being the decimal's: `d * (6 | 1)` is `d * 7`, and `(6 | 1) / 2` at a decimal is 3.5. A fractional power has no exact value, and the double's digits would enter the decimal unnoticed, so `d * 2 ** 0.5` and `let e: decimal128 = 2 ** 0.5` are type errors; the conversion is written, `(2 ** 0.5) := decimal128`, as C# writes `(decimal)Math.Pow(2, 0.5)`.
 
 ## Significance and equality
 
