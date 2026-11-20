@@ -369,7 +369,7 @@ Three matrix multiplies and one transform, all value types, no allocation. The i
 **A transform hierarchy**, where each node composes its parent's world matrix:
 
 ```js
-class Node {
+value class Node {
 	local: Matrix4;
 	parent: int32; // -1 for a root, and parents always precede children
 }
