@@ -830,12 +830,14 @@ value class Stack {
   }
 }
 for (const row of m) row[0] = 9;  // TypeError: row is a copy of the element; iterate with const ref
+value class Particle { x: float32; step(): void { this.x += 1; } }
 function moved(p: Particle): Particle { p.x += 1; return p; }   // fine: the copy is used
+function stepFirst(ps: [].<Particle>) { const p = ps[0]; p.step(); }   // TypeError: step only stores to p, which nothing reads after
 ```
 
 The rule covers a value type class, a fixed-length array and a tuple alike. A binding holds a copy when it is a parameter whose type is written or follows from the function type it is passed as, a binding initialized from anything but a ```new``` or a literal, a name an object pattern binds, or the variable of a ```for...of```, and none of them is declared ```ref```. A store to a field or element of one, by an assignment, a compound assignment or an update, is a TypeError when nothing can read the binding afterwards.
 
-It is written to have no false instance. A binding is judged only when every use of it is such a store or a read of a primitive field or element; one that is passed, returned, called a method on, captured by a function, or taken by ```ref``` or by a window is left alone, since something may read it or hold a second name for it. A binding at the top level of a script or module is not judged, because other code can read it. It applies in checked code only, and to bindings whose type is written or follows from typed storage, so an untyped helper that is handed a copy is not caught. Two bindings are copies and are not caught because the checker has no type for them: a name an array pattern binds, and the parameter of a callback handed to a built-in such as ```forEach``` where the built-in is not established. An annotation on the callback's parameter gets the error.
+It is written to have no false instance. A binding is judged only when every use of it is such a store or a read of a primitive field or element; one that is passed, returned, called a method on, captured by a function, or taken by ```ref``` or by a window is left alone, since something may read it or hold a second name for it. A method call is the one exception: a call, as a statement, of a method whose body does nothing but store to ```this``` is a store to the copy. Its body may read its parameters, its own locals and fields of ```this```, store to fields of ```this```, and call methods of the class that do the same; anything else, such as an output, a ```throw```, a loop or a store elsewhere, makes the call the program's own, and so does an overload or an override that may run in its place. An exception an operator in the body may raise, as an integer division by zero does, is not counted, as it is not when the store is written out. A binding at the top level of a script or module is not judged, because other code can read it. It applies in checked code only, and to bindings whose type is written or follows from typed storage, so an untyped helper that is handed a copy is not caught. Two bindings are copies and are not caught because the checker has no type for them: a name an array pattern binds, and the parameter of a callback handed to a built-in such as ```forEach``` where the built-in is not established. An annotation on the callback's parameter gets the error.
 
 | How a lost store is prevented | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
@@ -867,7 +869,7 @@ if (g !== undefined) g.x = 9;     // TypeError: g is a copy and nothing reads it
 if (g !== undefined) { g.x = 9; cache.set(key, g); }   // fine: stored back
 ```
 
-A store to a result is refused where the function that runs is certain to be one the program wrote, returning by value: a function declaration or a ```const``` bound to a function, a static method of a class named at the call, and a method or getter of a value type class on a receiver certain to be of that class. Everything else is left alone, because the store may land:
+A store to a result is refused where the function that runs is certain to be one the program wrote, returning by value: a function declaration or a ```const``` bound to a function, a static method of a class named at the call, and a method or getter of a class on a receiver certain to be of that class, where the class is a value type class or one held by reference whose instances are sealed. A member keeps its kind along a class chain (see [accessors](#accessors)), so no subclass replaces the getter with a field the store would reach, and an override returns a copy as what it overrides does. Everything else is left alone, because the store may land:
 
 ```js
 function first(a: [].<Particle>): ref Particle { return ref a[0]; }
@@ -875,14 +877,17 @@ first(particles).x = 1;           // lands: a ref result is a location, not a co
 scores.sort()[0] = 9;             // lands: a built-in may return what it was given
 
 class Shape { o: Point; get origin(): Point { return this.o; } }
-class Sprite extends Shape { origin: Point; }   // a field where the base had a getter
-function nudge(shape: Shape) { shape.origin.x = 1; }      // lands for a Sprite, is lost for a Shape: not judged
+function nudge(shape: Shape) { shape.origin.x = 1; }      // TypeError: origin is a getter of Shape, which answers a copy
+// class Sprite extends Shape { origin: Point; }          // TypeError: Shape declares origin an accessor
 ```
+
+A method is not judged where one of its overloads answers a location, since that one may be the one a call selects, nor where a subclass in view declares its name a field whose type is not a function, since that field may hold one that answers a location; nor is a class whose instances are extensible, a ```dynamic``` class or one with no typed field, since an instance may be given an own property of the name. A subclass the checker does not see, reached through ```any```, a call or another script, can still make a store land, and is not judged.
 
 | What a store to a result does | Ergonomics | Prior art | Performance | Correctness | Decision |
 | --- | --- | --- | --- | --- | --- |
-| An error where the function is certainly the program's and returns by value, and a binding of ```T \| undefined``` is judged as a binding of ```T``` | Nothing to write; the message says to bind, change and store back | C#: "cannot modify the return value because it is not a variable", for a method and a property. Go: a field of a call's result, or of a map element, cannot be assigned. Swift: a call returns an immutable value. C++: a scalar member of a class temporary is not assignable | None | No false instance. A getter or method of a reference class is not judged | Chosen |
-| An error for every declared method and getter | Also catches ```entity.position.x = 1``` on a class held by reference | C#, where a subclass cannot replace a property with a field | None | Refuses a store that lands when a subclass declares the member a field | Not chosen while a field may replace an inherited accessor of a class held by reference; along a value class chain it may not |
+| An error where the function is certainly the program's and returns by value, a method or getter of a sealed class held by reference among them, and a binding of ```T \| undefined``` is judged as a binding of ```T``` | Nothing to write; the message says to bind, change and store back. Catches ```entity.position.x = 1``` on a class held by reference | C#: "cannot modify the return value because it is not a variable", for a method and a property. Go: a field of a call's result, or of a map element, cannot be assigned. Swift: a call returns an immutable value. C++: a scalar member of a class temporary is not assignable | None | No false instance among the classes the checker sees, since a member keeps its kind along a chain. A subclass it does not see is not judged | Chosen |
+| An error for value type classes only | Misses ```entity.position.x = 1``` on a class held by reference | Rust, where only a struct is returned by value | None | No false instance, and the store on a reference class is lost silently | Rejected, now that a field cannot replace an inherited accessor |
+| An error for every declared method and getter, of every class | Also catches the store on an extensible or ```dynamic``` instance | C#, where a subclass cannot replace a property with a field | None | Refuses a store that lands where an instance was given an own property of the name, or where a subclass's field holds a function that answers a location | Rejected |
 | Nothing | Nothing to learn | Rust's compiler accepts a store to a field of a temporary; Clippy reports one to a struct or tuple literal only | None | The store is silently lost | Rejected |
 
 ### Array length Type And Operations
@@ -1067,11 +1072,12 @@ function read(ps: ReadonlySpan.<Particle>) {
   const held = { p: ps[0] };
   // held.p.x = 2;         // TypeError when it runs: held.p is still the element
   const own = ps[0];       // a copy
-  own.step();              // fine: it is the reader's own
+  own.step();              // fine: it is the reader's own,
+  return own.speed();      // and is read afterwards
 }
 ```
 
-The language does not say which methods store to ```this```, so the call is accepted where it is written and refused when it stores. Marking such methods, as Rust's ```&mut self``` and Swift's ```mutating``` do, would refuse it earlier, and is not part of this.
+The language does not mark which methods store to ```this```, so a call on the element is accepted where it is written and refused when it stores. On a copy the checker reads the method instead: a call of one whose body does nothing but store to ```this```, as ```step``` does, with nothing reading the copy afterwards, has no effect at all, and is the TypeError a store to the copy is. Marking such methods, as Rust's ```&mut self``` and Swift's ```mutating``` do, would refuse the call on the element earlier too, and is not part of this.
 
 A read-only window does not freeze the array beneath. An element changed through another reference is seen through it, and growth invalidates it, as for any window. Freezing is not modelled: ```Object.freeze(a)``` is ```a```, and a window is a distinct value.
 
@@ -1395,7 +1401,7 @@ function scaled(z: uint32) { return z * (7 / 2); }        // z * 3: beside an in
 // function call(z: uint32) { return z * Math.pow(4, 2); } // TypeError: a number and a uint32 do not mix
 ```
 
-**A constant means one thing beside one type.** Beside an integer, ```7 / 2``` is 3 in every operator that reads it: ```z * (7 / 2)```, ```z < 7 / 2```, ```z === 7 / 2```, a ```case 7 / 2:``` and ```Object.is(z, 7 / 2)``` are all over the integer 3, because the operand's type is the constant's context in each. A constant the type cannot hold is refused where the literal is: ```z < 200 + 100``` beside a ```uint8``` is a TypeError before the program runs, as ```z < 300``` is, and in an equality it is equal to nothing. An operand that picks one of its operands hands the context to each of them, so ```z * (c ? 16 : 2)``` and ```z * (scale ?? 1)``` are over a ```uint32``` 16, 2 or 1.
+**A constant means one thing beside one type.** Beside an integer, ```7 / 2``` is 3 in every operator that reads it: ```z * (7 / 2)```, ```z < 7 / 2```, ```z === 7 / 2```, a ```case 7 / 2:``` and ```Object.is(z, 7 / 2)``` are all over the integer 3, because the operand's type is the constant's context in each. A constant the type cannot hold is refused where the literal is: ```z < 200 + 100``` beside a ```uint8``` is a TypeError before the program runs, as ```z < 300``` is, and in an equality it is equal to nothing, so ```if (z === 200 + 100)``` is a test that can never succeed, as ```if (z === 300)``` and ```case 200 + 100:``` are. A ```const``` of a constant is read as if it were written in place. An operand that picks one of its operands hands the context to each of them, so ```z * (c ? 16 : 2)``` and ```z * (scale ?? 1)``` are over a ```uint32``` 16, 2 or 1.
 
 With no annotation in sight there is no context to give. In ```function f(x) { return x * (7 / 2); }``` the constant is the ```number``` 3.5 it has always been. Passed a ```uint8```, that value is asked to take the type when the line runs, and 3.5 is not a ```uint8```: a RangeError, not a quiet 3. A constant written exactly is exact there too, so ```x === 2 ** 53 + 1``` compares a ```uint64``` with 9007199254740993.
 
@@ -1479,7 +1485,7 @@ const [x, y, z] = a;
 
 ### Explicit Casting
 
-A cast is a call on the type, and ```:=``` is the same conversion written after the value, which reads better trailing a large literal or object. A typed class is cast the same way, as C++'s ```T(x)``` converts through a constructor: ```Vertex({ x: 0, y: 0 })``` is ```{ x: 0, y: 0 } := Vertex``` and ```MyType(5)``` is ```5 := MyType```. Every spelling of the class casts as its name does, as every spelling of ```uint8``` does: an alias, ```type W = Vertex; W({ x: 0, y: 0 })```, an application of a generic class, ```Box.<uint8>({ v: 1 })```, and an optional call, ```Vertex?.({ x: 0, y: 0 })```; and ```new W()``` constructs a ```Vertex```. A call on a class with no argument or several is a TypeError, a class being constructed with ```new```, and a class that isn't typed keeps JavaScript's TypeError for any call. The constructor itself is unchanged, so ```[o].map(Vertex)``` throws as before; a callback is written ```[o].map((x) => Vertex(x))```. The same operator is also a typed-assignment expression usable in any expression position, covered in the typed assignment section.
+A cast is a call on the type, and ```:=``` is the same conversion written after the value, which reads better trailing a large literal or object. A class is cast the same way, as C++'s ```T(x)``` converts through a constructor: ```Vertex({ x: 0, y: 0 })``` is ```{ x: 0, y: 0 } := Vertex``` and ```MyType(5)``` is ```5 := MyType```. Every spelling of the class casts as its name does, as every spelling of ```uint8``` does: an alias, ```type W = Vertex; W({ x: 0, y: 0 })```, an application of a generic class, ```Box.<uint8>({ v: 1 })```, and an optional call, ```Vertex?.({ x: 0, y: 0 })```; and ```new W()``` constructs a ```Vertex```. A call on a class with no argument or several is a TypeError, a class being constructed with ```new```. A class casts this way when it uses any of the proposal's syntax, a typed member, a declared operator, a type parameter, a class modifier or an implemented interface, or extends one that does; a class written in JavaScript keeps JavaScript's TypeError for any call. The constructor itself is unchanged, so ```[o].map(Vertex)``` throws as before; a callback is written ```[o].map((x) => Vertex(x))```. The same operator is also a typed-assignment expression usable in any expression position, covered in the typed assignment section.
 
 ```js
 let a := uint8(65535); // 255, the lowest 8 bits. The typed assignment infers uint8
@@ -3451,7 +3457,7 @@ function reset(c: Counter) {
 }
 ```
 
-Without the rule the misspelled store reaches a sealed object, which refuses it. Reading a member that is not declared is unaffected: it yields ```undefined```, and a program may be testing for exactly that. The rule is not applied where a member may exist that no declaration names: a ```dynamic``` class, a class over a built-in such as ```Error```, over a call such as a mixin, or over an untyped class with a constructor. The seal refuses those stores when they run, with a TypeError in every mode, as a store to a frozen typed instance is refused, so a store from untyped sloppy code is not lost silently:
+Without the rule the misspelled store reaches a sealed object, which refuses it. Reading a member that is not declared is unaffected: it yields ```undefined```, and a program may be testing for exactly that. A class over a built-in such as ```Error```, ```Map``` or ```Date``` has the built-in's members as well as its own, and the rule applies to it: ```e.code = 1``` stores to a declared field, ```e.toString()``` calls ```Error```'s, and ```e.extra = 1``` is a TypeError. A member only some instances hold as their own, as ```message``` is held only where the constructor was given one, and one held on the prototype, as ```name``` is, can be read and not stored to, since the store would add a property to a sealed instance; a class that stores to one declares it, ```name = 'ParseError'```. The rule is not applied where a member may exist that no declaration names: a ```dynamic``` class, a class over a built-in whose members the language does not list, such as ```Array``` or a host's ```HTMLElement```, over a call such as a mixin, or over an untyped class with a constructor. The seal refuses those stores when they run, with a TypeError in every mode, as a store to a frozen typed instance is refused, so a store from untyped sloppy code is not lost silently:
 
 ```js
 class Counter { count: uint32 = 0; }
@@ -4044,7 +4050,14 @@ class Kennel extends Shelter {
 }
 ```
 
-Replacing an inherited field with an accessor of the same name, or the reverse, is a TypeError. A field occupies a slot in the base's memory layout and an accessor doesn't, so the substitution would change the layout of a type that already exists.
+Replacing an inherited field with an accessor of the same name, or the reverse, is a TypeError, for every class whose chain the checker sees, where either declaration is checked code. A field is an own property of every instance, so an accessor over it is never reached. A field over an accessor hides what the base declares of the member: a value typed as the base answers a read from the field, so what the getter promises, that it is computed, that it has no setter, that it answers a copy, does not hold of every value typed as the base. In a value class there is a third reason: a field occupies a slot in the base's memory layout and an accessor doesn't, so the substitution would change the layout of a type that already exists. A method is neither kind, so a field over an inherited method is judged by the method's contract instead. This is TypeScript's rule, errors 2610 and 2611.
+
+```js
+class Shape { get area(): float64 { return 0; } }
+// class Square extends Shape { area: float64 = 4; }        // TypeError: Shape declares area an accessor
+class Named { label: string = ''; }
+// class Badge extends Named { get label(): string { return 'b'; } }  // TypeError: Named declares label a field
+```
 
 #### Methods and Inheritance
 
