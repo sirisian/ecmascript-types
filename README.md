@@ -4084,6 +4084,25 @@ b.f(0); // uint8, A's signature
 b.f('a'); // string, B's signature
 ```
 
+The set is the run time's as well as the checker's: ```function g(a: A) { return a.f(0); }``` called with a ```B``` runs ```A```'s ```f```, which ```B``` does not override. A method written with no annotation declares no signature to add, and overrides the whole set as a method in JavaScript does, so a class written in JavaScript that extends a typed one keeps the meaning of its override. A built-in's method is not a declared set: a subclass that declares ```toString``` replaces ```Error.prototype.toString``` as it does today. Nor is a group with a [specialized overload](generics.md#specialized-overloads), which selects through its owner rather than by ranking its arms: a method of the name replaces it, or it replaces one. Static methods follow the same rules. The base's method is read at the call, as ```super``` reads it.
+
+Two arms of one set that are ambiguous for some argument list are a TypeError at the class that declares the second, as they are in one scope. And overload resolution runs when the call does, on the arguments' values, so an arm one class adds can take a call that the checker typed against another class's arm. Where the run time may choose one arm over another for arguments both accept, the one it chooses must return a subtype of the other's return, as an override must:
+
+```js
+class Animal {}
+class Dog extends Animal {}
+class A {
+  f(a: Animal): string { return 'animal'; }
+}
+class B extends A {
+  // f(a: Animal, b: string = 'b'): string { return b; } // TypeError: ambiguous with A's f for f(animal)
+  // f(a: Dog): uint8 { return 1; } // TypeError: a call typed against A may run it, and uint8 is not a string
+  f(a: Dog): string { return 'dog'; } // fine: a Dog is an Animal, and either arm returns a string
+}
+```
+
+This is the condition that Castagna's calculus for overloaded functions with late binding, and Fortress's Return Type Rule, place on a set whose arm is chosen by the run-time type of its argument.
+
 A derived method whose parameter list matches a base signature exactly overrides it. Overloading on return type is allowed between sibling declarations in one class, but a derived class cannot reuse a base's parameter list with an unrelated return type.
 
 ```js
@@ -4426,7 +4445,7 @@ A sealed class is the proposal's closed hierarchy. Combined with type objects be
 
 ### Abstract Classes
 
-An implementation must match the obligation's instance property identity and member kind, with a compatible full signature. A static method or a field with the same name does not implement an abstract instance method. Getter and setter obligations are distinct, and computed Symbol keys retain their identity. Generator implementations are compared through their `Generator` or `AsyncGenerator` carrier return, and async implementations through their `Promise` return. Compatible inherited implementations count unless masked by a nearer declaration. An abstract redeclaration obeys ordinary signature compatibility and return covariance before becoming the nearest contract for its subclasses; `uint8` is not a covariant replacement for `number`. Determinable failures are early errors even inside an unused function.
+An implementation must match the obligation's instance property identity and member kind, with a compatible full signature. Each arm of an abstract method is an obligation of its own. An arm with other parameter types that is not compatible is an overload beside it, not an implementation of it, so a concrete class that declares only ```area(scale: number)``` still leaves ```area()``` unimplemented, while an abstract subclass may add such an overload for a class below it to complete. A static method or a field with the same name does not implement an abstract instance method. Getter and setter obligations are distinct, and computed Symbol keys retain their identity. Generator implementations are compared through their `Generator` or `AsyncGenerator` carrier return, and async implementations through their `Promise` return. Compatible inherited implementations count unless masked by a nearer declaration. An abstract redeclaration obeys ordinary signature compatibility and return covariance before becoming the nearest contract for its subclasses; `uint8` is not a covariant replacement for `number`. Determinable failures are early errors even inside an unused function.
 
 An ```abstract``` class cannot be instantiated: ```new Shape()``` on one is a TypeError. It exists to be extended, carrying shared implementation and declaring the members its subclasses must supply. An ```abstract``` method is a signature with no body; a concrete subclass must implement every inherited abstract method, or itself be declared ```abstract```. An abstract member may be a method, getter or setter signature. Abstract fields are not part of the proposal; an interface can require a property independently of how a class implements it.
 
